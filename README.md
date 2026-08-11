@@ -1,6 +1,6 @@
 # JK Alianças | Portal
 
-Portal interno da JK Alianças. **Next.js 15** (App Router, TypeScript, Tailwind CSS) com autenticação via **Supabase**, pronto para deploy na **Vercel**.
+Portal interno da JK Alianças.. **Next.js 15** (App Router, TypeScript, Tailwind CSS) com autenticação via **Supabase**, pronto para deploy na **Vercel**.
 
 ## Stack
 
