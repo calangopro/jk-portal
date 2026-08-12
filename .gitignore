@@ -34,3 +34,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# build de verificação (não derruba o dev)
+.next-build
+
+# configuração pessoal do Claude Code
+.claude/settings.local.json
