@@ -4,12 +4,16 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "next build && npm run verificar:tokens",
     "start": "next start",
     "lint": "next lint",
-    "build:seguro": "BUILD_DIR=.next-build next build"
+    "build:seguro": "BUILD_DIR=.next-build next build && BUILD_DIR=.next-build npm run verificar:tokens",
+    "verificar:tokens": "node scripts/verificar-tokens.mjs"
   },
   "dependencies": {
+    "@dnd-kit/core": "^6.3.1",
+    "@dnd-kit/sortable": "^10.0.0",
+    "@dnd-kit/utilities": "^3.2.2",
     "@supabase/ssr": "^0.12.4",
     "@supabase/supabase-js": "^2.112.3",
     "@tiptap/extension-image": "^3.30.0",
@@ -29,7 +33,8 @@
     "react": "^19.0.0",
     "react-colorful": "^5.8.0",
     "react-dom": "^19.0.0",
-    "server-only": "^0.0.1"
+    "server-only": "^0.0.1",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.0.0",

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard, FileText, ImageIcon, MessageCircle, Package,
-  TrendingUp, Plug, Users, MapPin, PenLine,
+  TrendingUp, Plug, Users, MapPin, PenLine, Palette, LayoutTemplate,
 } from "lucide-react";
 
 /**
@@ -36,6 +36,13 @@ const GRUPOS = [
     itens: [
       { href: "/admin/metricas", label: "Métricas", Icone: TrendingUp, desc: "Busca e cliques" },
       { href: "/admin/integracoes", label: "Integrações", Icone: Plug, desc: "Google e loja" },
+    ],
+  },
+  {
+    nome: "Site",
+    itens: [
+      { href: "/admin/home", label: "Home", Icone: LayoutTemplate, desc: "Seções da página inicial" },
+      { href: "/admin/aparencia", label: "Aparência", Icone: Palette, desc: "Cores e cantos" },
     ],
   },
   {

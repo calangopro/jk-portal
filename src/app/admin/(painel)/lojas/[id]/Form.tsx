@@ -277,7 +277,7 @@ export function Form({ loja }: { loja: LojaDados }) {
                     name={`aberto_${d.chave}`}
                     value="1"
                     defaultChecked={h.aberto}
-                    className="accent-[#be9b60]"
+                    className="accent-brand"
                   />
                   {d.nome}
                 </label>

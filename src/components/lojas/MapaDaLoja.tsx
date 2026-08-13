@@ -58,7 +58,7 @@ export function MapaDaLoja({ loja }: { loja: Location }) {
           href={`https://www.openstreetmap.org/?mlat=${lat}&mlon=${lon}#map=17/${lat}/${lon}`}
           target="_blank"
           rel="noopener"
-          className="absolute bottom-3 right-3 inline-flex items-center gap-1.5 rounded-full bg-white/90 px-3 py-1.5 text-nota font-semibold text-ink shadow-[0_6px_16px_-6px_rgb(75_53_23/0.6)] backdrop-blur-sm transition-colors hover:text-brand-nav"
+          className="absolute bottom-3 right-3 inline-flex items-center gap-1.5 rounded-full bg-white/90 px-3 py-1.5 text-nota font-semibold text-ink shadow-[var(--jk-sombra-selo)] backdrop-blur-sm transition-colors hover:text-brand-nav"
         >
           <Navigation size={12} aria-hidden /> Abrir mapa maior
         </a>

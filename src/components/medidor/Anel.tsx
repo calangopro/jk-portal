@@ -24,6 +24,13 @@ export function Anel({ furoPx }: { furoPx: number }) {
       aria-hidden
       className="pointer-events-none block select-none overflow-visible"
     >
+      {/*
+        Os tons daqui NÃO saem dos tokens de tema, e é de propósito.
+        Este gradiente desenha o metal de uma aliança de ouro: são cinco paradas
+        que imitam reflexo, sombra e brilho da peça. Se alguém trocar o dourado
+        da marca por azul no admin, a aliança na tela precisa continuar de ouro,
+        senão a ferramenta passa a mentir sobre o produto.
+      */}
       <defs>
         <linearGradient id="jk-metal" x1="0" y1="0" x2="0.85" y2="1">
           <stop offset="0%" stopColor="#f0dcb4" />

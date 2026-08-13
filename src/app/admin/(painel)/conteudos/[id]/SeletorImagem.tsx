@@ -40,7 +40,7 @@ export function SeletorImagem({
 
   return (
     <div className="fixed inset-0 z-[60] flex items-start justify-center bg-ink/30 p-4 pt-20 backdrop-blur-sm">
-      <div className="flex max-h-[80vh] w-full max-w-2xl flex-col rounded-[18px] border border-border bg-[#fbf8f2] p-5 shadow-[0_40px_80px_-30px_rgb(75_53_23/0.5)]">
+      <div className="flex max-h-[80vh] w-full max-w-2xl flex-col rounded-[18px] border border-border bg-[#fbf8f2] p-5 shadow-[var(--jk-sombra-modal)]">
         <div className="flex items-center justify-between">
           <p className="flex items-center gap-2 text-sm font-semibold text-ink">
             <ImageIcon size={15} className="text-brand-nav" /> Escolher imagem

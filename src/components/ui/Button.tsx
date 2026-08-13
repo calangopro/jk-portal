@@ -18,14 +18,14 @@ const alturas: Record<Size, string> = {
 // Botão bordô leva texto branco, que passa.
 const variants: Record<Variant, string> = {
   primary:
-    "bg-brand text-ink shadow-[0_14px_30px_-12px_rgb(190_155_96/0.7)] hover:bg-brand-light hover:shadow-[0_20px_40px_-14px_rgb(190_155_96/0.8)] hover:-translate-y-0.5 active:translate-y-0",
-  wine: "bg-wine text-white shadow-[0_14px_30px_-12px_rgb(122_34_48/0.7)] hover:bg-wine-deep hover:-translate-y-0.5 active:translate-y-0",
+    "bg-brand text-ink shadow-[var(--jk-sombra-acao)] hover:bg-brand-light hover:shadow-[var(--jk-sombra-acao-alta)] hover:-translate-y-0.5 active:translate-y-0",
+  wine: "bg-wine text-white shadow-[var(--jk-sombra-acao-vinho)] hover:bg-wine-deep hover:-translate-y-0.5 active:translate-y-0",
   dark: "bg-ink text-white hover:bg-charcoal hover:-translate-y-0.5 active:translate-y-0",
   outline:
     "border border-ink/25 bg-white/40 text-ink backdrop-blur-sm hover:border-ink hover:bg-ink hover:text-white hover:-translate-y-0.5 active:translate-y-0",
   // Sobre fundo escuro (modo de medição, faixas de destaque).
   claro:
-    "border border-brand/40 bg-white/8 text-[#f3ece1] backdrop-blur-sm hover:border-brand hover:bg-brand hover:text-ink",
+    "border border-brand/40 bg-white/8 text-[var(--jk-noite-texto)] backdrop-blur-sm hover:border-brand hover:bg-brand hover:text-ink",
   // Sem caixa: para ações secundárias que não devem competir.
   ghost: "text-brand-nav hover:text-brand-strong hover:underline",
 };

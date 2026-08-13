@@ -110,7 +110,7 @@ export function NavPrincipal({ itens }: { itens: ItemNav[] }) {
           <div
             ref={gaveta}
             id="gaveta-navegacao"
-            className="etapa relative border-b border-brand/25 bg-background px-5 pb-7 pt-3 shadow-[0_24px_50px_-24px_rgb(75_53_23/0.45)] backdrop-blur-xl"
+            className="etapa relative border-b border-brand/25 bg-background px-5 pb-7 pt-3 shadow-[var(--jk-sombra-painel)] backdrop-blur-xl"
           >
             <nav aria-label="Principal">
               <ul className="flex flex-col">

@@ -172,7 +172,7 @@ export function Medidor({ children }: { children?: ReactNode }) {
               ref={abrir}
               type="button"
               onClick={() => setAberto(true)}
-              className="inline-flex min-h-14 items-center justify-center gap-2.5 rounded-full bg-brand px-8 text-corpo font-semibold text-ink shadow-[0_18px_36px_-14px_rgb(190_155_96/0.9)] transition-[transform,background-color] duration-300 hover:-translate-y-0.5 hover:bg-brand-light"
+              className="inline-flex min-h-14 items-center justify-center gap-2.5 rounded-full bg-brand px-8 text-corpo font-semibold text-ink shadow-[var(--jk-sombra-acao-larga)] transition-[transform,background-color] duration-300 hover:-translate-y-0.5 hover:bg-brand-light"
             >
               <Ruler size={18} aria-hidden />
               {mediu ? "Medir de novo" : "Medir meu aro"}
