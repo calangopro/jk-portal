@@ -91,6 +91,21 @@ export async function mudarStatus(formData: FormData) {
 
   const supabase = await createClient();
   await supabase.from("contents").update({ status }).eq("id", id);
+
+  // Sair de "publicado" (para revisão, rascunho ou arquivo) tem que tirar da
+  // busca também. Resultado que leva a uma página fora do ar é pior que
+  // resultado nenhum.
+  try {
+    const [{ getConteudoPorId }, { indexarGuia }] = await Promise.all([
+      import("@/lib/data/contents"),
+      import("@/lib/busca/indexar"),
+    ]);
+    const guia = await getConteudoPorId(id);
+    if (guia) await indexarGuia(guia);
+  } catch (e) {
+    console.error("[busca] não consegui reindexar o conteúdo", id, e);
+  }
+
   revalidatePath("/admin/conteudos");
   revalidatePath("/");
   revalidatePath("/guia");

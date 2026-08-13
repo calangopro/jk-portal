@@ -4,6 +4,7 @@ import { Container } from "./Container";
 import { NavPrincipal, type ItemNav } from "./NavPrincipal";
 import { ProgressoLeitura } from "./ProgressoLeitura";
 import { SITE } from "@/lib/seo/site";
+import { BuscaNoCabecalho } from "@/components/busca/BuscaNoCabecalho";
 
 const ITENS: ItemNav[] = [
   { href: "/guia", rotulo: "Guias" },
@@ -20,7 +21,7 @@ export function SiteHeader() {
     <header className="glass-nav sticky top-0 z-50">
       <Container
         size="wide"
-        className="flex h-16 items-center justify-between gap-6"
+        className="flex h-16 items-center justify-between gap-4 sm:gap-6"
       >
         <Link
           href="/"
@@ -36,6 +37,8 @@ export function SiteHeader() {
             className="h-8 w-auto"
           />
         </Link>
+
+        <BuscaNoCabecalho />
 
         <NavPrincipal itens={ITENS} />
       </Container>

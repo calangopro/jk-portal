@@ -6,6 +6,38 @@ import { createClient } from "@/lib/supabase/server";
 import { requireStaff } from "@/lib/auth/session";
 import { DIAS } from "./dias";
 
+/**
+ * Põe a busca em dia depois de mexer numa loja.
+ *
+ * Recebe o id junto do slug por um motivo específico: `getLocationBySlug`
+ * filtra por `status = 'published'` E, em desenvolvimento, cai para os dados de
+ * exemplo quando não acha. Se esta função dependesse só dele, despublicar uma
+ * loja deixaria os trechos dela na busca (levando a pessoa para um 404), e em
+ * dev poderia acabar indexando uma loja fictícia do `samples.ts`.
+ *
+ * Import dinâmico para a service_role ficar fora do pacote das telas. Falha
+ * aqui não derruba o salvamento: o índice é derivado.
+ */
+async function reindexarLoja(id: string, slug: string, publicada: boolean) {
+  try {
+    if (!publicada) {
+      const { removerDoIndice } = await import("@/lib/busca/indexar");
+      await removerDoIndice("loja", id);
+      return;
+    }
+    const [{ getLocationBySlug }, { indexarLoja }] = await Promise.all([
+      import("@/lib/data/locations"),
+      import("@/lib/busca/indexar"),
+    ]);
+    const loja = await getLocationBySlug(slug);
+    // Confere o id: se vier exemplo do samples.ts, o id não bate e a gente não
+    // indexa dado fictício.
+    if (loja && loja.id === id) await indexarLoja(loja);
+  } catch (e) {
+    console.error("[busca] não consegui reindexar a loja", slug, e);
+  }
+}
+
 export type LojaState = { erro?: string; ok?: string };
 
 
@@ -199,6 +231,15 @@ export async function salvarLoja(
     return { erro: error.message };
   }
 
+  // O status não muda aqui, então vem do banco para decidir entre indexar e
+  // remover.
+  const { data: estado } = await supabase
+    .from("locations")
+    .select("status")
+    .eq("id", id)
+    .maybeSingle();
+  await reindexarLoja(id, slug, estado?.status === "published");
+
   revalidatePath("/admin/lojas");
   revalidatePath(`/lojas/${slug}`);
   revalidatePath("/lojas");
@@ -235,13 +276,19 @@ export async function mudarStatusLoja(formData: FormData): Promise<void> {
     }
   }
 
-  await supabase
+  const { data: alterada } = await supabase
     .from("locations")
     .update({
       status,
       published_at: status === "published" ? new Date().toISOString() : null,
     })
-    .eq("id", id);
+    .eq("id", id)
+    .select("slug")
+    .maybeSingle();
+
+  // Entrar ou sair do ar muda o que a busca deve mostrar. `indexarLoja` já
+  // apaga os trechos sozinho quando o status não é publicado.
+  if (alterada?.slug) await reindexarLoja(id, alterada.slug, status === "published");
 
   revalidatePath("/admin/lojas");
   revalidatePath("/lojas");

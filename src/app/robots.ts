@@ -2,7 +2,10 @@ import type { MetadataRoute } from "next";
 import { absoluteUrl, isProduction } from "@/lib/seo/site";
 
 /** Caminhos que nenhum rastreador deve percorrer, seja de busca ou de IA. */
-const BLOQUEADOS = ["/admin", "/api", "/preview"];
+// `/busca` entra aqui porque página de resultado de busca interna é conteúdo
+// raso e infinito: uma URL por consulta digitada. O Google recomenda bloquear
+// no robots. A página também sai com `noindex`, como cinto e suspensório.
+const BLOQUEADOS = ["/admin", "/api", "/preview", "/busca"];
 
 export default function robots(): MetadataRoute.Robots {
   // Preview/desenvolvimento: nada é indexável (evita rascunho no Google).

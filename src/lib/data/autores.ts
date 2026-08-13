@@ -106,17 +106,18 @@ export async function autorPorSlug(slug: string): Promise<Autor | null> {
  * Autor e revisor de vários conteúdos de uma vez.
  *
  * Em lote para a listagem de guias não disparar duas consultas por card.
+ *
+ * Devolve array porque o Data Cache do Next não serializa `Map`. O acesso por
+ * chave fica em `mapaDeAutores`.
  */
-export async function autoresDosConteudos(
-  ids: string[],
-): Promise<Map<string, Autor>> {
-  const mapa = new Map<string, Autor>();
+export async function autoresDosConteudos(ids: string[]): Promise<Autor[]> {
   const limpos = [...new Set(ids.filter(Boolean))];
-  if (!limpos.length) return mapa;
+  if (!limpos.length) return [];
 
   const supabase = createReadClient();
-  if (!supabase) return mapa;
+  if (!supabase) return [];
 
+  const pessoas: Autor[] = [];
   try {
     const { data, error } = await supabase
       .from("authors")
@@ -124,15 +125,21 @@ export async function autoresDosConteudos(
       .in("id", limpos);
     if (error) {
       registrarFalha("autoresDosConteudos", error.message);
-      return mapa;
+      return pessoas;
     }
     for (const linha of (data ?? []) as unknown as LinhaAutor[]) {
-      mapa.set(linha.id, mapAutor(linha));
+      pessoas.push(mapAutor(linha));
     }
   } catch (e) {
     registrarFalha("autoresDosConteudos", e);
   }
-  return mapa;
+  return pessoas;
+}
+
+/** Autores indexados por id. */
+export async function mapaDeAutores(ids: string[]): Promise<Map<string, Autor>> {
+  const pessoas = await autoresDosConteudos(ids);
+  return new Map(pessoas.map((a) => [a.id, a]));
 }
 
 /** Guias publicados que uma pessoa assina, para a página dela. */

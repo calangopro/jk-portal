@@ -2,7 +2,7 @@ import { createReadClient } from "@/lib/supabase/read";
 import type { Content, Faq, Imagem } from "@/lib/content/types";
 import { SAMPLE_GUIAS } from "./samples";
 import { podeUsarExemplos, registrarFalha } from "./exemplos";
-import { autoresDosConteudos } from "./autores";
+import { mapaDeAutores } from "./autores";
 
 type Row = {
   id: string;
@@ -267,27 +267,36 @@ export async function produtosDoConteudo(contentId: string): Promise<
 }
 
 /**
- * Dimensões das imagens usadas num HTML, vindas da tabela `media`.
+ * Dimensões das imagens, vindas da tabela `media`.
  *
  * Serve para escrever `width` e `height` na tag mesmo em conteúdo antigo, que
  * foi salvo antes de o editor passar a gravar isso. Sem dimensão o navegador
  * não reserva espaço e a página pula quando a imagem carrega.
+ *
+ * Devolve array, e não `Map`, de propósito: o Data Cache do Next **não
+ * serializa `Map`**, então uma leitura cacheada que devolvesse `Map` voltaria
+ * vazia sem erro nenhum. Quem precisa de acesso por chave usa `mapaDeDimensoes`.
  */
-export async function dimensoesDasImagens(
-  html: string,
-): Promise<Map<string, { width: number; height: number }>> {
-  const mapa = new Map<string, { width: number; height: number }>();
-  if (!html) return mapa;
+export type DimensaoDeImagem = { url: string; width: number; height: number };
 
+/** URLs absolutas das imagens de um HTML, sem repetição. */
+export function urlsDeImagem(html: string): string[] {
+  if (!html) return [];
   const urls = [...html.matchAll(/<img\b[^>]*src\s*=\s*"([^"]+)"/gi)]
     .map((m) => m[1])
     .filter((u) => u.startsWith("http"));
+  return [...new Set(urls)];
+}
 
-  if (urls.length === 0) return mapa;
+export async function dimensoesDasImagens(
+  urls: string[],
+): Promise<DimensaoDeImagem[]> {
+  if (urls.length === 0) return [];
 
   const supabase = createReadClient();
-  if (!supabase) return mapa;
+  if (!supabase) return [];
 
+  const achadas: DimensaoDeImagem[] = [];
   try {
     const { data } = await supabase
       .from("media")
@@ -296,15 +305,26 @@ export async function dimensoesDasImagens(
 
     for (const m of (data ?? []) as { url: string; width: number | null; height: number | null }[]) {
       if (m.url && m.width && m.height) {
-        mapa.set(m.url, { width: m.width, height: m.height });
+        achadas.push({ url: m.url, width: m.width, height: m.height });
       }
     }
   } catch {
     // Sem as medidas a página continua funcionando, só sem reservar o espaço.
   }
 
-  return mapa;
+  return achadas;
 }
+
+/** Dimensões das imagens de um HTML, indexadas por URL. */
+export async function mapaDeDimensoes(
+  html: string,
+): Promise<Map<string, { width: number; height: number }>> {
+  const lista = await dimensoesDasImagens(urlsDeImagem(html));
+  return new Map(lista.map((d) => [d.url, { width: d.width, height: d.height }]));
+}
+
+/** Capa de um conteúdo, junto do id de quem ela ilustra. */
+export type CapaDeConteudo = { contentId: string; imagem: Imagem };
 
 /**
  * Capas dos conteúdos, em uma consulta só.
@@ -313,16 +333,21 @@ export async function dimensoesDasImagens(
  * com `role = 'hero'` mais os campos de SEO da tabela `media`. Faltava alguém
  * ler. Recebe vários ids de uma vez para a listagem de guias não disparar uma
  * consulta por card.
+ *
+ * Devolve array pelo mesmo motivo de `dimensoesDasImagens`: `Map` não
+ * atravessa o Data Cache. O acesso por chave fica em `mapaDeCapas`.
  */
 export async function capasDosConteudos(
   contentIds: string[],
-): Promise<Map<string, Imagem>> {
-  const mapa = new Map<string, Imagem>();
+): Promise<CapaDeConteudo[]> {
   const ids = [...new Set(contentIds.filter(Boolean))];
-  if (ids.length === 0) return mapa;
+  if (ids.length === 0) return [];
 
   const supabase = createReadClient();
-  if (!supabase) return mapa;
+  if (!supabase) return [];
+
+  const capas: CapaDeConteudo[] = [];
+  const jaTem = new Set<string>();
 
   type Vinculo = {
     content_id: string;
@@ -355,7 +380,7 @@ export async function capasDosConteudos(
 
     if (error) {
       registrarFalha("capasDosConteudos", error.message);
-      return mapa;
+      return capas;
     }
 
     for (const v of (data ?? []) as unknown as Vinculo[]) {
@@ -363,32 +388,42 @@ export async function capasDosConteudos(
       // Sem URL, sem dimensão ou desativada, a capa não entra: metade de uma
       // imagem na tela é pior que nenhuma.
       if (!m || !m.url || !m.width || !m.height || m.deactivated_at) continue;
-      if (mapa.has(v.content_id)) continue;
+      if (jaTem.has(v.content_id)) continue;
+      jaTem.add(v.content_id);
 
-      mapa.set(v.content_id, {
-        id: m.id,
-        url: m.url,
-        alt: v.alt_override ?? m.alt ?? "",
-        width: m.width,
-        height: m.height,
-        caption: v.caption_override ?? m.caption,
-        credit: m.credit,
-        placeholder: m.placeholder,
-        focalX: m.focal_x,
-        focalY: m.focal_y,
+      capas.push({
+        contentId: v.content_id,
+        imagem: {
+          id: m.id,
+          url: m.url,
+          alt: v.alt_override ?? m.alt ?? "",
+          width: m.width,
+          height: m.height,
+          caption: v.caption_override ?? m.caption,
+          credit: m.credit,
+          placeholder: m.placeholder,
+          focalX: m.focal_x,
+          focalY: m.focal_y,
+        },
       });
     }
   } catch (e) {
     registrarFalha("capasDosConteudos", e);
   }
 
-  return mapa;
+  return capas;
+}
+
+/** Capas indexadas por id do conteúdo. */
+export async function mapaDeCapas(contentIds: string[]): Promise<Map<string, Imagem>> {
+  const lista = await capasDosConteudos(contentIds);
+  return new Map(lista.map((c) => [c.contentId, c.imagem]));
 }
 
 /** Capa de um conteúdo só. Atalho para `capasDosConteudos`. */
 export async function capaDoConteudo(contentId: string): Promise<Imagem | null> {
-  const mapa = await capasDosConteudos([contentId]);
-  return mapa.get(contentId) ?? null;
+  const [capa] = await capasDosConteudos([contentId]);
+  return capa?.imagem ?? null;
 }
 
 /**
@@ -424,7 +459,7 @@ export async function comAutores(conteudos: Content[]): Promise<Content[]> {
     ];
     if (!idsDePessoa.length) return conteudos;
 
-    const pessoas = await autoresDosConteudos(idsDePessoa);
+    const pessoas = await mapaDeAutores(idsDePessoa);
 
     return conteudos.map((c) => {
       const fk = fks.get(c.id);
@@ -444,7 +479,7 @@ export async function comAutores(conteudos: Content[]): Promise<Content[]> {
 /** Preenche `capa` numa lista de conteúdos, sem uma consulta por item. */
 export async function comCapas(conteudos: Content[]): Promise<Content[]> {
   if (conteudos.length === 0) return conteudos;
-  const capas = await capasDosConteudos(conteudos.map((c) => c.id));
+  const capas = await mapaDeCapas(conteudos.map((c) => c.id));
   if (capas.size === 0) return conteudos;
   return conteudos.map((c) => ({ ...c, capa: capas.get(c.id) ?? null }));
 }

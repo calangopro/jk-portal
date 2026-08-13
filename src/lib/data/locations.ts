@@ -167,16 +167,26 @@ export async function getLocationBySlug(
  * lojas não disparar uma consulta por card. A galeria ainda não tem foto
  * nenhuma cadastrada, e é justamente por isso que a leitura precisa aguentar
  * lista vazia sem quebrar nada na página.
+ *
+ * Devolve array porque o Data Cache do Next não serializa `Map`. O acesso por
+ * chave fica em `mapaDeFotos`.
  */
+export type FotosDaLoja = { locationId: string; fotos: Imagem[] };
+
+/** Fotos de várias lojas, em uma consulta só. */
 export async function fotosDasLojas(
   locationIds: string[],
-): Promise<Map<string, Imagem[]>> {
-  const mapa = new Map<string, Imagem[]>();
+): Promise<FotosDaLoja[]> {
   const ids = [...new Set(locationIds.filter(Boolean))];
-  if (ids.length === 0) return mapa;
+  if (ids.length === 0) return [];
 
   const supabase = createReadClient();
-  if (!supabase) return mapa;
+  if (!supabase) return [];
+
+  // Agrupar por loja pede acesso por chave, então o `Map` continua aqui dentro.
+  // O que não pode é ele ser o valor de RETORNO, porque é isso que o Data
+  // Cache não sabe serializar.
+  const porLoja = new Map<string, Imagem[]>();
 
   type Vinculo = {
     location_id: string;
@@ -210,7 +220,7 @@ export async function fotosDasLojas(
 
     if (error) {
       registrarFalha("fotosDasLojas", error.message);
-      return mapa;
+      return [];
     }
 
     for (const v of (data ?? []) as unknown as Vinculo[]) {
@@ -230,23 +240,29 @@ export async function fotosDasLojas(
         focalY: m.focal_y,
       };
 
-      const lista = mapa.get(v.location_id) ?? [];
+      const lista = porLoja.get(v.location_id) ?? [];
       // A capa (`hero`) abre a galeria, o resto segue a ordem cadastrada.
       if (v.role === "hero") lista.unshift(foto);
       else lista.push(foto);
-      mapa.set(v.location_id, lista);
+      porLoja.set(v.location_id, lista);
     }
   } catch (e) {
     registrarFalha("fotosDasLojas", e);
   }
 
-  return mapa;
+  return [...porLoja].map(([locationId, fotos]) => ({ locationId, fotos }));
+}
+
+/** Fotos indexadas por id da loja. */
+export async function mapaDeFotos(locationIds: string[]): Promise<Map<string, Imagem[]>> {
+  const lista = await fotosDasLojas(locationIds);
+  return new Map(lista.map((f) => [f.locationId, f.fotos]));
 }
 
 /** Preenche `fotos` numa lista de lojas, sem uma consulta por item. */
 export async function comFotos(lojas: Location[]): Promise<Location[]> {
   if (lojas.length === 0) return lojas;
-  const fotos = await fotosDasLojas(lojas.map((l) => l.id));
+  const fotos = await mapaDeFotos(lojas.map((l) => l.id));
   if (fotos.size === 0) return lojas;
   return lojas.map((l) => ({ ...l, fotos: fotos.get(l.id) ?? null }));
 }
