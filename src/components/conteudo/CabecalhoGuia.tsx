@@ -76,12 +76,15 @@ export function CabecalhoGuia({
         </div>
       ) : null}
 
-      <h1 className="font-display max-w-[19ch] text-titulo-artigo text-ink">
+      {/* Larguras pensadas para a faixa de abertura, que ocupa a página inteira.
+          19ch era a medida de quando o título vivia espremido ao lado da barra
+          lateral, e ali sobrava linha atrás de linha. */}
+      <h1 className="font-display max-w-[24ch] text-titulo-artigo text-ink">
         {guia.title}
       </h1>
 
       {guia.answer ? (
-        <p className="linha-apoio mt-6 max-w-[46ch] text-lede">{guia.answer}</p>
+        <p className="linha-apoio mt-6 max-w-[62ch] text-lede">{guia.answer}</p>
       ) : null}
 
       <div aria-hidden className="filete-dourado mt-7" />
@@ -166,14 +169,22 @@ export function CabecalhoGuia({
         </span>
       </div>
 
+      {/*
+        Capa: no celular ela entra no fluxo, embaixo do texto, como sempre.
+        A partir de lg ela some daqui e passa a ser o fundo da faixa (ver
+        `CapaDeFundo`, usada em PaginaDoGuia). Duas marcações para a mesma
+        imagem seria pior: o navegador baixaria o arquivo duas vezes.
+      */}
       {guia.capa ? (
-        <Figura
-          imagem={guia.capa}
-          prioridade
-          proporcao={proporcaoDaCapa(guia.capa.width, guia.capa.height)}
-          sizes="(min-width: 1024px) 760px, 100vw"
-          className="mt-10"
-        />
+        <div className="lg:hidden">
+          <Figura
+            imagem={guia.capa}
+            prioridade
+            proporcao={proporcaoDaCapa(guia.capa.width, guia.capa.height)}
+            sizes="100vw"
+            className="mt-10"
+          />
+        </div>
       ) : null}
     </header>
   );

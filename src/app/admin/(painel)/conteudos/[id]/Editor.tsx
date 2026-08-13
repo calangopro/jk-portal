@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
-import { useEditor, EditorContent } from "@tiptap/react";
+import { useEditor, EditorContent, ReactNodeViewRenderer, type Editor as EditorTipTap } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import LinkExt from "@tiptap/extension-link";
 import Placeholder from "@tiptap/extension-placeholder";
@@ -10,7 +10,8 @@ import TableRow from "@tiptap/extension-table-row";
 import TableCell from "@tiptap/extension-table-cell";
 import { TabelaNode, CabecalhoDeTabela } from "@/lib/editor/TabelaNode";
 import { VideoNode } from "@/lib/editor/VideoNode";
-import { ProdutoNode } from "@/lib/editor/ProdutoNode";
+import { VitrineNode, type ProdutoDoBloco } from "@/lib/editor/VitrineNode";
+import { VitrineView } from "@/lib/editor/VitrineView";
 import { ImagemNode } from "@/lib/editor/ImagemNode";
 import { FiguraNode } from "@/lib/editor/FiguraNode";
 import { PreviewDeResultado } from "./PreviewDeResultado";
@@ -22,6 +23,7 @@ import {
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { paraWebp } from "@/lib/midia/webp";
+import { BotaoPrompt } from "./BotaoPrompt";
 import { PainelAnalise } from "./PainelAnalise";
 import { SeletorProduto } from "./SeletorProduto";
 import { SeletorImagem } from "./SeletorImagem";
@@ -65,70 +67,184 @@ function Secao({
   );
 }
 
+type ItemDeBloco = {
+  tipo: string;
+  label: string;
+  desc: string;
+  Icone: typeof Type;
+  /** Palavras extras que o filtro do "/" aceita, além do próprio rótulo. */
+  termos: string;
+};
+
+const GRUPOS_DE_BLOCO: { nome: string; itens: ItemDeBloco[] }[] = [
+  {
+    nome: "Texto",
+    itens: [
+      { tipo: "paragrafo", label: "Parágrafo", desc: "Texto comum", Icone: Type, termos: "texto p linha" },
+      { tipo: "h2", label: "Título de seção", desc: "H2, divide o conteúdo", Icone: Heading2, termos: "h2 titulo cabecalho secao" },
+      { tipo: "h3", label: "Subtítulo", desc: "H3, dentro da seção", Icone: Heading3, termos: "h3 subtitulo" },
+      { tipo: "citacao", label: "Citação", desc: "Destaque de fala", Icone: Quote, termos: "aspas quote destaque" },
+    ],
+  },
+  {
+    nome: "Estrutura",
+    itens: [
+      { tipo: "lista", label: "Lista", desc: "Com marcadores", Icone: List, termos: "bullet marcador topicos" },
+      { tipo: "listaNum", label: "Lista numerada", desc: "Passo a passo", Icone: ListOrdered, termos: "numero ordenada passos" },
+      { tipo: "tabela", label: "Tabela", desc: "Comparação, a IA extrai muito bem", Icone: TableIcon, termos: "comparacao grade colunas" },
+      { tipo: "divisor", label: "Divisor", desc: "Separa assuntos", Icone: Minus, termos: "linha separador hr" },
+    ],
+  },
+  {
+    nome: "Mídia e loja",
+    itens: [
+      { tipo: "imagem", label: "Imagem", desc: "Vira WebP e exige alt", Icone: ImageIcon, termos: "foto figura png jpg" },
+      { tipo: "video", label: "Vídeo do YouTube", desc: "Aumenta tempo na página", Icone: CirclePlay, termos: "youtube filme embed" },
+      { tipo: "produto", label: "Produto da loja", desc: "Link para a Tray, com UTM", Icone: ShoppingBag, termos: "alianca loja tray comprar" },
+    ],
+  },
+];
+
+/** Tira acento e caixa, para "/titulo" achar "Título de seção". */
+function simplificar(t: string): string {
+  return t.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+}
+
+function filtrarBlocos(termo: string) {
+  const t = simplificar(termo.trim());
+  if (!t) return GRUPOS_DE_BLOCO;
+  return GRUPOS_DE_BLOCO
+    .map((g) => ({
+      nome: g.nome,
+      itens: g.itens.filter((i) => simplificar(`${i.label} ${i.desc} ${i.termos}`).includes(t)),
+    }))
+    .filter((g) => g.itens.length > 0);
+}
+
+/**
+ * Onde o bloco novo entra.
+ *
+ * Regra: se a linha em que o cursor está estiver vazia, o bloco novo toma o
+ * lugar dela; se tiver texto, entra logo depois dela. Inserir no meio exato do
+ * cursor foi descartado porque partiria a frase ao meio, que não é o que quem
+ * escreve quer ao clicar no meio de um parágrafo para colocar uma imagem.
+ *
+ * Sempre trabalha no nível 1 do documento (o bloco de topo), então estando
+ * dentro de uma célula de tabela ou de um item de lista o bloco entra depois da
+ * tabela ou da lista inteira, e não encravado nela.
+ */
+function pontoDeInsercao(editor: EditorTipTap): { from: number; to: number } {
+  const sel = editor.state.selection;
+  const $de = sel.$from;
+
+  // Seleção de nó no topo (uma imagem clicada, por exemplo): entra depois dele.
+  if ($de.depth === 0) return { from: sel.to, to: sel.to };
+
+  const bloco = $de.node(1);
+  const inicio = $de.before(1);
+  if (bloco.isTextblock && bloco.content.size === 0) {
+    return { from: inicio, to: inicio + bloco.nodeSize };
+  }
+  const fim = $de.after(1);
+  return { from: fim, to: fim };
+}
+
+/**
+ * Garante uma linha de texto no fim do documento.
+ *
+ * Bloco atômico (imagem, vídeo, produto, divisor) no fim prende o cursor: não
+ * existe linha depois dele para continuar escrevendo, e o único jeito de sair
+ * seria apagar o bloco que acabou de ser inserido.
+ */
+function garantirLinhaNoFim(editor: EditorTipTap, moverCursor: boolean) {
+  const doc = editor.state.doc;
+  if (doc.lastChild?.isTextblock) return;
+  const c = editor
+    .chain()
+    .insertContentAt(doc.content.size, { type: "paragraph" }, { updateSelection: moverCursor });
+  if (moverCursor) c.focus();
+  c.run();
+}
+
+/** Insere no ponto calculado, rola até lá e devolve o foco ao texto. */
+function inserirNoPonto(
+  editor: EditorTipTap,
+  ponto: { from: number; to: number },
+  conteudo: Record<string, unknown>,
+) {
+  const tamanhoAntes = editor.state.doc.content.size;
+  editor.chain().focus().insertContentAt(ponto, conteudo).scrollIntoView().run();
+  garantirLinhaNoFim(editor, ponto.from >= tamanhoAntes);
+}
+
+/** Cria uma linha vazia no ponto e deixa o cursor dentro dela. */
+function abrirLinhaNoPonto(editor: EditorTipTap, ponto: { from: number; to: number }) {
+  editor.chain().focus().insertContentAt(ponto, { type: "paragraph" }).scrollIntoView().run();
+}
+
 function MenuBlocos({
-  aoEscolher, aoFechar,
+  grupos, ativo, aoEscolher, aoPassar, estilo,
 }: {
+  grupos: { nome: string; itens: ItemDeBloco[] }[];
+  ativo: number;
   aoEscolher: (tipo: string) => void;
-  aoFechar: () => void;
+  aoPassar: (indice: number) => void;
+  estilo: React.CSSProperties;
 }) {
-  const grupos = [
-    {
-      nome: "Texto",
-      itens: [
-        { tipo: "paragrafo", label: "Parágrafo", desc: "Texto comum", Icone: Type },
-        { tipo: "h2", label: "Título de seção", desc: "H2, divide o conteúdo", Icone: Heading2 },
-        { tipo: "h3", label: "Subtítulo", desc: "H3, dentro da seção", Icone: Heading3 },
-        { tipo: "citacao", label: "Citação", desc: "Destaque de fala", Icone: Quote },
-      ],
-    },
-    {
-      nome: "Estrutura",
-      itens: [
-        { tipo: "lista", label: "Lista", desc: "Com marcadores", Icone: List },
-        { tipo: "listaNum", label: "Lista numerada", desc: "Passo a passo", Icone: ListOrdered },
-        { tipo: "tabela", label: "Tabela", desc: "Comparação, a IA extrai muito bem", Icone: TableIcon },
-        { tipo: "divisor", label: "Divisor", desc: "Separa assuntos", Icone: Minus },
-      ],
-    },
-    {
-      nome: "Mídia e loja",
-      itens: [
-        { tipo: "imagem", label: "Imagem", desc: "Vira WebP e exige alt", Icone: ImageIcon },
-        { tipo: "video", label: "Vídeo do YouTube", desc: "Aumenta tempo na página", Icone: CirclePlay },
-        { tipo: "produto", label: "Produto da loja", desc: "Link para a Tray, com UTM", Icone: ShoppingBag },
-      ],
-    },
-  ];
+  // Índice corrido, para as setas do teclado andarem por cima dos grupos.
+  let corrido = -1;
+  const numerados = grupos.map((g) => ({
+    nome: g.nome,
+    itens: g.itens.map((i) => {
+      corrido += 1;
+      return { ...i, indice: corrido };
+    }),
+  }));
 
   return (
-    <>
-      <div className="fixed inset-0 z-40" onClick={aoFechar} aria-hidden />
-      <div className="absolute left-0 top-full z-50 mt-2 max-h-[26rem] w-[22rem] overflow-y-auto rounded-[16px] border border-border bg-[#fbf8f2] p-2 shadow-[0_28px_60px_-20px_rgb(75_53_23/0.35)]">
-        {grupos.map((g) => (
-          <div key={g.nome} className="mb-1 last:mb-0">
-            <p className="px-2 py-1.5 text-[0.62rem] font-semibold uppercase tracking-wider text-muted">
-              {g.nome}
-            </p>
-            {g.itens.map(({ tipo, label, desc, Icone }) => (
-              <button
-                key={tipo}
-                type="button"
-                onClick={() => aoEscolher(tipo)}
-                className="flex w-full items-center gap-3 rounded-[10px] px-2.5 py-2 text-left transition-colors hover:bg-brand/12"
-              >
-                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] border border-border bg-white text-brand-nav">
-                  <Icone size={15} />
-                </span>
-                <span className="min-w-0">
-                  <span className="block text-sm font-medium text-ink">{label}</span>
-                  <span className="block truncate text-xs text-muted">{desc}</span>
-                </span>
-              </button>
-            ))}
-          </div>
-        ))}
-      </div>
-    </>
+    <div
+      id="jk-menu-blocos"
+      role="listbox"
+      aria-label="Blocos para inserir"
+      style={estilo}
+      className="absolute z-50 max-h-[22rem] w-[21rem] overflow-y-auto rounded-[16px] border border-border bg-[#fbf8f2] p-2 shadow-[var(--jk-sombra-menu)]"
+    >
+      {numerados.map((g) => (
+        <div key={g.nome} className="mb-1 last:mb-0">
+          <p className="px-2 py-1.5 text-[0.62rem] font-semibold uppercase tracking-wider text-muted">
+            {g.nome}
+          </p>
+          {g.itens.map(({ tipo, label, desc, Icone, indice }) => (
+            <button
+              key={tipo}
+              type="button"
+              role="option"
+              aria-selected={indice === ativo}
+              data-ativo={indice === ativo ? "sim" : undefined}
+              // Sem isto o clique tira o foco do texto antes de inserir, e a
+              // posição do cursor (que é onde o bloco vai entrar) se perde.
+              onMouseDown={(e) => e.preventDefault()}
+              onMouseEnter={() => aoPassar(indice)}
+              onClick={() => aoEscolher(tipo)}
+              className={`flex w-full items-center gap-3 rounded-[10px] px-2.5 py-2 text-left transition-colors ${
+                indice === ativo ? "bg-brand/14" : "hover:bg-brand/10"
+              }`}
+            >
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] border border-border bg-white text-brand-nav">
+                <Icone size={15} />
+              </span>
+              <span className="min-w-0">
+                <span className="block text-sm font-medium text-ink">{label}</span>
+                <span className="block truncate text-xs text-muted">{desc}</span>
+              </span>
+            </button>
+          ))}
+        </div>
+      ))}
+      <p className="border-t border-border/60 px-2.5 pb-1 pt-2 text-[0.65rem] leading-relaxed text-muted">
+        Setas para navegar, Enter para escolher, Esc para fechar.
+      </p>
+    </div>
   );
 }
 
@@ -278,6 +394,31 @@ export function Editor({
   const [html, setHtml] = useState(inicial.body_html ?? "");
   const [texto, setTexto] = useState("");
   const [menuAberto, setMenuAberto] = useState(false);
+  /** Linha em que o cursor está, para o botão "+" acompanhar. */
+  const [linha, setLinha] = useState<{ topo: number; naTela: number } | null>(null);
+  /** Comando por barra: onde o "/" começa e o que já foi digitado depois dele. */
+  const [barra, setBarra] = useState<{ de: number; termo: string } | null>(null);
+  const [ativo, setAtivo] = useState(0);
+  const corpoRef = useRef<HTMLDivElement>(null);
+  /**
+   * Ponto de inserção congelado no instante da escolha.
+   *
+   * Imagem e produto abrem uma janela por cima do editor, e a janela tira o
+   * foco do texto. Sem guardar a posição aqui, o bloco caía onde o editor
+   * achasse que o cursor estava depois de tudo isso.
+   */
+  const pontoRef = useRef<{ from: number; to: number } | null>(null);
+  /** Posição de uma barra já fechada no Esc, para ela não reabrir sozinha. */
+  const dispensadaRef = useRef<number | null>(null);
+  /**
+   * Quem está esperando o produto escolhido.
+   *
+   * A mesma janela de busca serve para dois pedidos: inserir uma vitrine nova
+   * no texto, ou acrescentar um produto numa vitrine que já existe. Quando o
+   * pedido vem de dentro do bloco, ele deixa aqui a função que recebe o
+   * resultado, e o editor não insere nada novo.
+   */
+  const pedidoDaVitrine = useRef<((p: ProdutoDoBloco) => void) | null>(null);
   const [assistente, setAssistente] = useState(false);
   const [seletorProduto, setSeletorProduto] = useState(false);
   const [seletorImagem, setSeletorImagem] = useState(false);
@@ -298,13 +439,22 @@ export function Editor({
     extensions: [
       StarterKit.configure({ heading: { levels: [2, 3] } }),
       Placeholder.configure({
-        placeholder: "Escreva aqui, ou use o botão Inserir bloco logo abaixo.",
+        placeholder: "Escreva aqui, ou digite / para inserir um bloco.",
       }),
       LinkExt.configure({ openOnClick: false, HTMLAttributes: { rel: "noopener" } }),
       ImagemNode.configure({ HTMLAttributes: { loading: "lazy" } }),
       FiguraNode,
       VideoNode.configure({ width: 720, height: 405, nocookie: true }),
-      ProdutoNode,
+      VitrineNode.configure({
+        aoPedirProduto: (aceitar) => {
+          pedidoDaVitrine.current = aceitar;
+          setSeletorProduto(true);
+        },
+      }).extend({
+        addNodeView() {
+          return ReactNodeViewRenderer(VitrineView);
+        },
+      }),
       TabelaNode.configure({ resizable: false }),
       TableRow, CabecalhoDeTabela, TableCell,
     ],
@@ -324,15 +474,45 @@ export function Editor({
 
   const inserir = useCallback((tipo: string) => {
     if (!editor) return;
-    const c = editor.chain().focus();
+    const ponto = pontoDeInsercao(editor);
+    pontoRef.current = ponto;
+    setMenuAberto(false);
+    setBarra(null);
+
     switch (tipo) {
-      case "paragrafo": c.insertContent("<p></p>").run(); break;
-      case "h2": c.insertContent("<h2>Título da seção</h2>").run(); break;
-      case "h3": c.insertContent("<h3>Subtítulo</h3>").run(); break;
-      case "lista": c.toggleBulletList().run(); break;
-      case "listaNum": c.toggleOrderedList().run(); break;
-      case "citacao": c.toggleBlockquote().run(); break;
-      case "divisor": c.setHorizontalRule().run(); break;
+      case "paragrafo": abrirLinhaNoPonto(editor, ponto); break;
+      case "h2":
+      case "h3": {
+        const nivel = tipo === "h2" ? 2 : 3;
+        const exemplo = nivel === 2 ? "Título da seção" : "Subtítulo";
+        inserirNoPonto(editor, ponto, {
+          type: "heading",
+          attrs: { level: nivel },
+          content: [{ type: "text", text: exemplo }],
+        });
+        // Deixa o texto de exemplo selecionado: quem digita já substitui, em
+        // vez de ter que apagar palavra por palavra antes de escrever.
+        editor.chain().focus().setTextSelection({
+          from: ponto.from + 1,
+          to: ponto.from + 1 + exemplo.length,
+        }).run();
+        break;
+      }
+      case "lista":
+        abrirLinhaNoPonto(editor, ponto);
+        editor.chain().focus().toggleBulletList().run();
+        break;
+      case "listaNum":
+        abrirLinhaNoPonto(editor, ponto);
+        editor.chain().focus().toggleOrderedList().run();
+        break;
+      case "citacao":
+        abrirLinhaNoPonto(editor, ponto);
+        editor.chain().focus().toggleBlockquote().run();
+        break;
+      case "divisor":
+        inserirNoPonto(editor, ponto, { type: "horizontalRule" });
+        break;
       case "tabela": {
         // Legenda antes da tabela: é o que diz o que a tabela compara. Sem ela
         // nem o leitor de tela nem a IA sabem o que estão lendo, e a tabela é
@@ -345,10 +525,15 @@ export function Editor({
         // insertTable é o único caminho que monta a linha de cabeçalho como
         // <th> de verdade. Inserir a tabela por HTML cru parecia mais direto,
         // mas o parser juntava as três células de cabeçalho numa só.
-        c.insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run();
+        //
+        // Ele insere onde o cursor está, então a linha vazia vem primeiro para
+        // levar o cursor até o ponto certo. A tabela toma o lugar dela.
+        abrirLinhaNoPonto(editor, ponto);
+        editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run();
         if (legenda.trim()) {
           editor.chain().focus().updateAttributes("table", { legenda: legenda.trim() }).run();
         }
+        garantirLinhaNoFim(editor, false);
         break;
       }
       case "imagem": setSeletorImagem(true); break;
@@ -368,20 +553,185 @@ export function Editor({
           setErro("O vídeo não foi inserido porque ficou sem título.");
           break;
         }
-        editor
-          .chain()
-          .focus()
-          .insertContent({
-            type: "youtube",
-            attrs: { src: url, title: titulo.trim() },
-          })
-          .run();
+        inserirNoPonto(editor, ponto, {
+          type: "youtube",
+          attrs: { src: url, title: titulo.trim() },
+        });
         break;
       }
       case "produto": setSeletorProduto(true); break;
     }
-    setMenuAberto(false);
   }, [editor]);
+
+  /**
+   * Ponto guardado, conferido contra o documento de agora.
+   *
+   * Entre escolher "imagem" e a imagem entrar passam um envio de arquivo e uma
+   * conversão para WebP. Se o documento tiver encolhido nesse meio tempo, uma
+   * posição velha faria o TipTap recusar a inserção inteira.
+   */
+  const pontoSalvo = useCallback((): { from: number; to: number } => {
+    if (!editor) return { from: 0, to: 0 };
+    const tamanho = editor.state.doc.content.size;
+    const p = pontoRef.current;
+    if (!p) return pontoDeInsercao(editor);
+    return { from: Math.min(p.from, tamanho), to: Math.min(p.to, tamanho) };
+  }, [editor]);
+
+  /* ---------------------------------------- menu que acompanha o cursor */
+
+  const grupos = useMemo(() => filtrarBlocos(barra?.termo ?? ""), [barra]);
+  const menuVisivel = (menuAberto || barra !== null) && grupos.length > 0;
+
+  /** Escolha vinda do menu: apaga a barra digitada antes de inserir o bloco. */
+  const escolherDoMenu = useCallback(
+    (tipo: string) => {
+      if (!editor) return;
+      if (barra) {
+        editor
+          .chain()
+          .focus()
+          .deleteRange({ from: barra.de, to: editor.state.selection.from })
+          .run();
+      }
+      inserir(tipo);
+    },
+    [editor, barra, inserir],
+  );
+
+  useEffect(() => {
+    if (!editor) return;
+
+    const sincronizar = () => {
+      const raiz = corpoRef.current;
+      if (!raiz) return;
+      const sel = editor.state.selection;
+
+      // 1. Onde desenhar o "+": no bloco de topo em que o cursor está.
+      try {
+        const posicao = sel.$from.depth > 0 ? sel.$from.before(1) : sel.$from.pos;
+        const no = editor.view.nodeDOM(posicao);
+        const el =
+          no instanceof HTMLElement ? no : no instanceof Text ? no.parentElement : null;
+        if (!el) {
+          setLinha(null);
+        } else {
+          const r = el.getBoundingClientRect();
+          const rr = raiz.getBoundingClientRect();
+          const estilo = window.getComputedStyle(el);
+          const alturaDaLinha =
+            parseFloat(estilo.lineHeight) || parseFloat(estilo.fontSize) * 1.6 || 24;
+          // Centraliza na primeira linha do bloco, não no bloco inteiro: num
+          // parágrafo de seis linhas o "+" tem que ficar lá em cima.
+          const folga = Math.max(0, (Math.min(alturaDaLinha, r.height) - 28) / 2);
+          setLinha({ topo: r.top - rr.top + folga, naTela: r.top });
+        }
+      } catch {
+        setLinha(null);
+      }
+
+      // 2. Comando por barra.
+      if (!sel.empty || !sel.$from.parent.isTextblock) {
+        setBarra(null);
+        return;
+      }
+      const antes = sel.$from.parent.textBetween(
+        0, sel.$from.parentOffset, undefined, "￼",
+      );
+      // A barra só vale no começo da linha ou depois de um espaço, senão
+      // "https://" abriria o menu no meio de um endereço colado.
+      const achado = /(?:^|\s)\/([\p{L}\p{N}]{0,20})$/u.exec(antes);
+      if (!achado) {
+        dispensadaRef.current = null;
+        setBarra(null);
+        return;
+      }
+      const de = sel.$from.start() + achado.index + (achado[0].startsWith("/") ? 0 : 1);
+      if (de === dispensadaRef.current) {
+        setBarra(null);
+        return;
+      }
+      setBarra({ de, termo: achado[1] });
+    };
+
+    sincronizar();
+    editor.on("selectionUpdate", sincronizar);
+    editor.on("update", sincronizar);
+    editor.on("focus", sincronizar);
+    window.addEventListener("resize", sincronizar);
+    return () => {
+      editor.off("selectionUpdate", sincronizar);
+      editor.off("update", sincronizar);
+      editor.off("focus", sincronizar);
+      window.removeEventListener("resize", sincronizar);
+    };
+  }, [editor]);
+
+  // Filtro novo recomeça a seleção no primeiro item.
+  useEffect(() => { setAtivo(0); }, [barra?.termo, menuAberto]);
+
+  // Setas, Enter e Esc com o foco ainda no texto: é isso que faz o "/" valer a
+  // pena. O listener vai no DOM do editor, em captura, para chegar antes do
+  // ProseMirror mover o cursor.
+  useEffect(() => {
+    if (!editor || !menuVisivel) return;
+    const planos = grupos.flatMap((g) => g.itens);
+    if (planos.length === 0) return;
+
+    const teclado = (e: KeyboardEvent) => {
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setAtivo((i) => (i + 1) % planos.length);
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setAtivo((i) => (i - 1 + planos.length) % planos.length);
+      } else if (e.key === "Enter" || e.key === "Tab") {
+        const item = planos[ativo];
+        if (!item) return;
+        e.preventDefault();
+        escolherDoMenu(item.tipo);
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        dispensadaRef.current = barra?.de ?? null;
+        setMenuAberto(false);
+        setBarra(null);
+      }
+    };
+
+    const alvo = editor.view.dom;
+    alvo.addEventListener("keydown", teclado, true);
+    return () => alvo.removeEventListener("keydown", teclado, true);
+  }, [editor, menuVisivel, grupos, ativo, barra, escolherDoMenu]);
+
+  // Clique fora fecha. Sem overlay por cima da página, para o clique chegar ao
+  // texto e já posicionar o cursor onde a pessoa clicou.
+  useEffect(() => {
+    if (!menuVisivel) return;
+    const fora = (e: MouseEvent) => {
+      const alvo = e.target as Node;
+      if (document.getElementById("jk-menu-blocos")?.contains(alvo)) return;
+      if (document.getElementById("jk-botao-inserir")?.contains(alvo)) return;
+      setMenuAberto(false);
+      setBarra(null);
+    };
+    document.addEventListener("mousedown", fora);
+    return () => document.removeEventListener("mousedown", fora);
+  }, [menuVisivel]);
+
+  // Mantém o item marcado à vista quando a navegação passa do fim da lista.
+  useEffect(() => {
+    if (!menuVisivel) return;
+    document
+      .querySelector('#jk-menu-blocos [data-ativo="sim"]')
+      ?.scrollIntoView({ block: "nearest" });
+  }, [ativo, menuVisivel]);
+
+  /** O menu abre para baixo, e para cima quando não cabe até o fim da tela. */
+  const estiloMenu: React.CSSProperties = linha
+    ? linha.naTela + 384 > (typeof window === "undefined" ? 99999 : window.innerHeight)
+      ? { left: 6, top: Math.max(6, linha.topo - 366) }
+      : { left: 6, top: linha.topo + 34 }
+    : { left: 6, top: 6 };
 
   /**
    * Upload: converte para WebP, registra dimensão e exige alt.
@@ -452,16 +802,16 @@ export function Editor({
     await vincularImagem(inicial.id, img.id);
 
     // Largura e altura vão para a tag, para o navegador reservar o espaço.
-    editor
-      ?.chain()
-      .focus()
-      .setImage({
+    if (!editor) return;
+    inserirNoPonto(editor, pontoSalvo(), {
+      type: "image",
+      attrs: {
         src: img.url,
         alt: img.alt ?? "",
-        ...(img.width ? { width: img.width } : {}),
-        ...(img.height ? { height: img.height } : {}),
-      } as { src: string; alt: string })
-      .run();
+        width: img.width ?? null,
+        height: img.height ?? null,
+      },
+    });
   };
 
   /** Insere uma imagem que já está na biblioteca. */
@@ -477,27 +827,32 @@ export function Editor({
     // página, e legenda é sinal de contexto tanto para o leitor quanto para a
     // busca por imagem.
     const temLegenda = Boolean(img.caption?.trim() || img.credit?.trim());
-    if (temLegenda) {
-      editor
-        ?.chain()
-        .focus()
-        .inserirFigura({
-          src: img.url,
-          alt: img.alt,
-          width: img.width,
-          height: img.height,
-          legenda: img.caption,
-          credito: img.credit,
-        })
-        .run();
-    } else {
-      editor?.chain().focus().setImage({
-        src: img.url,
-        alt: img.alt,
-        ...(img.width ? { width: img.width } : {}),
-        ...(img.height ? { height: img.height } : {}),
-      } as { src: string; alt: string }).run();
-    }
+    if (!editor) return;
+    inserirNoPonto(
+      editor,
+      pontoSalvo(),
+      temLegenda
+        ? {
+            type: "figura",
+            attrs: {
+              src: img.url,
+              alt: img.alt,
+              width: img.width ?? null,
+              height: img.height ?? null,
+              legenda: img.caption ?? "",
+              credito: img.credit ?? "",
+            },
+          }
+        : {
+            type: "image",
+            attrs: {
+              src: img.url,
+              alt: img.alt,
+              width: img.width ?? null,
+              height: img.height ?? null,
+            },
+          },
+    );
     setAviso(
       temLegenda
         ? "Imagem inserida com a legenda cadastrada na biblioteca."
@@ -656,7 +1011,7 @@ export function Editor({
   const btBarra = "flex h-8 w-8 items-center justify-center rounded-[8px] text-ink/70 transition-colors hover:bg-brand/12 hover:text-brand-nav";
 
   return (
-    <div className="grid gap-8 lg:grid-cols-[1fr_23rem]">
+    <div data-painel-largo className="grid gap-8 lg:grid-cols-[1fr_23rem]">
       <div className="min-w-0">
         {/* Barra de ações */}
         <div className="glass sticky top-20 z-30 mb-6 flex flex-wrap items-center justify-between gap-3 rounded-[16px] px-4 py-3">
@@ -829,7 +1184,7 @@ export function Editor({
         </div>
 
         {/* Corpo */}
-        <div className={`glass relative mt-5 rounded-[20px] p-6 sm:p-7 ${menuAberto ? "z-50" : ""}`}>
+        <div className={`glass relative mt-5 rounded-[20px] p-6 sm:p-7 ${menuVisivel ? "z-50" : ""}`}>
           <Secao
             Icone={FileText}
             titulo="Conteúdo"
@@ -860,20 +1215,49 @@ export function Editor({
             <button type="button" onClick={() => editor?.chain().focus().redo().run()} className={btBarra} title="Refazer"><Redo2 size={15} /></button>
           </div>
 
-          <div className="rounded-[12px] border border-border/60 bg-white/50 px-4 py-3 transition-colors focus-within:border-brand/50">
+          <div
+            ref={corpoRef}
+            className="relative rounded-[12px] border border-border/60 bg-white/50 py-3 pl-10 pr-4 transition-colors focus-within:border-brand/50 sm:pl-12"
+          >
+            {linha ? (
+              <button
+                id="jk-botao-inserir"
+                type="button"
+                // preventDefault mantém o cursor onde está. É a posição do
+                // cursor que decide em qual linha o bloco vai entrar, então
+                // perder o foco aqui seria perder o ponto de inserção.
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => { setBarra(null); setMenuAberto((v) => !v); }}
+                style={{ top: linha.topo }}
+                aria-expanded={menuVisivel}
+                aria-haspopup="listbox"
+                title="Inserir bloco nesta linha"
+                aria-label="Inserir bloco nesta linha"
+                className="absolute left-1.5 z-10 flex h-7 w-7 sm:left-2.5 items-center justify-center rounded-full border border-brand/40 bg-white text-brand-nav transition-colors hover:border-brand hover:bg-brand/16"
+              >
+                <Plus size={15} />
+              </button>
+            ) : null}
+
             <EditorContent editor={editor} />
+
+            {menuVisivel ? (
+              <MenuBlocos
+                grupos={grupos}
+                ativo={ativo}
+                aoEscolher={escolherDoMenu}
+                aoPassar={setAtivo}
+                estilo={estiloMenu}
+              />
+            ) : null}
           </div>
 
-          <div className="relative mt-4">
-            <button
-              type="button"
-              onClick={() => setMenuAberto((v) => !v)}
-              className="flex items-center gap-2 rounded-full border border-dashed border-brand/50 bg-brand/6 px-4 py-2.5 text-sm font-semibold text-brand-nav transition-colors hover:border-brand hover:bg-brand/14"
-            >
-              <Plus size={16} /> Inserir bloco
-            </button>
-            {menuAberto ? <MenuBlocos aoEscolher={inserir} aoFechar={() => setMenuAberto(false)} /> : null}
-          </div>
+          <p className="mt-2.5 text-xs leading-relaxed text-muted">
+            O <strong className="font-semibold text-ink">+</strong> acompanha a linha em que você
+            está, e o bloco entra ali. Digite{" "}
+            <strong className="font-semibold text-ink">/</strong> no texto para abrir a mesma lista
+            sem tirar a mão do teclado.
+          </p>
 
           {assistente ? (
             <AssistenteEscrita
@@ -885,15 +1269,15 @@ export function Editor({
                 // atalho "crie uma tabela comparando larguras" entregava uma
                 // tabela desmontada em parágrafos soltos.
                 const pareceHtml = /<(p|h3|ul|ol|table|li)\b/i.test(t);
-                editor
-                  ?.chain()
-                  .focus("end")
-                  .insertContent(
-                    pareceHtml
-                      ? t
-                      : t.split("\n").filter(Boolean).map((p) => `<p>${p}</p>`).join(""),
-                  )
-                  .run();
+                if (!editor) return;
+                const corpo = pareceHtml
+                  ? t
+                  : t.split("\n").filter(Boolean).map((p) => `<p>${p}</p>`).join("");
+                // Entra onde o cursor parou, não no fim do artigo: quem pede um
+                // trecho à IA quase sempre quer ele na seção que está escrevendo.
+                const onde = pontoDeInsercao(editor);
+                editor.chain().focus().insertContentAt(onde, corpo).scrollIntoView().run();
+                garantirLinhaNoFim(editor, false);
               }}
             />
           ) : null}
@@ -932,28 +1316,43 @@ export function Editor({
           {seletorProduto ? (
             <SeletorProduto
               contentId={inicial.id}
-              aoFechar={() => setSeletorProduto(false)}
+              aoFechar={() => {
+                // Fechar sem escolher precisa limpar o pedido, senão o próximo
+                // produto inserido no texto iria parar na vitrine antiga.
+                pedidoDaVitrine.current = null;
+                setSeletorProduto(false);
+              }}
               aoEscolher={(p, url) => {
                 // Preço promocional vence quando existe e é menor.
                 const temPromo =
                   p.precoPromocional !== null && p.preco !== null && p.precoPromocional < p.preco;
-                editor
-                  ?.chain()
-                  .focus("end")
-                  .insertContent({
-                    type: "produto",
-                    attrs: {
-                      produtoId: p.id,
-                      nome: p.nome,
-                      url,
-                      imagem: p.imagem,
-                      preco: String(temPromo ? p.precoPromocional : (p.preco ?? "")),
-                      precoAntigo: temPromo ? String(p.preco) : null,
-                      disponivel: p.disponivel,
-                      prazo: p.prazo,
-                    },
-                  })
-                  .run();
+                const novo: ProdutoDoBloco = {
+                  id: p.id,
+                  nome: p.nome,
+                  url,
+                  imagem: p.imagem,
+                  preco: temPromo
+                    ? String(p.precoPromocional)
+                    : p.preco !== null
+                      ? String(p.preco)
+                      : null,
+                  precoAntigo: temPromo ? String(p.preco) : null,
+                  disponivel: p.disponivel,
+                  prazo: p.prazo,
+                };
+
+                const aceitar = pedidoDaVitrine.current;
+                pedidoDaVitrine.current = null;
+                if (aceitar) {
+                  aceitar(novo);
+                  return;
+                }
+
+                if (!editor) return;
+                inserirNoPonto(editor, pontoSalvo(), {
+                  type: "vitrine",
+                  attrs: { formato: "vertical", produtos: [novo] },
+                });
               }}
             />
           ) : null}
@@ -1176,7 +1575,12 @@ export function Editor({
         </div>
       </div>
 
-      <aside className="lg:sticky lg:top-20 lg:h-fit">
+      <aside className="space-y-4 lg:sticky lg:top-20 lg:h-fit">
+        <BotaoPrompt
+          publicados={comparaveis.map((c) => c.title)}
+          consultaAlvo={consultaAlvo}
+        />
+
         <PainelAnalise
           contentId={inicial.id}
           intencao={intencao}

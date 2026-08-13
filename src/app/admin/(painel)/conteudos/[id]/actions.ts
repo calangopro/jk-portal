@@ -52,23 +52,28 @@ export async function salvarConteudo(p: SalvarPayload): Promise<SalvarResultado>
   const slugLimpo = p.slug.trim();
   if (!slugLimpo) return { ok: false, erro: "O endereço da página não pode ficar vazio." };
 
+  // Estado atual, lido ANTES do update. Traz duas coisas: o `updated_at` que
+  // detecta edição concorrente e o slug antigo, que precisa ser invalidado
+  // quando o endereço muda (senão a URL velha continua servindo HTML velho
+  // até o ISR expirar).
+  const { data: atual } = await supabase
+    .from("contents")
+    .select("updated_at, slug")
+    .eq("id", p.id)
+    .maybeSingle();
+
   // Conflito: outra aba, ou outra pessoa, salvou depois que este editor abriu.
   // Sobrescrever em silêncio apaga trabalho alheio, então aqui a gente para e
   // pergunta.
-  if (!p.forcar) {
-    const { data: atual } = await supabase
-      .from("contents")
-      .select("updated_at")
-      .eq("id", p.id)
-      .maybeSingle();
-    if (atual?.updated_at && p.versao && atual.updated_at !== p.versao) {
-      return {
-        ok: false,
-        conflito: true,
-        erro: "Esta página foi salva em outro lugar depois que você abriu o editor.",
-      };
-    }
+  if (!p.forcar && atual?.updated_at && p.versao && atual.updated_at !== p.versao) {
+    return {
+      ok: false,
+      conflito: true,
+      erro: "Esta página foi salva em outro lugar depois que você abriu o editor.",
+    };
   }
+
+  const slugAntigo = atual?.slug ?? null;
 
   const slugFinal = await slugDisponivel(slugLimpo, p.id);
 
@@ -111,6 +116,11 @@ export async function salvarConteudo(p: SalvarPayload): Promise<SalvarResultado>
     });
     revalidatePath("/admin/conteudos");
     revalidatePath(`/guia/${slugFinal}`);
+    // Endereço trocado: sem isto a página antiga segue no ar com o conteúdo
+    // antigo, e quem chega por link ou pela busca do Google vê a versão velha.
+    if (slugAntigo && slugAntigo !== slugFinal) {
+      revalidatePath(`/guia/${slugAntigo}`);
+    }
   }
 
   return {
@@ -318,7 +328,31 @@ export async function publicarConteudo(id: string): Promise<{ ok: boolean; erro?
   if (error) return { ok: false, erro: error.message };
 
   await revalidarTudo(data?.slug);
+  await reindexarBusca(id);
   return { ok: true };
+}
+
+/**
+ * Põe a busca em dia depois de publicar, despublicar ou arquivar.
+ *
+ * Import dinâmico para a service_role não entrar no pacote das telas.
+ *
+ * Falha aqui NUNCA derruba a publicação: o índice é dado derivado, e a página
+ * no ar vale mais que a busca atualizada. O pior caso é a busca ficar velha até
+ * o próximo reindex, e é por isso que o aviso vai para o log do servidor em vez
+ * de morrer em silêncio.
+ */
+async function reindexarBusca(id: string) {
+  try {
+    const [{ getConteudoPorId }, { indexarGuia }] = await Promise.all([
+      import("@/lib/data/contents"),
+      import("@/lib/busca/indexar"),
+    ]);
+    const guia = await getConteudoPorId(id);
+    if (guia) await indexarGuia(guia);
+  } catch (e) {
+    console.error("[busca] não consegui reindexar o conteúdo", id, e);
+  }
 }
 
 /**
@@ -358,6 +392,9 @@ export async function voltarParaRascunho(id: string): Promise<{ ok: boolean }> {
   revalidatePath("/sitemap.xml");
   revalidatePath("/llms.txt");
   if (data?.slug) revalidatePath(`/guia/${data.slug}`);
+  // Tira da busca junto. Página fora do ar que continua aparecendo no resultado
+  // leva a pessoa para um 404, o que é pior que não achar nada.
+  await reindexarBusca(id);
   return { ok: true };
 }
 

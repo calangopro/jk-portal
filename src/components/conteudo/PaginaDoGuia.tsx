@@ -5,9 +5,11 @@ import { FaqLista } from "@/components/ui/FaqLista";
 import { Comentarios } from "@/components/comentarios/Comentarios";
 import { SidebarConteudo } from "@/components/layout/SidebarConteudo";
 import { CabecalhoGuia } from "./CabecalhoGuia";
+import { CapaDeFundo } from "./CapaDeFundo";
 import { IndiceMobile } from "./IndiceMobile";
 import { ApoioMobile } from "./ApoioMobile";
 import { comIndice } from "@/lib/content/indice";
+import { comPrecosAtuais } from "@/lib/conteudo/precos";
 import { tempoDeLeitura } from "@/lib/content/leitura";
 import { comentariosAprovados } from "@/lib/data/comentarios";
 import { JsonLd } from "@/components/schema/JsonLd";
@@ -25,7 +27,7 @@ import {
   comAutores,
   relacionadosPorGrafo,
   produtosDoConteudo,
-  dimensoesDasImagens,
+  mapaDeDimensoes,
   comCapas,
   capaDoConteudo,
 } from "@/lib/data/contents";
@@ -50,8 +52,11 @@ export async function PaginaDoGuia({ guia: recebido }: { guia: Content }) {
   const produtos = await produtosDoConteudo(guia.id);
 
   // Índice a partir dos H2, e outros guias para a coluna lateral.
-  const dimensoes = await dimensoesDasImagens(guia.bodyHtml ?? "");
-  const { html: corpoComIndice, indice } = comIndice(guia.bodyHtml ?? "", dimensoes);
+  const dimensoes = await mapaDeDimensoes(guia.bodyHtml ?? "");
+  // Preço dos cards de produto vem da tabela `products`, não do que ficou
+  // gravado no texto no dia em que o guia foi escrito. Ver src/lib/conteudo/precos.ts.
+  const corpo = await comPrecosAtuais(guia.bodyHtml ?? "");
+  const { html: corpoComIndice, indice } = comIndice(corpo, dimensoes);
 
   // A primeira imagem do corpo vira a imagem do Article, com dimensão real.
   // Se o guia tem capa, ela tem prioridade: é a imagem que representa a página.
@@ -111,30 +116,51 @@ export async function PaginaDoGuia({ guia: recebido }: { guia: Content }) {
       })}
 
       <article>
-        <Container size="wide" className="py-12 sm:py-16">
-          {/* No celular a ordem é: cabeçalho, índice recolhível, texto, apoio
-              (medidor, relacionados, lojas) e só então os comentários. Antes a
-              coluna de apoio caía depois dos comentários e todo o aparato de
-              conversão ficava invisível justamente onde está o tráfego. */}
+        {/*
+          Faixa de abertura, acima da grade.
+
+          Antes o título e a resposta rápida moravam DENTRO da coluna de texto,
+          espremidos ao lado da barra lateral: um H1 de display sobrava linha
+          atrás de linha em metade da largura disponível. Aqui eles ocupam a
+          página inteira, que é o peso que a abertura de um guia pede, e a
+          resposta rápida (o trecho que a IA cita e que ganha destaque na busca)
+          fica no primeiro lugar que o olho encontra.
+        */}
+        <div className="relative overflow-hidden border-b border-border/70 bg-gradient-to-b from-sand/60 to-transparent">
+          {guia.capa ? <CapaDeFundo imagem={guia.capa} /> : null}
+
+          {/* `relative` para o texto ficar por cima da capa, e a coluna trava
+              em 60% no desktop para nunca invadir a área onde a foto ainda
+              está nítida. */}
+          <Container size="wide" className="relative py-12 sm:py-16 lg:max-w-[min(72rem,100%)]">
+            <div className="lg:w-[60%]">
+            {isSample ? (
+              <div className="mb-6">
+                <Pill tom="vinho">Conteúdo de exemplo (placeholder)</Pill>
+              </div>
+            ) : null}
+
+            <CabecalhoGuia
+              guia={guia}
+              minutos={minutos}
+              etiqueta={guia.cluster ?? "Guia"}
+              passos={[
+                { nome: "Início", href: "/" },
+                { nome: "Guias", href: "/guia" },
+                { nome: guia.title },
+              ]}
+            />
+            </div>
+          </Container>
+        </div>
+
+        <Container size="wide" className="py-10 sm:py-14">
+          {/* No celular a ordem é: índice recolhível, texto, apoio (medidor,
+              relacionados, lojas) e só então os comentários. Antes a coluna de
+              apoio caía depois dos comentários e todo o aparato de conversão
+              ficava invisível justamente onde está o tráfego. */}
           <div className="grid gap-x-14 gap-y-10 lg:grid-cols-[minmax(0,1fr)_var(--container-lateral)]">
-            <div className="min-w-0 max-w-leitura-larga lg:col-start-1 lg:row-start-1">
-              {isSample ? (
-                <div className="mb-6">
-                  <Pill tom="vinho">Conteúdo de exemplo (placeholder)</Pill>
-                </div>
-              ) : null}
-
-              <CabecalhoGuia
-                guia={guia}
-                minutos={minutos}
-                etiqueta={guia.cluster ?? "Guia"}
-                passos={[
-                  { nome: "Início", href: "/" },
-                  { nome: "Guias", href: "/guia" },
-                  { nome: guia.title },
-                ]}
-              />
-
+            <div className="min-w-0 lg:col-start-1 lg:row-start-1">
               <IndiceMobile itens={indice} />
 
               {/* Corpo. O HTML vem do editor em blocos do admin e usa a MESMA
@@ -142,11 +168,11 @@ export async function PaginaDoGuia({ guia: recebido }: { guia: Content }) {
                   escrever é o que vai ao ar. Fallback para o texto simples. */}
               {guia.bodyHtml ? (
                 <div
-                  className="conteudo-rico mt-12 max-w-leitura"
+                  className="conteudo-rico mt-8 max-w-leitura-larga"
                   dangerouslySetInnerHTML={{ __html: corpoComIndice }}
                 />
               ) : guia.bodyMd ? (
-                <div className="conteudo-rico mt-12 max-w-leitura">
+                <div className="conteudo-rico mt-8 max-w-leitura-larga">
                   {guia.bodyMd.split("\n\n").map((block, i) => {
                     const heading = block.match(/^##\s+(.*)$/);
                     return heading ? <h2 key={i}>{heading[1]}</h2> : <p key={i}>{block}</p>;
@@ -155,13 +181,13 @@ export async function PaginaDoGuia({ guia: recebido }: { guia: Content }) {
               ) : null}
 
               {guia.faqs?.length ? (
-                <FaqLista faqs={guia.faqs} className="mt-16 max-w-leitura" />
+                <FaqLista faqs={guia.faqs} className="mt-16 max-w-leitura-larga" />
               ) : null}
 
               {/* Fecho do artigo: compartilhar depois da leitura, não antes.
                   Antes os botões ficavam no topo, pedindo que a pessoa
                   compartilhasse algo que ainda não tinha lido. */}
-              <div className="mt-14 max-w-leitura border-t border-border pt-7">
+              <div className="mt-14 max-w-leitura-larga border-t border-border pt-7">
                 <div className="flex flex-wrap items-center justify-between gap-5">
                   <div>
                     <p className="eyebrow">Achou útil?</p>
@@ -195,7 +221,7 @@ export async function PaginaDoGuia({ guia: recebido }: { guia: Content }) {
 
             {/* Comentários: no desktop voltam para a coluna do texto, logo
                 abaixo dele. No celular ficam por último, como deve ser. */}
-            <div className="min-w-0 max-w-leitura lg:col-start-1 lg:row-start-2">
+            <div className="min-w-0 max-w-leitura-larga lg:col-start-1 lg:row-start-2">
               {!isSample ? (
                 <Comentarios contentId={guia.id} slug={guia.slug} iniciais={comentarios} />
               ) : null}

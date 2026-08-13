@@ -74,7 +74,9 @@ export default async function PainelLayout({
           </div>
         </header>
 
-        <main className="mx-auto w-full max-w-5xl px-5 py-10 sm:px-8">{children}</main>
+        <main className="painel-conteudo mx-auto w-full max-w-5xl px-5 py-10 sm:px-8">
+          {children}
+        </main>
       </div>
     </div>
   );

@@ -4,11 +4,12 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build && npm run verificar:tokens",
+    "build": "next build && npm run verificar:tokens && npm run verificar:precos",
     "start": "next start",
     "lint": "next lint",
-    "build:seguro": "BUILD_DIR=.next-build next build && BUILD_DIR=.next-build npm run verificar:tokens",
-    "verificar:tokens": "node scripts/verificar-tokens.mjs"
+    "build:seguro": "BUILD_DIR=.next-build next build && BUILD_DIR=.next-build npm run verificar:tokens && npm run verificar:precos",
+    "verificar:tokens": "node scripts/verificar-tokens.mjs",
+    "verificar:precos": "node --experimental-strip-types --disable-warning=ExperimentalWarning scripts/teste-precos.mts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
