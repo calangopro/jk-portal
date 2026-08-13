@@ -33,9 +33,21 @@ const host = hostDoSupabase();
 const nextConfig: NextConfig = {
   distDir: process.env.BUILD_DIR || ".next",
   images: {
-    remotePatterns: host
-      ? [{ protocol: "https", hostname: host, pathname: "/storage/v1/object/public/**" }]
-      : [],
+    remotePatterns: [
+      ...(host
+        ? [
+            {
+              protocol: "https" as const,
+              hostname: host,
+              pathname: "/storage/v1/object/public/**",
+            },
+          ]
+        : []),
+      // CDN da Tray: é de lá que vêm as fotos do catálogo espelhado. Sem esta
+      // entrada o next/image recusa a imagem remota e a vitrine da home fica
+      // com os quadros vazios.
+      { protocol: "https" as const, hostname: "images.tcdn.com.br", pathname: "/**" },
+    ],
     // Larguras que o portal realmente usa: coluna de leitura, capa e miniatura.
     imageSizes: [96, 160, 256, 384],
     deviceSizes: [420, 640, 828, 1080, 1280, 1600, 1920],
