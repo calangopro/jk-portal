@@ -51,7 +51,7 @@ src/lib/schema/      builders de JSON-LD (Article, Breadcrumb, Organization, Jew
 src/lib/seo/         metadata + constantes do site
 src/lib/supabase/    read (SSG), server, client, admin (service_role), middleware
 src/lib/data/rotas.ts  links de Google Maps, Waze, WhatsApp e telefone das lojas
-supabase/migrations/ 0001 a 0017, todas em arquivo e todas aplicadas
+supabase/migrations/ 0001 a 0033, todas em arquivo e todas aplicadas
 public/              logo.png, logo.svg, og/ (og/default.png ainda falta)
 docs/                identidade-visual-jk.md (marca)
 ```
@@ -82,6 +82,58 @@ docs/                identidade-visual-jk.md (marca)
 - **`is_staff()` é só "tem perfil ativo", não "foi convidado".** Todo usuário do
   auth ganha perfil pelo trigger `handle_new_user`. A trava de convite mora no
   `is_active`, que agora sai de `invited_at`.
+- **O site público não lê `facts`, lê `fatos_publicos`.** A RLS de `facts` só
+  libera para quem tem perfil ativo, e a chave anônima do site enxergava zero:
+  o comparador saiu com "a confirmar" em toda linha de teor, com os fatos
+  aprovados no banco. A view `fatos_publicos` é `security_invoker = false` de
+  propósito (ligado, herdaria a RLS e continuaria vazia), e por isso o filtro de
+  `status = 'aprovado'` mora dentro dela. `detail` fica de fora: é contexto
+  interno, inclusive lembrete de perguntar à JK.
+- **Número em texto de ferramenta se confere na tela renderizada.** Duas vezes o
+  texto do registro saiu errado e o build não pegava: "aro 18 é o 8 americano"
+  (é 8,5) e "4 mm cobre 23% do dedo" (cobre 22%). São contas que o próprio
+  componente faz, então a checagem certa é comparar o texto com o que a página
+  mostra, e não reler o que se escreveu.
+- **Ferramenta dentro do artigo precisa cortar o HTML.** O corpo do guia vai para
+  a página como HTML servido de uma vez, então componente React não mora lá
+  dentro. `separarFerramentas` (`src/lib/content/ferramentas-html.ts`) corta o
+  corpo nos marcadores `div[data-ferramenta]` e `PaginaDoGuia` intercala o
+  componente entre os pedaços. Marcador de ferramenta que saiu do ar continua no
+  HTML e some por CSS, senão herdaria a margem entre blocos e abriria um vão.
+- **`not-found.tsx` roda em página que responde 200.** O componente faz parte da
+  árvore de layout e entra no pacote de navegação, então gravar 404 dali contava
+  guia publicado como link quebrado: uma visita ao guia real somava três "404".
+  O registro passou a sair do navegador (`RegistrarEndereco` + `/api/404`), que
+  só dispara quando a página de erro apareceu de verdade para alguém.
+- **Publicar mora em `src/lib/publicacao/publicar.ts`, não nas actions.** São três
+  portas para o mesmo ato: botão do editor, botão da lista e o relógio do
+  agendamento. A terceira não tem ninguém logado. Se cada porta tivesse a própria
+  verificação, bastaria agendar para o conteúdo entrar no ar sem fonte e sem
+  passar pelo analisador. As travas moram no núcleo e as três portas chamam ele.
+- **Desenho de medir não pode ter duas bordas.** O anel dourado do medidor era
+  bonito e ambíguo: metade das pessoas encostava a aliança na borda de fora.
+  Ferramenta de medida se desenha com UMA borda só, e com um estado final que a
+  própria tela confirma ("o escuro sumiu"), nunca com um texto explicando qual
+  linha vale.
+- **Área que rola enquanto o desenho cresce anda sozinha debaixo da mão.** Na
+  calibração, cada toque no controle recalculava a rolagem e a tela fugia com o
+  objeto real encostado nela. Desenho que a pessoa vai medir se prende por
+  âncora absoluta, e o que não couber muda de orientação, em vez de ganhar
+  barra de rolagem.
+- **Desenho que a pessoa ajusta não pode dividir altura com painel de texto.**
+  No modo de medição, o painel de resultado ficava no fluxo e crescia quando o
+  aviso de "entre dois tamanhos" aparecia. O palco era `flex-1`, então encolhia,
+  e o disco SUBIA sozinho no meio da medição, com a aliança encostada na tela.
+  Instrução e resultado agora flutuam por cima, o palco ocupa a etapa inteira e
+  o centro do disco é uma fração da altura, que não muda nunca.
+- **Dedo sozinho não lê como dedo, e vetor não faz pele.** O simulador de
+  largura queimou três desenhos: retângulo com faixa, dedo único cortado
+  embaixo, e três dedos com pele em degradê. Os dois primeiros erravam a
+  composição (o que faz o olho reconhecer a cena é contexto: vizinhos, alturas
+  diferentes, leque, mão se dissolvendo embaixo). O terceiro errava a
+  linguagem: vetor tem teto para realismo de pele, e quase-real fica pior que
+  assumidamente desenhado. A saída foi ilustração de traço, com o material
+  guardado só para o produto. Não tentar a quarta rodada de realismo em SVG.
 - **`.conteudo-rico` é a MESMA classe no editor e no site publicado.** Mexeu nela, confira
   os dois lados, senão o preview passa a mentir sobre o que vai ao ar.
 - **`.conteudo-rico` é um container CSS (`container-name: leitura`).** Bloco de dentro
@@ -127,12 +179,97 @@ docs/                identidade-visual-jk.md (marca)
 ✅ **10 lojas físicas publicadas:** endereço, telefone/WhatsApp e link do Maps do site oficial; coordenada e place id resolvidos dos próprios links curtos. Página com galeria, mapa (OpenStreetMap, sem chave), rota por Maps e por Waze, horário dia a dia, serviços, história, avaliações e FAQ.
 ✅ **Alinhamento com a documentação de SEO do Google (12/08):** `max-image-preview:large`, `max-snippet:-1` e `max-video-preview:-1` em toda página indexável (sem isso o site ficava fora do Discover); `robots.txt` com `Disallow` repetido em cada grupo de bot de IA (grupo específico substitui o `*`, então o admin estava aberto para os seis agentes); canonical do `<head>` e `@id` do JSON-LD saindo da mesma função; 404 com `noindex, follow`, cabeçalho, rodapé e saídas, dentro do grupo `(site)`; relacionados vindo do grafo; `viewport` e verificação do Search Console. Sitemap sem `priority`/`changefreq` (o Google ignora os dois), com `lastmod` nas rotas fixas e extensão de imagem. `primaryImageOfPage`, `WebPage`, `ItemList`, `creditText`/`copyrightNotice` a partir do campo `credit`, `Product` só com preço real. **Páginas de autor** (`0018_autores.sql`) com `ProfilePage`, `/autor/[slug]`, tela `/admin/autores` e assinatura clicável. **Trava de publicação** para erros objetivos, nas duas portas. 7 regras novas no analisador. Blocos de figura com legenda, tabela com `<caption>` e `scope`, vídeo com `title`. Assistente que escreve o `alt` lendo a imagem. Preview do Google por largura em pixel, mais preview do card de compartilhamento. FAQ aberta no desktop, 410 com marca, headers de segurança e AVIF.
 ⚠️ **O que a documentação mudou e vale saber:** o rich result de **FAQ acabou em 07/05/2026** e o de **HowTo em 2023**. O markup dos dois continua no ar (custo zero, e Bing e as IAs ainda leem), mas não é mais argumento de busca no Google. O **`llms.txt` não é lido pelo Google** (confirmado em 15/06/2026), fica para os outros sistemas. E **não existe otimização separada para IA**: o guia de IA generativa diz que otimizar para busca generativa é SEO, e desmonta picotar conteúdo e depender de dados estruturados.
+✅ **Motor de produção (13/08):** **base de fatos** (`facts`, tela `/admin/fatos`),
+com o fato escrito uma vez e a linha de `sources` nascendo do gesto de citar no
+editor, que é o que destrava a trava de publicação. **Fila de pautas**
+(`briefings`, `/admin/pautas`) lendo `analytics_snapshots` e ordenando por
+impressão alta com CTR baixo, com recusa de pauta que canibaliza página
+existente, e "virar rascunho" que já preenche consulta alvo, modelo e produtos.
+**Histórico de versões** com restaurar, que só reescreve os campos presentes no
+retrato (retrato antigo não tem `authorId`, e escrever null apagaria a autoria de
+hoje). **Agendamento** (`contents.scheduled_at`) disparado pelo `pg_cron` via
+`pg_net` no endpoint `/api/cron/publicar`, passando pelas MESMAS travas, com o
+motivo da recusa em `scheduled_error`. **Calendário** em `/admin/calendario`.
+**Redirects** em `/admin/redirects`, com a fila de endereços quebrados
+(`not_found_hits`) e palpite de destino por semelhança de slug.
+**Blocos novos no editor:** resumo em destaque, passo a passo (`data-passos`),
+FAQ no corpo (que soma ao `FAQPage` junto do campo antigo, via
+`src/lib/content/faq-html.ts`) e chamada para ação com `data-evento`.
+
+✅ **Ferramentas (13/08):** registro em `src/lib/ferramentas/registro.ts`, no
+espírito de `blocos/tipos.ts`. Cada ferramenta se declara uma vez e dela saem a
+página `/ferramentas/[slug]` (resposta primeiro, `HowTo`, `FAQPage`), a entrada
+no sitemap e no `llms.txt`, o item no menu do editor e o bloco embutido no
+artigo. Duas ferramentas no ar: **conversor de tamanhos** (aro brasileiro, EUA,
+ISO 8653, circunferência e diâmetro), com a matemática em
+`src/lib/medidor/conversao.ts` conferida contra a tabela americana publicada, e
+**simulador de largura** (`src/lib/medidor/larguras.ts`), que desenha 2 a 8 mm em
+tamanho real reaproveitando a calibração do medidor e fecha com peças reais
+daquela largura vindas de `product_variants.width_mm`, e **comparador de
+materiais**, que separa por ORIGEM: teor sai de definição metrológica (fato
+aprovado), faixa de preço sai da view `aliancas_por_material` sobre o catálogo
+sincronizado, e durabilidade e garantia só aparecem quando a JK aprovar o fato.
+A **pré-visualização de gravação** não foi construída: é a única das quatro sem
+nenhum dado próprio, e as perguntas para a JK ficaram registradas como fatos em
+`validar` (migration 0033).
+O medidor continua em `/medidor-de-aliancas`, sem mexer na URL que já tem
+histórico de busca.
+
+✅ **Ferramentas na navegação e home nova (13/08):** as quatro ferramentas
+aparecem pelo nome no cabeçalho (painel no desktop, cartões na gaveta do
+celular) e no rodapé, tudo saindo de `itensDeFerramenta()` no registro, então
+ferramenta nova entra nos três lugares sem caçada. Emblema próprio de cada uma
+em `src/components/ferramentas/Simbolo.tsx`, em traço e `currentColor`, do menu
+de 16 px à marca d'água de 224 px no cartão. A home `/ferramentas` deixou de ser
+índice de blog: abre em painel carvão com a resposta primeiro e segue em cartões
+com emblema, marca d'água e cara de aplicativo, sem perder `ItemList`.
+
+✅ **Medidor sem ambiguidade (13/08):** o desenho de medir era um ANEL, e anel
+tem duas bordas, então ninguém sabia qual encostar. Virou **disco cheio**
+(`Disco.tsx`), de uma borda só, e o gesto virou verificável a olho: crescer até
+o escuro em volta sumir. A instrução (`ComoApoiar.tsx`) mostra os três estados
+desenhados e **flutua sobre o palco**, aberta na primeira vez e recolhida
+sozinha no primeiro arrasto. A calibração não rola mais: o objeto é posicionado
+por absoluto, preso ao mesmo eixo do título, e o cartão entra **em pé** (medido
+pelos 53,98 mm do padrão ID-1) quando os 85,6 mm não cabem na tela.
+
+✅ **Simulador de largura em ilustração de traço (14/08):** o desenho passou por
+quatro versões descartadas (faixa sobre retângulo, dedo sozinho, três dedos com
+pele em degradê, três dedos em traço soltos no ar) antes de fechar em `Dedo.tsx`
+como está: **mão** em linha editorial, com contorno fino, preenchimento chapado
+e sombra chapada, no espírito de ilustração de anúncio. O contorno é a UNIÃO das
+peças, feita com o truque das duas passadas (tudo com traço grosso da cor da
+linha, depois tudo de novo só com o preenchimento), porque SVG não tem operação
+booleana: sem isso a borda da mão atravessava os dedos. A única coisa renderizada
+como material é a aliança, e ela é **reta**, porque a curvatura de anel visto de
+cima atrapalhava a única coisa que a ferramenta precisa entregar, que é comparar
+largura. Continuam valendo os três dedos (só o do meio carrega a medida) e a
+silhueta gerada por perfil de meia largura.
+Tem **escolha de metal** (ouro amarelo, ouro rosé, ouro branco e prata 925), e
+cada metal é uma sequência de paradas de cor em `MATERIAIS`, não uma cor só: o
+que faz o olho ler metal polido é a alternância dura entre borda escura, estouro
+de luz quase branco e meio-tom, mais um corte seco no meio da altura, que é o
+céu refletido em cima e o chão embaixo. As mesmas paradas alimentam o desenho, a
+bolinha do seletor e a barra da comparação, via `gradienteDoMaterial()`.
+Atalho `/medidor-de-aliancas?calibrar=1` abre o medidor direto na escolha do
+objeto, e o simulador linka para ele. O parâmetro é lido de `window.location`,
+não de `useSearchParams`, para a página não virar dinâmica.
+
 🔲 **A construir:** conteúdo (só 1 guia publicado), OAuth do Search Console e do GMB, deploy na Vercel.
-⚠️ **Pendências:** **desligar o cadastro público no painel do Supabase**
+⚠️ **Pendências:** **preencher o endereço do portal em `site_settings.cron`**
+(`update public.site_settings set value = jsonb_build_object('url','https://SEU-DOMINIO') where key='cron';`).
+Sem isso o job `publicar-agendados` do `pg_cron` roda de 5 em 5 minutos e não faz
+nada, então a publicação agendada fica só na tela. O segredo do disparo já existe
+em `integration_tokens` (provider `cron`) e é o mesmo que o endpoint
+`/api/cron/publicar` confere. **Desligar o cadastro público no painel do Supabase**
 (Authentication → Sign In / Providers → "Allow new users to sign up"), que hoje
 está ligado e é a única parte da falha de 0020 que não dá para fechar por
 migration. Trocar a senha temporária do master e rotacionar a chave da OpenAI.
-Ligar "leaked password protection" no Supabase. Projeto sem `eslint.config.js`,
+Ligar "leaked password protection" no Supabase.
+O advisor acusa `pg_net` instalado no schema `public`: fica assim de propósito,
+porque a extensão **não aceita `set schema`** e a única saída seria derrubar e
+recriar, o que quebraria a publicação agendada por uma advertência cosmética.
+As funções dela vivem em `net`, que é onde o cron as chama. Projeto sem `eslint.config.js`,
 então o lint não roda. README desatualizado.
 ⚠️ **Depende da JK:** fotos das lojas, horário confirmado de sete unidades, história por unidade, avaliações reais do GMB, razão social e CNPJ.
 

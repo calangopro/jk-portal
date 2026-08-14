@@ -17,6 +17,7 @@ import { paginaRemovidaHtml } from "@/lib/redirects/pagina-removida";
  */
 export async function middleware(request: NextRequest) {
   const redirect = await acharRedirect(request.nextUrl.pathname);
+
   if (!redirect) return NextResponse.next();
 
   // 410 significa que a página saiu de vez, e não que mudou de lugar. O status

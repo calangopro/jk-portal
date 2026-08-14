@@ -40,6 +40,7 @@ export function Medidor({ children }: { children?: ReactNode }) {
   const [larguraSalva, setLarguraSalva] = useState<number | null>(null);
   const [carregou, setCarregou] = useState(false);
   const [aberto, setAberto] = useState(false);
+  const [entrarCalibrando, setEntrarCalibrando] = useState(false);
   const abrir = useRef<HTMLButtonElement>(null);
 
   /* ------------------------------------------------------- calibração */
@@ -62,6 +63,20 @@ export function Medidor({ children }: { children?: ReactNode }) {
     } catch {
       // localStorage indisponível: segue sem calibração salva.
     }
+
+    // Atalho de recalibrar: `/medidor-de-aliancas?calibrar=1` abre direto na
+    // escolha do objeto. É lido de `window.location` e não de `useSearchParams`
+    // de propósito, porque o hook tornaria esta página dinâmica, e ela é uma das
+    // que mais rende na busca justamente por ser estática.
+    try {
+      if (new URLSearchParams(window.location.search).get("calibrar") === "1") {
+        setEntrarCalibrando(true);
+        setAberto(true);
+      }
+    } catch {
+      /* sem window, sem atalho */
+    }
+
     setCarregou(true);
   }, []);
 
@@ -100,6 +115,7 @@ export function Medidor({ children }: { children?: ReactNode }) {
 
   const fechar = useCallback(() => {
     setAberto(false);
+    setEntrarCalibrando(false);
     guardar({ diametroMm });
     abrir.current?.focus();
   }, [guardar, diametroMm]);
@@ -234,6 +250,8 @@ export function Medidor({ children }: { children?: ReactNode }) {
           pxPorMm={pxPorMm}
           referencia={referencia}
           diametroMm={diametroMm}
+          jaMediu={mediu}
+          etapaInicial={entrarCalibrando ? "escolha" : undefined}
           aoDefinirCalibragem={definirCalibragem}
           aoDefinirDiametro={definirDiametro}
           aoFechar={fechar}

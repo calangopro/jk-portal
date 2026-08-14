@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Link2 as LinkIcon } from "lucide-react";
 import { requireStaff } from "@/lib/auth/session";
 import { listarConteudos, paginasOrfas, STATUS_LABEL, type ContentRow } from "@/lib/data/admin-contents";
+import { atrasado, quandoLegivel } from "@/lib/content/agenda";
 import { duplicarConteudo, mudarStatus, apagarDefinitivo } from "./actions";
 import { NovoConteudo } from "./NovoConteudo";
 
@@ -146,6 +147,23 @@ export default async function ConteudosPage({
                         {c.title}
                       </Link>
                       <p className="text-xs text-muted">/guia/{c.slug}</p>
+                      {/* Agendamento na lista, porque o pior caso desta função
+                          seria a hora passar, a trava recusar e ninguém ficar
+                          sabendo até alguém abrir o conteúdo por acaso. */}
+                      {c.scheduled_at ? (
+                        <p
+                          className={`mt-1 text-xs ${
+                            atrasado(c.scheduled_at) ? "text-wine" : "text-brand-strong"
+                          }`}
+                        >
+                          {atrasado(c.scheduled_at)
+                            ? `Passou da hora (${quandoLegivel(c.scheduled_at)}) e não entrou no ar`
+                            : `Sai em ${quandoLegivel(c.scheduled_at)}`}
+                        </p>
+                      ) : null}
+                      {c.scheduled_error ? (
+                        <p className="mt-1 text-xs text-wine">{c.scheduled_error}</p>
+                      ) : null}
                     </td>
                     <td className="px-6 py-4">
                       <span className={`rounded-full px-3 py-1 text-xs font-semibold ${CORES[c.status]}`}>

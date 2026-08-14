@@ -2,12 +2,17 @@ import Link from "next/link";
 import Image from "next/image";
 import { Container } from "./Container";
 import { SITE } from "@/lib/seo/site";
+import { itensDeFerramenta } from "@/lib/ferramentas/registro";
 
 const NAVEGACAO = [
   { href: "/guia", rotulo: "Guias de alianças" },
-  { href: "/medidor-de-aliancas", rotulo: "Medidor de aliança" },
   { href: "/lojas", rotulo: "Nossas lojas" },
+  { href: "/ferramentas", rotulo: "Todas as ferramentas" },
 ];
+
+// Cada ferramenta com o nome próprio no rodapé: é link interno para a página
+// que mais rende no portal, e some do rodapé só se sair do registro.
+const FERRAMENTAS_NO_RODAPE = itensDeFerramenta();
 
 /** Nome legível de cada perfil, derivado do domínio em SITE.sameAs. */
 const REDES: Record<string, string> = {
@@ -55,6 +60,17 @@ export function SiteFooter() {
                 <li key={i.href}>
                   <Link href={i.href} className="transition-colors hover:text-brand-light">
                     {i.rotulo}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+
+            <p className="eyebrow mb-4 mt-8 text-brand-light">Ferramentas</p>
+            <ul className="space-y-3 text-apoio text-white/80">
+              {FERRAMENTAS_NO_RODAPE.map((f) => (
+                <li key={f.href}>
+                  <Link href={f.href} className="transition-colors hover:text-brand-light">
+                    {f.nome}
                   </Link>
                 </li>
               ))}

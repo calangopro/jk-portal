@@ -1,8 +1,19 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { X, Minus, Plus, Check, ArrowLeft, Hand, Coins, CreditCard } from "lucide-react";
-import { Anel } from "./Anel";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  X,
+  Minus,
+  Plus,
+  Check,
+  ArrowLeft,
+  Hand,
+  Coins,
+  CreditCard,
+  ChevronDown,
+} from "lucide-react";
+import { Disco } from "./Disco";
+import { ComoApoiar } from "./ComoApoiar";
 import { ObjetoReferencia } from "./ObjetoReferencia";
 import {
   REFERENCIAS,
@@ -46,6 +57,8 @@ export function ModoMedicao({
   pxPorMm,
   referencia,
   diametroMm,
+  jaMediu = false,
+  etapaInicial,
   aoDefinirCalibragem,
   aoDefinirDiametro,
   aoFechar,
@@ -53,13 +66,19 @@ export function ModoMedicao({
   pxPorMm: number | null;
   referencia: ReferenciaId;
   diametroMm: number;
+  /** Quem já mediu antes entra com a instrução recolhida. */
+  jaMediu?: boolean;
+  /** Força o passo de entrada. É o que faz o atalho de recalibrar cair na
+      escolha do objeto em vez de na régua. */
+  etapaInicial?: Etapa;
   aoDefinirCalibragem: (px: number, ref: ReferenciaId) => void;
   aoDefinirDiametro: (mm: number) => void;
   aoFechar: () => void;
 }) {
-  const [etapa, setEtapa] = useState<Etapa>(pxPorMm ? "medir" : "escolha");
+  const [etapa, setEtapa] = useState<Etapa>(etapaInicial ?? (pxPorMm ? "medir" : "escolha"));
   const [refEscolhida, setRefEscolhida] = useState<ReferenciaId>(referencia);
   const [rascunho, setRascunho] = useState(pxPorMm ?? 3.8);
+  const [dica, setDica] = useState(!jaMediu);
 
   const painel = useRef<HTMLDivElement>(null);
   const palco = useRef<HTMLDivElement>(null);
@@ -148,6 +167,9 @@ export function ModoMedicao({
     ponteiros.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
     rebasear(diametroMm);
     setArrastando(true);
+    // Começou a ajustar: a instrução já foi lida e vira uma linha só, para o
+    // anel ficar com a tela inteira.
+    setDica(false);
   };
 
   const aoMover = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -191,6 +213,63 @@ export function ModoMedicao({
     return () => el.removeEventListener("wheel", aoRolar);
   }, [etapa, pxPorMm, diametroMm, aoDefinirDiametro]);
 
+  /* --------------------------------------------- orientação do cartão */
+
+  /**
+   * O cartão tem 85,6 mm de largura e a tela de um celular tem cerca de 70 mm.
+   * Deitado, ele nunca cabe, e era exatamente por isso que esta etapa rolava de
+   * lado. Rolar não resolvia nada: ninguém alinha uma borda que está fora da
+   * tela. Quando não cabe, o desenho fica EM PÉ e a calibração passa a ser pela
+   * borda menor do cartão, os 53,98 mm do mesmo padrão internacional. A conta
+   * continua exata, e o gesto volta a ser possível com uma mão só.
+   */
+  const areaCalibragem = useRef<HTMLDivElement>(null);
+  const [larguraDaArea, setLarguraDaArea] = useState(0);
+
+  // Ao trocar de objeto, a próxima âncora se centra pela escala atual.
+  useEffect(() => {
+    escalaAoAncorar.current = rascunho;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refEscolhida]);
+
+  useEffect(() => {
+    const el = areaCalibragem.current;
+    if (!el) return;
+    setLarguraDaArea(el.clientWidth);
+    const observador = new ResizeObserver(([entrada]) =>
+      setLarguraDaArea(entrada.contentRect.width),
+    );
+    observador.observe(el);
+    return () => observador.disconnect();
+  }, [etapa]);
+
+  const ANCORA_MINIMA = 20;
+  const emPe =
+    refEscolhida === "cartao" &&
+    larguraDaArea > 0 &&
+    REFERENCIAS.cartao.medidaMm * rascunho > larguraDaArea - ANCORA_MINIMA - 8;
+
+  /**
+   * Onde a borda esquerda do desenho fica presa.
+   *
+   * Duas exigências que brigam: a âncora não pode se mexer enquanto a pessoa
+   * ajusta (foi o que fazia a tela fugir debaixo da mão), e o desenho não pode
+   * nascer torto no canto esquerdo de uma tela larga. A saída é congelar a
+   * âncora no ponto que CENTRALIZA o objeto na escala em que a etapa abriu.
+   * Depois disso ela não se mexe mais: cresce só para a direita, a partir de um
+   * desenho que começou no meio da tela.
+   */
+  const escalaAoAncorar = useRef(rascunho);
+  const ancoraX = useMemo(() => {
+    const objetoMm = emPe
+      ? REFERENCIAS.cartao.alturaMm
+      : REFERENCIAS[refEscolhida].medidaMm;
+    const largura = objetoMm * escalaAoAncorar.current;
+    return Math.max(ANCORA_MINIMA, Math.round((larguraDaArea - largura) / 2));
+    // De propósito sem `rascunho`: é justamente o que não pode mover a âncora.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refEscolhida, larguraDaArea, emPe]);
+
   /* ------------------------------------------------------------ etapas */
 
   const passo = etapa === "escolha" ? 1 : etapa === "calibrar" ? 2 : 3;
@@ -202,7 +281,7 @@ export function ModoMedicao({
       aria-label="Modo de medição do aro"
       // h-dvh em vez de inset-0: em celular a barra do navegador entra e sai, e
       // com bottom:0 o painel de controle fica escondido atrás dela.
-      className="palco-noite fixed inset-x-0 top-0 z-[100] flex h-dvh flex-col"
+      className="palco-noite fixed inset-x-0 top-0 z-[100] flex h-dvh flex-col overflow-hidden overscroll-contain"
     >
       <div ref={painel} className="flex h-full flex-col">
         {/* Barra superior */}
@@ -280,26 +359,79 @@ export function ModoMedicao({
         {/* ---------------------------------------------- 2. calibrar */}
         {etapa === "calibrar" ? (
           <div key="calibrar" className="etapa flex flex-1 flex-col overflow-hidden">
-            <div className="shrink-0 px-5 pt-6 text-center sm:px-8">
+            <div className="mx-auto w-full max-w-3xl shrink-0 px-5 pt-6 text-center sm:px-8">
               <h2 className="font-display text-titulo-secao text-[#f6efe4]">
                 Encoste {refEscolhida === "moeda" ? "a moeda" : "o cartão"} na tela
               </h2>
               <p className="mx-auto mt-2 max-w-md text-apoio leading-relaxed text-[#f3ece1]/65">
-                Ajuste o desenho até ele ficar exatamente do tamanho{" "}
-                {refEscolhida === "moeda" ? "da moeda" : "do cartão"} de verdade,
-                encostado na tela.
+                {refEscolhida === "moeda" ? (
+                  <>
+                    Encoste a moeda no filete dourado, pela esquerda, e ajuste o
+                    desenho até o outro lado bater com a moeda de verdade.
+                  </>
+                ) : emPe ? (
+                  <>
+                    O cartão não cabe deitado nesta tela, então ele entra{" "}
+                    <strong className="font-semibold text-[#f6efe4]">em pé</strong>:
+                    encoste a borda esquerda dele no filete dourado, também em
+                    pé, e ajuste até a borda direita do desenho bater com a do
+                    cartão.
+                  </>
+                ) : (
+                  <>
+                    Encoste a borda esquerda do cartão no filete dourado e
+                    ajuste o desenho até o outro lado bater com o cartão de
+                    verdade.
+                  </>
+                )}
               </p>
             </div>
 
-            {/* O desenho pode ficar maior que a tela (o cartão tem 85,6 mm).
-                Por isso a área rola nos dois eixos em vez de estourar. */}
-            {/* Rolagem por fora, centralização por dentro num invólucro que
-                nunca fica menor que o desenho (`min-w-max`). Centralizar direto
-                no container que rola deixaria a metade esquerda de um desenho
-                grande inalcançável. */}
-            <div className="flex-1 overflow-auto">
-              <div className="flex min-h-full min-w-max items-center justify-center p-5">
-                <ObjetoReferencia id={refEscolhida} pxPorMm={rascunho} className="shrink-0" />
+            {/* Âncora fixa, sem nenhuma rolagem.
+                Antes esta área rolava nos dois eixos para caber o cartão de
+                85,6 mm. O efeito colateral era pior que o problema: a cada
+                toque no controle o desenho crescia, o container recalculava a
+                rolagem e a tela andava sozinha debaixo da mão, com o objeto
+                real encostado nela. Agora o desenho é posicionado por absoluto,
+                preso pela borda esquerda: crescer não mexe em layout nenhum,
+                então não há o que rolar. A pessoa encosta a borda esquerda do
+                objeto no filete dourado e estica até a direita bater. */}
+            <div className="relative flex-1 overflow-hidden">
+              <div ref={areaCalibragem} className="relative h-full w-full">
+                {/* O filete é a marca de encostar: fica onde a borda esquerda
+                    do desenho começou, no meio da tela. */}
+                <div
+                  aria-hidden
+                  className="absolute inset-y-0 w-px bg-gradient-to-b from-transparent via-brand/70 to-transparent"
+                  style={{ left: ancoraX }}
+                />
+                <span
+                  className="eyebrow absolute top-2 text-[0.62rem] text-brand-light/70"
+                  style={{ left: ancoraX + 8 }}
+                >
+                  encoste aqui
+                </span>
+
+                {emPe ? (
+                  // Em pé, o giro é do desenho, não do layout: a borda esquerda
+                  // fica presa no mesmo eixo e o cartão desce pela tela.
+                  <div
+                    className="absolute top-10 origin-top-left"
+                    style={{
+                      left: ancoraX,
+                      transform: `translateX(${REFERENCIAS.cartao.alturaMm * rascunho}px) rotate(90deg)`,
+                    }}
+                  >
+                    <ObjetoReferencia id={refEscolhida} pxPorMm={rascunho} />
+                  </div>
+                ) : (
+                  <div
+                    className="absolute top-1/2 -translate-y-1/2"
+                    style={{ left: ancoraX }}
+                  >
+                    <ObjetoReferencia id={refEscolhida} pxPorMm={rascunho} />
+                  </div>
+                )}
               </div>
             </div>
 
@@ -358,29 +490,78 @@ export function ModoMedicao({
 
         {/* ------------------------------------------------- 3. medir */}
         {etapa === "medir" && pxPorMm ? (
-          <div key="medir" className="etapa flex flex-1 flex-col overflow-hidden">
-            <div className="shrink-0 px-5 pt-5 text-center">
-              <p className="text-apoio text-[#f3ece1]/65">
-                Apoie a aliança na tela e ajuste o anel até encostar por dentro dela.
-              </p>
-            </div>
+          <div key="medir" className="etapa relative flex-1 overflow-hidden">
+            {/* Palco do disco, ocupando a etapa INTEIRA.
+                `touch-action: none` é o que permite arrastar e pinçar sem a
+                página tentar rolar junto.
 
-            {/* Palco do anel. `touch-action: none` é o que permite arrastar e
-                pinçar sem a página tentar rolar junto. */}
+                O centro do disco é uma fração da altura da etapa, e a etapa não
+                muda de altura nunca. Antes o palco era `flex-1` e o painel de
+                resultado ficava no fluxo: quando o aviso de "entre dois
+                tamanhos" aparecia, o painel crescia, o palco encolhia e o disco
+                subia sozinho no meio da medição. Painel e instrução agora
+                flutuam POR CIMA, então nada mais empurra o desenho. */}
             <div
               ref={palco}
               onPointerDown={aoDescer}
               onPointerMove={aoMover}
               onPointerUp={aoSubir}
               onPointerCancel={aoSubir}
-              className={`flex flex-1 touch-none items-center justify-center overflow-hidden ${
+              className={`absolute inset-0 touch-none ${
                 arrastando ? "cursor-grabbing" : "cursor-grab"
               }`}
             >
-              <Anel furoPx={diametroMm * pxPorMm} />
+              <div className="absolute left-1/2 top-[42%] -translate-x-1/2 -translate-y-1/2">
+                <Disco furoPx={diametroMm * pxPorMm} />
+              </div>
             </div>
 
-            <div className="shrink-0 border-t border-white/10 px-5 py-5 sm:px-8">
+            {/* Instrução do gesto, FLUTUANDO sobre o palco. Aberta para quem
+                chega pela primeira vez, recolhida em uma linha depois, e o
+                palco continua inteiro nos dois casos. */}
+            <div className="pointer-events-none absolute inset-x-0 top-0 px-4 pt-4 sm:px-8">
+                <div
+                  // O toque na instrução não pode virar arrasto do disco.
+                  onPointerDown={(e) => e.stopPropagation()}
+                  // Fundo quase opaco, e não vidro: o disco passa por trás
+                  // dela, e vidro transparente deixava desenho em cima de
+                  // desenho.
+                  className="pointer-events-auto mx-auto max-w-md rounded-md border border-white/12 bg-[#171410]/95 p-3 shadow-[var(--jk-sombra-modal)] backdrop-blur-md"
+                >
+                  <button
+                    type="button"
+                    onClick={() => setDica((v) => !v)}
+                    aria-expanded={dica}
+                    className="flex w-full items-center justify-between gap-3 rounded-sm px-1 text-left text-apoio text-[#f3ece1]/85 transition-colors hover:text-[#f6efe4]"
+                  >
+                    <span>
+                      Aliança{" "}
+                      <strong className="font-semibold text-[#f6efe4]">
+                        deitada em cima da tela
+                      </strong>
+                      , cresça até o escuro sumir
+                    </span>
+                    <ChevronDown
+                      size={16}
+                      aria-hidden
+                      className={`shrink-0 text-brand-light transition-transform duration-300 ${
+                        dica ? "rotate-180" : ""
+                      }`}
+                    />
+                  </button>
+
+                  {dica ? (
+                    <div className="etapa mt-3 border-t border-white/10 px-1 pt-3">
+                      <ComoApoiar />
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+
+            {/* Painel de resultado, também flutuando. Ele cresce quando o aviso
+                de "entre dois tamanhos" aparece, e crescer para CIMA não move o
+                disco. */}
+            <div className="absolute inset-x-0 bottom-0 border-t border-white/10 bg-[#14120f]/95 px-5 py-5 backdrop-blur-md sm:px-8">
               <div className="mx-auto max-w-md">
                 {/* Resultado. O aria-live é o que faz quem usa leitor de tela
                     saber o aro: antes o número só existia visualmente. */}
@@ -409,7 +590,7 @@ export function ModoMedicao({
                     aoClicar={() =>
                       aoDefinirDiametro(limitar(+(diametroMm - 0.05).toFixed(2), DIAMETRO_MIN, DIAMETRO_MAX))
                     }
-                    rotulo="Diminuir o anel"
+                    rotulo="Diminuir o disco"
                   >
                     <Minus size={16} />
                   </BotaoFino>
@@ -430,7 +611,7 @@ export function ModoMedicao({
                     aoClicar={() =>
                       aoDefinirDiametro(limitar(+(diametroMm + 0.05).toFixed(2), DIAMETRO_MIN, DIAMETRO_MAX))
                     }
-                    rotulo="Aumentar o anel"
+                    rotulo="Aumentar o disco"
                   >
                     <Plus size={16} />
                   </BotaoFino>
@@ -438,7 +619,7 @@ export function ModoMedicao({
 
                 <p className="mt-3 flex items-center justify-center gap-1.5 text-nota text-[#f3ece1]/60">
                   <Hand size={12} aria-hidden />
-                  Arraste o anel, pince com dois dedos ou use o controle
+                  Arraste o disco, pince com dois dedos ou use o controle
                 </p>
 
                 <button

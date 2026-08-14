@@ -5,10 +5,22 @@ import { NavPrincipal, type ItemNav } from "./NavPrincipal";
 import { ProgressoLeitura } from "./ProgressoLeitura";
 import { SITE } from "@/lib/seo/site";
 import { BuscaNoCabecalho } from "@/components/busca/BuscaNoCabecalho";
+import { itensDeFerramenta } from "@/lib/ferramentas/registro";
 
 const ITENS: ItemNav[] = [
   { href: "/guia", rotulo: "Guias" },
-  { href: "/medidor-de-aliancas", rotulo: "Medidor" },
+  {
+    href: "/ferramentas",
+    rotulo: "Ferramentas",
+    // Cada ferramenta aparece pelo nome, e não escondida atrás do índice.
+    // Ferramenta nova entra no menu só por existir no registro.
+    filhos: itensDeFerramenta().map((f) => ({
+      href: f.href,
+      rotulo: f.nome,
+      resumo: f.chamada,
+      chave: f.chave,
+    })),
+  },
   { href: "/lojas", rotulo: "Lojas" },
 ];
 

@@ -19,7 +19,8 @@ import {
   Plus, Type, Heading2, Heading3, ImageIcon, List, ListOrdered, Quote, Minus,
   Table as TableIcon, Bold, Italic, Link2, Undo2, Redo2, Pencil, Sparkles,
   CirclePlay, ShoppingBag, MessageCircleQuestion, Search, FileText,
-  Zap, Check, X, Loader2, AlertTriangle, ShieldCheck,
+  Zap, Check, X, Loader2, AlertTriangle, ShieldCheck, Lightbulb, Footprints, MousePointerClick,
+  CalendarClock, Quote as QuoteIcon, Wrench,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { paraWebp } from "@/lib/midia/webp";
@@ -28,7 +29,21 @@ import { PainelAnalise } from "./PainelAnalise";
 import { SeletorProduto } from "./SeletorProduto";
 import { SeletorImagem } from "./SeletorImagem";
 import { SeletorLink } from "./SeletorLink";
+import { MARCA_PENDENTE } from "@/lib/editor/modelos";
+import { FaqNode } from "@/lib/editor/FaqNode";
+import { ChamadaNode } from "@/lib/editor/ChamadaNode";
+import { FonteNode } from "@/lib/editor/FonteNode";
+import { FerramentaNode } from "@/lib/editor/FerramentaNode";
+import { FERRAMENTAS } from "@/lib/ferramentas/registro";
+import { DestaqueNode } from "@/lib/editor/DestaqueNode";
+import { ListaDePassos } from "@/lib/editor/PassosNode";
 import { Fontes } from "./Fontes";
+import { PainelFatos } from "./PainelFatos";
+import { SeletorDeFonte } from "./SeletorDeFonte";
+import { Historico } from "./Historico";
+import { Agendamento } from "./Agendamento";
+import type { Fato } from "@/lib/content/fatos";
+import { faqsDoHtml, faqsUnidas } from "@/lib/content/faq-html";
 import { acharChoques, type PaginaComparavel } from "@/lib/analyzer/canibalizacao";
 import {
   salvarConteudo, publicarConteudo, voltarParaRascunho, ajudarAEscrever, linkDePreview, vincularImagem,
@@ -84,16 +99,32 @@ const GRUPOS_DE_BLOCO: { nome: string; itens: ItemDeBloco[] }[] = [
       { tipo: "h2", label: "Título de seção", desc: "H2, divide o conteúdo", Icone: Heading2, termos: "h2 titulo cabecalho secao" },
       { tipo: "h3", label: "Subtítulo", desc: "H3, dentro da seção", Icone: Heading3, termos: "h3 subtitulo" },
       { tipo: "citacao", label: "Citação", desc: "Destaque de fala", Icone: Quote, termos: "aspas quote destaque" },
+      { tipo: "destaque", label: "Resumo em destaque", desc: "Trecho que a IA cita", Icone: Lightbulb, termos: "resumo caixa aviso importante nota" },
+      { tipo: "fonte", label: "Trecho com fonte", desc: "Mostra a origem para quem lê", Icone: QuoteIcon, termos: "fonte evidencia origem citacao prova referencia" },
     ],
   },
   {
     nome: "Estrutura",
     itens: [
       { tipo: "lista", label: "Lista", desc: "Com marcadores", Icone: List, termos: "bullet marcador topicos" },
-      { tipo: "listaNum", label: "Lista numerada", desc: "Passo a passo", Icone: ListOrdered, termos: "numero ordenada passos" },
+      { tipo: "listaNum", label: "Lista numerada", desc: "Sequência simples", Icone: ListOrdered, termos: "numero ordenada" },
+      { tipo: "passos", label: "Passo a passo", desc: "Vira HowTo no schema", Icone: Footprints, termos: "howto tutorial como fazer etapas passos" },
       { tipo: "tabela", label: "Tabela", desc: "Comparação, a IA extrai muito bem", Icone: TableIcon, termos: "comparacao grade colunas" },
+      { tipo: "faq", label: "Perguntas frequentes", desc: "No meio do texto, e vai para o schema", Icone: MessageCircleQuestion, termos: "faq duvida pergunta resposta" },
       { tipo: "divisor", label: "Divisor", desc: "Separa assuntos", Icone: Minus, termos: "linha separador hr" },
     ],
+  },
+  {
+    nome: "Ferramentas",
+    // Gerado do registro. Ferramenta nova aparece aqui sozinha, sem ninguém
+    // precisar lembrar de voltar neste arquivo.
+    itens: FERRAMENTAS.map((f) => ({
+      tipo: `ferramenta:${f.slug}`,
+      label: f.nome,
+      desc: f.chamada,
+      Icone: Wrench,
+      termos: f.termos,
+    })),
   },
   {
     nome: "Mídia e loja",
@@ -101,6 +132,7 @@ const GRUPOS_DE_BLOCO: { nome: string; itens: ItemDeBloco[] }[] = [
       { tipo: "imagem", label: "Imagem", desc: "Vira WebP e exige alt", Icone: ImageIcon, termos: "foto figura png jpg" },
       { tipo: "video", label: "Vídeo do YouTube", desc: "Aumenta tempo na página", Icone: CirclePlay, termos: "youtube filme embed" },
       { tipo: "produto", label: "Produto da loja", desc: "Link para a Tray, com UTM", Icone: ShoppingBag, termos: "alianca loja tray comprar" },
+      { tipo: "chamada", label: "Chamada para ação", desc: "Saída medida para loja, unidade ou guia", Icone: MousePointerClick, termos: "cta botao acao proximo passo convite" },
     ],
   },
 ];
@@ -360,6 +392,7 @@ export function Editor({
   inicial,
   comparaveis,
   fontesIniciais,
+  fatosAprovados,
   clusters,
   capaInicial,
   autores,
@@ -368,6 +401,7 @@ export function Editor({
   inicial: ContentRow;
   comparaveis: PaginaComparavel[];
   fontesIniciais: Fonte[];
+  fatosAprovados: Fato[];
   clusters: string[];
   capaInicial: ImagemDaBiblioteca | null;
   autores: OpcaoDeAutor[];
@@ -425,19 +459,25 @@ export function Editor({
   const [capa, setCapa] = useState<ImagemDaBiblioteca | null>(capaInicial);
   const [seletorCapa, setSeletorCapa] = useState(false);
   const [seletorLink, setSeletorLink] = useState(false);
+  const [seletorFonte, setSeletorFonte] = useState(false);
+  // Quando ligado, o seletor de link está escolhendo o destino de uma chamada,
+  // e não aplicando link ao texto selecionado.
+  const [destinoDaChamada, setDestinoDaChamada] = useState<null | { texto: string; botao: string }>(null);
   const [salvando, iniciarSalvar] = useTransition();
   const [salvoEm, setSalvoEm] = useState<string | null>(null);
   const [versao, setVersao] = useState(inicial.updated_at);
   const [sujo, setSujo] = useState(false);
   const [conflito, setConflito] = useState(false);
-  const [quantasFontes, setQuantasFontes] = useState(fontesIniciais.length);
+  const [fontes, setFontes] = useState<Fonte[]>(fontesIniciais);
   const [erro, setErro] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
 
   const editor = useEditor({
     immediatelyRender: false,
     extensions: [
-      StarterKit.configure({ heading: { levels: [2, 3] } }),
+      // orderedList desligado aqui porque `ListaDePassos` assume o mesmo nó,
+      // acrescentando a marca `data-passos` que deixa a página emitir HowTo.
+      StarterKit.configure({ heading: { levels: [2, 3] }, orderedList: false }),
       Placeholder.configure({
         placeholder: "Escreva aqui, ou digite / para inserir um bloco.",
       }),
@@ -455,6 +495,12 @@ export function Editor({
           return ReactNodeViewRenderer(VitrineView);
         },
       }),
+      ListaDePassos,
+      DestaqueNode,
+      FaqNode,
+      ChamadaNode,
+      FonteNode,
+      FerramentaNode,
       TabelaNode.configure({ resizable: false }),
       TableRow, CabecalhoDeTabela, TableCell,
     ],
@@ -478,6 +524,15 @@ export function Editor({
     pontoRef.current = ponto;
     setMenuAberto(false);
     setBarra(null);
+
+    // Ferramenta traz o slug no próprio tipo, então é tratada antes do switch.
+    if (tipo.startsWith("ferramenta:")) {
+      inserirNoPonto(editor, ponto, {
+        type: "ferramenta",
+        attrs: { slug: tipo.slice("ferramenta:".length) },
+      });
+      return;
+    }
 
     switch (tipo) {
       case "paragrafo": abrirLinhaNoPonto(editor, ponto); break;
@@ -509,6 +564,44 @@ export function Editor({
       case "citacao":
         abrirLinhaNoPonto(editor, ponto);
         editor.chain().focus().toggleBlockquote().run();
+        break;
+      case "passos":
+        abrirLinhaNoPonto(editor, ponto);
+        // Liga a lista e marca a sequência como procedimento. A marca é o que
+        // deixa a página emitir HowTo sem redigitar os passos noutro campo.
+        editor.chain().focus().toggleOrderedList().updateAttributes("orderedList", { passos: true }).run();
+        break;
+      case "destaque": {
+        const rotulo = window.prompt(
+          "Rótulo do destaque, curto. Ex.: Em resumo, Atenção, Da fábrica.\nDeixe vazio para o bloco sair sem rótulo.",
+          "Em resumo",
+        );
+        // Cancelar no prompt (null) desiste; string vazia é escolha de não ter rótulo.
+        if (rotulo === null) break;
+        inserirNoPonto(editor, ponto, {
+          type: "destaque",
+          attrs: { rotulo: rotulo.trim() },
+          content: [{ type: "paragraph" }],
+        });
+        // O cursor entra dentro do bloco: quem inseriu quer escrever ali.
+        editor.chain().focus().setTextSelection(ponto.from + 2).run();
+        break;
+      }
+      case "faq":
+        inserirNoPonto(editor, ponto, {
+          type: "faq",
+          content: [
+            {
+              type: "heading",
+              attrs: { level: 3 },
+              content: [{ type: "text", text: `${MARCA_PENDENTE} a pergunta exata que as pessoas digitam.` }],
+            },
+            {
+              type: "paragraph",
+              content: [{ type: "text", text: `${MARCA_PENDENTE} a resposta em 2 ou 3 frases, completa sem depender do resto da página.` }],
+            },
+          ],
+        });
         break;
       case "divisor":
         inserirNoPonto(editor, ponto, { type: "horizontalRule" });
@@ -559,7 +652,22 @@ export function Editor({
         });
         break;
       }
+      case "fonte": setSeletorFonte(true); break;
       case "produto": setSeletorProduto(true); break;
+      case "chamada": {
+        const texto = window.prompt(
+          "O que a chamada diz, em uma frase. Ex.: Prove no dedo na unidade mais perto de você.",
+          "",
+        );
+        if (texto === null) break;
+        const botao = window.prompt("Texto do botão, curto e concreto.", "Ver as lojas");
+        if (botao === null) break;
+        // O destino sai do mesmo seletor do link comum, então a chamada também
+        // entra no grafo de links internos em vez de virar URL digitada à mão.
+        setDestinoDaChamada({ texto: texto.trim(), botao: botao.trim() || "Ver mais" });
+        setSeletorLink(true);
+        break;
+      }
     }
   }, [editor]);
 
@@ -885,6 +993,24 @@ export function Editor({
     setCapa(null);
     setAviso("Capa removida. O cabeçalho do artigo continua funcionando sem ela.");
   };
+
+  /**
+   * Coloca um texto no ponto do cursor, como parágrafo.
+   *
+   * Usado pela base de fatos. Vai no cursor, e não no fim do artigo, porque o
+   * fato só faz sentido onde a frase está sendo escrita.
+   */
+  const inserirTexto = useCallback(
+    (texto: string) => {
+      if (!editor) return;
+      const ponto = pontoDeInsercao(editor);
+      inserirNoPonto(editor, ponto, {
+        type: "paragraph",
+        content: [{ type: "text", text: texto }],
+      });
+    },
+    [editor],
+  );
 
   /** Aplica uma sugestão da IA no campo certo. */
   const aplicar = useCallback((id: string, texto: string) => {
@@ -1290,11 +1416,56 @@ export function Editor({
                   ? editor.state.doc.textBetween(editor.state.selection.from, editor.state.selection.to, " ")
                   : ""
               }
-              aoEscolher={(href, rel) =>
+              aoEscolher={(href, rel) => {
+                if (destinoDaChamada) {
+                  const externo = /^https?:\/\//i.test(href);
+                  if (editor) {
+                    inserirNoPonto(editor, pontoSalvo(), {
+                      type: "chamada",
+                      attrs: {
+                        ...destinoDaChamada,
+                        href,
+                        externo,
+                        // O relatório precisa distinguir a saída: loja oficial,
+                        // unidade física ou outro guia.
+                        evento: externo ? "clique_produto" : href.startsWith("/lojas") ? "clique_loja" : "clique_guia",
+                      },
+                    });
+                  }
+                  setDestinoDaChamada(null);
+                  return;
+                }
                 editor?.chain().focus().extendMarkRange("link")
-                  .setLink(rel ? { href, rel } : { href }).run()
-              }
-              aoFechar={() => setSeletorLink(false)}
+                  .setLink(rel ? { href, rel } : { href }).run();
+              }}
+              aoFechar={() => { setSeletorLink(false); setDestinoDaChamada(null); }}
+            />
+          ) : null}
+
+          {seletorFonte ? (
+            <SeletorDeFonte
+              fontes={fontes}
+              aoFechar={() => setSeletorFonte(false)}
+              aoEscolher={(f) => {
+                setSeletorFonte(false);
+                if (!editor) return;
+                const ponto = pontoSalvo();
+                inserirNoPonto(editor, ponto, {
+                  type: "fonte",
+                  attrs: {
+                    fonteId: f.id,
+                    // O nome curto de quem afirma sai do domínio da fonte. Sem
+                    // link é registro interno, e o bloco diz isso em vez de
+                    // fingir que existe um endereço para conferir.
+                    origem: f.source_url ? new URL(f.source_url).hostname.replace(/^www\./, "") : "",
+                    url: f.source_url ?? "",
+                    conferidoEm: f.captured_at ?? "",
+                  },
+                  content: [{ type: "paragraph" }],
+                });
+                // Cursor dentro do bloco: quem inseriu quer escrever a frase.
+                editor.chain().focus().setTextSelection(ponto.from + 2).run();
+              }}
             />
           ) : null}
 
@@ -1566,12 +1737,39 @@ export function Editor({
             titulo="Fontes"
             ajuda="De onde veio cada afirmação factual do texto. Sem pelo menos uma, a publicação não passa."
             acao={
-              <span className={`rounded-full px-2.5 py-1 text-[0.68rem] font-semibold ${quantasFontes > 0 ? "bg-brand/15 text-brand-strong" : "bg-wine/10 text-wine"}`}>
-                {quantasFontes > 0 ? `${quantasFontes} registrada${quantasFontes > 1 ? "s" : ""}` : "nenhuma"}
+              <span className={`rounded-full px-2.5 py-1 text-[0.68rem] font-semibold ${fontes.length > 0 ? "bg-brand/15 text-brand-strong" : "bg-wine/10 text-wine"}`}>
+                {fontes.length > 0 ? `${fontes.length} registrada${fontes.length > 1 ? "s" : ""}` : "nenhuma"}
               </span>
             }
           />
-          <Fontes contentId={inicial.id} iniciais={fontesIniciais} aoMudar={setQuantasFontes} />
+          <PainelFatos
+            contentId={inicial.id}
+            fatos={fatosAprovados}
+            aoInserirTexto={inserirTexto}
+            aoRegistrarFonte={(f) => setFontes((antes) => [...antes, f])}
+          />
+          <Fontes contentId={inicial.id} fontes={fontes} aoMudar={setFontes} />
+        </div>
+
+        {/* Agendamento */}
+        <div className="glass mt-5 rounded-[20px] p-6 sm:p-7">
+          <Secao
+            Icone={CalendarClock}
+            titulo="Publicar em outra hora"
+            ajuda="Escreva agora e deixe entrar no ar no dia certo. Sempre no horário de São Paulo."
+          />
+          <Agendamento
+            contentId={inicial.id}
+            publicado={inicial.status === "published"}
+            agendadoPara={inicial.scheduled_at}
+            erroDoAgendamento={inicial.scheduled_error}
+          />
+        </div>
+
+        {/* Histórico. Fica no fim porque é rede de segurança, não etapa do
+            trabalho: quem precisa dele sabe que está aqui. */}
+        <div className="glass mt-5 rounded-[20px] p-6 sm:p-7">
+          <Historico contentId={inicial.id} />
         </div>
       </div>
 
@@ -1586,7 +1784,10 @@ export function Editor({
           intencao={intencao}
           aoAplicar={aplicar}
           entrada={{
-            titulo, slug, metaTitle, metaDescription, resposta, texto, html, faqs, consultaAlvo,
+            titulo, slug, metaTitle, metaDescription, resposta, texto, html, consultaAlvo,
+            // O bloco de FAQ escreve no corpo. Sem somar aqui, o analisador
+            // diria "menos de 2 perguntas" num texto cheio delas.
+            faqs: faqsUnidas(faqsDoHtml(html), faqs),
             // A pessoa cadastrada conta como autoria preenchida: o nome vem dela,
             // não do campo de texto livre.
             autor: autorId ? "cadastrado" : autor,

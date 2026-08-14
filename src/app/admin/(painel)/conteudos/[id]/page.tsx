@@ -7,7 +7,7 @@ import {
   opcoesDeAutor,
   temLinkDeEntrada,
 } from "@/lib/data/admin-contents";
-import { listarFontes, capaAtual } from "./actions";
+import { listarFontes, capaAtual, fatosParaCitar } from "./actions";
 import { Editor } from "./Editor";
 
 export const metadata = { title: "Editar conteúdo" };
@@ -22,13 +22,14 @@ export default async function EditarConteudoPage({
   const conteudo = await obterConteudo(id);
   if (!conteudo) notFound();
 
-  const [comparaveis, fontesIniciais, clusters, capaInicial, autores] =
+  const [comparaveis, fontesIniciais, clusters, capaInicial, autores, fatosAprovados] =
     await Promise.all([
       paginasComparaveis(id),
       listarFontes(id),
       clustersExistentes(),
       capaAtual(id),
       opcoesDeAutor(),
+      fatosParaCitar(),
     ]);
   const entrada = await temLinkDeEntrada(id);
 
@@ -37,6 +38,7 @@ export default async function EditarConteudoPage({
       inicial={conteudo}
       comparaveis={comparaveis}
       fontesIniciais={fontesIniciais}
+      fatosAprovados={fatosAprovados}
       clusters={clusters}
       capaInicial={capaInicial}
       autores={autores}

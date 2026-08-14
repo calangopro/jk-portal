@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Container } from "@/components/layout/Container";
 import { Button } from "@/components/ui/Button";
+import { RegistrarEndereco } from "@/components/analytics/RegistrarEndereco";
 
 /**
  * 404 do site público.
@@ -38,6 +39,10 @@ const saidas = [
 export default function NotFoundDoSite() {
   return (
     <main>
+      {/* Registra o endereço quebrado. Precisa ser no navegador: o Next
+          renderiza este componente junto de páginas que respondem 200, então
+          gravar no servidor contaria guia publicado como link quebrado. */}
+      <RegistrarEndereco />
       <Container size="wide" className="py-16 sm:py-24">
         <div className="max-w-3xl">
           <p className="text-apoio font-semibold uppercase tracking-[0.18em] text-brand-nav">
