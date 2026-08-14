@@ -13,9 +13,9 @@ import { buildMetadata } from "@/lib/seo/metadata";
 import { absoluteUrl } from "@/lib/seo/site";
 
 export const metadata: Metadata = buildMetadata({
-  title: "Medidor de aliança online: descubra seu aro pela tela | JK Alianças",
+  title: "Medidor de aliança online: descubra seu tamanho | JK Alianças",
   description:
-    "Descubra o aro da sua aliança pela tela do celular ou do computador. Calibre com uma moeda de R$ 1 ou um cartão, apoie a aliança e veja o número na hora.",
+    "Descubra o tamanho da sua aliança pela tela do celular ou do computador. Calibre com uma moeda de R$ 1 ou um cartão, apoie a aliança e veja o número na hora.",
   path: "/medidor-de-aliancas",
   type: "website",
 });
@@ -60,13 +60,13 @@ const PASSOS = [
   {
     nome: "Deite a aliança em cima da tela",
     texto:
-      "A aliança fica por cima do desenho, deitada e centralizada no anel dourado, e não em volta dele. Olhe de frente, sem inclinar a cabeça, para não distorcer a leitura.",
+      "A aliança fica deitada sobre a tela, com o círculo dourado por dentro dela. Olhe de frente, sem inclinar a cabeça, para não distorcer a leitura.",
     icone: Ruler,
   },
   {
-    nome: "Ajuste até o dourado sumir na borda",
+    nome: "Aumente o dourado até ele tocar a aliança",
     texto:
-      "Puxe a borda do anel dourado, ou pince com dois dedos, até ele encostar na parede de dentro da aliança: nada de dourado sobrando no meio do furo. O número do aro aparece na hora, junto do diâmetro e da circunferência em milímetros.",
+      "Arraste o círculo dourado, ou pince com dois dedos, até ele encostar na aliança por todos os lados. O número do aro aparece na hora, junto do diâmetro e da circunferência em milímetros.",
     icone: Hand,
   },
 ];
@@ -92,9 +92,9 @@ export default function MedidorPage() {
     <main>
       <JsonLd
         data={howToSchema({
-          nome: "Como descobrir o aro da aliança pela tela",
+          nome: "Como descobrir o tamanho da aliança pela tela",
           descricao:
-            "Passo a passo para medir o aro da aliança usando a tela do celular ou do computador, com calibração por moeda ou cartão.",
+            "Passo a passo para medir o tamanho da aliança usando a tela do celular ou do computador, com calibração por moeda ou cartão.",
           tempoTotal: "PT2M",
           materiais: [
             "Uma aliança ou anel que sirva no dedo",
@@ -126,18 +126,18 @@ export default function MedidorPage() {
           </div>
 
           <h1 className="font-display max-w-[17ch] text-titulo-artigo text-ink">
-            Descubra o aro da sua aliança pela tela
+            Descubra o tamanho da sua aliança pela tela
           </h1>
 
           {/* Resposta direta, primeiro texto da página, como manda a regra de
               GEO. Aqui ela é a linha de apoio do artigo, não uma caixa
               plantada em cima do conteúdo. */}
           <p className="linha-apoio mt-6 max-w-[48ch] text-lede">
-            Para descobrir o aro pela tela, calibre com uma moeda de R$ 1, que
-            mede 27 mm, ou um cartão de banco, que mede 85,60 mm. Depois deite a
-            aliança em cima da tela, sobre o desenho, e ajuste o anel dourado
-            até ele encostar na parede de dentro dela. O número do aro aparece
-            na hora, junto do diâmetro em milímetros.
+            Para descobrir o tamanho pela tela, calibre com uma moeda de R$ 1,
+            que mede 27 mm, ou um cartão de banco, que mede 85,60 mm. Depois
+            deite a aliança em cima da tela, com o círculo dourado por dentro
+            dela, e aumente o dourado até ele tocar a aliança. O número do aro
+            aparece na hora, junto do diâmetro em milímetros.
           </p>
 
           <div aria-hidden className="filete-dourado mt-7" />
@@ -214,11 +214,11 @@ export default function MedidorPage() {
           <section className="border-t border-border pt-8">
             <div className="flex flex-wrap items-center justify-between gap-5">
               <p className="max-w-md text-apoio leading-relaxed text-muted">
-                Prefere medir com atendimento? A JK Alianças tem{" "}
+                Prefere medir na loja? A JK Alianças tem{" "}
                 <Link href="/lojas" className="font-semibold text-brand-nav hover:underline">
                   lojas físicas
                 </Link>{" "}
-                com aro de prova, e você sai com a medida exata.
+                com aro de prova, e você sai com a medida certa.
               </p>
               <ShareButtons title="Medidor de aliança da JK Alianças" />
             </div>

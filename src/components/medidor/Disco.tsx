@@ -8,8 +8,8 @@
  *
  * Agora é um DISCO CHEIO, com uma borda só. O diâmetro do disco é exatamente o
  * diâmetro interno que está sendo medido, então o gesto vira um só, e ele é
- * verificável a olho: crescer até a sombra escura em volta do dourado sumir.
- * No instante em que o escuro some, o disco tem o tamanho do furo da aliança.
+ * verificável a olho: aumentar o dourado até ele tocar a aliança. No instante
+ * do primeiro contato, o disco tem o tamanho da parte de dentro da peça.
  *
  * Por isso a borda é o elemento mais trabalhado do desenho: um fio claro por
  * dentro e um fio escuro por fora, para o olho achar o limite exato mesmo com o

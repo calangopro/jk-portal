@@ -5,7 +5,7 @@ import { SITE } from "@/lib/seo/site";
 import { itensDeFerramenta } from "@/lib/ferramentas/registro";
 
 const NAVEGACAO = [
-  { href: "/guia", rotulo: "Guias de alianças" },
+  { href: "/guia", rotulo: "Dicas sobre alianças" },
   { href: "/lojas", rotulo: "Nossas lojas" },
   { href: "/ferramentas", rotulo: "Todas as ferramentas" },
 ];
@@ -53,7 +53,7 @@ export function SiteFooter() {
             </p>
           </div>
 
-          <nav aria-label="Conteúdo do portal">
+          <nav aria-label="Conteúdo do site">
             <p className="eyebrow mb-4 text-brand-light">Portal</p>
             <ul className="space-y-3 text-apoio text-white/80">
               {NAVEGACAO.map((i) => (

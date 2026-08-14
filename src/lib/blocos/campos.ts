@@ -44,11 +44,11 @@ export const BLOCOS: Record<TipoDeBloco, DefinicaoDeBloco> = {
     ],
   },
   "ultimos-conteudos": {
-    nome: "Publicados agora",
-    descricao: "Grade com os guias mais recentes.",
+    nome: "Últimos posts",
+    descricao: "Grade com os posts mais recentes.",
     campos: [
       { nome: "titulo", rotulo: "Título da seção", tipo: "texto", maximo: 50 },
-      { nome: "quantidade", rotulo: "Quantos guias mostrar", tipo: "numero", ajuda: "De 1 a 12. Múltiplos de 3 fecham a grade certinho." },
+      { nome: "quantidade", rotulo: "Quantos posts mostrar", tipo: "numero", ajuda: "De 1 a 12. Múltiplos de 3 fecham a grade certinho." },
       { nome: "verTodos", rotulo: "Texto do link à direita", tipo: "texto", maximo: 30 },
     ],
   },
@@ -65,15 +65,15 @@ export const BLOCOS: Record<TipoDeBloco, DefinicaoDeBloco> = {
   },
   trilhas: {
     nome: "Por onde começar",
-    descricao: "Portas de entrada por cluster. Só aparecem os clusters que têm guia publicado.",
+    descricao: "Portas de entrada por assunto. Só aparecem os assuntos que já têm post publicado.",
     campos: [
       { nome: "titulo", rotulo: "Título da seção", tipo: "texto", maximo: 50 },
       { nome: "subtitulo", rotulo: "Frase de apoio", tipo: "textoLongo", maximo: 140 },
     ],
   },
   medidor: {
-    nome: "Medidor de aro",
-    descricao: "Faixa em vidro destacando a ferramenta de medir o aro.",
+    nome: "Medidor de aliança",
+    descricao: "Faixa em vidro destacando a ferramenta de medir o tamanho da aliança.",
     campos: [
       { nome: "titulo", rotulo: "Título", tipo: "texto", maximo: 70 },
       { nome: "texto", rotulo: "Texto", tipo: "textoLongo", maximo: 220 },

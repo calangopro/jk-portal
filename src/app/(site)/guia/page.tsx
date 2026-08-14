@@ -71,11 +71,11 @@ export default async function GuiaIndex() {
         data={[
           webPageSchema({
             url: absoluteUrl("/guia"),
-            name: "Guias de alianças",
+            name: "Dicas sobre alianças",
           }),
           breadcrumbSchema([
             { name: "Início", url: absoluteUrl("/") },
-            { name: "Guias", url: absoluteUrl("/guia") },
+            { name: "Dicas", url: absoluteUrl("/guia") },
           ]),
           // A lista existe na tela; declarar isso é o tipo mais específico que
           // cabe numa página de índice, como pede a documentação.
@@ -84,22 +84,22 @@ export default async function GuiaIndex() {
               name: g.title,
               url: absoluteUrl(`/guia/${g.slug}`),
             })),
-            "Guias de alianças",
+            "Dicas sobre alianças",
           ),
         ]}
       />
       <Container size="wide" className="py-12 sm:py-16">
         <header className="max-w-3xl">
-          <Trilha passos={[{ nome: "Início", href: "/" }, { nome: "Guias" }]} className="mb-7" />
+          <Trilha passos={[{ nome: "Início", href: "/" }, { nome: "Dicas" }]} className="mb-7" />
           <div className="mb-5">
             <Pill>Conteúdo</Pill>
           </div>
           <h1 className="font-display max-w-[16ch] text-titulo-artigo text-ink">
-            Guias de alianças
+            Dicas sobre alianças
           </h1>
           <p className="linha-apoio mt-6 max-w-[48ch] text-lede">
-            Materiais, medidas, larguras e cuidados, explicado de forma direta
-            por quem fabrica as alianças.
+            Como escolher o tamanho, a largura e o material da aliança, e como
+            cuidar dela depois. Escrito por quem fabrica.
           </p>
           <div aria-hidden className="filete-dourado mt-7" />
         </header>
@@ -107,8 +107,8 @@ export default async function GuiaIndex() {
         {guias.length === 0 ? (
           <div className="mt-12">
             <EmptyState
-              title="Nenhum guia publicado ainda"
-              description="Os primeiros guias entram nos próximos pacotes de conteúdo."
+              title="Nenhum post publicado ainda"
+              description="Os primeiros posts entram nos próximos pacotes de conteúdo."
               action={<Button href="/">Voltar ao início</Button>}
             />
           </div>
@@ -125,7 +125,7 @@ export default async function GuiaIndex() {
                   </h2>
                   <span aria-hidden className="hairline flex-1" />
                   <span className="numeros shrink-0 text-nota text-muted">
-                    {lista.length} {lista.length === 1 ? "guia" : "guias"}
+                    {lista.length} {lista.length === 1 ? "post" : "posts"}
                   </span>
                 </div>
 
@@ -149,7 +149,7 @@ export default async function GuiaIndex() {
               <section aria-labelledby="grupo-outros">
                 <div className="flex items-baseline gap-4">
                   <h2 id="grupo-outros" className="font-display shrink-0 text-titulo-secao text-ink">
-                    Outros guias
+                    Outros posts
                   </h2>
                   <span aria-hidden className="hairline flex-1" />
                 </div>

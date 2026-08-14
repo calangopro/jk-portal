@@ -79,7 +79,7 @@ export default async function FatosPage() {
           {caducos.length === 1
             ? "1 fato marcado como desatualizado ainda é citado por conteúdo publicado."
             : `${caducos.length} fatos marcados como desatualizados ainda são citados por conteúdo publicado.`}{" "}
-          Abra cada um e revise os guias que dependem dele.
+          Abra cada um e revise os posts que dependem dele.
         </p>
       ) : null}
 

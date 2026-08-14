@@ -117,14 +117,14 @@ function HeroDeBusca({ p }: { p: Record<string, unknown> }) {
       <Widget
         href="/medidor-de-aliancas"
         Icone={() => <IconeAlianca size={21} />}
-        titulo={texto(p, "atalhoMedidorTitulo", "Descubra seu aro")}
-        apoio={texto(p, "atalhoMedidorApoio", "Meça pela tela em dois minutos, com uma moeda de R$ 1.")}
+        titulo={texto(p, "atalhoMedidorTitulo", "Medidor de aliança")}
+        apoio={texto(p, "atalhoMedidorApoio", "Descubra seu aro pela tela, com uma moeda de R$ 1.")}
       />
       <Widget
         href="/lojas"
         Icone={() => <IconeMapa size={19} />}
         titulo={texto(p, "atalhoLojasTitulo", "Lojas físicas")}
-        apoio={texto(p, "atalhoLojasApoio", "Aro de prova, ajuste no dedo e atendimento presencial.")}
+        apoio={texto(p, "atalhoLojasApoio", "Aro de prova, ajuste de tamanho e atendimento presencial.")}
       />
       <Widget
         href={`${SITE.lojaUrl}?utm_source=portal&utm_medium=home&utm_campaign=widget`}
@@ -144,15 +144,15 @@ function HeroDeBusca({ p }: { p: Record<string, unknown> }) {
           {/* Sem animação de entrada: este h1 define o LCP, e começar em
               opacity 0 atrasa a métrica de graça. */}
           <h1 className="font-display mx-auto mt-5 max-w-[18ch] text-display text-ink">
-            {texto(p, "titulo", "Tudo sobre alianças, respondido direto")}
+            {texto(p, "titulo", "Tudo sobre alianças, joias e semijoias")}
           </h1>
           <p className="mx-auto mt-5 max-w-[50ch] text-lede leading-relaxed text-muted">
-            {texto(p, "lede", "Pergunte com suas palavras.")}
+            {texto(p, "lede", "Tamanho, largura, material e preço, explicado por quem fabrica.")}
           </p>
 
           <div className="mt-9">
             <CampoDeBusca
-              placeholder={texto(p, "placeholder", "O que você quer saber?")}
+              placeholder={texto(p, "placeholder", "Ex.: como descobrir meu aro")}
               sugestoes={listaDeTexto(p, "sugestoes", [])}
             />
           </div>
@@ -179,14 +179,14 @@ function UltimosConteudos({ p, guias }: { p: Record<string, unknown>; guias: Con
       <Container size="wide" className="py-14 sm:py-20">
         <div className="flex items-baseline gap-4">
           <h2 className="font-display shrink-0 text-titulo-secao text-ink">
-            {texto(p, "titulo", "Publicados agora")}
+            {texto(p, "titulo", "Últimos posts")}
           </h2>
           <span aria-hidden className="hairline flex-1" />
           <Link
             href="/guia"
             className="shrink-0 text-apoio font-semibold text-brand-nav hover:underline"
           >
-            {texto(p, "verTodos", "Ver todos os guias")}
+            {texto(p, "verTodos", "Ver todos")}
           </Link>
         </div>
 
@@ -280,7 +280,7 @@ function Trilhas({ p, guias }: { p: Record<string, unknown>; guias: Content[] })
           {texto(p, "titulo", "Por onde começar")}
         </h2>
         <p className="mt-2 max-w-[52ch] leading-relaxed text-muted">
-          {texto(p, "subtitulo", "Escolha o momento e vá direto ao ponto.")}
+          {texto(p, "subtitulo", "Escolha o assunto e comece por aí.")}
         </p>
         <ul className="mt-7 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {[...contagem].map(([cluster, n]) => (
@@ -293,7 +293,7 @@ function Trilhas({ p, guias }: { p: Record<string, unknown>; guias: Content[] })
                   {cluster.charAt(0).toUpperCase() + cluster.slice(1)}
                 </span>
                 <span className="mt-3 text-nota text-muted">
-                  {n} {n === 1 ? "guia" : "guias"}
+                  {n} {n === 1 ? "post" : "posts"}
                 </span>
               </Link>
             </li>
@@ -321,12 +321,12 @@ function Medidor({ p }: { p: Record<string, unknown> }) {
                 <Ruler size={20} aria-hidden />
               </span>
               <h2 className="font-display mt-5 text-titulo-secao text-ink">
-                {texto(p, "titulo", "Descubra seu aro pela tela, em dois minutos")}
+                {texto(p, "titulo", "Descubra o tamanho da sua aliança pela tela")}
               </h2>
               <p className="mt-3 leading-relaxed text-muted">{texto(p, "texto", "")}</p>
             </div>
             <Button href="/medidor-de-aliancas" size="lg" icone={<Ruler size={18} />}>
-              {texto(p, "botao", "Medir meu aro")}
+              {texto(p, "botao", "Medir minha aliança")}
             </Button>
           </div>
         </div>
@@ -351,7 +351,7 @@ function Lojas({ p, lojas }: { p: Record<string, unknown>; lojas: Location[] }) 
       <Container size="wide" className="pb-14 sm:pb-20">
         <div className="flex items-baseline gap-4">
           <h2 className="font-display shrink-0 text-titulo-secao text-ink">
-            {texto(p, "titulo", "Prove no dedo")}
+            {texto(p, "titulo", "Experimente antes de comprar")}
           </h2>
           <span aria-hidden className="hairline flex-1" />
           <Link href="/lojas" className="shrink-0 text-apoio font-semibold text-brand-nav hover:underline">
@@ -427,7 +427,7 @@ function Cta({ p }: { p: Record<string, unknown> }) {
             <div className="max-w-lg">
               <p className="eyebrow text-brand-light">{texto(p, "eyebrow", "Onde comprar")}</p>
               <h2 className="font-display mt-3 text-titulo-secao leading-tight">
-                {texto(p, "titulo", "Prove no dedo, na loja mais perto de você")}
+                {texto(p, "titulo", "Experimente na loja mais perto de você")}
               </h2>
               <p className="mt-4 text-white/70">{texto(p, "texto", "")}</p>
             </div>

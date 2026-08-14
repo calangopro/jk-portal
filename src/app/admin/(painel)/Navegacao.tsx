@@ -19,7 +19,7 @@ const GRUPOS = [
     nome: "Editorial",
     itens: [
       { href: "/admin/pautas", label: "Pautas", Icone: ListChecks, desc: "O que escrever a seguir" },
-      { href: "/admin/conteudos", label: "Conteúdos", Icone: FileText, desc: "Guias e artigos" },
+      { href: "/admin/conteudos", label: "Conteúdos", Icone: FileText, desc: "Posts do site" },
       { href: "/admin/calendario", label: "Calendário", Icone: CalendarDays, desc: "Quando cada coisa sai" },
       { href: "/admin/midia", label: "Mídia", Icone: ImageIcon, desc: "Imagens do portal" },
       { href: "/admin/comentarios", label: "Comentários", Icone: MessageCircle, desc: "Fila de moderação" },

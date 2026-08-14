@@ -16,7 +16,7 @@ export function Card({
   imagem,
   etiqueta,
   meta,
-  chamada = "Ler guia",
+  chamada = "Ler post",
   destaque = false,
   externo = false,
   className = "",

@@ -60,7 +60,7 @@ export const FERRAMENTAS: Ferramenta[] = [
       "Converta o tamanho do anel entre o aro brasileiro, o número americano, o padrão europeu, a circunferência e o diâmetro. Tabela completa do aro 7 ao 35.",
     resposta:
       "No Brasil, o número do aro é a circunferência interna do anel em milímetros menos 40, então o aro 18 tem 58 mm de circunferência e 18,46 mm de diâmetro. O padrão europeu ISO 8653 usa a própria circunferência como número, e a escala americana é diferente das duas: cada número vale 2,5535 mm, começando em 36,537 mm. O aro 18 brasileiro corresponde ao 8,5 americano e ao 58 europeu.",
-    chamada: "Converta entre o aro brasileiro, o americano e o europeu.",
+    chamada: "Converta o tamanho entre o padrão brasileiro, o americano e o europeu.",
     passos: [
       {
         nome: "Escolha a medida que você já tem",
@@ -110,12 +110,12 @@ export const FERRAMENTAS: Ferramenta[] = [
       "Veja a largura da aliança em tamanho real na sua tela, de 2 a 8 mm, sobre um dedo do tamanho do seu aro. Compare todas lado a lado antes de escolher.",
     resposta:
       "A largura da aliança é medida em milímetros, na face que encosta no dedo, e a JK Alianças fabrica de 1,5 mm a 10 mm. O que muda entre uma largura e outra é quanto do dedo a peça ocupa: num aro 16, a de 3 mm cobre cerca de 17% da largura visível do dedo, e a de 6 mm cobre o dobro disso. Ver em tamanho real resolve a escolha melhor que qualquer descrição, porque a diferença entre 3 mm e 4 mm é quase invisível no papel e evidente no dedo.",
-    chamada: "Veja cada largura em tamanho real, no seu aro.",
+    chamada: "Veja como cada largura fica no dedo, em tamanho real.",
     passos: [
       {
         nome: "Calibre a tela uma vez",
         texto:
-          "Se você já usou o medidor de aro, a calibração está salva e o desenho já sai em tamanho real. Se não, calibre no medidor com uma moeda de R$ 1.",
+          "Se você já usou o medidor de aliança, a calibração está salva e o desenho já sai em tamanho real. Se não, calibre no medidor com uma moeda de R$ 1.",
       },
       {
         nome: "Ajuste para o seu aro",
@@ -147,7 +147,7 @@ export const FERRAMENTAS: Ferramenta[] = [
       {
         question: "O desenho na tela está no tamanho certo?",
         answer:
-          "Fica no tamanho real depois que você calibra a tela no medidor de aro, usando uma moeda de R$ 1 ou um cartão. Sem calibrar, o desenho serve para comparar as larguras entre si, e a página avisa isso.",
+          "Fica no tamanho real depois que você calibra a tela no medidor de aliança, usando uma moeda de R$ 1 ou um cartão. Sem calibrar, o desenho serve para comparar as larguras entre si, e a página avisa isso.",
       },
     ],
     termos: "largura milimetros mm fina larga grossa espessura tamanho",
@@ -161,7 +161,7 @@ export const FERRAMENTAS: Ferramenta[] = [
       "Teor real e faixa de preço praticada em cada material de aliança da JK Alianças: prata 925, prata 950, prata banhada, prata com ouro, ouro 10k e ouro 18k.",
     resposta:
       "A escolha do material define teor, preço e manutenção da aliança. Prata 925 tem 92,5% de prata e prata 950 tem 95%; ouro 10k tem cerca de 41,7% de ouro e ouro 18k tem 75%. Na loja da JK Alianças, a mediana vai de cerca de R$ 450 na prata 950 a cerca de R$ 9.900 no ouro 18k, com prata banhada e ouro 10k entre as duas pontas.",
-    chamada: "Teor e preço real de cada material, lado a lado.",
+    chamada: "Prata e ouro comparados por teor e por preço.",
     faqs: [
       {
         question: "Qual a diferença entre prata 925 e prata 950?",
@@ -189,7 +189,7 @@ export const FERRAMENTAS: Ferramenta[] = [
 ];
 
 /**
- * O medidor de aro, que nasceu antes deste registro.
+ * O medidor de aliança, que nasceu antes deste registro.
  *
  * Ele continua em `/medidor-de-aliancas`, endereço com histórico de busca, e
  * por isso não vira uma entrada de `FERRAMENTAS` (isso mudaria a URL). Mas para
@@ -198,8 +198,8 @@ export const FERRAMENTAS: Ferramenta[] = [
  */
 export const MEDIDOR = {
   href: "/medidor-de-aliancas",
-  nome: "Medidor de aro",
-  chamada: "Descubra seu número pela tela, com uma moeda de R$ 1.",
+  nome: "Medidor de aliança",
+  chamada: "Descubra seu aro pela tela, com uma moeda de R$ 1.",
 } as const;
 
 export type ItemDeFerramenta = {

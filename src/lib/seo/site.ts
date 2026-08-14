@@ -17,7 +17,7 @@ export const SITE = {
    */
   shortName: "JK",
   description:
-    "Guias, comparativos e páginas das lojas da JK Alianças: informação confiável sobre alianças de casamento e namoro.",
+    "Como escolher aliança, joia e semijoia: tamanho, largura, material e preço, explicado por quem fabrica. Ferramentas gratuitas e lojas em São Paulo.",
   locale: "pt_BR",
   /**
    * Perfis oficiais, conferidos no rodapé da loja em 12/08/2026.

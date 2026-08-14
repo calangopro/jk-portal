@@ -8,7 +8,7 @@ import { BuscaNoCabecalho } from "@/components/busca/BuscaNoCabecalho";
 import { itensDeFerramenta } from "@/lib/ferramentas/registro";
 
 const ITENS: ItemNav[] = [
-  { href: "/guia", rotulo: "Guias" },
+  { href: "/guia", rotulo: "Dicas" },
   {
     href: "/ferramentas",
     rotulo: "Ferramentas",

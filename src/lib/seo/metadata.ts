@@ -72,7 +72,7 @@ export function buildMetadata(input: BuildInput): Metadata {
 
 export function homeMetadata(): Metadata {
   return buildMetadata({
-    title: `${SITE.name}: guia de alianças de casamento e namoro`,
+    title: `Tudo sobre alianças, joias e semijoias | ${SITE.name}`,
     description: SITE.description,
     path: "/",
     type: "website",
@@ -81,9 +81,9 @@ export function homeMetadata(): Metadata {
 
 export function guiaIndexMetadata(): Metadata {
   return buildMetadata({
-    title: `Guias de alianças | ${SITE.name}`,
+    title: `Dicas sobre alianças: como escolher a sua | ${SITE.name}`,
     description:
-      "Tudo o que você precisa saber antes de escolher sua aliança: materiais, medidas, larguras, cuidados e mais.",
+      "Como escolher a aliança de casamento ou namoro: tamanho do aro, largura, prata, ouro, preço e cuidados. Escrito por quem fabrica.",
     path: "/guia",
     type: "website",
   });

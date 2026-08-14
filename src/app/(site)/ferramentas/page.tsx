@@ -12,9 +12,9 @@ import { breadcrumbSchema, itemListSchema, webPageSchema } from "@/lib/schema/bu
 export const revalidate = 86400;
 
 export const metadata = buildMetadata({
-  title: "Ferramentas para escolher a aliança",
+  title: "Ferramentas para escolher a aliança | JK Alianças",
   description:
-    "Medidor de aro pela tela, conversor entre o tamanho brasileiro, americano e europeu, simulador de largura e comparador de materiais. Feito pela JK Alianças.",
+    "Medidor de aliança pela tela, conversor entre o tamanho brasileiro, americano e europeu, simulador de largura e comparador de materiais. Feito pela JK Alianças.",
   path: "/ferramentas",
 });
 
@@ -50,7 +50,7 @@ export default function FerramentasPage() {
           url,
           name: "Ferramentas para escolher a aliança",
           description:
-            "Medidor de aro pela tela, conversor de tamanhos, simulador de largura e comparador de materiais, feitos pela JK Alianças.",
+            "Medidor de aliança pela tela, conversor de tamanhos, simulador de largura e comparador de materiais, feitos pela JK Alianças.",
         })}
       />
       <JsonLd
@@ -83,7 +83,7 @@ export default function FerramentasPage() {
           <div className="relative max-w-3xl">
             <p className="eyebrow text-brand-light">Ferramentas JK Alianças</p>
             <h1 className="font-display mt-4 text-titulo-artigo text-[#f6efe4]">
-              O tamanho certo, resolvido na tela
+              Descubra o tamanho e a largura da sua aliança
             </h1>
             {/* Resposta primeiro: é o primeiro texto da página e o trecho que
                 a IA cita quando alguém pergunta a ela em vez de buscar. */}
@@ -145,16 +145,16 @@ export default function FerramentasPage() {
         </div>
 
         {/* Saída para gente de verdade. Ferramenta resolve o número; quem
-            quiser provar no dedo tem loja perto. */}
+            quiser experimentar tem loja perto. */}
         <section className="glass-sutil mt-10 rounded-lg px-6 py-7 sm:mt-14 sm:px-9 sm:py-8">
           <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
             <div className="max-w-xl">
               <h2 className="font-display text-titulo-bloco text-ink">
-                Prefere resolver com atendimento?
+                Prefere medir na loja?
               </h2>
               <p className="mt-2 text-apoio leading-relaxed text-muted">
                 As lojas da JK Alianças têm aro de prova, e você sai com a
-                medida exata no papel. As ferramentas continuam aqui para
+                medida certa anotada. As ferramentas continuam aqui para
                 conferir depois.
               </p>
             </div>

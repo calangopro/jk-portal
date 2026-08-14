@@ -60,7 +60,7 @@ export function ApoioMobile({ outros }: { outros: Content[] }) {
 
       <div className="border-t border-border pt-6">
         <p className="eyebrow flex items-center gap-1.5">
-          <MapPin size={12} aria-hidden /> Prove no dedo
+          <MapPin size={12} aria-hidden /> Experimente na loja
         </p>
         <p className="mt-3 text-apoio leading-relaxed text-muted">
           A JK tem lojas físicas com aro de prova e atendimento presencial.

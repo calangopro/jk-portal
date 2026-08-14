@@ -12,7 +12,7 @@ import { Comparador } from "@/components/ferramentas/Comparador";
 import { VitrineDaFerramenta } from "@/components/ferramentas/VitrineDaFerramenta";
 import { FERRAMENTAS, acharFerramenta, type Ferramenta } from "@/lib/ferramentas/registro";
 import { buildMetadata } from "@/lib/seo/metadata";
-import { absoluteUrl } from "@/lib/seo/site";
+import { SITE, absoluteUrl } from "@/lib/seo/site";
 import { breadcrumbSchema, faqPageSchema, howToSchema, webPageSchema } from "@/lib/schema/builders";
 
 export const revalidate = 86400;
@@ -35,7 +35,10 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   }
 
   return buildMetadata({
-    title: f.metaTitle,
+    // A marca entra aqui, e não em cada `metaTitle` do registro: assim a
+    // ferramenta se declara uma vez e o título da aba sai igual ao do resto do
+    // site, com a marca depois da barra.
+    title: `${f.metaTitle} | ${SITE.name}`,
     description: f.metaDescription,
     path: `/ferramentas/${f.slug}`,
   });
@@ -170,12 +173,12 @@ export default async function FerramentaPage({ params }: { params: Promise<{ slu
           <h2 className="font-display text-titulo-secao text-ink">Não sabe o seu tamanho?</h2>
           <p className="mt-3 text-muted">
             O conversor traduz um número que você já tem. Para descobrir o número do zero, meça
-            pela tela ou prove numa loja.
+            pela tela ou experimente numa loja.
           </p>
           <div className="mt-6 flex flex-wrap gap-3">
-            <Button href="/medidor-de-aliancas">Medir meu aro pela tela</Button>
+            <Button href="/medidor-de-aliancas">Medir pela tela</Button>
             <Button href="/lojas" variant="outline">
-              Provar numa loja
+              Experimentar na loja
             </Button>
           </div>
         </section>
@@ -194,7 +197,7 @@ export default async function FerramentaPage({ params }: { params: Promise<{ slu
 
         <p className="mt-10 text-sm text-muted">
           <Link href="/guia" className="underline underline-offset-4 hover:text-ink">
-            Ver os guias
+            Ver as dicas sobre alianças
           </Link>
         </p>
       </Container>
