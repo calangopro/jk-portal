@@ -14,23 +14,20 @@ import { adicionarFonte, removerFonte, type Fonte } from "./actions";
  */
 export function Fontes({
   contentId,
-  iniciais,
+  fontes,
   aoMudar,
 }: {
   contentId: string;
-  iniciais: Fonte[];
-  aoMudar?: (quantidade: number) => void;
+  /** A lista mora no editor, porque a base de fatos também escreve nela. */
+  fontes: Fonte[];
+  aoMudar: (lista: Fonte[]) => void;
 }) {
-  const [fontes, setFontes] = useState<Fonte[]>(iniciais);
   const [url, setUrl] = useState("");
   const [evidencia, setEvidencia] = useState("");
   const [erro, setErro] = useState<string | null>(null);
   const [ocupado, iniciar] = useTransition();
 
-  const atualizar = (lista: Fonte[]) => {
-    setFontes(lista);
-    aoMudar?.(lista.length);
-  };
+  const atualizar = (lista: Fonte[]) => aoMudar(lista);
 
   const adicionar = () => {
     setErro(null);
@@ -64,6 +61,7 @@ export function Fontes({
               <div className="min-w-0 flex-1">
                 <p className="text-sm leading-snug text-ink">{f.evidence}</p>
                 <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[0.7rem] text-muted">
+                  {f.fact_id ? <span className="text-brand-strong">da base de fatos</span> : null}
                   {f.source_url ? (
                     <a href={f.source_url} target="_blank" rel="noreferrer noopener" className="inline-flex items-center gap-1 text-brand-strong hover:underline">
                       <ExternalLink size={10} /> {new URL(f.source_url).hostname}

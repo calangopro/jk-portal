@@ -5,7 +5,8 @@ import { createClient } from "@/lib/supabase/server";
 import { requireStaff } from "@/lib/auth/session";
 import { slugDisponivel, titulosPublicados } from "@/lib/data/admin-contents";
 import type { SugestaoIA } from "@/lib/analyzer/ai";
-import { analisar, bloqueiosDePublicacao } from "@/lib/analyzer/rules";
+import { publicarNoBanco, reindexarBusca } from "@/lib/publicacao/publicar";
+import { evidenciaDoFato, type Fato, type ModuloDoFato } from "@/lib/content/fatos";
 
 export type SalvarPayload = {
   id: string;
@@ -174,14 +175,19 @@ export type Fonte = {
   evidence: string | null;
   captured_at: string | null;
   responsible: string | null;
+  /** Preenchido quando a fonte veio da base de fatos, e não foi digitada aqui. */
+  fact_id: string | null;
 };
+
+/** Uma lista só, para a fonte devolvida ter sempre o mesmo formato. */
+const COLUNAS_DA_FONTE = "id, source_url, evidence, captured_at, responsible, fact_id";
 
 export async function listarFontes(contentId: string): Promise<Fonte[]> {
   await requireStaff();
   const supabase = await createClient();
   const { data } = await supabase
     .from("sources")
-    .select("id, source_url, evidence, captured_at, responsible")
+    .select(COLUNAS_DA_FONTE)
     .eq("content_id", contentId)
     .order("created_at");
   return (data ?? []) as Fonte[];
@@ -205,7 +211,7 @@ export async function adicionarFonte(
       captured_at: new Date().toISOString().slice(0, 10),
       responsible: perfil.fullName ?? perfil.email ?? null,
     })
-    .select("id, source_url, evidence, captured_at, responsible")
+    .select(COLUNAS_DA_FONTE)
     .maybeSingle();
   if (error) return { ok: false, erro: error.message };
   return { ok: true, fonte: data as Fonte };
@@ -218,162 +224,347 @@ export async function removerFonte(id: string): Promise<{ ok: boolean }> {
   return { ok: true };
 }
 
-/* ------------------------------------------------------------- publicação */
+/* ----------------------------------------------------------------- fatos */
 
-/** Texto puro a partir do HTML do editor, para as regras que contam palavras. */
-function textoDoHtml(html: string): string {
-  return html
-    .replace(/<(script|style)[\s\S]*?<\/\1>/gi, " ")
-    .replace(/<[^>]+>/g, " ")
-    .replace(/&nbsp;/gi, " ")
-    .replace(/&amp;/gi, "&")
-    .replace(/\s+/g, " ")
-    .trim();
+/**
+ * Fatos que o editor pode citar agora.
+ *
+ * Só o que está aprovado aparece. Fato ainda por validar é rascunho de
+ * evidência, e rascunho de evidência não pode virar afirmação publicada.
+ */
+export async function fatosParaCitar(): Promise<Fato[]> {
+  await requireStaff();
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("facts")
+    .select(
+      "id, claim, detail, module, subject, attribute, source_url, file_url, captured_at, responsible, status",
+    )
+    .eq("status", "aprovado")
+    .order("module")
+    .order("claim");
+
+  return ((data ?? []) as {
+    id: string;
+    claim: string;
+    detail: string | null;
+    module: string;
+    source_url: string | null;
+    file_url: string | null;
+    captured_at: string | null;
+    responsible: string | null;
+    subject: string | null;
+    attribute: string | null;
+  }[]).map((f) => ({
+    id: f.id,
+    claim: f.claim,
+    detail: f.detail,
+    module: f.module as ModuloDoFato,
+    sourceUrl: f.source_url,
+    fileUrl: f.file_url,
+    capturedAt: f.captured_at,
+    responsible: f.responsible,
+    status: "aprovado" as const,
+    subject: f.subject,
+    attribute: f.attribute,
+  }));
 }
 
 /**
- * Confere as regras bloqueantes e devolve a mensagem, ou null quando passa.
+ * Cita um fato neste conteúdo: grava a fonte apontando para ele.
  *
- * A mensagem lista exatamente o que corrigir. Recusar com um texto genérico
- * transformaria a trava num muro, e a pessoa não saberia o que fazer.
+ * É o ponto inteiro da base de fatos. Antes, registrar fonte era um formulário
+ * separado que a pessoa preenchia (ou não) no fim, e a tabela `sources` ficou
+ * zerada mesmo com a trava de publicação valendo. Agora a fonte nasce do gesto
+ * de usar o fato no texto.
+ *
+ * Citar duas vezes o mesmo fato no mesmo conteúdo não duplica: o índice único
+ * parcial cuida disso, e aqui devolvemos a fonte que já existia.
  */
-async function conferirAntesDePublicar(id: string): Promise<string | null> {
+export async function citarFato(
+  contentId: string,
+  factId: string,
+): Promise<{ ok: boolean; erro?: string; fonte?: Fonte; jaCitado?: boolean }> {
+  await requireStaff();
   const supabase = await createClient();
 
-  const { data } = await supabase
-    .from("contents")
-    .select(
-      "title, slug, meta_title, meta_description, answer, body_html, faqs, target_query, author_name, reviewer_name",
-    )
-    .eq("id", id)
+  const { data: fato } = await supabase
+    .from("facts")
+    .select("id, claim, detail, source_url, file_url, captured_at, responsible, status")
+    .eq("id", factId)
     .maybeSingle();
 
-  if (!data) return "Conteúdo não encontrado.";
+  if (!fato) return { ok: false, erro: "Fato não encontrado na base." };
+  if (fato.status !== "aprovado") {
+    return { ok: false, erro: "Só fato aprovado pode ser citado. Este ainda está esperando validação." };
+  }
 
-  const linha = data as {
-    title: string | null;
-    slug: string | null;
-    meta_title: string | null;
-    meta_description: string | null;
-    answer: string | null;
-    body_html: string | null;
-    faqs: { question: string; answer: string }[] | null;
-    target_query: string | null;
-    author_name: string | null;
-    reviewer_name: string | null;
-  };
+  const { data, error } = await supabase
+    .from("sources")
+    .insert({
+      content_id: contentId,
+      fact_id: factId,
+      source_url: fato.source_url,
+      file_url: fato.file_url,
+      evidence: evidenciaDoFato(fato),
+      captured_at: fato.captured_at,
+      responsible: fato.responsible,
+      validation_status: "validated",
+    })
+    .select(COLUNAS_DA_FONTE)
+    .maybeSingle();
 
-  const html = linha.body_html ?? "";
-  const resultado = analisar({
-    titulo: linha.title ?? "",
-    slug: linha.slug ?? "",
-    metaTitle: linha.meta_title ?? "",
-    metaDescription: linha.meta_description ?? "",
-    resposta: linha.answer ?? "",
-    texto: textoDoHtml(html),
-    html,
-    faqs: linha.faqs ?? [],
-    consultaAlvo: linha.target_query ?? "",
-    autor: linha.author_name ?? "",
-    revisor: linha.reviewer_name ?? "",
+  if (error) {
+    // 23505: o índice único parcial pegou. Não é erro para quem está escrevendo,
+    // é a resposta certa, então devolvemos a fonte que já estava lá.
+    if (error.code === "23505") {
+      const { data: existente } = await supabase
+        .from("sources")
+        .select(COLUNAS_DA_FONTE)
+        .eq("content_id", contentId)
+        .eq("fact_id", factId)
+        .maybeSingle();
+      return { ok: true, jaCitado: true, fonte: (existente ?? undefined) as Fonte | undefined };
+    }
+    return { ok: false, erro: error.message };
+  }
+
+  return { ok: true, fonte: data as Fonte };
+}
+
+/* ------------------------------------------------------------- histórico */
+
+export type Revisao = {
+  id: string;
+  criadaEm: string;
+  autor: string | null;
+  nota: string | null;
+  /** Resumo do que estava gravado naquela versão. */
+  titulo: string;
+  slug: string;
+  tamanhoDoCorpo: number;
+  /** Campos diferentes do que está no editor agora. */
+  diferencas: string[];
+};
+
+/** Os campos que a restauração escreve de volta, e o rótulo de cada um. */
+const CAMPOS_DA_REVISAO: { chave: keyof SalvarPayload; coluna: string; label: string }[] = [
+  { chave: "title", coluna: "title", label: "título" },
+  { chave: "slug", coluna: "slug", label: "endereço" },
+  { chave: "targetQuery", coluna: "target_query", label: "consulta alvo" },
+  { chave: "searchIntent", coluna: "search_intent", label: "intenção" },
+  { chave: "cluster", coluna: "cluster", label: "cluster" },
+  { chave: "excerpt", coluna: "excerpt", label: "resumo" },
+  { chave: "answer", coluna: "answer", label: "resposta rápida" },
+  { chave: "bodyHtml", coluna: "body_html", label: "corpo do texto" },
+  { chave: "metaTitle", coluna: "meta_title", label: "título de busca" },
+  { chave: "metaDescription", coluna: "meta_description", label: "meta description" },
+  { chave: "authorName", coluna: "author_name", label: "autor" },
+  { chave: "reviewerName", coluna: "reviewer_name", label: "revisor" },
+];
+
+/**
+ * Versões gravadas deste conteúdo.
+ *
+ * A tabela `revisions` já recebia um retrato a cada salvamento manual, e não
+ * existia nenhuma tela para ver ou voltar. Guardar histórico que ninguém
+ * consegue abrir é o mesmo que não guardar: a pessoa escreve com medo de mexer,
+ * e escrever com medo é lento.
+ *
+ * A comparação é por campo, não palavra a palavra. Saber que mudou o corpo e a
+ * resposta rápida é o que decide se vale restaurar; o diff fino de texto é
+ * ruído numa lista.
+ */
+export async function listarRevisoes(contentId: string): Promise<Revisao[]> {
+  await requireStaff();
+  const supabase = await createClient();
+
+  const [{ data: linhas }, { data: atual }, { data: pessoas }] = await Promise.all([
+    supabase
+      .from("revisions")
+      .select("id, created_at, editor_id, snapshot, note")
+      .eq("content_id", contentId)
+      .order("created_at", { ascending: false })
+      .limit(30),
+    supabase
+      .from("contents")
+      .select(CAMPOS_DA_REVISAO.map((c) => c.coluna).join(", "))
+      .eq("id", contentId)
+      .maybeSingle(),
+    supabase.from("profiles").select("id, full_name, email"),
+  ]);
+
+  const nomes = new Map<string, string>();
+  for (const p of (pessoas ?? []) as { id: string; full_name: string | null; email: string | null }[]) {
+    nomes.set(p.id, p.full_name || p.email || "equipe");
+  }
+
+  const agora = (atual ?? {}) as unknown as Record<string, unknown>;
+
+  return ((linhas ?? []) as {
+    id: string;
+    created_at: string;
+    editor_id: string | null;
+    snapshot: Record<string, unknown>;
+    note: string | null;
+  }[]).map((l) => {
+    const s = l.snapshot ?? {};
+    const diferencas: string[] = [];
+    for (const c of CAMPOS_DA_REVISAO) {
+      // Retrato antigo não tem os campos que nasceram depois (cluster, autor
+      // cadastrado). Ausente não é diferença, é campo que ainda não existia, e
+      // tratar como diferença acusaria mudança em toda versão antiga.
+      if (!(c.chave in s)) continue;
+      const naVersao = (s[c.chave] ?? "") as string;
+      const noAtual = (agora[c.coluna] ?? "") as string;
+      if (String(naVersao) !== String(noAtual)) diferencas.push(c.label);
+    }
+
+    return {
+      id: l.id,
+      criadaEm: l.created_at,
+      autor: l.editor_id ? nomes.get(l.editor_id) ?? null : null,
+      nota: l.note,
+      titulo: String(s.title ?? "sem título"),
+      slug: String(s.slug ?? ""),
+      tamanhoDoCorpo: String(s.bodyHtml ?? "").length,
+      diferencas,
+    };
+  });
+}
+
+/**
+ * Volta o conteúdo para uma versão anterior.
+ *
+ * Restaurar NÃO apaga nada: grava mais uma revisão, agora com a nota dizendo de
+ * onde veio. Assim voltar é reversível, e "restaurei sem querer" deixa de ser
+ * um problema sem saída.
+ *
+ * O status e a data de publicação ficam de fora de propósito. Restaurar texto é
+ * uma coisa; republicar ou despublicar é outra, e misturar as duas faria uma
+ * página voltar ao ar por causa de um clique em Restaurar.
+ */
+export async function restaurarRevisao(
+  revisionId: string,
+): Promise<{ ok: boolean; erro?: string }> {
+  const perfil = await requireStaff();
+  const supabase = await createClient();
+
+  const { data: revisao } = await supabase
+    .from("revisions")
+    .select("id, content_id, created_at, snapshot")
+    .eq("id", revisionId)
+    .maybeSingle();
+
+  if (!revisao) return { ok: false, erro: "Versão não encontrada." };
+
+  const s = (revisao.snapshot ?? {}) as Record<string, unknown>;
+  const contentId = revisao.content_id as string;
+
+  const { data: atualLinha } = await supabase
+    .from("contents")
+    .select("slug")
+    .eq("id", contentId)
+    .maybeSingle();
+  const slugAntigo = (atualLinha?.slug ?? null) as string | null;
+
+  // Só volta o que o retrato guardou. Retrato antigo não tem `authorId` nem
+  // `cluster`, porque esses campos nasceram depois, e escrever null neles
+  // apagaria a autoria de hoje em nome de uma versão que nunca teve autoria.
+  const payload: Record<string, unknown> = {};
+  for (const c of CAMPOS_DA_REVISAO) {
+    if (!(c.chave in s)) continue;
+    const v = s[c.chave];
+    payload[c.coluna] = typeof v === "string" ? v : v ?? null;
+  }
+  if ("faqs" in s) payload.faqs = Array.isArray(s.faqs) ? s.faqs : [];
+  if ("authorId" in s) payload.author_id = (s.authorId as string) || null;
+  if ("reviewerId" in s) payload.reviewer_id = (s.reviewerId as string) || null;
+  if ("pilarId" in s) payload.pillar_id = (s.pilarId as string) || null;
+
+  if (Object.keys(payload).length === 0) {
+    return { ok: false, erro: "Esta versão está vazia, não há o que restaurar." };
+  }
+
+  // O endereço pode ter sido tomado por outra página desde então. Sem isto, a
+  // restauração morreria num erro de chave única sem explicação.
+  const slugPedido = String(payload.slug ?? "");
+  if (slugPedido) payload.slug = await slugDisponivel(slugPedido, contentId);
+  const slugFinal = String(payload.slug ?? slugAntigo ?? "");
+
+  const { error } = await supabase.from("contents").update(payload).eq("id", contentId);
+  if (error) return { ok: false, erro: error.message };
+
+  await supabase.from("revisions").insert({
+    content_id: contentId,
+    editor_id: perfil.id,
+    snapshot: { ...s, id: contentId, slug: slugFinal },
+    note: `Restaurado da versão de ${new Date(revisao.created_at as string).toLocaleString("pt-BR")}`,
   });
 
-  const bloqueios = bloqueiosDePublicacao(resultado);
-  if (bloqueios.length === 0) return null;
+  revalidatePath("/admin/conteudos");
+  revalidatePath(`/admin/conteudos/${contentId}`);
+  if (slugFinal) revalidatePath(`/guia/${slugFinal}`);
+  if (slugAntigo && slugAntigo !== slugFinal) revalidatePath(`/guia/${slugAntigo}`);
 
-  const lista = bloqueios.map((b) => `${b.titulo}${b.dica ? `. ${b.dica}` : ""}`);
-  return (
-    `Não dá para publicar ainda. ${
-      lista.length === 1 ? "Falta corrigir:" : `Faltam ${lista.length} correções:`
-    } ` + lista.join(" ")
-  );
+  return { ok: true };
 }
+
+/* ------------------------------------------------------------- publicação */
 
 export async function publicarConteudo(id: string): Promise<{ ok: boolean; erro?: string }> {
   await requireStaff();
   const supabase = await createClient();
+  // As travas de fonte e de analisador moram em `publicarNoBanco`, junto com a
+  // revalidação e o IndexNow. O agendamento publica sem ninguém logado e passa
+  // exatamente pelas mesmas: regra que existe em duas cópias morre pela cópia
+  // mais nova, e a cópia mais nova aqui seria o relógio.
+  const r = await publicarNoBanco(supabase, id);
+  return { ok: r.ok, erro: r.erro };
+}
 
-  // Trava de fonte. A regra fundadora do projeto diz que toda afirmação factual
-  // precisa de fonte registrada, e uma regra que ninguém verifica não é regra.
-  // Conteúdo que de fato não afirma nada externo registra uma fonte dizendo
-  // isso, o que deixa a decisão consciente e conferível depois.
-  const { count } = await supabase
-    .from("sources")
-    .select("id", { count: "exact", head: true })
-    .eq("content_id", id);
-  if (!count) {
-    return {
-      ok: false,
-      erro: "Registre pelo menos uma fonte antes de publicar. Se o texto não faz afirmação que precise de fonte, registre uma anotação dizendo isso.",
-    };
+/**
+ * Marca ou desmarca a hora de publicar.
+ *
+ * O horário chega como instante, já convertido no navegador a partir do fuso de
+ * São Paulo, porque a decisão editorial é "sexta de manhã" e não "13:00 UTC".
+ * Aqui só conferimos que a hora ainda não passou.
+ */
+export async function agendarPublicacao(
+  id: string,
+  quando: string | null,
+): Promise<{ ok: boolean; erro?: string }> {
+  await requireStaff();
+  const supabase = await createClient();
+
+  if (quando) {
+    const instante = new Date(quando);
+    if (Number.isNaN(instante.getTime())) return { ok: false, erro: "Data inválida." };
+    // Um minuto de folga: relógio do navegador e do servidor nunca batem exato,
+    // e recusar "agora" por três segundos de diferença seria irritante.
+    if (instante.getTime() < Date.now() - 60_000) {
+      return { ok: false, erro: "Essa hora já passou. Escolha um horário à frente." };
+    }
   }
 
-  // Trava do analisador. Os erros objetivos, os que não dependem de julgamento
-  // editorial, deixam de ser conselho e passam a barrar a publicação. O
-  // REGRAS.md já pedia "analisador no verde" no checklist, e um checklist que o
-  // sistema não verifica é uma sugestão.
-  //
-  // Roda no SERVIDOR, com a mesma função que roda no navegador enquanto a
-  // pessoa digita. Duas implementações divergiriam, e aí a tela diria uma coisa
-  // e a trava outra.
-  const bloqueio = await conferirAntesDePublicar(id);
-  if (bloqueio) return { ok: false, erro: bloqueio };
-
-  const { data, error } = await supabase
+  const { error } = await supabase
     .from("contents")
-    .update({ status: "published", published_at: new Date().toISOString() })
-    .eq("id", id)
-    .select("slug")
-    .maybeSingle();
-  if (error) return { ok: false, erro: error.message };
+    .update({ scheduled_at: quando, scheduled_error: null })
+    .eq("id", id);
 
-  await revalidarTudo(data?.slug);
-  await reindexarBusca(id);
+  if (error) {
+    // A constraint do banco recusa agendar o que já está no ar.
+    if (error.code === "23514") {
+      return { ok: false, erro: "Esta página já está publicada. Não há o que agendar." };
+    }
+    return { ok: false, erro: error.message };
+  }
+
+  revalidatePath("/admin/conteudos");
+  revalidatePath("/admin/calendario");
   return { ok: true };
 }
 
-/**
- * Põe a busca em dia depois de publicar, despublicar ou arquivar.
- *
- * Import dinâmico para a service_role não entrar no pacote das telas.
- *
- * Falha aqui NUNCA derruba a publicação: o índice é dado derivado, e a página
- * no ar vale mais que a busca atualizada. O pior caso é a busca ficar velha até
- * o próximo reindex, e é por isso que o aviso vai para o log do servidor em vez
- * de morrer em silêncio.
- */
-async function reindexarBusca(id: string) {
-  try {
-    const [{ getConteudoPorId }, { indexarGuia }] = await Promise.all([
-      import("@/lib/data/contents"),
-      import("@/lib/busca/indexar"),
-    ]);
-    const guia = await getConteudoPorId(id);
-    if (guia) await indexarGuia(guia);
-  } catch (e) {
-    console.error("[busca] não consegui reindexar o conteúdo", id, e);
-  }
-}
-
-/**
- * Refaz tudo que muda quando uma página entra ou sai do ar.
- *
- * O sitemap e o llms.txt são gerados com cache: sem isto, conteúdo novo levava
- * até uma hora para aparecer neles, e é justamente nas primeiras horas que
- * interessa o Google descobrir a página.
- */
-async function revalidarTudo(slug?: string | null) {
-  revalidatePath("/admin/conteudos");
-  revalidatePath("/");
-  revalidatePath("/guia");
-  revalidatePath("/sitemap.xml");
-  revalidatePath("/llms.txt");
-  if (slug) {
-    revalidatePath(`/guia/${slug}`);
-    const { avisarIndexNow } = await import("@/lib/seo/indexnow");
-    await avisarIndexNow([`/guia/${slug}`]);
-  }
-}
 
 export async function voltarParaRascunho(id: string): Promise<{ ok: boolean }> {
   await requireStaff();

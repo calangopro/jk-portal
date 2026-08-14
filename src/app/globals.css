@@ -662,6 +662,209 @@ h4 {
   color: var(--color-muted);
 }
 
+/* Marcador de ferramenta que sobrou no texto.
+   O marcador válido nunca chega até aqui: `separarFerramentas` o retira do HTML
+   e a página monta o componente no lugar. O que sobra é referência a ferramenta
+   que saiu do ar, e um div vazio herdaria a margem entre blocos, abrindo um vão
+   sem explicação no meio da leitura. */
+.conteudo-rico div[data-ferramenta] {
+  display: none;
+}
+
+/* Trecho com a fonte à vista.
+   É `blockquote`, então precisa se distinguir da citação de fala comum: sem a
+   aspa dourada, com filete mais discreto e o crédito no rodapé. A diferença
+   visual importa porque as duas coisas dizem coisas diferentes ao leitor, uma
+   é alguém falando e a outra é um dado com origem conferível. */
+.conteudo-rico blockquote[data-fonte] {
+  margin-block: 2em;
+  padding: 1.1em 0 0 1.4em;
+  border-left: 2px solid rgb(var(--jk-brand-rgb) / 0.35);
+  font-family: var(--font-sans);
+  font-size: 1em;
+  line-height: 1.7;
+  color: var(--color-foreground);
+}
+
+/* Desliga a aspa da citação comum, que herdaria daqui. */
+.conteudo-rico blockquote[data-fonte]::before {
+  content: none;
+}
+
+.conteudo-rico blockquote[data-fonte] [data-fonte-corpo] > * + * {
+  margin-top: 0.7em;
+}
+
+.conteudo-rico blockquote[data-fonte] p {
+  margin: 0;
+}
+
+.conteudo-rico blockquote[data-fonte] .fonte-rodape {
+  margin-top: 0.8em;
+  font-size: var(--text-nota);
+  line-height: 1.5;
+  color: var(--color-muted);
+}
+
+.conteudo-rico blockquote[data-fonte] .fonte-rodape a {
+  color: var(--color-brand-strong);
+}
+
+/* Chamada para ação dentro do texto.
+   Uma ação por bloco, botão de verdade em vez de link solto no parágrafo, e o
+   dourado com texto escuro porque é a regra de contraste da marca. O `a` sai
+   com `data-evento`, então o rastreio que já escuta a página inteira conta esta
+   saída sem código novo. */
+.conteudo-rico div[data-chamada] {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1em;
+  margin-block: 2.2em;
+  padding: 1.5em 1.6em;
+  border: 1px solid rgb(var(--jk-brand-rgb) / 0.35);
+  border-radius: var(--radius-lg);
+  background: rgb(var(--jk-brand-rgb) / 0.07);
+}
+
+.conteudo-rico div[data-chamada] .chamada-texto {
+  margin: 0;
+  font-size: 1.02em;
+  color: var(--color-ink);
+}
+
+.conteudo-rico div[data-chamada] .chamada-botao {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.9em;
+  padding-inline: 1.6em;
+  border-radius: 999px;
+  background: var(--color-brand);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-size: 0.92em;
+  font-weight: 600;
+  text-decoration: none;
+  border-bottom: 0;
+  transition: background-color 0.2s;
+}
+
+.conteudo-rico div[data-chamada] .chamada-botao:hover {
+  background: var(--color-brand-light);
+}
+
+/* A partir de duas colunas de leitura o texto e o botão convivem lado a lado.
+   Container, não media query: a coluna do editor é mais estreita que a do
+   artigo, e com @media o preview passaria a mentir sobre o que vai ao ar. */
+@container leitura (min-width: 34rem) {
+  .conteudo-rico div[data-chamada] {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.6em;
+  }
+  .conteudo-rico div[data-chamada] .chamada-botao {
+    flex-shrink: 0;
+  }
+}
+
+/* Perguntas frequentes escritas no meio do texto.
+   O H3 vira a pergunta e o que vem abaixo dele é a resposta. É a mesma
+   estrutura que `faqsDoHtml` lê para montar o FAQPage, então o que se vê aqui
+   é literalmente o que vai para o schema. Fica aberta, sem acordeão: resposta
+   escondida atrás de clique não é lida nem por gente nem por IA. */
+.conteudo-rico section[data-faq] {
+  margin-block: 2.4em;
+  padding: 1.6em 0 0.4em;
+  border-top: 1px solid var(--color-border);
+}
+
+.conteudo-rico section[data-faq] h3 {
+  margin-top: 1.6em;
+  font-size: 1.08em;
+  color: var(--color-ink);
+}
+
+.conteudo-rico section[data-faq] > :first-child {
+  margin-top: 0;
+}
+
+.conteudo-rico section[data-faq] h3 + * {
+  margin-top: 0.45em;
+}
+
+/* Resumo em destaque.
+   Faixa discreta com filete dourado, não caixa de vidro: a "resposta rápida"
+   do topo já foi caixa e virou linha de apoio por decisão do projeto, e repetir
+   a caixa aqui traria de volta o formato recusado. Serve para a pessoa que rola
+   rápido parar e ler, e é o trecho que se sustenta sozinho quando a IA cita. */
+.conteudo-rico aside[data-destaque] {
+  margin-block: 2em;
+  padding: 1.1em 0 1.1em 1.5em;
+  border-left: 3px solid rgb(var(--jk-brand-rgb) / 0.75);
+  background: linear-gradient(90deg, rgb(var(--jk-brand-rgb) / 0.07), transparent 70%);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+
+.conteudo-rico aside[data-destaque] .destaque-rotulo {
+  margin: 0 0 0.45em;
+  font-family: var(--font-sans);
+  font-size: var(--text-nota);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-brand-strong);
+}
+
+.conteudo-rico aside[data-destaque] [data-destaque-corpo] > * + * {
+  margin-top: 0.7em;
+}
+
+.conteudo-rico aside[data-destaque] p:not(.destaque-rotulo) {
+  margin: 0;
+  color: var(--color-ink);
+}
+
+/* Passo a passo.
+   O número deixa de ser marcador de lista e vira uma pastilha: em procedimento,
+   saber em que etapa se está importa mais do que a pontuação da lista. É a
+   mesma marca `data-passos` que a página lê para emitir HowTo. */
+.conteudo-rico ol[data-passos] {
+  list-style: none;
+  padding-left: 0;
+  counter-reset: passo;
+}
+
+.conteudo-rico ol[data-passos] > li {
+  position: relative;
+  counter-increment: passo;
+  padding-left: 2.9em;
+  min-height: 2em;
+}
+
+.conteudo-rico ol[data-passos] > li + li {
+  margin-top: 1.1em;
+}
+
+.conteudo-rico ol[data-passos] > li::before {
+  content: counter(passo);
+  position: absolute;
+  left: 0;
+  top: 0.05em;
+  display: grid;
+  place-items: center;
+  width: 2em;
+  height: 2em;
+  border-radius: 999px;
+  background: rgb(var(--jk-brand-rgb) / 0.16);
+  border: 1px solid rgb(var(--jk-brand-rgb) / 0.4);
+  font-family: var(--font-sans);
+  font-size: 0.82em;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-brand-strong);
+}
+
 .conteudo-rico hr {
   border: 0;
   height: 1px;

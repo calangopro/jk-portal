@@ -58,15 +58,15 @@ const PASSOS = [
     icone: Coins,
   },
   {
-    nome: "Apoie a aliança na tela",
+    nome: "Deite a aliança em cima da tela",
     texto:
-      "Coloque a aliança diretamente sobre a tela, olhando de frente para não distorcer a leitura.",
+      "A aliança fica por cima do desenho, deitada e centralizada no anel dourado, e não em volta dele. Olhe de frente, sem inclinar a cabeça, para não distorcer a leitura.",
     icone: Ruler,
   },
   {
-    nome: "Arraste o anel até encaixar",
+    nome: "Ajuste até o dourado sumir na borda",
     texto:
-      "Puxe a borda do anel dourado, ou pince com dois dedos, até ele encostar na parte interna da aliança. O número do aro aparece na hora, junto do diâmetro e da circunferência em milímetros.",
+      "Puxe a borda do anel dourado, ou pince com dois dedos, até ele encostar na parede de dentro da aliança: nada de dourado sobrando no meio do furo. O número do aro aparece na hora, junto do diâmetro e da circunferência em milímetros.",
     icone: Hand,
   },
 ];
@@ -74,7 +74,8 @@ const PASSOS = [
 const CUIDADOS = [
   {
     icone: Ruler,
-    texto: "Apoie a aliança direto na tela, sem capinha nem película grossa.",
+    texto:
+      "Apoie a aliança direto na tela, deitada sobre o desenho, sem capinha nem película grossa.",
   },
   {
     icone: Eye,
@@ -133,9 +134,10 @@ export default function MedidorPage() {
               plantada em cima do conteúdo. */}
           <p className="linha-apoio mt-6 max-w-[48ch] text-lede">
             Para descobrir o aro pela tela, calibre com uma moeda de R$ 1, que
-            mede 27 mm, ou um cartão de banco, que mede 85,60 mm. Depois apoie a
-            aliança na tela e ajuste o anel até encaixar na parte de dentro. O
-            número do aro aparece na hora, junto do diâmetro em milímetros.
+            mede 27 mm, ou um cartão de banco, que mede 85,60 mm. Depois deite a
+            aliança em cima da tela, sobre o desenho, e ajuste o anel dourado
+            até ele encostar na parede de dentro dela. O número do aro aparece
+            na hora, junto do diâmetro em milímetros.
           </p>
 
           <div aria-hidden className="filete-dourado mt-7" />
@@ -185,6 +187,26 @@ export default function MedidorPage() {
                 </li>
               ))}
             </ul>
+          </section>
+
+          {/* Link de saída para a ferramenta irmã. Quem acabou de descobrir o
+              aro costuma ter a pergunta seguinte na mão: quanto isso dá lá
+              fora, quando o anel veio de viagem ou de uma loja gringa. */}
+          <section className="border-t border-border pt-8">
+            <h2 className="font-display text-titulo-secao text-ink">
+              Já tem o número em outra escala?
+            </h2>
+            <p className="mt-3 max-w-2xl text-muted">
+              Se você sabe o tamanho americano, o europeu, a circunferência ou o
+              diâmetro, não precisa medir de novo.{" "}
+              <Link
+                href="/ferramentas/conversor-de-aros"
+                className="font-semibold text-brand-nav hover:underline"
+              >
+                O conversor traduz para o aro brasileiro
+              </Link>
+              , com a tabela completa do aro 7 ao 35.
+            </p>
           </section>
 
           <FaqLista faqs={FAQS} />

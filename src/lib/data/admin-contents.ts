@@ -29,6 +29,10 @@ export type ContentRow = {
   reviewer_id: string | null;
   faqs: Faq[] | null;
   published_at: string | null;
+  /** Hora marcada para entrar no ar. Nulo quando não há agendamento. */
+  scheduled_at: string | null;
+  /** Por que a última tentativa de publicar no horário não passou. */
+  scheduled_error: string | null;
   created_at: string;
   updated_at: string;
 };

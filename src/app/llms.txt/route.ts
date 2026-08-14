@@ -1,4 +1,5 @@
 import { SITE, absoluteUrl, isProduction } from "@/lib/seo/site";
+import { FERRAMENTAS } from "@/lib/ferramentas/registro";
 import { getPublishedGuias } from "@/lib/data/contents";
 import { getPublishedLocations } from "@/lib/data/locations";
 
@@ -28,6 +29,9 @@ export async function GET() {
     "",
     "## Ferramentas",
     `- [Medidor de aliança online](${absoluteUrl("/medidor-de-aliancas")}): descubra o aro pela tela, calibrando com uma moeda de R$ 1 (27 mm) ou cartão (85,60 mm). No padrão brasileiro, a circunferência interna em milímetros é o número do aro mais 40.`,
+    ...FERRAMENTAS.map(
+      (f) => `- [${f.nome}](${absoluteUrl(`/ferramentas/${f.slug}`)}): ${f.resposta}`,
+    ),
     "",
     "## Guias",
     ...guias.map((g) => `- [${g.title}](${absoluteUrl(`/guia/${g.slug}`)})`),

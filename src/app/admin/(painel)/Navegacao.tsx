@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard, FileText, ImageIcon, MessageCircle, Package,
-  TrendingUp, Plug, Users, MapPin, PenLine, Palette, LayoutTemplate,
+  TrendingUp, Plug, Users, MapPin, PenLine, Palette, LayoutTemplate, BookCheck, ListChecks, CalendarDays, Milestone,
 } from "lucide-react";
 
 /**
@@ -18,10 +18,13 @@ const GRUPOS = [
   {
     nome: "Editorial",
     itens: [
+      { href: "/admin/pautas", label: "Pautas", Icone: ListChecks, desc: "O que escrever a seguir" },
       { href: "/admin/conteudos", label: "Conteúdos", Icone: FileText, desc: "Guias e artigos" },
+      { href: "/admin/calendario", label: "Calendário", Icone: CalendarDays, desc: "Quando cada coisa sai" },
       { href: "/admin/midia", label: "Mídia", Icone: ImageIcon, desc: "Imagens do portal" },
       { href: "/admin/comentarios", label: "Comentários", Icone: MessageCircle, desc: "Fila de moderação" },
       { href: "/admin/autores", label: "Autores", Icone: PenLine, desc: "Quem assina" },
+      { href: "/admin/fatos", label: "Base de fatos", Icone: BookCheck, desc: "O que dá para afirmar" },
     ],
   },
   {
@@ -43,6 +46,7 @@ const GRUPOS = [
     itens: [
       { href: "/admin/home", label: "Home", Icone: LayoutTemplate, desc: "Seções da página inicial" },
       { href: "/admin/aparencia", label: "Aparência", Icone: Palette, desc: "Cores e cantos" },
+      { href: "/admin/redirects", label: "Redirects", Icone: Milestone, desc: "Endereços que mudaram" },
     ],
   },
   {

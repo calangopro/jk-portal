@@ -113,3 +113,53 @@ export async function produtosParaVitrine(limite = 8): Promise<ProdutoDaVitrine[
     return [];
   }
 }
+
+/**
+ * Produtos que existem naquela largura, para a ferramenta ter saída de verdade.
+ *
+ * Só produto ativo e com preço sincronizado: a régua do projeto é nunca
+ * anunciar preço velho nem produto que sumiu do catálogo. A largura vem de
+ * `product_variants.width_mm`, preenchida pela sincronização a partir das
+ * propriedades da Tray.
+ */
+export async function produtosPorLargura(
+  larguraMm: number,
+  limite = 4,
+): Promise<ProdutoDaVitrine[]> {
+  const supabase = createReadClient();
+  if (!supabase) return [];
+
+  const { data } = await supabase
+    .from("product_variants")
+    .select(
+      "products!inner(id, name, url, main_image_url, price, promotional_price, is_active)",
+    )
+    .eq("width_mm", larguraMm)
+    .eq("products.is_active", true)
+    .not("products.price", "is", null)
+    // Pede folga porque o mesmo produto pode ter várias variações na largura.
+    .limit(limite * 4);
+
+  const vistos = new Set<string>();
+  const achados: ProdutoDaVitrine[] = [];
+
+  for (const linha of (data ?? []) as unknown as { products: Linha | null }[]) {
+    const p = linha.products;
+    // Repetir o mesmo card faria o catálogo parecer menor do que é.
+    if (!p || vistos.has(p.id)) continue;
+    vistos.add(p.id);
+
+    achados.push({
+      id: p.id,
+      nome: p.name ?? "Produto",
+      imagem: p.main_image_url,
+      preco: p.price,
+      precoPromocional: p.promotional_price,
+      href: comUtm(p.url, p.id),
+    });
+
+    if (achados.length >= limite) break;
+  }
+
+  return achados;
+}

@@ -13,6 +13,9 @@ import { comPrecosAtuais } from "@/lib/conteudo/precos";
 import { tempoDeLeitura } from "@/lib/content/leitura";
 import { comentariosAprovados } from "@/lib/data/comentarios";
 import { JsonLd } from "@/components/schema/JsonLd";
+import { faqsDoHtml, faqsUnidas } from "@/lib/content/faq-html";
+import { separarFerramentas } from "@/lib/content/ferramentas-html";
+import { FerramentaEmbutida } from "@/components/ferramentas/Embutida";
 import {
   articleSchema,
   breadcrumbSchema,
@@ -90,6 +93,16 @@ export async function PaginaDoGuia({ guia: recebido }: { guia: Content }) {
   const isSample = guia.id.startsWith("sample-");
   const minutos = tempoDeLeitura(guia.bodyHtml ?? guia.bodyMd);
 
+  // FAQ do corpo e FAQ do formulário viram uma lista só para o schema.
+  // O bloco de FAQ do editor põe a pergunta onde ela nasce, no meio do assunto,
+  // e sem juntar aqui essas perguntas ficariam de fora do FAQPage, que é
+  // justamente o que os sistemas de IA leem.
+  const faqsParaSchema = faqsUnidas(faqsDoHtml(corpo), guia.faqs);
+
+  // O corpo em pedaços, com os marcadores de ferramenta separados do HTML.
+  // Sem marcador nenhum, isto devolve um único pedaço e nada muda.
+  const pedacos = separarFerramentas(corpoComIndice);
+
   return (
     <main>
       <JsonLd
@@ -108,7 +121,7 @@ export async function PaginaDoGuia({ guia: recebido }: { guia: Content }) {
           { name: guia.title, url: absoluteUrl(`/guia/${guia.slug}`) },
         ])}
       />
-      {guia.faqs?.length ? <JsonLd data={faqPageSchema(guia.faqs)} /> : null}
+      {faqsParaSchema.length ? <JsonLd data={faqPageSchema(faqsParaSchema)} /> : null}
       {/* Product só com produto real sincronizado da Tray. */}
       {produtos.map((p, i) => {
         const schema = productSchema(p);
@@ -167,10 +180,21 @@ export async function PaginaDoGuia({ guia: recebido }: { guia: Content }) {
                   classe `conteudo-rico` do editor, então o que a pessoa vê ao
                   escrever é o que vai ao ar. Fallback para o texto simples. */}
               {guia.bodyHtml ? (
-                <div
-                  className="conteudo-rico mt-8 max-w-leitura-larga"
-                  dangerouslySetInnerHTML={{ __html: corpoComIndice }}
-                />
+                // O corpo é cortado nos marcadores de ferramenta, e o
+                // componente interativo entra entre os pedaços. Sem isso, uma
+                // ferramenta no meio do texto seria só um div vazio: HTML
+                // servido de uma vez não carrega React dentro.
+                pedacos.map((p, i) =>
+                  p.tipo === "ferramenta" ? (
+                    <FerramentaEmbutida key={`ferramenta-${i}`} slug={p.slug} />
+                  ) : (
+                    <div
+                      key={`html-${i}`}
+                      className="conteudo-rico mt-8 max-w-leitura-larga"
+                      dangerouslySetInnerHTML={{ __html: p.valor }}
+                    />
+                  ),
+                )
               ) : guia.bodyMd ? (
                 <div className="conteudo-rico mt-8 max-w-leitura-larga">
                   {guia.bodyMd.split("\n\n").map((block, i) => {

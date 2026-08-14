@@ -1,4 +1,5 @@
 import type { MetadataRoute } from "next";
+import { FERRAMENTAS } from "@/lib/ferramentas/registro";
 import { absoluteUrl } from "@/lib/seo/site";
 import { getPublishedGuias, comCapas } from "@/lib/data/contents";
 import { getPublishedLocations, comFotos } from "@/lib/data/locations";
@@ -58,6 +59,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     // Página estática: a data de modificação é a do próprio código, então fica
     // sem lastmod, que é melhor do que uma data inventada.
     { url: absoluteUrl("/medidor-de-aliancas") },
+    { url: absoluteUrl("/ferramentas") },
+    // Uma linha por ferramenta do registro, para a próxima entrar no sitemap
+    // sozinha em vez de depender de alguém lembrar de voltar aqui.
+    ...FERRAMENTAS.map((f) => ({ url: absoluteUrl(`/ferramentas/${f.slug}`) })),
   ];
 
   const guiaRoutes: MetadataRoute.Sitemap = guias.map((g) => ({
