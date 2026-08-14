@@ -40,20 +40,20 @@ export function Amostra({
       <div className="bg-background p-6">
         <p className="eyebrow">Guia JK Alianças</p>
         <h3 className="font-display mt-3 text-titulo-secao text-ink">
-          Informação confiável para escolher a aliança certa
+          Tudo sobre alianças de casamento e namoro
         </h3>
         <p className="mt-2.5 max-w-[46ch] leading-relaxed text-muted">
-          Guias, comparativos e as lojas da JK Alianças, feito com fábrica própria e
-          cuidado com cada detalhe.
+          Tamanho, largura, material e preço, explicado por quem fabrica as
+          alianças.
         </p>
 
         <div className="mt-5 flex flex-wrap items-center gap-3">
           <span className="inline-flex min-h-11 items-center gap-2 rounded-full bg-brand px-6 text-apoio font-semibold text-ink shadow-[var(--jk-sombra-acao)]">
             <Ruler size={15} aria-hidden />
-            Medir meu aro
+            Medir minha aliança
           </span>
           <span className="inline-flex min-h-11 items-center rounded-full border border-ink/25 bg-white/40 px-6 text-apoio font-semibold text-ink">
-            Ver os guias
+            Ver as dicas
           </span>
           <span className="text-apoio font-semibold text-brand-nav">Ver todos</span>
         </div>
@@ -70,7 +70,7 @@ export function Amostra({
         <div className="mt-5 overflow-hidden rounded-xl bg-gradient-to-br from-charcoal via-charcoal to-wine-deep px-6 py-7">
           <p className="eyebrow text-brand-light">Onde comprar</p>
           <p className="font-display mt-2 text-titulo-bloco text-white">
-            Prove no dedo, na loja mais perto de você
+            Experimente na loja mais perto de você
           </p>
         </div>
       </div>

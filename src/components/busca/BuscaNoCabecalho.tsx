@@ -49,7 +49,7 @@ export function BuscaNoCabecalho() {
         visivel ? "opacity-100" : "pointer-events-none invisible opacity-0"
       }`}
     >
-      <CampoDeBusca compacto placeholder="Buscar no portal" />
+      <CampoDeBusca compacto placeholder="Buscar no site" />
     </div>
   );
 }

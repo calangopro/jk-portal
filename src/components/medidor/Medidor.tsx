@@ -173,7 +173,7 @@ export function Medidor({ children }: { children?: ReactNode }) {
               <>
                 <p className="eyebrow">Ferramenta</p>
                 <p className="font-display mt-2 max-w-sm text-titulo-secao text-ink">
-                  Descubra seu aro pela tela, em dois minutos
+                  Descubra o tamanho da sua aliança pela tela
                 </p>
                 <p className="mt-3 max-w-md text-apoio leading-relaxed text-muted">
                   Você vai precisar da aliança que já serve e de uma moeda de
@@ -191,7 +191,7 @@ export function Medidor({ children }: { children?: ReactNode }) {
               className="inline-flex min-h-14 items-center justify-center gap-2.5 rounded-full bg-brand px-8 text-corpo font-semibold text-ink shadow-[var(--jk-sombra-acao-larga)] transition-[transform,background-color] duration-300 hover:-translate-y-0.5 hover:bg-brand-light"
             >
               <Ruler size={18} aria-hidden />
-              {mediu ? "Medir de novo" : "Medir meu aro"}
+              {mediu ? "Medir de novo" : "Medir minha aliança"}
             </button>
 
             {pxPorMm ? (

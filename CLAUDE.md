@@ -25,6 +25,20 @@ Backlog: Trello 🧠 JK Alianças | ADM → https://trello.com/b/S7IXlYDi
   ```bash
   rm -rf node_modules .next && npm install
   ```
+- **Sintoma do `.next` corrompido: bloco em branco e chunk 404.** Quando o
+  cache quebra, a página responde 200 e o texto do servidor aparece, mas a
+  parte interativa fica um retângulo vazio. No console está o motivo:
+  `/_next/static/chunks/app/(site)/.../page.js` com 404 e "MIME type
+  ('text/plain') is not executable". A pasta do chunk existe no disco e está
+  VAZIA. Nem `touch` no arquivo de origem resolve, porque o servidor em memória
+  acha que já compilou aquilo. É `rm -rf .next` e subir de novo, sem meio termo.
+- **Um `next dev` por pasta, e só.** Dois servidores de desenvolvimento na
+  mesma pasta escrevem no MESMO `.next` e se atropelam: rota que existe começa
+  a responder 404 ou 500 em um deles enquanto funciona no outro. É o mesmo
+  estrago do build com o dev ligado, e o conserto é o mesmo: derrube os dois,
+  `rm -rf .next` e suba um só. Por isso o `.claude/launch.json` fica com
+  `autoPort: false`, para a segunda tentativa falhar na cara em vez de subir em
+  outra porta e corromper o cache em silêncio.
 - **NUNCA rode `npm run build` com o `next dev` ligado.** Os dois escrevem na
   mesma pasta `.next` e corrompem o cache, o que aparece como
   `Cannot find module './873.js'` e página sem estilo. Para conferir o build sem
@@ -110,6 +124,13 @@ docs/                identidade-visual-jk.md (marca)
   agendamento. A terceira não tem ninguém logado. Se cada porta tivesse a própria
   verificação, bastaria agendar para o conteúdo entrar no ar sem fonte e sem
   passar pelo analisador. As travas moram no núcleo e as três portas chamam ele.
+- **Instrução de gesto se escreve pelo CONTATO, não pela ausência.** O medidor
+  dizia "cresça até o escuro sumir", "sobrou escuro em volta" e "o dourado
+  escapou por fora". Fora o duplo sentido que isso abriu, a frase pedia que a
+  pessoa acompanhasse uma coisa que NÃO está lá. Virou "aumente o dourado até
+  ele tocar a aliança", com os três estados em "Pequeno: ainda não toca",
+  "Certo: toca a aliança" e "Grande: passou da aliança". Mesma checagem a olho,
+  sem depender de sombra e sem margem para piada.
 - **Desenho de medir não pode ter duas bordas.** O anel dourado do medidor era
   bonito e ambíguo: metade das pessoas encostava a aliança na borda de fora.
   Ferramenta de medida se desenha com UMA borda só, e com um estado final que a
@@ -134,6 +155,17 @@ docs/                identidade-visual-jk.md (marca)
   linguagem: vetor tem teto para realismo de pele, e quase-real fica pior que
   assumidamente desenhado. A saída foi ilustração de traço, com o material
   guardado só para o produto. Não tentar a quarta rodada de realismo em SVG.
+- **Cache que guarda o PADRÃO do código não deixa o código mudar mais nada.**
+  `lerLayout` montava o layout de fábrica dentro do `unstable_cache` e devolvia
+  ele junto. Como não existe linha de `pagina:home` no banco, o que ficava
+  gravado era uma cópia do texto de fábrica, com `revalidate: false`, ou seja,
+  para sempre: a única coisa que mata a entrada é o `revalidateTag('layout')`
+  que só o admin dispara ao salvar. Reescrever o título da home no código não
+  aparecia na tela, nem depois de recompilar, e parecia que a edição não tinha
+  sido feita. Agora o cacheado é só a resposta crua do Supabase (`null`
+  incluído) e o padrão é aplicado FORA do cache. Regra geral: dentro do cache
+  vai o que veio do banco, nunca o que veio do código. Ao mexer nisso, troque
+  também a versão em `keyParts`, senão a entrada velha continua respondendo.
 - **`.conteudo-rico` é a MESMA classe no editor e no site publicado.** Mexeu nela, confira
   os dois lados, senão o preview passa a mentir sobre o que vai ao ar.
 - **`.conteudo-rico` é um container CSS (`container-name: leitura`).** Bloco de dentro
@@ -254,6 +286,22 @@ bolinha do seletor e a barra da comparação, via `gradienteDoMaterial()`.
 Atalho `/medidor-de-aliancas?calibrar=1` abre o medidor direto na escolha do
 objeto, e o simulador linka para ele. O parâmetro é lido de `window.location`,
 não de `useSearchParams`, para a página não virar dinâmica.
+
+✅ **Revisão de linguagem e de nomes (14/08):** varredura em todo texto visível,
+com as regras novas na seção 1 do `REGRAS.md`. Saíram os dois duplos sentidos
+("Prove no dedo" e "O tamanho certo, resolvido na tela"), a frase que ninguém
+fala ("Tudo sobre alianças, respondido direto") e o nome que ninguém busca
+("Guias de alianças"). A home abre em "Tudo sobre alianças de casamento e
+namoro", a lista virou "Últimos posts", o índice virou "Dicas sobre alianças"
+(URL `/guia` intacta), a ferramenta virou **Medidor de aliança** em todo lugar,
+e "portal" virou "site" na tela. Os padrões de fábrica em `blocos/tipos.ts` são
+o que a home serve hoje, porque **não existe layout gravado** em
+`site_settings` (chave `pagina:home` ausente); no dia em que alguém salvar pelo
+`/admin/home`, o texto gravado passa a mandar. A página do medidor ainda
+descrevia o **anel** dourado antigo, de duas bordas, e foi reescrita para o
+disco. E o 404 da RAIZ, que é o que responde a link velho de fora, entrava sem
+cabeçalho, sem rodapé e sem saídas: as duas portas de 404 agora renderizam
+`components/erro/Pagina404.tsx`.
 
 🔲 **A construir:** conteúdo (só 1 guia publicado), OAuth do Search Console e do GMB, deploy na Vercel.
 ⚠️ **Pendências:** **preencher o endereço do portal em `site_settings.cron`**

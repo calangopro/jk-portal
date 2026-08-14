@@ -28,7 +28,7 @@ export type Modelo = {
 const CTA_MEDIDOR =
   '<p>Se a dúvida é o tamanho, o <a href="/medidor-de-aliancas">medidor de aliança</a> resolve pela tela em dois minutos.</p>';
 const CTA_LOJAS =
-  '<p>Para provar no dedo antes de decidir, veja <a href="/lojas">as lojas da JK</a>.</p>';
+  '<p>Para experimentar antes de decidir, veja <a href="/lojas">as lojas da JK</a>.</p>';
 
 export const MODELOS: Modelo[] = [
   {

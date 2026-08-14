@@ -539,7 +539,7 @@ export function ModoMedicao({
                       <strong className="font-semibold text-[#f6efe4]">
                         deitada em cima da tela
                       </strong>
-                      , cresça até o escuro sumir
+                      , aumente o dourado até tocar nela
                     </span>
                     <ChevronDown
                       size={16}
@@ -590,7 +590,7 @@ export function ModoMedicao({
                     aoClicar={() =>
                       aoDefinirDiametro(limitar(+(diametroMm - 0.05).toFixed(2), DIAMETRO_MIN, DIAMETRO_MAX))
                     }
-                    rotulo="Diminuir o disco"
+                    rotulo="Diminuir o círculo dourado"
                   >
                     <Minus size={16} />
                   </BotaoFino>
@@ -611,7 +611,7 @@ export function ModoMedicao({
                     aoClicar={() =>
                       aoDefinirDiametro(limitar(+(diametroMm + 0.05).toFixed(2), DIAMETRO_MIN, DIAMETRO_MAX))
                     }
-                    rotulo="Aumentar o disco"
+                    rotulo="Aumentar o círculo dourado"
                   >
                     <Plus size={16} />
                   </BotaoFino>
@@ -619,7 +619,7 @@ export function ModoMedicao({
 
                 <p className="mt-3 flex items-center justify-center gap-1.5 text-nota text-[#f3ece1]/60">
                   <Hand size={12} aria-hidden />
-                  Arraste o disco, pince com dois dedos ou use o controle
+                  Arraste o dourado, pince com dois dedos ou use o controle
                 </p>
 
                 <button

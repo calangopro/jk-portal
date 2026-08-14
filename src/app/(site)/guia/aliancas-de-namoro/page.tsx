@@ -23,7 +23,7 @@ export default function AliancasDeNamoroPlaceholder() {
       <JsonLd
         data={breadcrumbSchema([
           { name: "Início", url: absoluteUrl("/") },
-          { name: "Guias", url: absoluteUrl("/guia") },
+          { name: "Dicas", url: absoluteUrl("/guia") },
           {
             name: "Alianças de namoro",
             url: absoluteUrl("/guia/aliancas-de-namoro"),

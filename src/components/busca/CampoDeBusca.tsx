@@ -26,7 +26,7 @@ type Resposta = { guias: Achado[]; lojas: Achado[]; comSignificado: boolean };
 export function CampoDeBusca({
   sugestoes = [],
   autoFoco = false,
-  placeholder = "O que você quer saber?",
+  placeholder = "Ex.: como descobrir meu aro",
   compacto = false,
 }: {
   sugestoes?: string[];
@@ -137,7 +137,7 @@ export function CampoDeBusca({
           onFocus={() => temResultado && setAberto(true)}
           onKeyDown={teclado}
           placeholder={placeholder}
-          aria-label="Buscar no portal"
+          aria-label="Buscar no site"
           role="combobox"
           aria-expanded={aberto && temResultado}
           aria-controls={idLista}

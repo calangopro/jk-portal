@@ -656,7 +656,7 @@ export function Editor({
       case "produto": setSeletorProduto(true); break;
       case "chamada": {
         const texto = window.prompt(
-          "O que a chamada diz, em uma frase. Ex.: Prove no dedo na unidade mais perto de você.",
+          "O que a chamada diz, em uma frase. Ex.: Experimente as alianças na loja mais perto de você.",
           "",
         );
         if (texto === null) break;
@@ -1610,7 +1610,7 @@ export function Editor({
               </span>
             </label>
             <label className="block">
-              <span className="text-xs font-semibold text-ink">Guia pilar deste assunto</span>
+              <span className="text-xs font-semibold text-ink">Post pilar deste assunto</span>
               <select
                 value={pilarId}
                 onChange={(e) => setPilarId(e.target.value)}
@@ -1663,7 +1663,7 @@ export function Editor({
           </label>
 
           <label className="mt-4 block">
-            <span className="text-xs font-semibold text-ink">Resumo na lista de guias</span>
+            <span className="text-xs font-semibold text-ink">Resumo na lista de posts</span>
             <textarea value={resumo} onChange={(e) => setResumo(e.target.value)} rows={2} className={`${campo} mt-1.5 resize-y`} />
           </label>
 

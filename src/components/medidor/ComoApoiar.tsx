@@ -7,11 +7,13 @@
  * desenho virou um disco cheio, de uma borda só, e a instrução virou um gesto
  * único, que a própria tela confirma:
  *
- *   diminua até aparecer o escuro em volta, depois cresça até o escuro sumir.
+ *   aumente o dourado até ele tocar a aliança.
  *
- * No instante em que a última réstia de escuro some, o disco tem exatamente o
- * tamanho do furo da aliança. É verificável a olho, sem depender de a pessoa
- * ter entendido o texto.
+ * A referência é o CONTATO entre duas coisas que a pessoa está vendo, e não a
+ * ausência de um fundo. A versão anterior falava em "o escuro sumiu" e "sobrou
+ * escuro em volta", que além de exigir olhar para o que NÃO está lá, abria
+ * leitura de duplo sentido em texto de ferramenta. Tocar é o que ela faz com a
+ * peça na mão, e é conferível a olho.
  *
  * Os três estados abaixo são o que ela vê de verdade com a peça apoiada. O
  * metal da aliança é cinza de propósito, para não competir com o dourado do
@@ -25,13 +27,13 @@ const R_INTERNO = 30;
 const R_EXTERNO = 43;
 
 const ESTADOS: Estado[] = [
-  { rDisco: 21, rotulo: "Falta: sobrou escuro em volta" },
-  { rDisco: R_INTERNO, rotulo: "Certo: o escuro sumiu", certo: true },
-  // Passar do ponto só fica visível quando o dourado escapa por FORA da peça:
+  { rDisco: 21, rotulo: "Pequeno: ainda não toca" },
+  { rDisco: R_INTERNO, rotulo: "Certo: toca a aliança", certo: true },
+  // Passar do ponto só fica visível quando o dourado aparece por FORA da peça:
   // entre o encaixe exato e a espessura do metal, a tela não muda de aparência.
-  // É por isso que a instrução manda crescer devagar e parar no primeiro
-  // instante, em vez de procurar o meio do caminho.
-  { rDisco: 48, rotulo: "Passou: o dourado escapou por fora" },
+  // É por isso que a instrução manda aumentar devagar e parar no primeiro
+  // contato, em vez de procurar o meio do caminho.
+  { rDisco: 48, rotulo: "Grande: passou da aliança" },
 ];
 
 function Miniatura({ rDisco }: { rDisco: number }) {
@@ -64,9 +66,9 @@ export function ComoApoiar() {
     <div>
       <p className="text-apoio leading-relaxed text-[#f3ece1]/80">
         A aliança fica{" "}
-        <strong className="font-semibold text-[#f6efe4]">deitada em cima da tela</strong>, sobre o
-        disco dourado. Cresça o disco devagar e pare no instante em que o escuro
-        em volta dele sumir.
+        <strong className="font-semibold text-[#f6efe4]">deitada em cima da tela</strong>, em volta
+        do círculo dourado. Aumente o dourado devagar e pare assim que ele
+        tocar a aliança pelo lado de dentro.
       </p>
 
       <ul className="mt-4 grid grid-cols-3 gap-3">

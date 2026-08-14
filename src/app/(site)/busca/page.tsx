@@ -34,7 +34,7 @@ export default async function PaginaDeBusca({ searchParams }: Props) {
     <main>
       <Container size="wide" className="py-14 sm:py-20">
         <h1 className="font-display text-titulo-artigo text-ink">
-          {consulta ? <>Resultados para “{consulta}”</> : "Buscar no portal"}
+          {consulta ? <>Resultados para “{consulta}”</> : "Buscar no site"}
         </h1>
 
         <div className="mt-7 max-w-2xl">
@@ -59,8 +59,8 @@ export default async function PaginaDeBusca({ searchParams }: Props) {
           <div className="mt-10 max-w-2xl">
             <EmptyState
               title="Nada encontrado para essa busca"
-              description="Tente com outras palavras, ou veja os guias publicados. Se você procurou uma loja, o índice de lojas tem todas as unidades."
-              action={<Button href="/guia">Ver os guias</Button>}
+              description="Tente com outras palavras, ou veja os posts publicados. Se você procurou uma loja, o índice de lojas tem todas as unidades."
+              action={<Button href="/guia">Ver os posts</Button>}
             />
           </div>
         ) : null}
@@ -68,7 +68,7 @@ export default async function PaginaDeBusca({ searchParams }: Props) {
         {resultado && resultado.guias.length > 0 ? (
           <section className="mt-12">
             <h2 className="text-apoio font-semibold uppercase tracking-[0.14em] text-muted">
-              Guias
+              Posts
             </h2>
             <ul className="mt-4 space-y-3">
               {resultado.guias.map((a) => (

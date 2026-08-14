@@ -57,7 +57,7 @@ export default async function ConteudosPage({
           <p className="eyebrow">Editorial</p>
           <h1 className="font-display mt-2 text-4xl text-ink">Conteúdos</h1>
           <p className="mt-3 text-muted">
-            Guias e artigos do portal. Cada peça nasce como rascunho e só vai ao
+            Posts do site. Cada peça nasce como rascunho e só vai ao
             ar depois de revisada.
           </p>
         </div>

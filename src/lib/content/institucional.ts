@@ -53,6 +53,6 @@ export const PROVAS_DA_MARCA = [
   {
     titulo: "Atendimento presencial",
     texto:
-      "Aro de prova, ajuste no dedo e conversa com quem entende, antes de fechar a compra.",
+      "Aro de prova, ajuste de tamanho e conversa com quem entende, antes de fechar a compra.",
   },
 ] as const;

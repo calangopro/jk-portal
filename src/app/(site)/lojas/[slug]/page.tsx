@@ -84,7 +84,7 @@ function faqsDaLoja(loja: Location) {
 
   automaticas.push({
     question: `Dá para provar o aro na loja ${loja.name}?`,
-    answer: `Sim. A unidade tem aro de prova para você medir o dedo no atendimento presencial. Se preferir chegar já com uma ideia do número, o portal tem um medidor de aro que funciona pela tela.`,
+    answer: `Sim. A unidade tem aro de prova para você medir o dedo no atendimento presencial. Se preferir chegar já com uma ideia do número, aqui no site tem um medidor de aliança que funciona pela tela.`,
   });
 
   return [...cadastradas, ...automaticas];

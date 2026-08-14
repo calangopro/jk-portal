@@ -117,7 +117,7 @@ export async function PaginaDoGuia({ guia: recebido }: { guia: Content }) {
       <JsonLd
         data={breadcrumbSchema([
           { name: "Início", url: absoluteUrl("/") },
-          { name: "Guias", url: absoluteUrl("/guia") },
+          { name: "Dicas", url: absoluteUrl("/guia") },
           { name: guia.title, url: absoluteUrl(`/guia/${guia.slug}`) },
         ])}
       />
@@ -159,7 +159,7 @@ export async function PaginaDoGuia({ guia: recebido }: { guia: Content }) {
               etiqueta={guia.cluster ?? "Guia"}
               passos={[
                 { nome: "Início", href: "/" },
-                { nome: "Guias", href: "/guia" },
+                { nome: "Dicas", href: "/guia" },
                 { nome: guia.title },
               ]}
             />

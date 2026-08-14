@@ -76,12 +76,13 @@ export default async function LojasIndex() {
             <Pill>Onde comprar</Pill>
           </div>
           <h1 className="font-display max-w-[16ch] text-titulo-artigo text-ink">
-            As lojas da JK Alianças
+            Lojas JK Alianças em São Paulo
           </h1>
           <p className="linha-apoio mt-6 max-w-[50ch] text-lede">
             São {INSTITUCIONAL.lojasFisicas} unidades em São Paulo e na Grande
-            São Paulo, com aro de prova, ajuste no dedo e atendimento de quem
-            fabrica a peça. A marca está no mercado há {anosDeMercado()} anos.
+            São Paulo, com aro de prova, ajuste de tamanho na hora e
+            atendimento de quem fabrica a peça. A marca está no mercado há{" "}
+            {anosDeMercado()} anos.
           </p>
           <div aria-hidden className="filete-dourado mt-7" />
         </header>

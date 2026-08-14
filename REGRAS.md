@@ -32,6 +32,30 @@ microcópia de botão, mensagens de erro, e-mails, rótulos do admin.
 
 **Teste rápido antes de publicar:** leia em voz alta. Se soar como folheto ou como robô, reescreva.
 
+### Vocabulário do site (decidido em 14/08/2026)
+
+Somos gente normal escrevendo para gente normal. Nem formal, nem gíria forçada.
+Palavra simples, e de preferência a palavra que a pessoa **digita no Google**.
+
+* **Nada de duplo sentido.** Aliança se experimenta, se prova na loja, se mede.
+  Frase que provoca risada no grupo do WhatsApp está errada, por mais elegante
+  que pareça na tela. Foram cortadas por isso: "Prove no dedo" (virou
+  "Experimente antes de comprar" e "Experimente na loja mais perto de você") e
+  "O tamanho certo, resolvido na tela" (virou "Descubra o tamanho e a largura da
+  sua aliança").
+* **Nada de frase que ninguém fala.** "Tudo sobre alianças, respondido direto"
+  não é jeito de escrever nem de ler; o H1 da home virou "Tudo sobre alianças de
+  casamento e namoro", que é como a pessoa pergunta.
+* **Nome de seção é o nome que as pessoas conhecem.** A lista de conteúdo é
+  "Últimos posts" na home e "Dicas sobre alianças" no índice, não "Guias de
+  alianças", que ninguém busca. A URL continua `/guia`, porque endereço com
+  histórico de busca não se mexe.
+* **A ferramenta se chama pelo produto, não pela medida interna.** É "Medidor de
+  aliança", não "Medidor de aro". "Aro" continua valendo dentro do texto, porque
+  é o termo do mercado e da busca, mas não é o nome da porta.
+* **"Portal" é palavra nossa, não da pessoa.** Na tela se escreve "site".
+
+
 ---
 
 ## 2. SEO e GEO em tudo, sem exceção

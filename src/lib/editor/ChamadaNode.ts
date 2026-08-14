@@ -4,7 +4,7 @@ import { Node, mergeAttributes } from "@tiptap/core";
  * Chamada para ação, no meio ou no fim do texto.
  *
  * O bloco de produto já cobre a saída para a loja, com preço e UTM. O que
- * faltava era a saída que NÃO é produto: provar no dedo numa unidade, falar no
+ * faltava era a saída que NÃO é produto: experimentar numa unidade, falar no
  * WhatsApp, continuar no guia que explica o passo seguinte. Sem um bloco para
  * isso, a única forma era escrever um link solto no parágrafo, que ninguém vê e
  * que ninguém consegue medir.

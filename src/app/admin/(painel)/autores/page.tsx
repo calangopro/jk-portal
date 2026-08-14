@@ -95,7 +95,7 @@ export default async function AutoresPage() {
 
         {linhas.length === 0 ? (
           <p className="text-muted">
-            Nenhuma pessoa cadastrada ainda. Enquanto isso, os guias usam o nome
+            Nenhuma pessoa cadastrada ainda. Enquanto isso, os posts usam o nome
             digitado à mão no editor, que funciona mas não leva a lugar nenhum.
           </p>
         ) : (

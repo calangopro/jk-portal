@@ -71,11 +71,11 @@ export function paginaRemovidaHtml(): string {
 <main>
   <p class="marca">JK Alianças</p>
   <h1>Esta página saiu do ar</h1>
-  <p>O conteúdo que estava neste endereço foi removido e não tem substituto direto. Abaixo estão os caminhos mais usados do portal.</p>
+  <p>O conteúdo que estava neste endereço foi removido e não tem substituto direto. Abaixo estão as páginas mais procuradas do site.</p>
   <div class="filete"></div>
   <ul>
-    <li><a href="/guia">Guias de alianças<span>Materiais, medidas, larguras e cuidados.</span></a></li>
-    <li><a href="/medidor-de-aliancas">Medidor de aliança<span>Descubra o seu aro pela tela.</span></a></li>
+    <li><a href="/guia">Dicas sobre alianças<span>Tamanho, largura, material e cuidados.</span></a></li>
+    <li><a href="/medidor-de-aliancas">Medidor de aliança<span>Descubra o tamanho da sua aliança pela tela.</span></a></li>
     <li><a href="/lojas">Lojas JK Alianças<span>Endereço, horário e rota das unidades.</span></a></li>
     <li><a href="/">Início<span>A capa do portal.</span></a></li>
   </ul>

@@ -164,7 +164,7 @@ export function trechosDaLoja(loja: Location): Trecho[] {
     loja.mallName,
     (loja.services ?? []).join(", "),
     loja.about,
-    "Aliança e joia com atendimento presencial, aro de prova e ajuste no dedo.",
+    "Aliança e joia com atendimento presencial, aro de prova e ajuste de tamanho na hora.",
   ].filter(Boolean);
 
   const texto = htmlParaTexto(partes.join(". "));

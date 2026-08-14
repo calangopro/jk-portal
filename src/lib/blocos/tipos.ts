@@ -60,11 +60,11 @@ export function layoutPadraoDaHome(): Layout {
         travado: true,
         props: {
           eyebrow: "Guia JK Alianças",
-          titulo: "Tudo sobre alianças, respondido direto",
-          lede: "Pergunte com suas palavras. A busca entende a dúvida, não só a palavra exata.",
-          placeholder: "O que você quer saber?",
+          titulo: "Tudo sobre alianças, joias e semijoias",
+          lede: "Tamanho, largura, material e preço, explicado por quem fabrica.",
+          placeholder: "Ex.: como descobrir meu aro",
           sugestoes: [
-            "como medir meu aro",
+            "como descobrir meu aro",
             "prata 950 ou 925",
             "qual largura escolher",
             "loja perto de mim",
@@ -76,7 +76,7 @@ export function layoutPadraoDaHome(): Layout {
         tipo: "ultimos-conteudos",
         visivel: true,
         travado: false,
-        props: { titulo: "Publicados agora", quantidade: 5, verTodos: "Ver todos os guias" },
+        props: { titulo: "Últimos posts", quantidade: 5, verTodos: "Ver todos" },
       },
       {
         id: "vitrine",
@@ -95,7 +95,7 @@ export function layoutPadraoDaHome(): Layout {
         tipo: "trilhas",
         visivel: true,
         travado: false,
-        props: { titulo: "Por onde começar", subtitulo: "Escolha o momento e vá direto ao ponto." },
+        props: { titulo: "Por onde começar", subtitulo: "Escolha o assunto e comece por aí." },
       },
       {
         id: "medidor",
@@ -103,10 +103,10 @@ export function layoutPadraoDaHome(): Layout {
         visivel: true,
         travado: false,
         props: {
-          titulo: "Descubra seu aro pela tela, em dois minutos",
+          titulo: "Descubra o tamanho da sua aliança pela tela",
           texto:
-            "Calibre com uma moeda de R$ 1, apoie a aliança que já serve e arraste o anel até encaixar. A medida sai em milímetros de verdade.",
-          botao: "Medir meu aro",
+            "Calibre com uma moeda de R$ 1, apoie em cima da tela a aliança que já serve e aumente o círculo dourado até ele tocar nela. A medida sai em milímetros de verdade.",
+          botao: "Medir minha aliança",
         },
       },
       {
@@ -114,7 +114,7 @@ export function layoutPadraoDaHome(): Layout {
         tipo: "lojas",
         visivel: true,
         travado: false,
-        props: { titulo: "Prove no dedo", subtitulo: "Atendimento presencial, aro de prova e ajuste na hora." },
+        props: { titulo: "Experimente antes de comprar", subtitulo: "Atendimento presencial, aro de prova e ajuste na hora." },
       },
       {
         id: "prova",
@@ -130,7 +130,7 @@ export function layoutPadraoDaHome(): Layout {
         travado: false,
         props: {
           eyebrow: "Onde comprar",
-          titulo: "Prove no dedo, na loja mais perto de você",
+          titulo: "Experimente na loja mais perto de você",
           texto: "Atendimento presencial nas unidades JK Alianças, com fábrica própria e personalização.",
           botao: "Ver as lojas",
         },
