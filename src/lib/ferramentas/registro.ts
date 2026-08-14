@@ -162,6 +162,23 @@ export const FERRAMENTAS: Ferramenta[] = [
     resposta:
       "A escolha do material define teor, preço e manutenção da aliança. Prata 925 tem 92,5% de prata e prata 950 tem 95%; ouro 10k tem cerca de 41,7% de ouro e ouro 18k tem 75%. Na loja da JK Alianças, a mediana vai de cerca de R$ 450 na prata 950 a cerca de R$ 9.900 no ouro 18k, com prata banhada e ouro 10k entre as duas pontas.",
     chamada: "Prata e ouro comparados por teor e por preço.",
+    passos: [
+      {
+        nome: "Escolha o modelo e o formato",
+        texto:
+          "Modelo é a face de fora: abaulada, chanfrada, polida ou fosca. Formato é o lado do dedo: reta ou anatômica. As duas escolhas são independentes, então dá para ver uma abaulada anatômica ou uma chanfrada reta.",
+      },
+      {
+        nome: "Troque o material e gire a peça",
+        texto:
+          "Arraste a aliança para girar. O brilho de cada metal só aparece em movimento, porque metal polido devolve a luz do ambiente em vez de ter cor própria.",
+      },
+      {
+        nome: "Compare o preço na tabela",
+        texto:
+          "A tabela abaixo tem o teor, a faixa de preço praticada e quantos modelos existem em cada material, lidos do catálogo da loja oficial.",
+      },
+    ],
     faqs: [
       {
         question: "Qual a diferença entre prata 925 e prata 950?",
@@ -179,12 +196,27 @@ export const FERRAMENTAS: Ferramenta[] = [
           "Não. Na banhada, a peça é de prata e recebe uma camada de ouro por cima. Na prata com ouro, as duas ligas fazem parte da estrutura da peça, cada uma em uma parte dela.",
       },
       {
+        question: "Qual a diferença entre aliança abaulada e anatômica?",
+        answer:
+          "As duas falam de lados diferentes da mesma peça, e por isso não são opções concorrentes. Abaulada é a face de FORA curva, mais alta no meio do que nas bordas. Anatômica é o lado de DENTRO curvo, em que só a faixa central encosta no dedo. Existe aliança abaulada e reta por dentro, e existe abaulada e anatômica.",
+      },
+      {
+        question: "O que é uma aliança chanfrada?",
+        answer:
+          "É a que tem a face de fora plana e as duas bordas cortadas em 45°. Esse corte acende duas linhas de brilho ao longo da peça, que a polida não tem.",
+      },
+      {
+        question: "Aliança fosca é diferente de polida na forma?",
+        answer:
+          "Não. A forma é a mesma, a face de fora plana nas duas. O que muda é o acabamento: a polida espelha o ambiente e a fosca espalha a luz, com brilho de cetim.",
+      },
+      {
         question: "Os preços desta página são atuais?",
         answer:
           "São lidos do catálogo da loja oficial da JK Alianças quando a página é gerada. O valor em destaque é a mediana de cada material, e a compra acontece sempre na loja.",
       },
     ],
-    termos: "material prata ouro teor 925 950 18k 10k banhada comparar comparacao",
+    termos: "material prata ouro teor 925 950 18k 10k banhada comparar comparacao formato reta abaulada chanfrada anatomica 3d",
   },
 ];
 

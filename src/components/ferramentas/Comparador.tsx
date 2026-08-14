@@ -1,12 +1,21 @@
 import { materiaisComparados } from "@/lib/data/materiais";
+import { AliancaEm3D } from "./AliancaEm3D";
 
 /**
  * Comparador de materiais.
  *
- * Componente de servidor, sem interatividade, de propósito: uma tabela de
- * comparação é justamente o formato que os sistemas de IA extraem melhor, e ela
- * precisa estar no HTML da primeira resposta, não montada depois por
- * JavaScript. Interação aqui só atrapalharia.
+ * São duas peças com trabalhos diferentes, e é de propósito que elas não se
+ * misturem.
+ *
+ * A TABELA é servidor puro, sem uma linha de JavaScript. Tabela de comparação é
+ * o formato que os sistemas de IA extraem melhor, e para isso ela precisa estar
+ * no HTML da primeira resposta, não montada depois no navegador.
+ *
+ * O VISOR 3D é a parte que texto nenhum resolve. Material de joia se decide
+ * pelo brilho, e brilho é movimento: a diferença entre a prata e o ouro 18k
+ * aparece quando a luz corre pela peça, não numa palavra da coluna. Ele carrega
+ * sozinho, depois, e só quando chega na tela. Se não carregar, a tabela abaixo
+ * continua inteira.
  *
  * Cada coluna tem uma origem diferente, e a página diz qual. Linha que depende
  * de afirmação ainda não aprovada não aparece: é melhor uma tabela menor e
@@ -24,7 +33,29 @@ export async function Comparador({ className = "" }: { className?: string }) {
 
   return (
     <div className={className}>
-      <div className="overflow-x-auto">
+      <h2 className="font-display text-titulo-secao text-ink">A aliança em 3D</h2>
+      <p className="mt-3 max-w-leitura-larga text-corpo leading-relaxed text-muted">
+        Metal polido não tem cor própria: ele devolve a luz do lugar onde está.
+        Por isso a diferença entre a prata e o ouro 18k aparece quando a peça
+        gira, e não numa palavra da tabela. Gire a aliança abaixo e troque o
+        modelo, o formato e o material.
+      </p>
+
+      <AliancaEm3D
+        className="mt-6 mb-12"
+        materiais={materiais.map((m) => ({
+          slug: m.slug,
+          nome: m.nome,
+          produtos: m.produtos,
+          precoMediano: m.precoMediano,
+        }))}
+      />
+
+      <h2 className="font-display text-titulo-secao text-ink">
+        Os materiais lado a lado
+      </h2>
+
+      <div className="mt-6 overflow-x-auto">
         <table className="conteudo-rico w-full min-w-[46rem] border-collapse text-sm">
           <caption className="pb-3 text-left text-xs text-muted">
             Materiais de aliança da JK Alianças: teor, faixa de preço praticada e
