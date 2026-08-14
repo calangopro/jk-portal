@@ -303,6 +303,39 @@ disco. E o 404 da RAIZ, que é o que responde a link velho de fora, entrava sem
 cabeçalho, sem rodapé e sem saídas: as duas portas de 404 agora renderizam
 `components/erro/Pagina404.tsx`.
 
+✅ **Aliança em 3D no comparador de materiais (14/08):** visor WebGL
+(`AliancaEm3D.tsx`) no topo de `/ferramentas/materiais-de-alianca`, com a peça
+girando por arraste, teclado e inércia. **Sem arquivo `.obj`.** A malha nasce de
+`src/lib/aliancas/perfis.ts`: aliança lisa é sólido de revolução, então o
+contorno em milímetros vira `LatheGeometry`, e o MESMO contorno vira o desenho
+do corte em SVG (`CorteDaAlianca.tsx`), que nunca discorda do 3D. Malha pronta
+congelaria largura, espessura e aro dentro do arquivo.
+São **dois eixos independentes**, como a JK vende: **modelo** é a face de fora
+(abaulada, chanfrada, polida, fosca) e **formato** é o lado do dedo (reta,
+anatômica). Existe abaulada anatômica, chanfrada reta e assim por diante. Uma
+lista única de quatro nomes escondia isso. O catálogo confirma: "abaulada",
+"chanfrada" e "reta" aparecem no nome dos produtos e "anatômica" aparece em 49
+descrições, sempre ao lado da largura, nunca como formato concorrente.
+Materiais saem da MESMA view do banco que alimenta a tabela (`aliancas_por_material`),
+e só a aparência mora em código (`src/lib/aliancas/metais.ts`). Prata com ouro
+renderiza em dois tons, com um filete lateado por cima da face de fora.
+**Polida e fosca têm a mesma geometria**: o que muda é o acabamento, que é mapa
+de aspereza e mapa de relevo gerados em canvas, com risco fino no sentido da
+volta da peça. Sem o risco, fosco vira cinza chapado com cara de plástico.
+O three.js entra por `import()` só quando o bloco chega na tela, então
+`/ferramentas/[slug]` continua em 123 kB de First Load JS e a tabela segue
+servida pelo servidor, sem depender de JavaScript.
+⚠️ **Palco claro, nunca escuro.** A primeira versão era carvão e foi rejeitada:
+"ficou MUITO escuro". O fundo é marfim quente com halo dourado, e o contraste
+que o metal precisa mora DENTRO do mapa de ambiente (faixa escura no chão do
+reflexo), não no fundo da página.
+⚠️ **Metal com `metalness: 1` e sem `scene.environment` renderiza PRETO.** O
+ambiente é desenhado num canvas (céu claro, corte seco no horizonte, dois
+painéis de luz, rebote quente embaixo) e passa por `PMREMGenerator`, sem baixar
+HDR de terceiro.
+O volume de metal na tela é geometria exata, por Pappus (`volumeDeMetal`), não
+estimativa: é a resposta de "essa é mais grossa" sem inventar peso nem preço.
+
 🔲 **A construir:** conteúdo (só 1 guia publicado), OAuth do Search Console e do GMB, deploy na Vercel.
 ⚠️ **Pendências:** **preencher o endereço do portal em `site_settings.cron`**
 (`update public.site_settings set value = jsonb_build_object('url','https://SEU-DOMINIO') where key='cron';`).

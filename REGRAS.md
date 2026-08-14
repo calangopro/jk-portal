@@ -170,6 +170,7 @@ Escolha justificada, com licença verificada. Antes de trocar qualquer item, ver
 | Editor de conteúdo | **TipTap v3 core** (ProseMirror) | MIT | Controle total do HTML gerado, que é o que decide o SEO. UI própria no estilo Notion. Sem pegadinha de licença. |
 | Alternativa avaliada | BlockNote | MPL-2.0 no core, **GPL-3.0 nos pacotes XL** | UX pronta, porém os pacotes XL são GPL e contaminariam o projeto comercial. **Não usar XL.** |
 | Seletor de cor | react-colorful | MIT | 3 KB, acessível, suporta alpha |
+| 3D no navegador | **three.js** | MIT | Padrão de fato do WebGL, mantido há anos e sem pegadinha de licença. Entra por `import()` dentro do componente, então só baixa quando o visor da aliança aparece na tela. **Regra: nada de arquivo `.obj` ou `.gltf` de terceiro no projeto.** Aliança lisa é sólido de revolução, e a malha nasce do contorno em `src/lib/aliancas/perfis.ts`: assim toda combinação de modelo, formato, largura, espessura e aro sai da mesma matemática, sem download, sem licença de modelo e sem malha que discorde do desenho do corte. |
 | Ícones | lucide-react | ISC | Consistente, leve, cobre o admin inteiro |
 | Formulários e validação | react-hook-form + zod | MIT | Validação no cliente e no servidor com o mesmo schema |
 | Upload e imagem | Supabase Storage + `next/image` | Apache 2.0 / MIT | Já faz parte da stack, com RLS |
