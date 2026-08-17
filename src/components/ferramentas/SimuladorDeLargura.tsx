@@ -17,6 +17,7 @@ import {
   comoFicaNoDedo,
   porcentagemNoDedo,
 } from "@/lib/medidor/larguras";
+import { useLarguraEscolhida } from "./LarguraEscolhida";
 import { ARO_MAXIMO, ARO_MINIMO, aroRecomendado, diametroDoAro } from "@/lib/medidor/aros";
 
 /** A mesma chave que o medidor grava. Calibrar uma vez serve para as duas. */
@@ -49,6 +50,15 @@ export function SimuladorDeLargura({ aroInicial = 16 }: { aroInicial?: number })
   const [tom, setTom] = useState<TomDePele>("clara");
   const [material, setMaterial] = useState<MaterialDaPeca>("ouro");
   const [carregou, setCarregou] = useState(false);
+
+  // A vitrine da página escuta a largura escolhida. Fora da página da
+  // ferramenta (dentro de um artigo, por exemplo) não existe vitrine, e aí isto
+  // é nulo e não muda nada.
+  const escolhaCompartilhada = useLarguraEscolhida();
+  const escolherLargura = (mm: number) => {
+    setLargura(mm);
+    escolhaCompartilhada?.definirLargura(mm);
+  };
 
   useEffect(() => {
     try {
@@ -172,7 +182,7 @@ export function SimuladorDeLargura({ aroInicial = 16 }: { aroInicial?: number })
                 <button
                   key={l}
                   type="button"
-                  onClick={() => setLargura(l)}
+                  onClick={() => escolherLargura(l)}
                   aria-pressed={largura === l}
                   className={`min-h-12 rounded-sm px-2 text-apoio font-semibold transition-all ${
                     largura === l
@@ -297,7 +307,7 @@ export function SimuladorDeLargura({ aroInicial = 16 }: { aroInicial?: number })
                 <li key={l}>
                   <button
                     type="button"
-                    onClick={() => setLargura(l)}
+                    onClick={() => escolherLargura(l)}
                     aria-pressed={largura === l}
                     className="flex w-full items-center gap-3 rounded-sm px-2 py-1.5 text-left transition-colors hover:bg-brand/8"
                   >

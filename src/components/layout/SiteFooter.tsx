@@ -5,7 +5,7 @@ import { SITE } from "@/lib/seo/site";
 import { itensDeFerramenta } from "@/lib/ferramentas/registro";
 
 const NAVEGACAO = [
-  { href: "/guia", rotulo: "Dicas sobre alianças" },
+  { href: "/guia", rotulo: "Dicas de alianças e joias" },
   { href: "/lojas", rotulo: "Nossas lojas" },
   { href: "/ferramentas", rotulo: "Todas as ferramentas" },
 ];

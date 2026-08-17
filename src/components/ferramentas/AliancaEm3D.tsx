@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { RotateCcw, Move3d } from "lucide-react";
+import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
+import { createPortal } from "react-dom";
+import { Maximize2, Move3d, RotateCcw, X } from "lucide-react";
 import {
   ESPESSURA_MAXIMA,
   ESPESSURA_MINIMA,
@@ -69,6 +70,10 @@ export type MaterialNoVisor = {
 /** Aro médio, só para a peça ter proporção de peça. Não é escolha de compra. */
 const ARO_DE_REFERENCIA = 16;
 
+/** Botão que fica por cima do palco. Altura de dedo, vidro por baixo. */
+const BOTAO_DO_PALCO =
+  "flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-sm border border-border bg-white/70 px-3 text-nota font-semibold text-ink backdrop-blur transition-colors hover:border-brand/60";
+
 type Props = {
   materiais: MaterialNoVisor[];
   className?: string;
@@ -87,8 +92,15 @@ export function AliancaEm3D({ materiais, className = "" }: Props) {
   const [pronto, setPronto] = useState(false);
   const [semWebgl, setSemWebgl] = useState(false);
   const [tocou, setTocou] = useState(false);
+  // Tela cheia existe por causa do celular: num palco de 390 px a peça sai do
+  // tamanho de uma moeda, e é justamente o brilho correndo pela superfície que
+  // esta tela tem para contar.
+  const [ampliado, setAmpliado] = useState(false);
 
-  const palcoRef = useRef<HTMLDivElement | null>(null);
+  // Dois palcos, um canvas. O embutido existe sempre; o de tela cheia só
+  // enquanto ela está aberta, e o canvas muda de casa entre os dois.
+  const palcoEmbutido = useRef<HTMLDivElement | null>(null);
+  const palcoCheio = useRef<HTMLDivElement | null>(null);
   const cena = useRef<Cena | null>(null);
 
   const material = materiais.find((m) => m.slug === slug) ?? materiais[0];
@@ -99,7 +111,7 @@ export function AliancaEm3D({ materiais, className = "" }: Props) {
 
   // ---------------------------------------------------------------- montagem
   useEffect(() => {
-    const palco = palcoRef.current;
+    const palco = palcoEmbutido.current;
     if (!palco) return;
 
     let vivo = true;
@@ -110,7 +122,7 @@ export function AliancaEm3D({ materiais, className = "" }: Props) {
       try {
         const THREE = await import("three");
         if (!vivo) return;
-        cena.current = montar(THREE, palco);
+        cena.current = montar(THREE, palco, aoGirar);
         setPronto(true);
       } catch {
         setSemWebgl(true);
@@ -153,14 +165,49 @@ export function AliancaEm3D({ materiais, className = "" }: Props) {
     });
   }, [pronto, modelo, formato, largura, espessura, slug]);
 
+  // ------------------------------------------------------------- tela cheia
+  // Em tela cheia o gesto é todo da peça (`touch-action: none`), com pinça para
+  // aproximar. No palco embutido a rolagem da página continua ganhando o gesto
+  // vertical, senão a pessoa fica presa no meio do artigo.
+  useEffect(() => {
+    cena.current?.definirCapturaTotal(ampliado);
+    // O canvas muda de casa depois de o palco novo existir no DOM, e é por isso
+    // que este efeito roda DEPOIS do render que abriu a tela cheia.
+    const destino = ampliado ? palcoCheio.current : palcoEmbutido.current;
+    if (destino) cena.current?.mudarDePalco(destino);
+  }, [pronto, ampliado]);
+
+  useEffect(() => {
+    if (!ampliado) return;
+    // Sem travar o corpo, a página rola atrás do palco e a pessoa fecha a tela
+    // cheia num lugar diferente de onde abriu.
+    const anterior = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    palcoCheio.current?.focus();
+    const aoTeclar = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setAmpliado(false);
+    };
+    window.addEventListener("keydown", aoTeclar);
+    return () => {
+      document.body.style.overflow = anterior;
+      window.removeEventListener("keydown", aoTeclar);
+    };
+  }, [ampliado]);
+
   const reiniciar = useCallback(() => {
     cena.current?.reiniciarAngulo();
   }, []);
 
-  const aoTocar = useCallback(() => setTocou(true), []);
+  // A dica de gesto só sai depois de a peça girar de verdade. Antes ela saía em
+  // qualquer `pointerdown`, então quem só rolou a página passando o dedo por
+  // cima do palco perdia a única instrução da tela.
+  const aoGirar = useCallback(() => setTocou(true), []);
 
   const nomeDaPeca = `${infoModelo.nome} ${infoFormato.nome.toLowerCase()}`;
-  const rotulo = `Aliança ${nomeDaPeca.toLowerCase()} de ${largura.toLocaleString("pt-BR")} milímetros em ${material?.nome ?? ""}, em três dimensões. Arraste para girar, ou use as setas do teclado.`;
+  const gesto = ampliado
+    ? "Arraste para girar, pince para aproximar, ou use as setas do teclado."
+    : "Arraste para o lado para girar, ou use as setas do teclado.";
+  const rotulo = `Aliança ${nomeDaPeca.toLowerCase()} de ${largura.toLocaleString("pt-BR")} milímetros em ${material?.nome ?? ""}, em três dimensões. ${gesto}`;
 
   const dinheiro = (v: number) =>
     v.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
@@ -179,38 +226,196 @@ export function AliancaEm3D({ materiais, className = "" }: Props) {
   const vezes = volumeDaMaisFina > 0 ? volume / volumeDaMaisFina : 1;
 
   return (
-    <div className={`glass overflow-hidden rounded-[20px] ${className}`}>
-      <div className="grid lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)]">
-        {/* ------------------------------------------------------------ palco
+    <>
+      <div className={`glass overflow-hidden rounded-[20px] ${className}`}>
+        <div className="grid lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)]">
+          {/* -------------------------------------------------------- palco
 
-            Marfim quente, não carvão. Joia de ouro em fundo escuro vira anúncio
-            de relógio: o metal fica dramático e a peça fica FRIA. O que a JK
-            vende é peça de vitrine iluminada, e vitrine de joalheria é clara.
-            O fundo escuro continua existindo, mas dentro do reflexo: sem uma
-            faixa escura no ambiente, o dourado não tem contra o que brilhar e
-            achata. */}
-        <div className="relative min-h-[19rem] bg-[radial-gradient(125%_100%_at_50%_12%,#fffdf9_0%,#f7f0e3_52%,#ecdfc9_100%)] sm:min-h-[23rem] lg:min-h-[30rem]">
-          {/* Halo dourado atrás da peça e sombra de apoio embaixo, na mesma
-              atmosfera do resto do site. Só clima, sem tocar no que é medida. */}
-          <div
-            aria-hidden
-            className="pointer-events-none absolute left-1/2 top-1/2 h-[70%] w-[85%] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(closest-side,rgb(var(--jk-brand-rgb)/0.22),transparent)] blur-2xl"
-          />
-          <div
-            aria-hidden
-            className="pointer-events-none absolute bottom-[14%] left-1/2 h-10 w-3/5 -translate-x-1/2 rounded-[50%] bg-[radial-gradient(closest-side,rgb(var(--jk-sombra-rgb)/0.28),transparent)] blur-md"
-          />
-          <div
-            ref={palcoRef}
-            role="img"
-            aria-label={rotulo}
-            tabIndex={0}
-            onPointerDown={aoTocar}
-            className="absolute inset-0 cursor-grab touch-pan-y outline-none focus-visible:ring-2 focus-visible:ring-brand-nav/70 active:cursor-grabbing"
-          />
+              No celular o palco é quase quadrado e ocupa a largura inteira.
+              Antes eram 19 rem de altura fixa, e num aparelho de 390 px a
+              aliança saía do tamanho de uma moeda, o que é o contrário do
+              motivo de existir um 3D aqui. */}
+          <div className="relative min-h-[min(86vw,26rem)] sm:min-h-[24rem] lg:min-h-[30rem]">
+            <Palco
+              palcoRef={palcoEmbutido}
+              ampliado={false}
+              rotulo={rotulo}
+              nomeDaPeca={nomeDaPeca}
+              largura={largura}
+              espessura={espessura}
+              nomeDoMaterial={material?.nome}
+              modelo={modelo}
+              formato={formato}
+              cor={aparencia.cor}
+              fosco={fosco}
+              semWebgl={semWebgl}
+              mostrarDica={!tocou}
+              aoReiniciar={reiniciar}
+              aoAmpliar={() => setAmpliado(true)}
+            />
+          </div>
 
-          {semWebgl ? (
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 p-6 text-center">
+          {/* -------------------------------------------------------- controles */}
+          <div className="p-5 sm:p-7">
+            <fieldset>
+              <legend className="text-apoio font-semibold text-ink">
+                Modelo <span className="font-normal text-muted">(a face de fora)</span>
+              </legend>
+              <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-2 xl:grid-cols-4">
+                {MODELOS_INFO.map((m) => (
+                  <button
+                    key={m.id}
+                    type="button"
+                    onClick={() => setModelo(m.id)}
+                    aria-pressed={modelo === m.id}
+                    className={`flex min-h-[4.5rem] flex-col items-center justify-center gap-1.5 rounded-sm border px-2 py-2 text-nota font-semibold transition-colors ${
+                      modelo === m.id
+                        ? "border-brand bg-brand/12 text-ink"
+                        : "border-border bg-white/60 text-muted hover:border-brand/50"
+                    }`}
+                  >
+                    {/* O ícone é o corte de verdade, na mesma matemática do 3D.
+                        Todos com o interior RETO e na mesma largura, para o botão
+                        comparar só a face de fora, que é o que ele decide. */}
+                    <CorteDaAlianca
+                      modelo={m.id}
+                      formato="reta"
+                      larguraMm={4}
+                      espessuraMm={espessura}
+                      aro={ARO_DE_REFERENCIA}
+                      cor={aparencia.cor}
+                      fosco={m.fosco}
+                      compacto
+                      className="h-6 w-14 text-ink"
+                    />
+                    {m.nome}
+                  </button>
+                ))}
+              </div>
+            </fieldset>
+
+            <p
+              aria-live="polite"
+              className="mt-3 min-h-[3.5rem] text-nota leading-relaxed text-muted"
+            >
+              {infoModelo.descricao}
+            </p>
+
+            <fieldset className="mt-6">
+              <legend className="text-apoio font-semibold text-ink">
+                Formato <span className="font-normal text-muted">(o lado do dedo)</span>
+              </legend>
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                {FORMATOS_INFO.map((f) => (
+                  <button
+                    key={f.id}
+                    type="button"
+                    onClick={() => setFormato(f.id)}
+                    aria-pressed={formato === f.id}
+                    className={`flex min-h-[4.5rem] flex-col items-center justify-center gap-1.5 rounded-sm border px-2 py-2 text-nota font-semibold transition-colors ${
+                      formato === f.id
+                        ? "border-brand bg-brand/12 text-ink"
+                        : "border-border bg-white/60 text-muted hover:border-brand/50"
+                    }`}
+                  >
+                    {/* Aqui é o contrário: face de fora plana em todos, para o
+                        botão isolar o lado de dentro. */}
+                    <CorteDaAlianca
+                      modelo="polida"
+                      formato={f.id}
+                      larguraMm={3.2}
+                      espessuraMm={espessura}
+                      aro={ARO_DE_REFERENCIA}
+                      cor={aparencia.cor}
+                      compacto
+                      linhaDoDedo
+                      className="h-8 w-14 text-ink"
+                    />
+                    {f.nome}
+                  </button>
+                ))}
+              </div>
+            </fieldset>
+
+            <p
+              aria-live="polite"
+              className="mt-3 min-h-[3.5rem] text-nota leading-relaxed text-muted"
+            >
+              {infoFormato.descricao}
+            </p>
+
+            <fieldset className="mt-6">
+              <legend className="text-apoio font-semibold text-ink">Material</legend>
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                {materiais.map((m) => (
+                  <button
+                    key={m.slug}
+                    type="button"
+                    onClick={() => setSlug(m.slug)}
+                    aria-pressed={slug === m.slug}
+                    className={`flex min-h-12 items-center gap-2.5 rounded-sm border px-3 text-left text-nota font-semibold transition-colors ${
+                      slug === m.slug
+                        ? "border-brand bg-brand/12 text-ink"
+                        : "border-border bg-white/60 text-muted hover:border-brand/50"
+                    }`}
+                  >
+                    <span
+                      aria-hidden
+                      className="h-6 w-6 shrink-0 rounded-full border border-black/15"
+                      style={{ background: amostraDoMaterial(m.slug) }}
+                    />
+                    {m.nome}
+                  </button>
+                ))}
+              </div>
+            </fieldset>
+
+            <fieldset className="mt-6">
+              <legend className="text-apoio font-semibold text-ink">Largura</legend>
+              <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-6 lg:grid-cols-3 xl:grid-cols-6">
+                {LARGURAS_COMUNS.map((l) => (
+                  <button
+                    key={l}
+                    type="button"
+                    onClick={() => setLargura(l)}
+                    aria-pressed={largura === l}
+                    className={`min-h-12 rounded-sm px-2 text-apoio font-semibold transition-all ${
+                      largura === l
+                        ? "bg-brand text-ink shadow-[var(--jk-sombra-acao)]"
+                        : "border border-border bg-white/60 text-ink hover:border-brand/50 hover:bg-white"
+                    }`}
+                  >
+                    {l.toLocaleString("pt-BR")} mm
+                  </button>
+                ))}
+              </div>
+            </fieldset>
+
+            <label className="mt-6 block text-apoio font-semibold text-ink">
+              Espessura <span className="font-normal text-muted">(a parede da peça)</span>
+              <input
+                type="range"
+                min={ESPESSURA_MINIMA}
+                max={ESPESSURA_MAXIMA}
+                step={0.1}
+                value={espessura}
+                onChange={(e) => setEspessura(Number(e.target.value))}
+                aria-valuetext={`${espessura.toLocaleString("pt-BR", { minimumFractionDigits: 1 })} milímetros de parede`}
+                className="jk-slider mt-4"
+              />
+              <span className="numeros mt-2 block text-nota font-normal text-muted">
+                {espessura.toLocaleString("pt-BR", { minimumFractionDigits: 1 })} mm. Mais
+                parede é mais metal na peça, e é o que muda entre uma aliança
+                fininha e uma encorpada.
+              </span>
+            </label>
+
+            {/* O corte, grande. É o que separa uma abaulada de uma anatômica, e é
+                a única parte que o reflexo do metal esconde. */}
+            <div className="mt-7 rounded-sm border border-border bg-white/60 p-4">
+              <p className="text-apoio font-semibold text-ink">
+                O corte da peça, ampliado
+              </p>
               <CorteDaAlianca
                 modelo={modelo}
                 formato={formato}
@@ -219,271 +424,434 @@ export function AliancaEm3D({ materiais, className = "" }: Props) {
                 aro={ARO_DE_REFERENCIA}
                 cor={aparencia.cor}
                 fosco={fosco}
-                className="h-24 w-full max-w-[15rem] text-brand-strong"
+                className="mt-3 h-28 w-full text-ink"
               />
-              <p className="max-w-[30ch] text-nota leading-relaxed text-muted">
-                Este aparelho não conseguiu abrir o desenho em três dimensões. O
-                corte da peça continua aí em cima, e os formatos estão descritos
-                ao lado.
-              </p>
-            </div>
-          ) : null}
-
-          {/* Rótulo da peça, por cima do palco, do jeito que vitrine escreve. */}
-          <div className="pointer-events-none absolute left-4 top-4 sm:left-5 sm:top-5">
-            <p className="font-display text-titulo-bloco leading-none text-ink">
-              {nomeDaPeca}
-            </p>
-            <p className="numeros mt-1.5 text-nota text-muted">
-              {largura.toLocaleString("pt-BR")} mm de largura,{" "}
-              {espessura.toLocaleString("pt-BR", { minimumFractionDigits: 1 })} mm de
-              parede, em {material?.nome.toLowerCase()}
-            </p>
-          </div>
-
-          {!semWebgl ? (
-            <>
-              <p
-                aria-hidden
-                className={`pointer-events-none absolute bottom-4 left-4 flex items-center gap-2 text-nota text-muted transition-opacity duration-500 sm:left-5 ${
-                  tocou ? "opacity-0" : "opacity-100"
-                }`}
-              >
-                <Move3d size={14} />
-                Arraste para girar
+              <p className="numeros mt-2 text-nota text-muted">
+                {largura.toLocaleString("pt-BR")} mm de largura por{" "}
+                {espessura.toLocaleString("pt-BR", { minimumFractionDigits: 1 })} mm de
+                parede, no aro {ARO_DE_REFERENCIA} (
+                {diametroDoAro(ARO_DE_REFERENCIA).toFixed(1).replace(".", ",")} mm de furo).
               </p>
 
-              <button
-                type="button"
-                onClick={reiniciar}
-                className="absolute bottom-3 right-3 flex min-h-11 items-center gap-2 rounded-sm border border-border bg-white/70 px-3 text-nota font-semibold text-ink backdrop-blur transition-colors hover:border-brand/60 sm:bottom-4 sm:right-4"
-              >
-                <RotateCcw size={14} aria-hidden />
-                Endireitar
-              </button>
-            </>
-          ) : null}
-        </div>
-
-        {/* -------------------------------------------------------- controles */}
-        <div className="p-5 sm:p-7">
-          <fieldset>
-            <legend className="text-apoio font-semibold text-ink">
-              Modelo <span className="font-normal text-muted">(a face de fora)</span>
-            </legend>
-            <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-2 xl:grid-cols-4">
-              {MODELOS_INFO.map((m) => (
-                <button
-                  key={m.id}
-                  type="button"
-                  onClick={() => setModelo(m.id)}
-                  aria-pressed={modelo === m.id}
-                  className={`flex min-h-[4.5rem] flex-col items-center justify-center gap-1.5 rounded-sm border px-2 py-2 text-nota font-semibold transition-colors ${
-                    modelo === m.id
-                      ? "border-brand bg-brand/12 text-ink"
-                      : "border-border bg-white/60 text-muted hover:border-brand/50"
-                  }`}
-                >
-                  {/* O ícone é o corte de verdade, na mesma matemática do 3D.
-                      Todos com o interior RETO e na mesma largura, para o botão
-                      comparar só a face de fora, que é o que ele decide. */}
-                  <CorteDaAlianca
-                    modelo={m.id}
-                    formato="reta"
-                    larguraMm={4}
-                    espessuraMm={espessura}
-                    aro={ARO_DE_REFERENCIA}
-                    cor={aparencia.cor}
-                    fosco={m.fosco}
-                    compacto
-                    className="h-6 w-14 text-ink"
-                  />
-                  {m.nome}
-                </button>
-              ))}
+              {/* Quanto metal a peça tem. É a resposta de "essa é mais grossa" em
+                  número, e é conta de geometria, não afirmação sobre o produto: o
+                  volume de um sólido de revolução sai da área do corte vezes a
+                  volta que o centro dele dá. */}
+              <p className="mt-3 border-t border-border pt-3 text-nota leading-relaxed text-muted">
+                <strong className="font-semibold text-ink">
+                  {Math.round(volume)} mm³ de metal
+                </strong>
+                {vezes >= 1.15 ? (
+                  <>
+                    , {vezes.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} vezes o
+                    de uma peça de 2 mm com 1 mm de parede.
+                  </>
+                ) : (
+                  <>, que é perto do mínimo de uma aliança lisa.</>
+                )}
+              </p>
             </div>
-          </fieldset>
 
-          <p
-            aria-live="polite"
-            className="mt-3 min-h-[3.5rem] text-nota leading-relaxed text-muted"
-          >
-            {infoModelo.descricao}
-          </p>
+            {material ? (
+              <p className="mt-5 text-nota leading-relaxed text-muted">
+                <strong className="font-semibold text-ink">{material.nome}</strong>:{" "}
+                {material.produtos} {material.produtos === 1 ? "modelo" : "modelos"} de
+                aliança no catálogo, com preço mediano de {dinheiro(material.precoMediano)}.
+                A tabela abaixo tem a faixa completa.
+              </p>
+            ) : null}
 
-          <fieldset className="mt-6">
-            <legend className="text-apoio font-semibold text-ink">
-              Formato <span className="font-normal text-muted">(o lado do dedo)</span>
-            </legend>
-            <div className="mt-3 grid grid-cols-2 gap-2">
-              {FORMATOS_INFO.map((f) => (
-                <button
-                  key={f.id}
-                  type="button"
-                  onClick={() => setFormato(f.id)}
-                  aria-pressed={formato === f.id}
-                  className={`flex min-h-[4.5rem] flex-col items-center justify-center gap-1.5 rounded-sm border px-2 py-2 text-nota font-semibold transition-colors ${
-                    formato === f.id
-                      ? "border-brand bg-brand/12 text-ink"
-                      : "border-border bg-white/60 text-muted hover:border-brand/50"
-                  }`}
-                >
-                  {/* Aqui é o contrário: face de fora plana em todos, para o
-                      botão isolar o lado de dentro. */}
-                  <CorteDaAlianca
-                    modelo="polida"
-                    formato={f.id}
-                    larguraMm={3.2}
-                    espessuraMm={espessura}
-                    aro={ARO_DE_REFERENCIA}
-                    cor={aparencia.cor}
-                    compacto
-                    linhaDoDedo
-                    className="h-8 w-14 text-ink"
-                  />
-                  {f.nome}
-                </button>
-              ))}
-            </div>
-          </fieldset>
+            {aparencia.nota ? (
+              <p className="mt-3 text-nota leading-relaxed text-muted">{aparencia.nota}</p>
+            ) : null}
 
-          <p
-            aria-live="polite"
-            className="mt-3 min-h-[3.5rem] text-nota leading-relaxed text-muted"
-          >
-            {infoFormato.descricao}
-          </p>
-
-          <fieldset className="mt-6">
-            <legend className="text-apoio font-semibold text-ink">Material</legend>
-            <div className="mt-3 grid grid-cols-2 gap-2">
-              {materiais.map((m) => (
-                <button
-                  key={m.slug}
-                  type="button"
-                  onClick={() => setSlug(m.slug)}
-                  aria-pressed={slug === m.slug}
-                  className={`flex min-h-12 items-center gap-2.5 rounded-sm border px-3 text-left text-nota font-semibold transition-colors ${
-                    slug === m.slug
-                      ? "border-brand bg-brand/12 text-ink"
-                      : "border-border bg-white/60 text-muted hover:border-brand/50"
-                  }`}
-                >
-                  <span
-                    aria-hidden
-                    className="h-6 w-6 shrink-0 rounded-full border border-black/15"
-                    style={{ background: amostraDoMaterial(m.slug) }}
-                  />
-                  {m.nome}
-                </button>
-              ))}
-            </div>
-          </fieldset>
-
-          <fieldset className="mt-6">
-            <legend className="text-apoio font-semibold text-ink">Largura</legend>
-            <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-6 lg:grid-cols-3 xl:grid-cols-6">
-              {LARGURAS_COMUNS.map((l) => (
-                <button
-                  key={l}
-                  type="button"
-                  onClick={() => setLargura(l)}
-                  aria-pressed={largura === l}
-                  className={`min-h-12 rounded-sm px-2 text-apoio font-semibold transition-all ${
-                    largura === l
-                      ? "bg-brand text-ink shadow-[var(--jk-sombra-acao)]"
-                      : "border border-border bg-white/60 text-ink hover:border-brand/50 hover:bg-white"
-                  }`}
-                >
-                  {l.toLocaleString("pt-BR")} mm
-                </button>
-              ))}
-            </div>
-          </fieldset>
-
-          <label className="mt-6 block text-apoio font-semibold text-ink">
-            Espessura <span className="font-normal text-muted">(a parede da peça)</span>
-            <input
-              type="range"
-              min={ESPESSURA_MINIMA}
-              max={ESPESSURA_MAXIMA}
-              step={0.1}
-              value={espessura}
-              onChange={(e) => setEspessura(Number(e.target.value))}
-              aria-valuetext={`${espessura.toLocaleString("pt-BR", { minimumFractionDigits: 1 })} milímetros de parede`}
-              className="jk-slider mt-4"
-            />
-            <span className="numeros mt-2 block text-nota font-normal text-muted">
-              {espessura.toLocaleString("pt-BR", { minimumFractionDigits: 1 })} mm. Mais
-              parede é mais metal na peça, e é o que muda entre uma aliança
-              fininha e uma encorpada.
-            </span>
-          </label>
-
-          {/* O corte, grande. É o que separa uma abaulada de uma anatômica, e é
-              a única parte que o reflexo do metal esconde. */}
-          <div className="mt-7 rounded-sm border border-border bg-white/60 p-4">
-            <p className="text-apoio font-semibold text-ink">
-              O corte da peça, ampliado
-            </p>
-            <CorteDaAlianca
-              modelo={modelo}
-              formato={formato}
-              larguraMm={largura}
-              espessuraMm={espessura}
-              aro={ARO_DE_REFERENCIA}
-              cor={aparencia.cor}
-              fosco={fosco}
-              className="mt-3 h-28 w-full text-ink"
-            />
-            <p className="numeros mt-2 text-nota text-muted">
-              {largura.toLocaleString("pt-BR")} mm de largura por{" "}
-              {espessura.toLocaleString("pt-BR", { minimumFractionDigits: 1 })} mm de
-              parede, no aro {ARO_DE_REFERENCIA} (
-              {diametroDoAro(ARO_DE_REFERENCIA).toFixed(1).replace(".", ",")} mm de furo).
-            </p>
-
-            {/* Quanto metal a peça tem. É a resposta de "essa é mais grossa" em
-                número, e é conta de geometria, não afirmação sobre o produto: o
-                volume de um sólido de revolução sai da área do corte vezes a
-                volta que o centro dele dá. */}
-            <p className="mt-3 border-t border-border pt-3 text-nota leading-relaxed text-muted">
-              <strong className="font-semibold text-ink">
-                {Math.round(volume)} mm³ de metal
-              </strong>
-              {vezes >= 1.15 ? (
-                <>
-                  , {vezes.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} vezes o
-                  de uma peça de 2 mm com 1 mm de parede.
-                </>
-              ) : (
-                <>, que é perto do mínimo de uma aliança lisa.</>
-              )}
+            <p className="mt-3 text-nota leading-relaxed text-muted">
+              As medidas do desenho são reais. O brilho é uma representação: metal
+              polido devolve o ambiente em volta, então a peça na sua mão vai
+              refletir a luz do lugar onde você estiver.
             </p>
           </div>
-
-          {material ? (
-            <p className="mt-5 text-nota leading-relaxed text-muted">
-              <strong className="font-semibold text-ink">{material.nome}</strong>:{" "}
-              {material.produtos} {material.produtos === 1 ? "modelo" : "modelos"} de
-              aliança no catálogo, com preço mediano de {dinheiro(material.precoMediano)}.
-              A tabela abaixo tem a faixa completa.
-            </p>
-          ) : null}
-
-          {aparencia.nota ? (
-            <p className="mt-3 text-nota leading-relaxed text-muted">{aparencia.nota}</p>
-          ) : null}
-
-          <p className="mt-3 text-nota leading-relaxed text-muted">
-            As medidas do desenho são reais. O brilho é uma representação: metal
-            polido devolve o ambiente em volta, então a peça na sua mão vai
-            refletir a luz do lugar onde você estiver.
-          </p>
         </div>
       </div>
+
+      {/* -------------------------------------------------- palco em tela cheia
+
+          Em PORTAL, e não como filho do cartão. `position: fixed` dentro de um
+          elemento com `backdrop-filter` (o `.glass` do cartão) não se ancora na
+          janela, e sim no cartão: a tela cheia saiu do tamanho do cartão, com a
+          peça cortada. Portal em `document.body` também sobrevive a qualquer
+          `transform` que apareça no caminho amanhã.
+
+          O canvas é MOVIDO para cá pela cena, não recriado: remontar o WebGL
+          custaria compilar shader e gerar o ambiente de novo a cada abertura, e
+          a peça voltaria ao ângulo inicial no meio do gesto da pessoa. */}
+      {ampliado && typeof document !== "undefined"
+        ? createPortal(
+            <div
+              role="dialog"
+              aria-modal
+              aria-label="A aliança em três dimensões, em tela cheia"
+              className="fixed inset-0 z-[90] flex flex-col bg-[radial-gradient(125%_100%_at_50%_12%,#fffdf9_0%,#f7f0e3_52%,#ecdfc9_100%)]"
+            >
+              <div className="relative min-h-0 flex-1">
+                <Palco
+                  palcoRef={palcoCheio}
+                  ampliado
+                  rotulo={rotulo}
+                  nomeDaPeca={nomeDaPeca}
+                  largura={largura}
+                  espessura={espessura}
+                  nomeDoMaterial={material?.nome}
+                  modelo={modelo}
+                  formato={formato}
+                  cor={aparencia.cor}
+                  fosco={fosco}
+                  semWebgl={semWebgl}
+                  mostrarDica={!tocou}
+                  aoReiniciar={reiniciar}
+                  aoFechar={() => setAmpliado(false)}
+                />
+              </div>
+
+              {/* Trocar de material sem fechar a tela cheia. Mandar a pessoa
+                  sair, mexer e voltar seria pior do que não ter tela cheia. */}
+              <ControlesEmTelaCheia
+                modelo={modelo}
+                definirModelo={setModelo}
+                formato={formato}
+                definirFormato={setFormato}
+                largura={largura}
+                definirLargura={setLargura}
+                slug={slug}
+                definirSlug={setSlug}
+                materiais={materiais}
+                espessura={espessura}
+                cor={aparencia.cor}
+              />
+            </div>,
+            document.body,
+          )
+        : null}
+    </>
+  );
+}
+
+/* ========================================================================== */
+/*  O palco, desenhado igual nos dois lugares.                                 */
+/* ========================================================================== */
+
+/**
+ * O palco da peça: halo, sombra, rótulo, dica de gesto e botões.
+ *
+ * O MESMO componente serve o bloco embutido e a tela cheia, com `ampliado`
+ * mudando só o que precisa mudar. Duas cópias desta marcação era o caminho
+ * curto, e o caminho curto é o que faz a tela cheia atrasar uma correção que já
+ * foi feita no bloco, ou o contrário.
+ *
+ * A `div` do palco fica VAZIA de propósito: o canvas é filho dela, colocado
+ * pela cena, e a cena o move entre os dois palcos ao abrir e fechar a tela
+ * cheia.
+ */
+function Palco({
+  palcoRef,
+  ampliado,
+  rotulo,
+  nomeDaPeca,
+  largura,
+  espessura,
+  nomeDoMaterial,
+  modelo,
+  formato,
+  cor,
+  fosco,
+  semWebgl,
+  mostrarDica,
+  aoReiniciar,
+  aoAmpliar,
+  aoFechar,
+}: {
+  palcoRef: RefObject<HTMLDivElement | null>;
+  ampliado: boolean;
+  rotulo: string;
+  nomeDaPeca: string;
+  largura: number;
+  espessura: number;
+  nomeDoMaterial?: string;
+  modelo: ModeloDeAlianca;
+  formato: FormatoDeAlianca;
+  cor: string;
+  fosco: boolean;
+  semWebgl: boolean;
+  mostrarDica: boolean;
+  aoReiniciar: () => void;
+  aoAmpliar?: () => void;
+  aoFechar?: () => void;
+}) {
+  return (
+    <>
+      {/* Halo dourado atrás da peça e sombra de apoio embaixo, na mesma
+          atmosfera do resto do site. Só clima, sem tocar no que é medida. */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute left-1/2 top-1/2 h-[70%] w-[85%] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(closest-side,rgb(var(--jk-brand-rgb)/0.22),transparent)] blur-2xl"
+      />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute bottom-[14%] left-1/2 h-10 w-3/5 -translate-x-1/2 rounded-[50%] bg-[radial-gradient(closest-side,rgb(var(--jk-sombra-rgb)/0.28),transparent)] blur-md"
+      />
+
+      {/* `touch-pan-y` no bloco embutido: o gesto vertical continua sendo da
+          página, senão a pessoa fica presa no meio do artigo. Em tela cheia não
+          existe página para rolar, então o gesto é todo da peça. */}
+      <div
+        ref={palcoRef}
+        role="img"
+        aria-label={rotulo}
+        tabIndex={0}
+        className={`absolute inset-0 cursor-grab outline-none focus-visible:ring-2 focus-visible:ring-brand-nav/70 active:cursor-grabbing ${
+          ampliado ? "touch-none" : "touch-pan-y"
+        }`}
+      />
+
+      {semWebgl ? (
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 p-6 text-center">
+          <CorteDaAlianca
+            modelo={modelo}
+            formato={formato}
+            larguraMm={largura}
+            espessuraMm={espessura}
+            aro={ARO_DE_REFERENCIA}
+            cor={cor}
+            fosco={fosco}
+            className="h-24 w-full max-w-[15rem] text-brand-strong"
+          />
+          <p className="max-w-[30ch] text-nota leading-relaxed text-muted">
+            Este aparelho não conseguiu abrir o desenho em três dimensões. O corte
+            da peça continua aí em cima, e os formatos estão descritos ao lado.
+          </p>
+        </div>
+      ) : null}
+
+      {/* Rótulo da peça, por cima do palco, do jeito que vitrine escreve. A linha
+          de medidas só aparece onde ela CABE sem cair em cima do metal: no
+          celular, com a peça no tamanho novo, ela atravessava a aliança e ficava
+          ilegível, e os mesmos números estão logo abaixo no cartão do corte. Em
+          tela cheia ela volta, porque lá o cartão do corte não está na tela. */}
+      <div className="pointer-events-none absolute left-4 top-4 max-w-[58%] sm:left-5 sm:top-5">
+        <p className="font-display text-titulo-bloco leading-none text-ink">{nomeDaPeca}</p>
+        <p className={`numeros mt-1.5 text-nota text-muted ${ampliado ? "" : "hidden sm:block"}`}>
+          {largura.toLocaleString("pt-BR")} mm de largura,{" "}
+          {espessura.toLocaleString("pt-BR", { minimumFractionDigits: 1 })} mm de parede
+          {nomeDoMaterial ? `, em ${nomeDoMaterial.toLowerCase()}` : null}
+        </p>
+      </div>
+
+      {!semWebgl ? (
+        <>
+          <p
+            aria-hidden
+            className={`pointer-events-none absolute bottom-4 left-4 flex items-center gap-2 text-nota leading-snug text-muted transition-opacity duration-500 sm:left-5 sm:max-w-none ${
+              ampliado ? "max-w-[26ch]" : "max-w-[15ch]"
+            } ${mostrarDica ? "opacity-100" : "opacity-0"}`}
+          >
+            <Move3d size={14} className="shrink-0" />
+            {ampliado
+              ? "Arraste para girar, pince para aproximar"
+              : "Arraste para o lado para girar"}
+          </p>
+
+          {/* No celular os dois botões com texto cobriam a dica de gesto, que é
+              justamente o que a pessoa precisa ler na primeira vez. O ícone fica,
+              o nome volta quando há largura, e o `aria-label` garante o nome para
+              quem usa leitor de tela. */}
+          <div className="absolute bottom-3 right-3 flex justify-end gap-2 sm:bottom-4 sm:right-4">
+            <button
+              type="button"
+              onClick={aoReiniciar}
+              aria-label="Endireitar a peça"
+              className={BOTAO_DO_PALCO}
+            >
+              <RotateCcw size={15} aria-hidden />
+              <span className="hidden sm:inline">Endireitar</span>
+            </button>
+            {aoAmpliar ? (
+              <button
+                type="button"
+                onClick={aoAmpliar}
+                aria-label="Ver a peça em tela cheia"
+                className={BOTAO_DO_PALCO}
+              >
+                <Maximize2 size={15} aria-hidden />
+                <span className="hidden sm:inline">Ampliar</span>
+              </button>
+            ) : null}
+          </div>
+
+          {aoFechar ? (
+            <button
+              type="button"
+              onClick={aoFechar}
+              aria-label="Fechar a tela cheia"
+              className="absolute right-3 top-3 flex h-11 w-11 items-center justify-center rounded-full border border-border bg-white/80 text-ink backdrop-blur transition-colors hover:border-brand/60 sm:right-4 sm:top-4"
+            >
+              <X size={18} aria-hidden />
+            </button>
+          ) : null}
+        </>
+      ) : null}
+    </>
+  );
+}
+
+/* ========================================================================== */
+/*  Os controles da tela cheia.                                                */
+/* ========================================================================== */
+
+/**
+ * Modelo, formato, material e largura, em faixas que rolam de lado.
+ *
+ * É o MESMO estado do painel do desktop, e de propósito: nada aqui é uma
+ * segunda versão da ferramenta, é a mesma ferramenta com a mão no lugar onde o
+ * polegar alcança. Cada faixa é uma linha rolável em vez de uma grade, porque
+ * grade no celular ou vira botão de 30 px ou vira painel de meia tela, e as
+ * duas coisas tiram o espaço da peça, que é o que a pessoa veio ver.
+ *
+ * O painel inteiro tem teto de altura e rola no vertical: em aparelho baixo, ou
+ * na horizontal, o que sobra é sempre palco.
+ */
+function ControlesEmTelaCheia({
+  modelo,
+  definirModelo,
+  formato,
+  definirFormato,
+  largura,
+  definirLargura,
+  slug,
+  definirSlug,
+  materiais,
+  espessura,
+  cor,
+}: {
+  modelo: ModeloDeAlianca;
+  definirModelo: (m: ModeloDeAlianca) => void;
+  formato: FormatoDeAlianca;
+  definirFormato: (f: FormatoDeAlianca) => void;
+  largura: number;
+  definirLargura: (l: number) => void;
+  slug: string;
+  definirSlug: (s: string) => void;
+  materiais: MaterialNoVisor[];
+  espessura: number;
+  cor: string;
+}) {
+  return (
+    <div className="max-h-[46%] shrink-0 overflow-y-auto border-t border-border bg-white/85 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur-md">
+      <Faixa titulo="Modelo">
+        {MODELOS_INFO.map((m) => (
+          <button
+            key={m.id}
+            type="button"
+            onClick={() => definirModelo(m.id)}
+            aria-pressed={modelo === m.id}
+            className={chipe(modelo === m.id)}
+          >
+            <CorteDaAlianca
+              modelo={m.id}
+              formato="reta"
+              larguraMm={4}
+              espessuraMm={espessura}
+              aro={ARO_DE_REFERENCIA}
+              cor={cor}
+              fosco={m.fosco}
+              compacto
+              className="h-4 w-9 shrink-0 text-ink"
+            />
+            {m.nome}
+          </button>
+        ))}
+      </Faixa>
+
+      <Faixa titulo="Formato">
+        {FORMATOS_INFO.map((f) => (
+          <button
+            key={f.id}
+            type="button"
+            onClick={() => definirFormato(f.id)}
+            aria-pressed={formato === f.id}
+            className={chipe(formato === f.id)}
+          >
+            <CorteDaAlianca
+              modelo="polida"
+              formato={f.id}
+              larguraMm={3.2}
+              espessuraMm={espessura}
+              aro={ARO_DE_REFERENCIA}
+              cor={cor}
+              compacto
+              linhaDoDedo
+              className="h-5 w-9 shrink-0 text-ink"
+            />
+            {f.nome}
+          </button>
+        ))}
+      </Faixa>
+
+      <Faixa titulo="Material">
+        {materiais.map((m) => (
+          <button
+            key={m.slug}
+            type="button"
+            onClick={() => definirSlug(m.slug)}
+            aria-pressed={slug === m.slug}
+            className={chipe(slug === m.slug)}
+          >
+            <span
+              aria-hidden
+              className="h-5 w-5 shrink-0 rounded-full border border-black/15"
+              style={{ background: amostraDoMaterial(m.slug) }}
+            />
+            {m.nome}
+          </button>
+        ))}
+      </Faixa>
+
+      <Faixa titulo="Largura">
+        {LARGURAS_COMUNS.map((l) => (
+          <button
+            key={l}
+            type="button"
+            onClick={() => definirLargura(l)}
+            aria-pressed={largura === l}
+            className={chipe(largura === l)}
+          >
+            {l.toLocaleString("pt-BR")} mm
+          </button>
+        ))}
+      </Faixa>
     </div>
   );
+}
+
+/** Uma linha de escolha: o nome à esquerda, os botões rolando de lado. */
+function Faixa({ titulo, children }: { titulo: string; children: React.ReactNode }) {
+  return (
+    <fieldset className="flex items-center gap-2 py-1">
+      <legend className="sr-only">{titulo}</legend>
+      <span aria-hidden className="w-[4.5rem] shrink-0 text-[0.65rem] font-semibold uppercase tracking-wide text-muted">
+        {titulo}
+      </span>
+      {/* `-mx-1 px-1` para o anel de foco do primeiro botão não ser cortado. */}
+      <div className="rolagem-discreta -mx-1 flex min-w-0 flex-1 gap-2 overflow-x-auto px-1 py-1">
+        {children}
+      </div>
+    </fieldset>
+  );
+}
+
+function chipe(ativo: boolean) {
+  return `flex min-h-11 shrink-0 items-center gap-2 rounded-sm border px-3 text-nota font-semibold transition-colors ${
+    ativo ? "border-brand bg-brand/12 text-ink" : "border-border bg-white/70 text-muted"
+  }`;
 }
 
 /* ========================================================================== */
@@ -521,12 +889,33 @@ const ASPEREZA_FOSCA = 1;
 type Cena = {
   trocarPeca: (p: Peca) => void;
   reiniciarAngulo: () => void;
+  /** Em tela cheia o gesto é todo da peça: gira nos dois eixos e aceita pinça. */
+  definirCapturaTotal: (v: boolean) => void;
+  /** Muda o canvas de palco, levando ouvintes e observadores com ele. */
+  mudarDePalco: (novo: HTMLElement) => void;
   desmontar: () => void;
 };
 
+/**
+ * Quem está com o gesto na mão.
+ *
+ * "indeciso" é o único estado que importa entender: no celular, o primeiro
+ * movimento do dedo é disputado entre girar a peça e rolar a página, e até o
+ * gesto se decidir ninguém mexe em nada.
+ */
+type Gesto = "indeciso" | "girando" | "rolando" | "pinca";
+
+/** Folga em volta da peça ao enquadrar. Menos folga, peça maior na tela. */
+const FOLGA = 1.18;
+/** O quanto o dedo precisa andar para o gesto se decidir. */
+const LIMIAR_DO_GESTO = 6;
+
 const ANGULO_INICIAL = { x: -0.42, y: 0.55 };
 
-function montar(THREE: TresD, palco: HTMLElement): Cena {
+function montar(THREE: TresD, palcoInicial: HTMLElement, aoGirar?: () => void): Cena {
+  // O palco TROCA: a tela cheia é outro elemento, em portal, e o canvas se muda
+  // para lá em vez de a cena ser remontada.
+  let palco = palcoInicial;
   const renderer = new THREE.WebGLRenderer({
     antialias: true,
     alpha: true,
@@ -590,33 +979,135 @@ function montar(THREE: TresD, palco: HTMLElement): Cena {
     // A peça precisa caber na menor das duas aberturas. Sem dividir pelo
     // aspecto, num palco em pé a aliança sai cortada pelas laterais.
     const meioFov = (camera.fov * Math.PI) / 360;
-    const distancia = (raioDaPeca * 1.42) / Math.tan(meioFov);
+    const distancia = (raioDaPeca * FOLGA) / zoom / Math.tan(meioFov);
     camera.position.z = camera.aspect < 1 ? distancia / camera.aspect : distancia;
     camera.updateProjectionMatrix();
     pedirQuadro();
   };
 
   // ------------------------------------------------------------------ giro
-  let arrastando = false;
+  //
+  // NO CELULAR, GIRAR DISPUTA COM ROLAR, E A PEÇA PERDIA SEMPRE.
+  //
+  // O palco declara `touch-action: pan-y`, então o navegador fica só com o
+  // gesto VERTICAL e o horizontal sobra para a gente. Mas o código antigo
+  // começava a girar no `pointerdown`, o que dava o pior dos dois mundos: a
+  // pessoa arrastava para cima, o navegador levava o gesto embora, a página
+  // descia e a aliança ficava parada, como se estivesse travada.
+  //
+  // Agora o primeiro movimento decide, que é como carrossel de foto resolve
+  // isso. Saiu para o lado, a peça assume o gesto, captura o ponteiro e a
+  // partir daí gira nos DOIS eixos, porque o navegador já desistiu de rolar
+  // naquele toque. Saiu para cima ou para baixo, a gente não faz nada e a
+  // página rola como sempre rolou.
+  //
+  // Em tela cheia não existe disputa (`touch-action: none`): o gesto é da peça
+  // desde o toque, com pinça para aproximar. Mouse e caneta nunca disputaram
+  // nada, então giram na hora, dentro e fora da tela cheia.
+  let capturaTotal = false;
+  let modo: Gesto = "indeciso";
+  let inicioX = 0;
+  let inicioY = 0;
   let ultimoX = 0;
   let ultimoY = 0;
   let velocidade = 0;
+  let zoom = 1;
+  let pincaInicial = 0;
+  let zoomDaPinca = 1;
+  /** Dedos na tela, em ordem de chegada. Dois viram pinça. */
+  const dedos = new Map<number, { x: number; y: number }>();
   const semAnimacao = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   let girandoSozinha = !semAnimacao;
   let quadro = 0;
   let visivel = true;
 
+  const girando = () => modo === "girando" || modo === "pinca";
+
+  const capturar = (id: number) => {
+    try {
+      palco.setPointerCapture?.(id);
+    } catch {
+      /* ponteiro já encerrado: o gesto segue sem captura */
+    }
+  };
+
+  const soltarCaptura = (id: number) => {
+    // Solta só o que foi capturado. Pedir a soltura de um ponteiro que nunca
+    // foi capturado levanta exceção em alguns navegadores.
+    try {
+      if (palco.hasPointerCapture?.(id)) palco.releasePointerCapture(id);
+    } catch {
+      /* ponteiro já encerrado pelo navegador */
+    }
+  };
+
+  const definirZoom = (v: number) => {
+    // Teto de 2,2: passando disso a peça sai da tela e a pessoa perde a
+    // referência do que está vendo, que é o oposto de aproximar.
+    const novo = limitar(v, 0.85, 2.2);
+    if (Math.abs(novo - zoom) < 0.002) return;
+    zoom = novo;
+    enquadrar();
+  };
+
   const aoBaixar = (e: PointerEvent) => {
-    arrastando = true;
+    dedos.set(e.pointerId, { x: e.clientX, y: e.clientY });
     girandoSozinha = false;
     velocidade = 0;
+
+    if (dedos.size === 2) {
+      const [a, b] = [...dedos.values()];
+      pincaInicial = Math.hypot(a.x - b.x, a.y - b.y);
+      zoomDaPinca = zoom;
+      modo = "pinca";
+      pedirQuadro();
+      return;
+    }
+
+    inicioX = e.clientX;
+    inicioY = e.clientY;
     ultimoX = e.clientX;
     ultimoY = e.clientY;
-    palco.setPointerCapture?.(e.pointerId);
+    modo = capturaTotal || e.pointerType !== "touch" ? "girando" : "indeciso";
+    if (modo === "girando") {
+      capturar(e.pointerId);
+      aoGirar?.();
+    }
     pedirQuadro();
   };
+
   const aoMover = (e: PointerEvent) => {
-    if (!arrastando) return;
+    const dedo = dedos.get(e.pointerId);
+    if (!dedo) return;
+    dedo.x = e.clientX;
+    dedo.y = e.clientY;
+
+    if (modo === "pinca") {
+      if (dedos.size < 2 || pincaInicial <= 0) return;
+      const [a, b] = [...dedos.values()];
+      definirZoom((zoomDaPinca * Math.hypot(a.x - b.x, a.y - b.y)) / pincaInicial);
+      return;
+    }
+
+    if (modo === "rolando") return;
+
+    if (modo === "indeciso") {
+      const dxTotal = e.clientX - inicioX;
+      const dyTotal = e.clientY - inicioY;
+      if (Math.hypot(dxTotal, dyTotal) < LIMIAR_DO_GESTO) return;
+      if (Math.abs(dxTotal) < Math.abs(dyTotal)) {
+        modo = "rolando";
+        return;
+      }
+      modo = "girando";
+      capturar(e.pointerId);
+      aoGirar?.();
+      // Do ponto onde o dedo começou, e não de onde ele está: assim o giro não
+      // pula os 6 px que o gesto levou para se decidir.
+      ultimoX = inicioX;
+      ultimoY = inicioY;
+    }
+
     const dx = e.clientX - ultimoX;
     const dy = e.clientY - ultimoY;
     ultimoX = e.clientX;
@@ -626,28 +1117,68 @@ function montar(THREE: TresD, palco: HTMLElement): Cena {
     velocidade = dx * 0.009;
     pedirQuadro();
   };
+
   const aoSoltar = (e: PointerEvent) => {
-    arrastando = false;
-    palco.releasePointerCapture?.(e.pointerId);
+    dedos.delete(e.pointerId);
+    soltarCaptura(e.pointerId);
+
+    if (dedos.size === 0) {
+      modo = "indeciso";
+    } else if (modo === "pinca") {
+      // Levantou um dedo da pinça: o que ficou reassume o giro de onde está,
+      // senão a peça dá um salto do tamanho da distância entre os dois.
+      const [q] = [...dedos.values()];
+      inicioX = q.x;
+      inicioY = q.y;
+      ultimoX = q.x;
+      ultimoY = q.y;
+      velocidade = 0;
+      modo = capturaTotal ? "girando" : "indeciso";
+    }
     pedirQuadro();
   };
+
   const aoTeclar = (e: KeyboardEvent) => {
     const passo = 0.16;
     if (e.key === "ArrowLeft") pivo.rotation.y -= passo;
     else if (e.key === "ArrowRight") pivo.rotation.y += passo;
     else if (e.key === "ArrowUp") pivo.rotation.x = limitar(pivo.rotation.x - passo, -1.35, 1.35);
     else if (e.key === "ArrowDown") pivo.rotation.x = limitar(pivo.rotation.x + passo, -1.35, 1.35);
+    // Aproximar pelo teclado, para quem não tem pinça nem roda.
+    else if (e.key === "+" || e.key === "=") definirZoom(zoom * 1.12);
+    else if (e.key === "-" || e.key === "_") definirZoom(zoom / 1.12);
     else return;
     e.preventDefault();
     girandoSozinha = false;
     pedirQuadro();
   };
 
-  palco.addEventListener("pointerdown", aoBaixar);
-  palco.addEventListener("pointermove", aoMover);
-  palco.addEventListener("pointerup", aoSoltar);
-  palco.addEventListener("pointercancel", aoSoltar);
-  palco.addEventListener("keydown", aoTeclar);
+  // A roda só é da peça em tela cheia. No meio do artigo ela é da página, e
+  // roubar a rolagem de quem só passou por cima do bloco seria imperdoável.
+  const aoRodar = (e: WheelEvent) => {
+    if (!capturaTotal) return;
+    e.preventDefault();
+    definirZoom(zoom * (e.deltaY < 0 ? 1.1 : 1 / 1.1));
+  };
+
+  const ligar = (el: HTMLElement) => {
+    el.addEventListener("pointerdown", aoBaixar);
+    el.addEventListener("pointermove", aoMover);
+    el.addEventListener("pointerup", aoSoltar);
+    el.addEventListener("pointercancel", aoSoltar);
+    el.addEventListener("keydown", aoTeclar);
+    el.addEventListener("wheel", aoRodar, { passive: false });
+  };
+  const desligar = (el: HTMLElement) => {
+    el.removeEventListener("pointerdown", aoBaixar);
+    el.removeEventListener("pointermove", aoMover);
+    el.removeEventListener("pointerup", aoSoltar);
+    el.removeEventListener("pointercancel", aoSoltar);
+    el.removeEventListener("keydown", aoTeclar);
+    el.removeEventListener("wheel", aoRodar);
+  };
+
+  ligar(palco);
 
   // -------------------------------------------------------------- desenho
   const desenhar = () => {
@@ -655,14 +1186,14 @@ function montar(THREE: TresD, palco: HTMLElement): Cena {
     if (!visivel) return;
 
     if (girandoSozinha) pivo.rotation.y += 0.0035;
-    else if (!arrastando && Math.abs(velocidade) > 0.0004) {
+    else if (!girando() && Math.abs(velocidade) > 0.0004) {
       pivo.rotation.y += velocidade;
       velocidade *= 0.93;
     }
 
     renderer.render(scene, camera);
 
-    if (girandoSozinha || (!arrastando && Math.abs(velocidade) > 0.0004)) pedirQuadro();
+    if (girandoSozinha || (!girando() && Math.abs(velocidade) > 0.0004)) pedirQuadro();
   };
   function pedirQuadro() {
     if (!quadro && visivel) quadro = requestAnimationFrame(desenhar);
@@ -749,22 +1280,50 @@ function montar(THREE: TresD, palco: HTMLElement): Cena {
 
   enquadrar();
 
+  const mudarDePalco = (novo: HTMLElement) => {
+    if (!novo || novo === palco) return;
+    desligar(palco);
+    redimensionador.unobserve(palco);
+    observador.unobserve(palco);
+
+    palco = novo;
+    palco.appendChild(renderer.domElement);
+    ligar(palco);
+    redimensionador.observe(palco);
+    observador.observe(palco);
+    // Palco novo, medida nova: sem isto o canvas fica com o tamanho do antigo
+    // até alguém redimensionar a janela.
+    visivel = true;
+    enquadrar();
+  };
+
   return {
     trocarPeca,
+    mudarDePalco,
     reiniciarAngulo: () => {
       pivo.rotation.set(ANGULO_INICIAL.x, ANGULO_INICIAL.y, 0);
       velocidade = 0;
-      pedirQuadro();
+      // "Endireitar" também desfaz a aproximação: é o botão de voltar ao começo,
+      // e deixar a peça enorme e torta pela metade não é voltar ao começo.
+      zoom = 1;
+      enquadrar();
+    },
+    definirCapturaTotal: (v: boolean) => {
+      capturaTotal = v;
+      modo = "indeciso";
+      dedos.clear();
+      // Ao sair da tela cheia, a peça volta ao enquadramento do bloco: uma peça
+      // aproximada num palco de 26 rem sai cortada.
+      if (!v && zoom !== 1) {
+        zoom = 1;
+        enquadrar();
+      }
     },
     desmontar: () => {
       if (quadro) cancelAnimationFrame(quadro);
       observador.disconnect();
       redimensionador.disconnect();
-      palco.removeEventListener("pointerdown", aoBaixar);
-      palco.removeEventListener("pointermove", aoMover);
-      palco.removeEventListener("pointerup", aoSoltar);
-      palco.removeEventListener("pointercancel", aoSoltar);
-      palco.removeEventListener("keydown", aoTeclar);
+      desligar(palco);
       renderer.domElement.removeEventListener("webglcontextlost", aoPerderContexto);
       corpo?.geometry.dispose();
       filete?.geometry.dispose();

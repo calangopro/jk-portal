@@ -71,7 +71,7 @@ export default async function GuiaIndex() {
         data={[
           webPageSchema({
             url: absoluteUrl("/guia"),
-            name: "Dicas sobre alianças",
+            name: "Dicas de alianças e joias",
           }),
           breadcrumbSchema([
             { name: "Início", url: absoluteUrl("/") },
@@ -84,7 +84,7 @@ export default async function GuiaIndex() {
               name: g.title,
               url: absoluteUrl(`/guia/${g.slug}`),
             })),
-            "Dicas sobre alianças",
+            "Dicas de alianças e joias",
           ),
         ]}
       />
@@ -94,12 +94,18 @@ export default async function GuiaIndex() {
           <div className="mb-5">
             <Pill>Conteúdo</Pill>
           </div>
-          <h1 className="font-display max-w-[16ch] text-titulo-artigo text-ink">
-            Dicas sobre alianças
+          {/* O título fala de aliança E de joia de propósito. "Dicas sobre
+              alianças" prometia menos do que a página entrega: aqui também tem
+              material, o que muda entre ouro, prata e semijoia, e como cuidar da
+              peça. Quem chegava pelo menu "Dicas" e caía num título mais estreito
+              lia a página como se ela fosse só sobre tamanho de aliança. */}
+          <h1 className="font-display max-w-[18ch] text-titulo-artigo text-ink">
+            Dicas de alianças e joias
           </h1>
-          <p className="linha-apoio mt-6 max-w-[48ch] text-lede">
-            Como escolher o tamanho, a largura e o material da aliança, e como
-            cuidar dela depois. Escrito por quem fabrica.
+          <p className="linha-apoio mt-6 max-w-[52ch] text-lede">
+            Como escolher o tamanho, a largura e o material, o que muda entre
+            ouro, prata e semijoia, e como cuidar da peça depois. Escrito por
+            quem fabrica.
           </p>
           <div aria-hidden className="filete-dourado mt-7" />
         </header>

@@ -55,7 +55,14 @@ export async function Comparador({ className = "" }: { className?: string }) {
         Os materiais lado a lado
       </h2>
 
-      <div className="mt-6 overflow-x-auto">
+      {/* No celular a tabela não cabe, e sem aviso ninguém descobre que ela rola:
+          a pessoa lê três colunas e conclui que o resto não existe. Encolher a
+          tabela até caber deixaria a fonte pequena demais para comparar número. */}
+      <p className="mt-3 text-nota text-muted sm:hidden">
+        Arraste a tabela para o lado para ver todas as colunas.
+      </p>
+
+      <div className="rolagem-discreta mt-6 overflow-x-auto">
         <table className="conteudo-rico w-full min-w-[46rem] border-collapse text-sm">
           <caption className="pb-3 text-left text-xs text-muted">
             Materiais de aliança da JK Alianças: teor, faixa de preço praticada e

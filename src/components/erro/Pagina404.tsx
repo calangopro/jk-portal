@@ -16,7 +16,7 @@ import { RegistrarEndereco } from "@/components/analytics/RegistrarEndereco";
 const SAIDAS = [
   {
     href: "/guia",
-    titulo: "Dicas sobre alianças",
+    titulo: "Dicas de alianças e joias",
     texto: "Tamanho, largura, material e cuidados, explicado por quem fabrica.",
   },
   {
