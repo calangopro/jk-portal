@@ -177,17 +177,45 @@ function UltimosConteudos({ p, guias }: { p: Record<string, unknown>; guias: Con
   return (
     <section>
       <Container size="wide" className="py-14 sm:py-20">
-        <div className="flex items-baseline gap-4">
-          <h2 className="font-display shrink-0 text-titulo-secao text-ink">
+        {/*
+          Cabeçalho de seção: título, filete e link. No desktop os três ficam na
+          mesma linha, com o filete esticando e o link colado na direita. No
+          celular isso não cabe, e o arranjo abaixo é o que faz a coisa quebrar
+          sem abrir barra de rolagem horizontal. Mexer numa peça sozinha traz o
+          defeito de volta.
+
+          O título NÃO leva `shrink-0`. Com ele, o texto ficava travado na
+          largura de conteúdo máximo e vazava a tela inteira num aparelho de
+          320 px, porque quem não encolhe também não quebra linha. Junto vão
+          `min-w-0` e `break-words`, que só resolvem em par: item de flex tem
+          largura mínima automática igual à palavra mais longa, `min-w-0` deixa
+          a caixa encolher abaixo disso, e aí é o texto que passa por fora, até
+          `break-words` partir a palavra, e só quando não há outro jeito. Isso
+          vale menos pelo título de fábrica e mais pelo que vem do banco: o nome
+          do grupo em `/dicas` e o título gravado pelo `/admin/home`.
+
+          Filete e link moram no MESMO div, e é isso que os faz descer juntos.
+          Soltos como irmãos do título, o filete cabia no fim da primeira linha
+          e o link caía sozinho na linha de baixo, encostado na esquerda, com o
+          filete apontando para o nada. Como um item só, ou os dois ficam ao
+          lado do título ou os dois descem, e o link continua na direita nos
+          dois casos, porque o filete cresce dentro do grupo. O `min-w-32` é o
+          ponto de quebra: abaixo disso o grupo prefere descer a espremer o
+          filete até virar um toco.
+        */}
+        <div className="flex flex-wrap items-baseline gap-x-4 gap-y-3">
+          <h2 className="font-display min-w-0 break-words text-titulo-secao text-ink">
             {texto(p, "titulo", "Últimos posts")}
           </h2>
-          <span aria-hidden className="hairline flex-1" />
-          <Link
-            href="/dicas"
-            className="shrink-0 text-apoio font-semibold text-brand-nav hover:underline"
-          >
-            {texto(p, "verTodos", "Ver todos")}
-          </Link>
+          <div className="flex min-w-32 flex-1 items-baseline gap-4">
+            <span aria-hidden className="hairline flex-1" />
+            <Link
+              href="/dicas"
+              className="shrink-0 text-apoio font-semibold text-brand-nav hover:underline"
+            >
+              {texto(p, "verTodos", "Ver todos")}
+            </Link>
+          </div>
         </div>
 
         {/*
@@ -234,20 +262,22 @@ function VitrineDeProdutos({
   return (
     <section>
       <Container size="wide" className="pb-14 sm:pb-20">
-        <div className="flex items-baseline gap-4">
-          <h2 className="font-display shrink-0 text-titulo-secao text-ink">
+        <div className="flex flex-wrap items-baseline gap-x-4 gap-y-3">
+          <h2 className="font-display min-w-0 break-words text-titulo-secao text-ink">
             {texto(p, "titulo", "Da nossa fábrica")}
           </h2>
-          <span aria-hidden className="hairline flex-1" />
-          <a
-            href={`${SITE.lojaUrl}?utm_source=portal&utm_medium=vitrine&utm_campaign=ver_tudo`}
-            target="_blank"
-            rel="noopener noreferrer"
-            data-evento="clique_produto"
-            className="shrink-0 text-apoio font-semibold text-brand-nav hover:underline"
-          >
-            Ver a loja
-          </a>
+          <div className="flex min-w-32 flex-1 items-baseline gap-4">
+            <span aria-hidden className="hairline flex-1" />
+            <a
+              href={`${SITE.lojaUrl}?utm_source=portal&utm_medium=vitrine&utm_campaign=ver_tudo`}
+              target="_blank"
+              rel="noopener noreferrer"
+              data-evento="clique_produto"
+              className="shrink-0 text-apoio font-semibold text-brand-nav hover:underline"
+            >
+              Ver a loja
+            </a>
+          </div>
         </div>
         <p className="mt-2 max-w-[52ch] leading-relaxed text-muted">
           {texto(p, "subtitulo", "Uma amostra do catálogo.")}
@@ -349,14 +379,16 @@ function Lojas({ p, lojas }: { p: Record<string, unknown>; lojas: Location[] }) 
   return (
     <section>
       <Container size="wide" className="pb-14 sm:pb-20">
-        <div className="flex items-baseline gap-4">
-          <h2 className="font-display shrink-0 text-titulo-secao text-ink">
+        <div className="flex flex-wrap items-baseline gap-x-4 gap-y-3">
+          <h2 className="font-display min-w-0 break-words text-titulo-secao text-ink">
             {texto(p, "titulo", "Experimente antes de comprar")}
           </h2>
-          <span aria-hidden className="hairline flex-1" />
-          <Link href="/lojas" className="shrink-0 text-apoio font-semibold text-brand-nav hover:underline">
-            Ver as {lojas.length} lojas
-          </Link>
+          <div className="flex min-w-32 flex-1 items-baseline gap-4">
+            <span aria-hidden className="hairline flex-1" />
+            <Link href="/lojas" className="shrink-0 text-apoio font-semibold text-brand-nav hover:underline">
+              Ver as {lojas.length} lojas
+            </Link>
+          </div>
         </div>
         <p className="mt-2 max-w-[52ch] leading-relaxed text-muted">
           {texto(p, "subtitulo", "Atendimento presencial, aro de prova e ajuste na hora.")}
