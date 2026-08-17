@@ -81,6 +81,6 @@ export async function enviarComentario(
 
   if (error) return { erro: "Não foi possível enviar agora. Tente de novo em instantes." };
 
-  if (slug) revalidatePath(`/guia/${slug}`);
+  if (slug) revalidatePath(`/${slug}`);
   return { ok: "Comentário enviado. Ele aparece assim que passar pela revisão." };
 }

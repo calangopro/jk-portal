@@ -53,7 +53,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   const staticRoutes: MetadataRoute.Sitemap = [
     { url: absoluteUrl("/"), lastModified: ultimoDeTudo },
-    { url: absoluteUrl("/guia"), lastModified: ultimoGuia },
+    { url: absoluteUrl("/dicas"), lastModified: ultimoGuia },
     { url: absoluteUrl("/lojas"), lastModified: ultimaLoja },
     // Ferramenta com busca própria forte ("medidor de aliança", "tamanho do aro").
     // Página estática: a data de modificação é a do próprio código, então fica
@@ -66,7 +66,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   ];
 
   const guiaRoutes: MetadataRoute.Sitemap = guias.map((g) => ({
-    url: absoluteUrl(`/guia/${g.slug}`),
+    url: absoluteUrl(`/${g.slug}`),
     lastModified: g.updatedAt ?? undefined,
     ...(g.capa?.url ? { images: [g.capa.url] } : {}),
   }));

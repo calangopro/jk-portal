@@ -126,13 +126,13 @@ export async function reindexarBusca(id: string) {
 export async function revalidarTudo(slug?: string | null) {
   revalidatePath("/admin/conteudos");
   revalidatePath("/");
-  revalidatePath("/guia");
+  revalidatePath("/dicas");
   revalidatePath("/sitemap.xml");
   revalidatePath("/llms.txt");
   if (slug) {
-    revalidatePath(`/guia/${slug}`);
+    revalidatePath(`/${slug}`);
     const { avisarIndexNow } = await import("@/lib/seo/indexnow");
-    await avisarIndexNow([`/guia/${slug}`]);
+    await avisarIndexNow([`/${slug}`]);
   }
 }
 

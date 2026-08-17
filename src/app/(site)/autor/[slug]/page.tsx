@@ -149,7 +149,7 @@ export default async function PaginaDoAutor({
               {conteudos.map((c) => (
                 <li key={c.id}>
                   <Link
-                    href={`/guia/${c.slug}`}
+                    href={`/${c.slug}`}
                     className="block h-full rounded-[18px] border border-border bg-white/70 p-6 transition-colors hover:border-brand focus-visible:border-brand"
                   >
                     <span className="font-display block text-titulo-bloco text-ink">

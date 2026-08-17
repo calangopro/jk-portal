@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { precoLegivel, type ProdutoDaVitrine } from "@/lib/data/vitrine";
 import { useLarguraEscolhida } from "./LarguraEscolhida";
+import { BASE_PATH } from "@/lib/seo/base-path";
 
 /**
  * Peças reais na largura que a pessoa escolheu.
@@ -78,7 +79,9 @@ export function VitrineDaLargura({
     let vivo = true;
     const relogio = setTimeout(async () => {
       try {
-        const resposta = await fetch(`/api/produtos/largura?mm=${escolhida}`);
+        // Com basePath, o endpoint do portal vive em /guias/api/... Sem o
+        // prefixo a chamada sairia do portal e cairia na loja da Tray.
+        const resposta = await fetch(`${BASE_PATH}/api/produtos/largura?mm=${escolhida}`);
         if (!resposta.ok) throw new Error("resposta fora de 200");
         const dados = (await resposta.json()) as {
           larguraMm: number;

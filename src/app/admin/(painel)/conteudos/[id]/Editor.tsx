@@ -1160,7 +1160,7 @@ export function Editor({
           <div className="flex items-center gap-2">
             {status === "published" ? (
               <>
-                <Link href={`/guia/${slug}`} target="_blank" className="rounded-full border border-ink/15 px-4 py-2 text-xs font-semibold text-ink hover:border-brand/50 hover:text-brand-nav">Ver no site ↗</Link>
+                <Link href={`/${slug}`} target="_blank" className="rounded-full border border-ink/15 px-4 py-2 text-xs font-semibold text-ink hover:border-brand/50 hover:text-brand-nav">Ver no site ↗</Link>
                 <button type="button" onClick={() => salvar(() => voltarParaRascunho(inicial.id).then(() => setStatus("draft")))} className="rounded-full border border-ink/15 px-4 py-2 text-xs font-semibold text-ink hover:border-wine/50 hover:text-wine">Despublicar</button>
               </>
             ) : null}
@@ -1214,7 +1214,7 @@ export function Editor({
           </div>
 
           <div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-muted">
-            <span className="flex items-center gap-1.5"><Link2 size={12} /> guia.jkaliancas.com.br/guia/</span>
+            <span className="flex items-center gap-1.5"><Link2 size={12} /> www.jkaliancas.com.br/guias/</span>
             <input
               value={slug}
               onChange={(e) => setSlug(e.target.value)}

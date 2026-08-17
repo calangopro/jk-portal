@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { signOut } from "@/app/admin/login/actions";
 import { Navegacao } from "./Navegacao";
 
+import { comBasePath } from "@/lib/seo/base-path";
 /**
  * Chrome da área protegida: barra lateral agrupada por finalidade e uma faixa
  * de topo enxuta. Fica num route group para NÃO envolver a página de login,
@@ -30,8 +31,10 @@ export default async function PainelLayout({
       <aside className="border-b border-border/60 bg-white/40 backdrop-blur-sm lg:sticky lg:top-0 lg:h-screen lg:overflow-y-auto lg:border-b-0 lg:border-r">
         <div className="px-5 py-5">
           <Link href="/admin" className="flex items-center gap-2.5">
+            {/* `img` cru não recebe o basePath (só `next/image` recebe), então
+                o caminho do arquivo em public/ é montado na mão. */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/logo.svg" alt="JK Alianças" width={104} height={35} className="h-6 w-auto" />
+            <img src={comBasePath("/logo.svg")} alt="JK Alianças" width={104} height={35} className="h-6 w-auto" />
             <span className="text-[0.62rem] font-semibold uppercase tracking-[0.18em] text-brand-nav">
               Painel
             </span>

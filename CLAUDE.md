@@ -53,9 +53,42 @@ Backlog: Trello 🧠 JK Alianças | ADM → https://trello.com/b/S7IXlYDi
 Next.js 15.5 (App Router, TS) · React 19 · Tailwind v4 (config em `globals.css`, sem `tailwind.config`)
 · Supabase (`@supabase/ssr`) · Node 22.
 
+## Produção: o portal vive em `/guias`
+
+O domínio **não é do portal**. `www.jkaliancas.com.br` continua na Tray, e um
+proxy no Cloudflare manda só `/guias/*` para a Vercel. Por isso o aplicativo roda
+sob `basePath: "/guias"` (mecanismo oficial do Next), e não por rewrite.
+
+- **O prefixo mora em um lugar só:** `src/lib/seo/base-path.ts`. O
+  `next.config.ts` importa de lá. Nunca escreva `/guias` à mão em outro arquivo.
+- **`NEXT_PUBLIC_SITE_URL` guarda só a ORIGEM**, sem o `/guias`. Quem soma o
+  prefixo é `absoluteUrl()`. Com o prefixo na variável, `new URL("/x", base)`
+  descartaria o caminho e todo canonical sairia apontando para a loja.
+- **O que o Next já resolve sozinho, e onde não se mexe:** `next/link`,
+  `router.push`, `redirect()`, `next/image` otimizado, `next/font`, `public/`,
+  `/_next/*`, o `source` de `headers()` e o `matcher` do middleware (que recebe o
+  prefixo no build). No middleware, `nextUrl.pathname` chega SEM o prefixo.
+- **O que precisa do prefixo na mão:** `fetch` escrito por extenso,
+  `sendBeacon`, `window.open`, HTML cru fora do React, e SVG no `next/image`
+  (SVG é servido as-is, sem otimizador, então o `src` sai cru).
+- **URL de post é plana:** `/guias/<slug>`, de `(site)/[slug]`. O índice é
+  `/guias/dicas`. Isso faz o post dividir espaço de nome com as páginas fixas, e
+  no Next o segmento estático ganha do dinâmico EM SILÊNCIO. A trava é
+  `src/lib/content/slugs-reservados.ts`, consultada por `slugDisponivel`.
+  **Pasta nova em `src/app/(site)/` precisa entrar naquela lista.**
+- **Link interno no corpo do artigo fica sem prefixo no banco.** O prefixo entra
+  ao servir, em `comBasePathNosLinks` (`src/lib/conteudo/links-html.ts`). É o que
+  deixa a tabela sobreviver a uma troca de prefixo sem migration.
+- **`robots.txt` do portal NÃO governa o domínio.** Rastreador só lê na raiz do
+  host, e a raiz é da Tray. O nosso responde em `/guias/robots.txt`. Quem protege
+  `/admin` e `/preview` são as metatags `noindex` que essas rotas já emitem.
+- **Sem HSTS no aplicativo, de propósito.** HSTS é política de host, não de
+  pasta. Quem liga é o dono do domínio, na borda.
+
 ## Mapa do código
 ```
-src/app/            rotas: page (home), guia/, lojas/, medidor-de-aliancas/, robots.ts, sitemap.ts, llms.txt/
+src/app/            rotas: page (home), [slug]/ (post), dicas/ (índice), lojas/, ferramentas/,
+                    medidor-de-aliancas/, robots.ts, sitemap.ts, llms.txt/
 src/components/      layout/ (Header, NavPrincipal, Footer, Container, Sidebar), ui/ (Button, Card, Pill,
                      Acordeao, Trilha, Figura, FaqLista, states), conteudo/, medidor/, lojas/, schema/JsonLd
 src/lib/content/     tipos do domínio
@@ -71,6 +104,16 @@ docs/                identidade-visual-jk.md (marca)
 ```
 
 ## Armadilhas já pagas (não repetir)
+- **`metadataBase` com caminho duplica o `og:image`.** Com `basePath`, o Next
+  monta o caminho da imagem de convenção JÁ com o prefixo e depois junta com o
+  `pathname` do `metadataBase`. Com `/guias` nos dois lados, o build emitiu
+  `.../guias/guias/guia/x/opengraph-image`. Por isso `metadataBase` é a ORIGEM
+  pura: canonical e `og:url` não dependem dele, porque `buildMetadata` já entrega
+  URL absoluta.
+- **`next/image` NÃO prefixa SVG.** Sem `dangerouslyAllowSVG`, o otimizador não
+  toca em `.svg` e o `src` sai cru, sem o basePath: o logo do cabeçalho pedia
+  `/logo.svg` na raiz do domínio. Imagem otimizada não tem o problema, e
+  prefixar o `url` dela faria o otimizador procurar em `public/guias/`.
 - **`middleware.ts` fica em `src/middleware.ts`**, não na raiz. Com a pasta `src/`
   o Next ignora o arquivo da raiz **em silêncio**: nada de erro, o middleware
   simplesmente não roda. Ficou meses sem rodar assim. Para conferir, veja se
@@ -231,7 +274,7 @@ docs/                identidade-visual-jk.md (marca)
 - Secrets: `service_role` e tokens da Tray **jamais** com prefixo `NEXT_PUBLIC_`. `.env.local` não é versionado.
 
 ## Estado atual (12/08/2026)
-✅ **Público:** home, `/guia`, `/guia/[slug]`, `/lojas`, `/lojas/[slug]`, `/medidor-de-aliancas`, robots/sitemap/llms.txt, JSON-LD, compartilhamento.
+✅ **Público:** home, `/dicas`, `/[slug]`, `/lojas`, `/lojas/[slug]`, `/medidor-de-aliancas`, robots/sitemap/llms.txt, JSON-LD, compartilhamento.
 ✅ **Estrutura:** `src/app/(site)/` = público, `src/app/admin/(painel)/` = protegido, `src/app/layout.tsx` = só html/body/fontes.
 ✅ **Supabase:** 36 migrations aplicadas e em arquivo, 22 tabelas com RLS, bucket `media`.
 ✅ **Admin:** login por e-mail e senha (sem tela de cadastro; o endpoint de signup do Supabase ainda está aberto, ver Pendências), rotas protegidas por middleware, `noindex`, dashboard, usuários, mídia, comentários, produtos, métricas, integrações e lojas.
@@ -328,7 +371,8 @@ com as regras novas na seção 1 do `REGRAS.md`. Saíram os dois duplos sentidos
 fala ("Tudo sobre alianças, respondido direto") e o nome que ninguém busca
 ("Guias de alianças"). A home abre em "Tudo sobre alianças de casamento e
 namoro", a lista virou "Últimos posts", o índice virou "Dicas sobre alianças"
-(URL `/guia` intacta), a ferramenta virou **Medidor de aliança** em todo lugar,
+(a URL era `/guia` e hoje é `/dicas`, ver a seção de produção), a ferramenta
+virou **Medidor de aliança** em todo lugar,
 e "portal" virou "site" na tela. Os padrões de fábrica em `blocos/tipos.ts` são
 o que a home serve hoje, porque **não existe layout gravado** em
 `site_settings` (chave `pagina:home` ausente); no dia em que alguém salvar pelo
@@ -381,8 +425,8 @@ então a peça é bem maior sem risco de corte. A vitrine do **simulador de
 largura** deixou de ficar presa em 4 mm e acompanha o mm escolhido, meio segundo
 depois do último clique. E `/guia` virou **"Dicas de alianças e joias"** (título
 da aba com semijoia), porque o escopo da página é material, joia, semijoia, uso e
-cuidado, e o título antigo prometia menos do que a página entrega. A URL `/guia`
-não mudou.
+cuidado, e o título antigo prometia menos do que a página entrega. A URL era
+`/guia` na época e hoje é `/dicas`.
 
 ✅ **Resposta da loja no comentário (17/08):** o fio de conversa tem UM nível,
 comentário do visitante e resposta da casa embaixo, e responder é só de admin,
@@ -397,8 +441,9 @@ uma resposta errada apaga por `apagarResposta`, que só encosta em linha com
 perfil, ou seja, nunca em comentário de visitante.
 
 🔲 **A construir:** conteúdo (só 1 guia publicado), OAuth do Search Console e do GMB, deploy na Vercel.
-⚠️ **Pendências:** **preencher o endereço do portal em `site_settings.cron`**
-(`update public.site_settings set value = jsonb_build_object('url','https://SEU-DOMINIO') where key='cron';`).
+⚠️ **Pendências:** **preencher o endereço do portal em `site_settings.cron`, COM o prefixo**
+(`update public.site_settings set value = jsonb_build_object('url','https://SEU-DOMINIO/guias') where key='cron';`).
+O SQL faz `url || '/api/cron/publicar'`, e o endpoint vive sob `/guias`.
 Sem isso o job `publicar-agendados` do `pg_cron` roda de 5 em 5 minutos e não faz
 nada, então a publicação agendada fica só na tela. O segredo do disparo já existe
 em `integration_tokens` (provider `cron`) e é o mesmo que o endpoint

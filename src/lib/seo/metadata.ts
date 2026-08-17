@@ -7,7 +7,7 @@ type OgImage = { url: string; width?: number; height?: number; alt?: string };
 type BuildInput = {
   title: string;
   description: string;
-  /** Caminho relativo (ex.: "/guia/aliancas-de-namoro"); vira canonical absoluto. */
+  /** Caminho relativo (ex.: "/aliancas-de-namoro"); vira canonical absoluto. */
   path: string;
   /** Canonical absoluto explícito. Quando ausente, é derivado de `path`. */
   canonical?: string;
@@ -86,7 +86,7 @@ export function guiaIndexMetadata(): Metadata {
     title: `Dicas de alianças, joias e semijoias | ${SITE.name}`,
     description:
       "Como escolher aliança, joia e semijoia: tamanho do aro, largura, ouro, prata, banhado, preço e cuidados no uso diário. Escrito por quem fabrica.",
-    path: "/guia",
+    path: "/dicas",
     type: "website",
   });
 }
@@ -105,7 +105,7 @@ export function canonicalDoGuia(c: {
   canonicalUrl?: string | null;
 }): string {
   const bruto = c.canonicalUrl?.trim();
-  if (!bruto) return absoluteUrl(`/guia/${c.slug}`);
+  if (!bruto) return absoluteUrl(`/${c.slug}`);
   return bruto.startsWith("http") ? bruto : absoluteUrl(bruto);
 }
 
@@ -113,7 +113,7 @@ export function guiaMetadata(c: Content): Metadata {
   return buildMetadata({
     title: c.metaTitle ?? `${c.title} | ${SITE.name}`,
     description: c.metaDescription ?? c.excerpt ?? SITE.description,
-    path: `/guia/${c.slug}`,
+    path: `/${c.slug}`,
     canonical: canonicalDoGuia(c),
     type: "article",
     images: c.ogImageUrl ? [{ url: c.ogImageUrl }] : undefined,

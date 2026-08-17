@@ -4,6 +4,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Search, CornerDownLeft, Loader2, MapPin, FileText } from "lucide-react";
+import { BASE_PATH } from "@/lib/seo/base-path";
 
 type Achado = {
   tipo: "guia" | "loja";
@@ -63,7 +64,10 @@ export function CampoDeBusca({
     // embedding, então disparar por tecla seria caro e pioraria o resultado.
     const timer = setTimeout(async () => {
       try {
-        const r = await fetch(`/api/busca?q=${encodeURIComponent(t)}`);
+        // `fetch` escrito por extenso NÃO recebe o basePath do Next: sem o
+        // prefixo, o navegador pediria /api/busca na raiz do domínio, que em
+        // produção é da Tray, e a resposta viria da loja em vez do portal.
+        const r = await fetch(`${BASE_PATH}/api/busca?q=${encodeURIComponent(t)}`);
         const dados = (await r.json()) as Resposta;
         if (meu === ultima.current) {
           setResposta(dados);

@@ -183,7 +183,7 @@ function UltimosConteudos({ p, guias }: { p: Record<string, unknown>; guias: Con
           </h2>
           <span aria-hidden className="hairline flex-1" />
           <Link
-            href="/guia"
+            href="/dicas"
             className="shrink-0 text-apoio font-semibold text-brand-nav hover:underline"
           >
             {texto(p, "verTodos", "Ver todos")}
@@ -201,7 +201,7 @@ function UltimosConteudos({ p, guias }: { p: Record<string, unknown>; guias: Con
           {lista.map((g, i) => (
             <li key={g.id} className="rise" style={{ animationDelay: `${i * 70}ms` }}>
               <Card
-                href={`/guia/${g.slug}`}
+                href={`/${g.slug}`}
                 imagem={g.capa}
                 titulo={g.title}
                 resumo={g.excerpt}
@@ -286,7 +286,7 @@ function Trilhas({ p, guias }: { p: Record<string, unknown>; guias: Content[] })
           {[...contagem].map(([cluster, n]) => (
             <li key={cluster}>
               <Link
-                href={`/guia#${cluster}`}
+                href={`/dicas#${cluster}`}
                 className="glass-card group flex h-full flex-col justify-between rounded-lg p-5"
               >
                 <span className="font-display text-titulo-bloco text-ink transition-colors group-hover:text-brand-strong">

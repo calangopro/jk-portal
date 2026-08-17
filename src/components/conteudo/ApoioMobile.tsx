@@ -42,7 +42,7 @@ export function ApoioMobile({ outros }: { outros: Content[] }) {
           <ul className="mt-4 space-y-4">
             {outros.map((g) => (
               <li key={g.id}>
-                <Link href={`/guia/${g.slug}`} className="group flex items-center gap-4">
+                <Link href={`/${g.slug}`} className="group flex items-center gap-4">
                   {g.capa ? (
                     <span className="relative block h-16 w-24 shrink-0 overflow-hidden rounded-sm bg-media">
                       <Image src={g.capa.url} alt={g.capa.alt || g.title} fill sizes="96px" className="object-cover" />

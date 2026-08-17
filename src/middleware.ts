@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { acharRedirect } from "@/lib/redirects/servir";
 import { paginaRemovidaHtml } from "@/lib/redirects/pagina-removida";
+import { comBasePath } from "@/lib/seo/base-path";
 
 /**
  * O middleware faz UMA coisa: servir a tabela `redirects` nas rotas públicas.
@@ -14,6 +15,20 @@ import { paginaRemovidaHtml } from "@/lib/redirects/pagina-removida";
  *
  * Detalhe importante: com a pasta `src/`, este arquivo precisa ficar em
  * `src/middleware.ts`. Na raiz do projeto o Next o ignora em silêncio.
+ *
+ * Sobre o `basePath` de /guias, duas coisas que o Next já faz e que NÃO devem
+ * ser refeitas aqui (conferido no código do Next 15.5, não por suposição):
+ *
+ *   1. `request.nextUrl.pathname` chega SEM o prefixo. Quem separa é
+ *      `getNextPathnameInfo`, que tira o basePath e o guarda em
+ *      `nextUrl.basePath`. Ou seja, a comparação com `redirects.source_path`
+ *      continua sendo entre caminhos internos, e a tabela segue portátil: se o
+ *      prefixo mudar um dia, nenhuma linha do banco precisa ser reescrita.
+ *
+ *   2. O `matcher` abaixo recebe o prefixo no build (`getMiddlewareMatchers`
+ *      monta `/guias/(...)`), então as exclusões de `admin`, `api`,
+ *      `_next/static` e afins continuam valendo, agora relativas ao prefixo.
+ *      Escrever `/guias` no matcher à mão geraria `/guias/guias`.
  */
 export async function middleware(request: NextRequest) {
   const redirect = await acharRedirect(request.nextUrl.pathname);
@@ -30,9 +45,13 @@ export async function middleware(request: NextRequest) {
     });
   }
 
+  // Destino relativo é caminho INTERNO no banco, então ganha o prefixo aqui:
+  // o navegador precisa do endereço público. Sem `comBasePath`, o `new URL`
+  // com caminho começando em barra descartaria o /guias e o redirect jogaria a
+  // pessoa na raiz do domínio, que em produção é a loja da Tray.
   const destino = redirect.destination_url.startsWith("http")
     ? redirect.destination_url
-    : new URL(redirect.destination_url, request.url).toString();
+    : new URL(comBasePath(redirect.destination_url), request.url).toString();
 
   return NextResponse.redirect(destino, redirect.status === "302" ? 302 : 301);
 }

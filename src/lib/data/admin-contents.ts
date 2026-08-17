@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import type { Faq } from "@/lib/content/types";
 import type { PaginaComparavel } from "@/lib/analyzer/canibalizacao";
 
+import { slugReservado } from "@/lib/content/slugs-reservados";
 /**
  * Acesso a conteúdo pela área administrativa. Usa a sessão da pessoa logada,
  * então a RLS do Supabase continua valendo (escrita só para equipe ativa).
@@ -211,12 +212,22 @@ export function gerarSlug(texto: string): string {
     .slice(0, 80);
 }
 
-/** Garante que o slug não colide com outro conteúdo. */
+/**
+ * Garante que o slug não colide com outro conteúdo NEM com uma rota do site.
+ *
+ * A segunda parte passou a valer quando o post foi para a raiz do portal
+ * (`/<slug>` em vez de `/guia/<slug>`): a partir daí um slug como `lojas` seria
+ * engolido pela página de lojas, em silêncio. Ver `slugs-reservados.ts`.
+ */
 export async function slugDisponivel(slug: string, exceto?: string): Promise<string> {
   const supabase = await createClient();
   let base = slug || "sem-titulo";
   let tentativa = base;
   for (let i = 2; i < 50; i++) {
+    if (slugReservado(tentativa)) {
+      tentativa = `${base}-${i}`;
+      continue;
+    }
     let q = supabase.from("contents").select("id").eq("slug", tentativa).limit(1);
     if (exceto) q = q.neq("id", exceto);
     const { data } = await q;

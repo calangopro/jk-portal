@@ -10,6 +10,7 @@ import { IndiceMobile } from "./IndiceMobile";
 import { ApoioMobile } from "./ApoioMobile";
 import { comIndice } from "@/lib/content/indice";
 import { comPrecosAtuais } from "@/lib/conteudo/precos";
+import { comBasePathNosLinks } from "@/lib/conteudo/links-html";
 import { tempoDeLeitura } from "@/lib/content/leitura";
 import { comentariosAprovados, contarComentarios } from "@/lib/data/comentarios";
 import { JsonLd } from "@/components/schema/JsonLd";
@@ -58,7 +59,10 @@ export async function PaginaDoGuia({ guia: recebido }: { guia: Content }) {
   const dimensoes = await mapaDeDimensoes(guia.bodyHtml ?? "");
   // Preço dos cards de produto vem da tabela `products`, não do que ficou
   // gravado no texto no dia em que o guia foi escrito. Ver src/lib/conteudo/precos.ts.
-  const corpo = await comPrecosAtuais(guia.bodyHtml ?? "");
+  // Os links internos do texto ganham o prefixo do portal na hora de servir.
+  // No banco eles continuam sendo caminho interno (/ouro-10k), que é o que
+  // sobrevive a uma eventual troca de prefixo sem migration.
+  const corpo = comBasePathNosLinks(await comPrecosAtuais(guia.bodyHtml ?? ""));
   const { html: corpoComIndice, indice } = comIndice(corpo, dimensoes);
 
   // A primeira imagem do corpo vira a imagem do Article, com dimensão real.
@@ -117,8 +121,8 @@ export async function PaginaDoGuia({ guia: recebido }: { guia: Content }) {
       <JsonLd
         data={breadcrumbSchema([
           { name: "Início", url: absoluteUrl("/") },
-          { name: "Dicas", url: absoluteUrl("/guia") },
-          { name: guia.title, url: absoluteUrl(`/guia/${guia.slug}`) },
+          { name: "Dicas", url: absoluteUrl("/dicas") },
+          { name: guia.title, url: absoluteUrl(`/${guia.slug}`) },
         ])}
       />
       {faqsParaSchema.length ? <JsonLd data={faqPageSchema(faqsParaSchema)} /> : null}
@@ -159,7 +163,7 @@ export async function PaginaDoGuia({ guia: recebido }: { guia: Content }) {
               etiqueta={guia.cluster ?? "Guia"}
               passos={[
                 { nome: "Início", href: "/" },
-                { nome: "Dicas", href: "/guia" },
+                { nome: "Dicas", href: "/dicas" },
                 { nome: guia.title },
               ]}
             />

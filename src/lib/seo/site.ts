@@ -1,11 +1,42 @@
+import { BASE_PATH, comBasePath } from "./base-path";
+
+/**
+ * A ORIGEM pública, sem caminho nenhum.
+ *
+ * Convenção: `NEXT_PUBLIC_SITE_URL` guarda só o esquema mais o host
+ * (`https://www.jkaliancas.com.br`), NUNCA o `/guias`. O prefixo é
+ * responsabilidade do `basePath`, e mora em um lugar só (`base-path.ts`).
+ *
+ * O motivo é mecânico, não estético: `new URL("/ouro-10k", base)` joga fora o
+ * caminho da base, porque caminho que começa com barra volta para a raiz. Com
+ * `/guias` dentro da variável, todo canonical do site sairia sem o prefixo e
+ * apontaria para dentro da loja da Tray. A limpeza abaixo é o cinto: se alguém
+ * configurar a variável com o prefixo assim mesmo, ele é retirado aqui em vez
+ * de virar `/guias/guias` lá na frente.
+ */
+function origemPublica(): string {
+  const bruto = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+  try {
+    const u = new URL(bruto);
+    return u.origin;
+  } catch {
+    return bruto.replace(/\/+$/, "");
+  }
+}
+
 /**
  * Configuração única do site. Base para metadata, canonical, sitemap,
  * robots, llms.txt e schema. Nada de dado inventado da JK aqui:
  * o que ainda não veio da marca está marcado como TODO.
  */
 export const SITE = {
-  /** URL base de produção. Configurável por ambiente. */
-  url: process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000",
+  /** Só esquema e host, sem o prefixo do portal. Ex.: convite do Supabase. */
+  origin: origemPublica(),
+  /**
+   * Endereço público do portal, COM o prefixo: é o que o Google indexa e o
+   * que vale como `metadataBase`. Ex.: https://www.jkaliancas.com.br/guias
+   */
+  url: `${origemPublica()}${BASE_PATH}`,
   name: "JK Alianças",
   // TODO: confirmar a razão social com a JK. Não está publicada em nenhuma
   // página da loja, e inventar isso quebraria a regra de não afirmar sem fonte.
@@ -42,9 +73,17 @@ export const SITE = {
   // compartilhamento é gerada por app/opengraph-image.tsx.
 } as const;
 
-/** Constrói uma URL absoluta a partir de um caminho relativo. */
+/**
+ * URL pública absoluta a partir de um caminho INTERNO do App Router.
+ *
+ * Quem chama passa o caminho como o Next o conhece (`/ouro-10k`), e o
+ * `/guias` entra aqui. É por isso que nenhuma das dezenas de chamadas espalhadas
+ * pelo projeto precisou mudar, e é por isso que não existe risco de prefixo em
+ * dobro: o prefixo é somado em um ponto só, e `comBasePath` recusa somar de novo
+ * num caminho que já o tem.
+ */
 export function absoluteUrl(path: string): string {
-  return new URL(path, SITE.url).toString();
+  return new URL(comBasePath(path), SITE.origin).toString();
 }
 
 /** true quando rodando no ambiente de produção da Vercel. */

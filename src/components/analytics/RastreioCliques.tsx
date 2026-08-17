@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { semBasePath } from "@/lib/seo/base-path";
 
 /**
  * Rastreia cliques que importam para o negócio, sem precisar de código em cada
@@ -23,7 +24,9 @@ export function RastreioCliques() {
         event: evento,
         destino: alvo.dataset.produtoNome ?? alvo.dataset.destino ?? null,
         url: alvo.getAttribute("href"),
-        origem: window.location.pathname,
+        // Sem o prefixo, para a origem do clique continuar comparável com o
+        // caminho das rotas e com o que já foi medido antes do /guias.
+        origem: semBasePath(window.location.pathname),
       });
     };
 

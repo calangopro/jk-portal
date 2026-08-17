@@ -1,3 +1,5 @@
+import { comBasePath } from "@/lib/seo/base-path";
+
 /**
  * HTML da resposta 410, escrito à mão.
  *
@@ -10,6 +12,9 @@
  * As cores vêm dos tokens da marca em globals.css, copiadas aqui porque o CSS
  * do site não é carregado nesta resposta. Sem fonte externa e sem imagem: a
  * página precisa aparecer inteira num único pedido.
+ *
+ * Os links levam `comBasePath` na mão: aqui não há `next/link` para somar o
+ * prefixo do portal, e um href na raiz sairia do /guias e cairia na loja.
  */
 export function paginaRemovidaHtml(): string {
   return `<!doctype html>
@@ -74,10 +79,10 @@ export function paginaRemovidaHtml(): string {
   <p>O conteúdo que estava neste endereço foi removido e não tem substituto direto. Abaixo estão as páginas mais procuradas do site.</p>
   <div class="filete"></div>
   <ul>
-    <li><a href="/guia">Dicas de alianças e joias<span>Tamanho, largura, material e cuidados.</span></a></li>
-    <li><a href="/medidor-de-aliancas">Medidor de aliança<span>Descubra o tamanho da sua aliança pela tela.</span></a></li>
-    <li><a href="/lojas">Lojas JK Alianças<span>Endereço, horário e rota das unidades.</span></a></li>
-    <li><a href="/">Início<span>A capa do portal.</span></a></li>
+    <li><a href="${comBasePath("/dicas")}">Dicas de alianças e joias<span>Tamanho, largura, material e cuidados.</span></a></li>
+    <li><a href="${comBasePath("/medidor-de-aliancas")}">Medidor de aliança<span>Descubra o tamanho da sua aliança pela tela.</span></a></li>
+    <li><a href="${comBasePath("/lojas")}">Lojas JK Alianças<span>Endereço, horário e rota das unidades.</span></a></li>
+    <li><a href="${comBasePath("/")}">Início<span>A capa do portal.</span></a></li>
   </ul>
 </main>
 </body>

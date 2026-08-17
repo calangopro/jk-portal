@@ -108,7 +108,7 @@ export async function mudarStatus(formData: FormData) {
 
   revalidatePath("/admin/conteudos");
   revalidatePath("/");
-  revalidatePath("/guia");
+  revalidatePath("/dicas");
   revalidatePath("/sitemap.xml");
   revalidatePath("/llms.txt");
 }

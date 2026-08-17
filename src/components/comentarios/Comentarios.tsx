@@ -3,7 +3,7 @@
 import { useActionState, useEffect, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { BadgeCheck, MessageCircle, Send } from "lucide-react";
-import { enviarComentario, type ComentarState } from "@/app/(site)/guia/[slug]/comentar";
+import { enviarComentario, type ComentarState } from "@/app/(site)/[slug]/comentar";
 import {
   contarComentarios,
   type Comentario,

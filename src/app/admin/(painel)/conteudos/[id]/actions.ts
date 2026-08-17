@@ -8,6 +8,7 @@ import type { SugestaoIA } from "@/lib/analyzer/ai";
 import { publicarNoBanco, reindexarBusca } from "@/lib/publicacao/publicar";
 import { evidenciaDoFato, type Fato, type ModuloDoFato } from "@/lib/content/fatos";
 
+import { comBasePath } from "@/lib/seo/base-path";
 export type SalvarPayload = {
   id: string;
   /** updated_at que o editor carregou. Serve para detectar edição concorrente. */
@@ -116,11 +117,11 @@ export async function salvarConteudo(p: SalvarPayload): Promise<SalvarResultado>
       snapshot: p as unknown as Record<string, unknown>,
     });
     revalidatePath("/admin/conteudos");
-    revalidatePath(`/guia/${slugFinal}`);
+    revalidatePath(`/${slugFinal}`);
     // Endereço trocado: sem isto a página antiga segue no ar com o conteúdo
     // antigo, e quem chega por link ou pela busca do Google vê a versão velha.
     if (slugAntigo && slugAntigo !== slugFinal) {
-      revalidatePath(`/guia/${slugAntigo}`);
+      revalidatePath(`/${slugAntigo}`);
     }
   }
 
@@ -504,8 +505,8 @@ export async function restaurarRevisao(
 
   revalidatePath("/admin/conteudos");
   revalidatePath(`/admin/conteudos/${contentId}`);
-  if (slugFinal) revalidatePath(`/guia/${slugFinal}`);
-  if (slugAntigo && slugAntigo !== slugFinal) revalidatePath(`/guia/${slugAntigo}`);
+  if (slugFinal) revalidatePath(`/${slugFinal}`);
+  if (slugAntigo && slugAntigo !== slugFinal) revalidatePath(`/${slugAntigo}`);
 
   return { ok: true };
 }
@@ -579,21 +580,27 @@ export async function voltarParaRascunho(id: string): Promise<{ ok: boolean }> {
   // acabou de sumir só antecipa um 404. O sitemap sair na hora já basta.
   revalidatePath("/admin/conteudos");
   revalidatePath("/");
-  revalidatePath("/guia");
+  revalidatePath("/dicas");
   revalidatePath("/sitemap.xml");
   revalidatePath("/llms.txt");
-  if (data?.slug) revalidatePath(`/guia/${data.slug}`);
+  if (data?.slug) revalidatePath(`/${data.slug}`);
   // Tira da busca junto. Página fora do ar que continua aparecendo no resultado
   // leva a pessoa para um 404, o que é pior que não achar nada.
   await reindexarBusca(id);
   return { ok: true };
 }
 
-/** Link de preview do rascunho, assinado. Só a equipe consegue gerar. */
+/**
+ * Link de preview do rascunho, assinado. Só a equipe consegue gerar.
+ *
+ * Sai com o prefixo do portal porque o destino deste valor é `window.open`, e
+ * não `next/link`: ninguém soma o basePath por ele. Sem o prefixo, o botão
+ * "Ver como vai ficar" abriria a raiz do domínio, que em produção é a loja.
+ */
 export async function linkDePreview(id: string): Promise<string> {
   await requireStaff();
   const { tokenDePreview } = await import("@/lib/editor/preview");
-  return `/preview/${tokenDePreview(id)}`;
+  return comBasePath(`/preview/${tokenDePreview(id)}`);
 }
 
 /* --------------------------------------------------------- assistente IA */

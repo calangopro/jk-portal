@@ -7,8 +7,9 @@ import { SITE } from "@/lib/seo/site";
 import { BuscaNoCabecalho } from "@/components/busca/BuscaNoCabecalho";
 import { itensDeFerramenta } from "@/lib/ferramentas/registro";
 
+import { comBasePath } from "@/lib/seo/base-path";
 const ITENS: ItemNav[] = [
-  { href: "/guia", rotulo: "Dicas" },
+  { href: "/dicas", rotulo: "Dicas" },
   {
     href: "/ferramentas",
     rotulo: "Ferramentas",
@@ -41,7 +42,13 @@ export function SiteHeader() {
           className="flex items-center"
         >
           <Image
-            src="/logo.svg"
+            // `next/image` entrega SVG as-is (sem `dangerouslyAllowSVG`, o
+            // otimizador não toca em .svg), e nesse caminho o `src` sai cru,
+            // sem o basePath. Imagem OTIMIZADA não precisa disto: ela vira
+            // /guias/_next/image?url=… porque o Next prefixa `images.path`,
+            // e prefixar o `url` ali faria o otimizador procurar o arquivo
+            // em public/guias/. Por isso o prefixo entra só aqui.
+            src={comBasePath("/logo.svg")}
             alt={SITE.name}
             width={132}
             height={44}

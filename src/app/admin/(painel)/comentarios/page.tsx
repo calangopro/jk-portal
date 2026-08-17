@@ -166,7 +166,7 @@ export default async function ComentariosPage({
                     {c.contents ? (
                       <>
                         {" · em "}
-                        <Link href={`/guia/${c.contents.slug}`} target="_blank" className="text-brand-nav hover:underline">
+                        <Link href={`/${c.contents.slug}`} target="_blank" className="text-brand-nav hover:underline">
                           {c.contents.title}
                         </Link>
                       </>

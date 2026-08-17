@@ -82,7 +82,7 @@ export type SecaoDoTexto = {
  * Recorta o corpo em seções, uma por H2.
  *
  * A busca indexa por seção, e não a página inteira, para o resultado poder
- * levar direto ao trecho certo (`/guia/slug#ancora`) em vez de jogar a pessoa
+ * levar direto ao trecho certo (`/slug#ancora`) em vez de jogar a pessoa
  * no topo de um texto longo.
  */
 export function secoesDoHtml(html: string): SecaoDoTexto[] {

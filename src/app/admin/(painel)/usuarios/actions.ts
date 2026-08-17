@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { requireAdmin, type AppRole } from "@/lib/auth/session";
 
+import { absoluteUrl } from "@/lib/seo/site";
 export type UsersState = { error?: string; success?: string };
 
 const ROLES: AppRole[] = ["admin", "editor", "reviewer", "author"];
@@ -41,10 +42,11 @@ export async function inviteUser(
   const { createAdminClient } = await import("@/lib/supabase/admin");
   const admin = createAdminClient();
 
-  const site = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+  // `absoluteUrl` já soma o prefixo do portal: o painel vive em /guias/admin,
+  // e um retorno para a raiz do domínio cairia na loja da Tray.
   const { data, error } = await admin.auth.admin.inviteUserByEmail(email, {
     data: { full_name: fullName || email },
-    redirectTo: `${site}/admin`,
+    redirectTo: absoluteUrl("/admin"),
   });
 
   if (error || !data?.user) {

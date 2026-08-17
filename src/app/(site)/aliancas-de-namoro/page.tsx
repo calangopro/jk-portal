@@ -12,7 +12,7 @@ export const metadata: Metadata = buildMetadata({
   title: "Alianças de namoro (em construção)",
   description:
     "Página pilar em construção. O guia completo de alianças de namoro entra em um pacote de conteúdo dedicado.",
-  path: "/guia/aliancas-de-namoro",
+  path: "/aliancas-de-namoro",
   type: "article",
   noindex: true,
 });
@@ -23,10 +23,10 @@ export default function AliancasDeNamoroPlaceholder() {
       <JsonLd
         data={breadcrumbSchema([
           { name: "Início", url: absoluteUrl("/") },
-          { name: "Dicas", url: absoluteUrl("/guia") },
+          { name: "Dicas", url: absoluteUrl("/dicas") },
           {
             name: "Alianças de namoro",
-            url: absoluteUrl("/guia/aliancas-de-namoro"),
+            url: absoluteUrl("/aliancas-de-namoro"),
           },
         ])}
       />
@@ -44,7 +44,7 @@ export default function AliancasDeNamoroPlaceholder() {
           aprovadas e revisão humana, entra em um pacote dedicado.
         </p>
         <div className="mt-8">
-          <Button href="/guia" variant="outline">
+          <Button href="/dicas" variant="outline">
             Ver outros guias
           </Button>
         </div>
