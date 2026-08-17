@@ -74,7 +74,7 @@ export function paginaRemovidaHtml(): string {
   <p>O conteúdo que estava neste endereço foi removido e não tem substituto direto. Abaixo estão as páginas mais procuradas do site.</p>
   <div class="filete"></div>
   <ul>
-    <li><a href="/guia">Dicas sobre alianças<span>Tamanho, largura, material e cuidados.</span></a></li>
+    <li><a href="/guia">Dicas de alianças e joias<span>Tamanho, largura, material e cuidados.</span></a></li>
     <li><a href="/medidor-de-aliancas">Medidor de aliança<span>Descubra o tamanho da sua aliança pela tela.</span></a></li>
     <li><a href="/lojas">Lojas JK Alianças<span>Endereço, horário e rota das unidades.</span></a></li>
     <li><a href="/">Início<span>A capa do portal.</span></a></li>

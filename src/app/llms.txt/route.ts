@@ -33,7 +33,7 @@ export async function GET() {
       (f) => `- [${f.nome}](${absoluteUrl(`/ferramentas/${f.slug}`)}): ${f.resposta}`,
     ),
     "",
-    "## Dicas sobre alianças",
+    "## Dicas de alianças e joias",
     ...guias.map((g) => `- [${g.title}](${absoluteUrl(`/guia/${g.slug}`)})`),
     "",
     "## Lojas",

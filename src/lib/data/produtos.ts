@@ -1,4 +1,5 @@
 import { createReadClient } from "@/lib/supabase/read";
+import type { ProdutoDaVitrine } from "./vitrine";
 import { SITE } from "@/lib/seo/site";
 
 /**
@@ -9,20 +10,10 @@ import { SITE } from "@/lib/seo/site";
  * para medir quanto o conteúdo empurra para a venda.
  */
 
-export type ProdutoDaVitrine = {
-  id: string;
-  nome: string;
-  imagem: string | null;
-  preco: number | null;
-  precoPromocional: number | null;
-  href: string;
-};
-
-/** "R$ 1.234,56". Devolve nulo quando não há preço real, nunca "sob consulta". */
-export function precoLegivel(valor: number | null): string | null {
-  if (valor == null || !Number.isFinite(valor) || valor <= 0) return null;
-  return valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-}
+// O tipo e a formatação do preço moram em `data/vitrine.ts`, sem dependência do
+// Supabase, para o cartão de produto poder ser desenhado no navegador também.
+// Seguem exportados daqui para quem já os importava deste arquivo.
+export { precoLegivel, type ProdutoDaVitrine } from "./vitrine";
 
 function comUtm(url: string | null, id: string): string {
   const base = url && url.startsWith("http") ? url : SITE.lojaUrl;

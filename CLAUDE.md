@@ -174,6 +174,33 @@ docs/                identidade-visual-jk.md (marca)
   editor na mesma janela, porque a coluna do editor é mais estreita que a do
   artigo. A tela do editor também é mais larga que o resto do painel, por
   `.painel-conteudo:has([data-painel-largo])`.
+- **`position: fixed` dentro de `.glass` não se ancora na janela.** O visor 3D
+  ganhou tela cheia trocando o palco de `absolute` para `fixed`, e a tela cheia
+  saiu do tamanho do CARTÃO, com a peça cortada: `backdrop-filter` (que é o que
+  faz o `.glass`) cria bloco de contenção para descendente `fixed`, e o
+  `overflow-hidden` do cartão ainda recorta o que sobra. A saída foi portal em
+  `document.body` (`AliancaEm3D.tsx`), com o canvas MOVIDO para o palco novo
+  (`mudarDePalco`) em vez de a cena ser remontada: remontar recompila shader,
+  gera o ambiente de novo e devolve a peça ao ângulo inicial no meio do gesto.
+- **No celular, girar disputa o gesto com rolar, e a peça perdia sempre.** O
+  palco declara `touch-action: pan-y`, então o navegador fica com o vertical,
+  mas o código começava a girar no `pointerdown`: quem arrastava para cima via a
+  página descer e a aliança ficar parada, como se estivesse travada. Agora o
+  PRIMEIRO movimento decide (`Gesto` em `AliancaEm3D.tsx`): saiu para o lado, a
+  peça captura o ponteiro e a partir dali gira nos dois eixos; saiu para cima ou
+  para baixo, ninguém mexe e a página rola. Em tela cheia é `touch-action: none`
+  e o gesto é todo da peça, com pinça. Instruções de gesto no celular só valem
+  depois de conferidas com dois dedos, e desenho de 19 rem de altura fixa deixa
+  a peça do tamanho de uma moeda num aparelho de 390 px.
+- **Ferramenta no navegador com saída no servidor mente sobre o que mostra.** A
+  vitrine do simulador de largura ficava presa em 4 mm: a pessoa pedia 8 mm e a
+  página continuava anunciando "Alianças de 4 mm", com preço de outra peça. A
+  correção não foi tornar a página dinâmica: o HTML servido continua com a
+  largura de maior volume dentro dele, e a troca acontece pelo navegador
+  (`LarguraEscolhida.tsx` mais `/api/produtos/largura`, cacheada por largura).
+  Regra que ficou: largura e produtos moram no MESMO estado
+  (`VitrineDaLargura.tsx`), porque em estados separados um erro de rede deixa o
+  título de 8 mm em cima do preço de 4 mm.
 - **Preço do card de produto tem contrato entre dois arquivos.** `cartaoEmHtml()`
   (`src/lib/editor/VitrineNode.ts`) emite preço, preço antigo, selo e aviso como
   elementos **folha**, com `data-*-de="<id>"` e só texto dentro. É isso que deixa
@@ -335,6 +362,19 @@ painéis de luz, rebote quente embaixo) e passa por `PMREMGenerator`, sem baixar
 HDR de terceiro.
 O volume de metal na tela é geometria exata, por Pappus (`volumeDeMetal`), não
 estimativa: é a resposta de "essa é mais grossa" sem inventar peso nem preço.
+
+✅ **Mobile do comparador e vitrine que responde (17/08):** o visor 3D em
+`/ferramentas/materiais-de-alianca` ganhou **tela cheia** (portal, `touch-action:
+none`, pinça, faixas de controle que rolam de lado) e arbitragem de gesto no
+palco embutido, que era o defeito: tentar girar rolava a página. O palco embutido
+no celular passou de 19 rem fixos para quase quadrado
+(`min-h-[min(86vw,26rem)]`), e a folga de enquadramento caiu de 1,42 para 1,18,
+então a peça é bem maior sem risco de corte. A vitrine do **simulador de
+largura** deixou de ficar presa em 4 mm e acompanha o mm escolhido, meio segundo
+depois do último clique. E `/guia` virou **"Dicas de alianças e joias"** (título
+da aba com semijoia), porque o escopo da página é material, joia, semijoia, uso e
+cuidado, e o título antigo prometia menos do que a página entrega. A URL `/guia`
+não mudou.
 
 🔲 **A construir:** conteúdo (só 1 guia publicado), OAuth do Search Console e do GMB, deploy na Vercel.
 ⚠️ **Pendências:** **preencher o endereço do portal em `site_settings.cron`**

@@ -81,9 +81,11 @@ export function homeMetadata(): Metadata {
 
 export function guiaIndexMetadata(): Metadata {
   return buildMetadata({
-    title: `Dicas sobre alianças: como escolher a sua | ${SITE.name}`,
+    // O escopo da página é aliança, joia e semijoia, o mesmo do site. Um
+    // título só de aliança deixava metade do conteúdo fora do que a busca lê.
+    title: `Dicas de alianças, joias e semijoias | ${SITE.name}`,
     description:
-      "Como escolher a aliança de casamento ou namoro: tamanho do aro, largura, prata, ouro, preço e cuidados. Escrito por quem fabrica.",
+      "Como escolher aliança, joia e semijoia: tamanho do aro, largura, ouro, prata, banhado, preço e cuidados no uso diário. Escrito por quem fabrica.",
     path: "/guia",
     type: "website",
   });

@@ -377,6 +377,19 @@ h4 {
   font-feature-settings: "tnum" 1;
 }
 
+/* Faixa que rola de lado sem a barra à mostra.
+
+   No celular a barra é sobreposta e desaparece sozinha, mas no desktop ela
+   ocupa uns 8 px permanentes embaixo da faixa, o que desalinha uma fileira de
+   botões de altura de dedo. O conteúdo continua rolável por gesto, roda e
+   teclado; só a barra sai da frente. */
+.rolagem-discreta {
+  scrollbar-width: none;
+}
+.rolagem-discreta::-webkit-scrollbar {
+  display: none;
+}
+
 /* Rótulo dourado em caixa-alta (eyebrow). */
 .eyebrow {
   font-size: 0.72rem;

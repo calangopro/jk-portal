@@ -9,7 +9,8 @@ import { JsonLd } from "@/components/schema/JsonLd";
 import { Conversor } from "@/components/ferramentas/Conversor";
 import { SimuladorDeLargura } from "@/components/ferramentas/SimuladorDeLargura";
 import { Comparador } from "@/components/ferramentas/Comparador";
-import { VitrineDaFerramenta } from "@/components/ferramentas/VitrineDaFerramenta";
+import { VitrineDaFerramenta, LARGURA_DE_ENTRADA } from "@/components/ferramentas/VitrineDaFerramenta";
+import { LarguraEscolhidaProvider } from "@/components/ferramentas/LarguraEscolhida";
 import { FERRAMENTAS, acharFerramenta, type Ferramenta } from "@/lib/ferramentas/registro";
 import { buildMetadata } from "@/lib/seo/metadata";
 import { SITE, absoluteUrl } from "@/lib/seo/site";
@@ -121,9 +122,25 @@ export default async function FerramentaPage({ params }: { params: Promise<{ slu
           <div className="filete-dourado mt-7" />
         </div>
 
-        <div className="mt-10">
-          <Widget f={f} />
-        </div>
+        {/* No simulador de largura, a ferramenta e a vitrine compartilham a
+            largura escolhida, então as duas moram dentro do mesmo provedor. A
+            vitrine continua vindo montada do servidor: o provedor é cliente,
+            mas recebe o resultado dela como filho, e filho de componente
+            cliente pode ser servidor. */}
+        {f.slug === "largura-da-alianca" ? (
+          <LarguraEscolhidaProvider larguraInicial={LARGURA_DE_ENTRADA}>
+            <div className="mt-10">
+              <Widget f={f} />
+            </div>
+            {/* Saída de verdade: peças que existem naquela largura, com preço
+                sincronizado. Ferramenta sem saída entretém e não converte. */}
+            <VitrineDaFerramenta className="mt-14" />
+          </LarguraEscolhidaProvider>
+        ) : (
+          <div className="mt-10">
+            <Widget f={f} />
+          </div>
+        )}
 
         {f.passos?.length ? (
           <section className="mt-14 max-w-leitura-larga">
@@ -136,12 +153,6 @@ export default async function FerramentaPage({ params }: { params: Promise<{ slu
               ))}
             </ol>
           </section>
-        ) : null}
-
-        {f.slug === "largura-da-alianca" ? (
-          /* Saída de verdade: peças que existem naquela largura, com preço
-             sincronizado. Ferramenta sem saída entretém e não converte. */
-          <VitrineDaFerramenta className="mt-14" />
         ) : null}
 
         {f.slug === "conversor-de-aros" ? (
@@ -197,7 +208,7 @@ export default async function FerramentaPage({ params }: { params: Promise<{ slu
 
         <p className="mt-10 text-sm text-muted">
           <Link href="/guia" className="underline underline-offset-4 hover:text-ink">
-            Ver as dicas sobre alianças
+            Ver as dicas de alianças e joias
           </Link>
         </p>
       </Container>
