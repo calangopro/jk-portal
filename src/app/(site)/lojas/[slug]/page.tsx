@@ -507,17 +507,19 @@ export default async function LojaPage({
         {/* --------------------------------------------------- outras lojas */}
         {outras.length > 0 ? (
           <section aria-labelledby="outras-lojas" className="mt-16">
-            <div className="flex items-baseline gap-4">
-              <h2 id="outras-lojas" className="font-display shrink-0 text-titulo-secao text-ink">
+            <div className="flex flex-wrap items-baseline gap-x-4 gap-y-3">
+              <h2 id="outras-lojas" className="font-display min-w-0 break-words text-titulo-secao text-ink">
                 Outras lojas JK
               </h2>
-              <span aria-hidden className="hairline flex-1" />
-              <Link
-                href="/lojas"
-                className="shrink-0 text-apoio font-semibold text-brand-nav hover:underline"
-              >
-                Ver todas
-              </Link>
+              <div className="flex min-w-32 flex-1 items-baseline gap-4">
+                <span aria-hidden className="hairline flex-1" />
+                <Link
+                  href="/lojas"
+                  className="shrink-0 text-apoio font-semibold text-brand-nav hover:underline"
+                >
+                  Ver todas
+                </Link>
+              </div>
             </div>
             <ul className="mt-7 grid gap-5 sm:grid-cols-3">
               {outras.map((l) => (

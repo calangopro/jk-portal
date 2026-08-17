@@ -259,6 +259,20 @@ docs/                identidade-visual-jk.md (marca)
   sem parser de HTML, para a página nunca anunciar preço velho. Se um desses
   elementos ganhar filho, a troca para em silêncio. O teste
   `npm run verificar:precos` roda junto do build e pega isso.
+- **`shrink-0` em título é o que abre barra de rolagem horizontal no celular.**
+  O cabeçalho de seção (título, filete e link) era uma linha de flex com
+  `shrink-0` no título e no link, e no celular ele vazava a tela: a home ficava
+  com 467 px de largura num aparelho de 375. Quem não encolhe também não quebra
+  linha, então o título ficava travado na largura de conteúdo máximo. O arranjo
+  que ficou tem três partes, e nenhuma resolve sozinha: `flex-wrap` no pai,
+  `min-w-0` mais `break-words` no título (item de flex tem largura mínima igual
+  à palavra mais longa, e uma trava a caixa enquanto a outra parte a palavra), e
+  filete mais link dentro do MESMO div, senão o filete fica no fim da primeira
+  linha apontando para o nada e o link cai sozinho na esquerda. São 7 cabeçalhos
+  iguais, em `home/Secoes.tsx` (3), `dicas/page.tsx` (2), `lojas/page.tsx` e
+  `lojas/[slug]/page.tsx`. A checagem é comparar `scrollWidth` com `clientWidth`
+  do `documentElement` a 320 px e a 375 px, ignorando quem está dentro de
+  container com `overflow-x` (carrossel de produto rola de propósito).
 
 ## Convenções & regras
 - **Idioma do produto e do conteúdo: pt-BR.**

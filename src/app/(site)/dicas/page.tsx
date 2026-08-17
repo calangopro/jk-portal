@@ -122,17 +122,19 @@ export default async function GuiaIndex() {
           <div className="mt-14 space-y-16">
             {grupos.map(([cluster, lista]) => (
               <section key={cluster} aria-labelledby={`grupo-${paraId(cluster)}`}>
-                <div className="flex items-baseline gap-4">
+                <div className="flex flex-wrap items-baseline gap-x-4 gap-y-3">
                   <h2
                     id={`grupo-${paraId(cluster)}`}
-                    className="font-display shrink-0 text-titulo-secao text-ink"
+                    className="font-display min-w-0 break-words text-titulo-secao text-ink"
                   >
                     {comMaiuscula(cluster)}
                   </h2>
-                  <span aria-hidden className="hairline flex-1" />
-                  <span className="numeros shrink-0 text-nota text-muted">
-                    {lista.length} {lista.length === 1 ? "post" : "posts"}
-                  </span>
+                  <div className="flex min-w-32 flex-1 items-baseline gap-4">
+                    <span aria-hidden className="hairline flex-1" />
+                    <span className="numeros shrink-0 text-nota text-muted">
+                      {lista.length} {lista.length === 1 ? "post" : "posts"}
+                    </span>
+                  </div>
                 </div>
 
                 <ul className="mt-7 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
@@ -153,11 +155,11 @@ export default async function GuiaIndex() {
 
             {soltos.length > 0 ? (
               <section aria-labelledby="grupo-outros">
-                <div className="flex items-baseline gap-4">
-                  <h2 id="grupo-outros" className="font-display shrink-0 text-titulo-secao text-ink">
+                <div className="flex flex-wrap items-baseline gap-x-4 gap-y-3">
+                  <h2 id="grupo-outros" className="font-display min-w-0 break-words text-titulo-secao text-ink">
                     Outros posts
                   </h2>
-                  <span aria-hidden className="hairline flex-1" />
+                  <span aria-hidden className="hairline min-w-12 flex-1" />
                 </div>
                 <ul className="mt-7 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
                   {soltos.map((g, i) => (

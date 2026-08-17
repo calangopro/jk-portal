@@ -99,17 +99,19 @@ export default async function LojasIndex() {
           <div className="mt-14 space-y-16">
             {grupos.map(([cidade, lista]) => (
               <section key={cidade} aria-labelledby={`cidade-${cidade.replace(/\s+/g, "-")}`}>
-                <div className="flex items-baseline gap-4">
+                <div className="flex flex-wrap items-baseline gap-x-4 gap-y-3">
                   <h2
                     id={`cidade-${cidade.replace(/\s+/g, "-")}`}
-                    className="font-display shrink-0 text-titulo-secao text-ink"
+                    className="font-display min-w-0 break-words text-titulo-secao text-ink"
                   >
                     {cidade}
                   </h2>
-                  <span aria-hidden className="hairline flex-1" />
-                  <span className="numeros shrink-0 text-nota text-muted">
-                    {lista.length} {lista.length === 1 ? "loja" : "lojas"}
-                  </span>
+                  <div className="flex min-w-32 flex-1 items-baseline gap-4">
+                    <span aria-hidden className="hairline flex-1" />
+                    <span className="numeros shrink-0 text-nota text-muted">
+                      {lista.length} {lista.length === 1 ? "loja" : "lojas"}
+                    </span>
+                  </div>
                 </div>
 
                 <ul className="mt-7 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
