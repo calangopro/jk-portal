@@ -65,7 +65,7 @@ src/lib/schema/      builders de JSON-LD (Article, Breadcrumb, Organization, Jew
 src/lib/seo/         metadata + constantes do site
 src/lib/supabase/    read (SSG), server, client, admin (service_role), middleware
 src/lib/data/rotas.ts  links de Google Maps, Waze, WhatsApp e telefone das lojas
-supabase/migrations/ 0001 a 0033, todas em arquivo e todas aplicadas
+supabase/migrations/ 0001 a 0036, todas em arquivo e todas aplicadas
 public/              logo.png, logo.svg, og/ (og/default.png ainda falta)
 docs/                identidade-visual-jk.md (marca)
 ```
@@ -174,6 +174,14 @@ docs/                identidade-visual-jk.md (marca)
   editor na mesma janela, porque a coluna do editor é mais estreita que a do
   artigo. A tela do editor também é mais larga que o resto do painel, por
   `.painel-conteudo:has([data-painel-largo])`.
+- **Coluna que existe não quer dizer trava que existe.** `comments.parent_id`
+  estava lá desde a 0006, e a policy pública de inserção nunca olhou para ela:
+  qualquer pessoa com a chave anônima (que vai no HTML) podia pendurar texto
+  como resposta de um comentário, e a resposta é justamente o lugar onde o site
+  fala em nome da JK. Fechado na 0036, junto com a policy que autoriza a
+  resposta de verdade. Ao conferir o PAI dentro de uma policy da própria tabela,
+  a subconsulta reentra na RLS e o Postgres levanta recursão infinita: por isso
+  `comentario_e_raiz()` é `security definer` e devolve só um booleano.
 - **`position: fixed` dentro de `.glass` não se ancora na janela.** O visor 3D
   ganhou tela cheia trocando o palco de `absolute` para `fixed`, e a tela cheia
   saiu do tamanho do CARTÃO, com a peça cortada: `backdrop-filter` (que é o que
@@ -225,7 +233,7 @@ docs/                identidade-visual-jk.md (marca)
 ## Estado atual (12/08/2026)
 ✅ **Público:** home, `/guia`, `/guia/[slug]`, `/lojas`, `/lojas/[slug]`, `/medidor-de-aliancas`, robots/sitemap/llms.txt, JSON-LD, compartilhamento.
 ✅ **Estrutura:** `src/app/(site)/` = público, `src/app/admin/(painel)/` = protegido, `src/app/layout.tsx` = só html/body/fontes.
-✅ **Supabase:** 20 migrations aplicadas e em arquivo, 22 tabelas com RLS, bucket `media`.
+✅ **Supabase:** 36 migrations aplicadas e em arquivo, 22 tabelas com RLS, bucket `media`.
 ✅ **Admin:** login por e-mail e senha (sem tela de cadastro; o endpoint de signup do Supabase ainda está aberto, ver Pendências), rotas protegidas por middleware, `noindex`, dashboard, usuários, mídia, comentários, produtos, métricas, integrações e lojas.
 ✅ **Editor de conteúdo:** blocos com TipTap, salvamento automático com detecção de conflito, modelos, links internos com busca, fontes com trava na publicação, canibalização determinística, preview de rascunho assinado, analisador SEO/GEO ao vivo e assistente de IA.
 ✅ **Inserção no editor (13/08):** botão `+` na margem, alinhado à linha do cursor, e comando por `/` no texto (filtra sem acento, setas, Enter, Esc). Tudo entra no ponto onde o cursor está, não no fim do artigo: linha vazia é substituída, linha com texto recebe o bloco logo abaixo. Linha de texto garantida no fim para bloco atômico não prender o cursor.
@@ -375,6 +383,18 @@ depois do último clique. E `/guia` virou **"Dicas de alianças e joias"** (tít
 da aba com semijoia), porque o escopo da página é material, joia, semijoia, uso e
 cuidado, e o título antigo prometia menos do que a página entrega. A URL `/guia`
 não mudou.
+
+✅ **Resposta da loja no comentário (17/08):** o fio de conversa tem UM nível,
+comentário do visitante e resposta da casa embaixo, e responder é só de admin,
+com a trava no banco (`comments_admin_reply`) e não só na tela. A resposta é
+assinada como **JK Alianças** para quem lê e pelo `author_profile_id` para quem
+presta contas dentro de casa, e sai com selo próprio (`Balao` em
+`components/comentarios/Comentarios.tsx`). Responder um comentário que ainda
+estava na fila **publica ele junto**, senão a resposta ficaria pendurada numa
+pergunta que o site não mostra. Resposta cujo pai saiu do ar não sobe para a
+lista de cima: `comentariosAprovados` monta o fio e descarta órfã. Quem escreveu
+uma resposta errada apaga por `apagarResposta`, que só encosta em linha com
+perfil, ou seja, nunca em comentário de visitante.
 
 🔲 **A construir:** conteúdo (só 1 guia publicado), OAuth do Search Console e do GMB, deploy na Vercel.
 ⚠️ **Pendências:** **preencher o endereço do portal em `site_settings.cron`**

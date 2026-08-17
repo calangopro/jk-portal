@@ -1,8 +1,9 @@
 import Link from "next/link";
-import { Check, X, Ban, Trash2, MessageCircle } from "lucide-react";
+import { Check, X, Ban, Trash2, MessageCircle, CornerDownRight } from "lucide-react";
 import { requireStaff } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
-import { moderar, apagarComentario, aprovarTodos } from "./actions";
+import { moderar, apagarComentario, aprovarTodos, apagarResposta } from "./actions";
+import { CaixaDeResposta } from "./CaixaDeResposta";
 
 export const metadata = { title: "Comentários" };
 
@@ -15,6 +16,15 @@ type Linha = {
   created_at: string;
   ip: string | null;
   contents: { title: string; slug: string } | null;
+};
+
+/** Resposta da loja pendurada num comentário. */
+type Resposta = {
+  id: string;
+  body: string;
+  created_at: string;
+  parent_id: string;
+  profiles: { full_name: string | null } | null;
 };
 
 const ROTULO: Record<Linha["status"], string> = {
@@ -46,9 +56,13 @@ export default async function ComentariosPage({
   const filtro = (await searchParams).status ?? "pending";
   const supabase = await createClient();
 
+  // Só comentário de primeiro nível na lista. Resposta da loja é aprovada no
+  // ato, então sem este filtro ela apareceria como um cartão solto na aba
+  // "Publicados", desligada da pergunta que ela responde.
   let consulta = supabase
     .from("comments")
     .select("id, author_name, author_email, body, status, created_at, ip, contents(title, slug)")
+    .is("parent_id", null)
     .order("created_at", { ascending: false })
     .limit(200);
 
@@ -56,6 +70,20 @@ export default async function ComentariosPage({
 
   const { data } = await consulta;
   const itens = (data ?? []) as unknown as Linha[];
+
+  // As respostas dos comentários desta tela, numa consulta só.
+  const { data: dadosRespostas } = itens.length
+    ? await supabase
+        .from("comments")
+        .select("id, body, created_at, parent_id, profiles:author_profile_id(full_name)")
+        .in("parent_id", itens.map((c) => c.id))
+        .order("created_at", { ascending: true })
+    : { data: [] };
+
+  const respostasPor = new Map<string, Resposta[]>();
+  for (const r of (dadosRespostas ?? []) as unknown as Resposta[]) {
+    respostasPor.set(r.parent_id, [...(respostasPor.get(r.parent_id) ?? []), r]);
+  }
 
   const { count: pendentes } = await supabase
     .from("comments").select("*", { count: "exact", head: true }).eq("status", "pending");
@@ -152,6 +180,43 @@ export default async function ComentariosPage({
               </div>
 
               <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-foreground">{c.body}</p>
+
+              {(respostasPor.get(c.id) ?? []).map((r) => (
+                <div key={r.id} className="mt-4 border-l-2 border-brand/40 pl-4">
+                  <p className="flex items-center gap-1.5 text-xs font-semibold text-brand-strong">
+                    <CornerDownRight size={12} aria-hidden />
+                    Resposta publicada
+                    <span className="font-normal text-muted">
+                      {quando(r.created_at)}
+                      {/* Na tela pública quem assina é a marca. Aqui aparece a
+                          pessoa: resposta publicada em nome da loja precisa ter
+                          dono dentro de casa. */}
+                      {r.profiles?.full_name ? ` · por ${r.profiles.full_name}` : ""}
+                    </span>
+                  </p>
+                  <p className="mt-1.5 whitespace-pre-wrap text-sm leading-relaxed text-foreground">
+                    {r.body}
+                  </p>
+                  {perfil.role === "admin" ? (
+                    <form action={apagarResposta} className="mt-2">
+                      <input type="hidden" name="id" value={r.id} />
+                      <input type="hidden" name="slug" value={c.contents?.slug ?? ""} />
+                      <button
+                        type="submit"
+                        className="text-xs font-semibold text-muted transition-colors hover:text-wine"
+                      >
+                        Apagar resposta
+                      </button>
+                    </form>
+                  ) : null}
+                </div>
+              ))}
+
+              {/* Responder é só de admin, e a policy do banco recusa de novo:
+                  a tela some para editor, e nem por chamada direta ele passa. */}
+              {perfil.role === "admin" && c.status !== "spam" ? (
+                <CaixaDeResposta comentarioId={c.id} slug={c.contents?.slug ?? ""} />
+              ) : null}
 
               <div className="mt-4 flex flex-wrap gap-2">
                 {c.status !== "approved" ? (

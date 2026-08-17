@@ -2,9 +2,14 @@
 
 import { useActionState, useEffect, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
-import { MessageCircle, Send } from "lucide-react";
+import { BadgeCheck, MessageCircle, Send } from "lucide-react";
 import { enviarComentario, type ComentarState } from "@/app/(site)/guia/[slug]/comentar";
-import type { Comentario } from "@/lib/data/comentarios";
+import {
+  contarComentarios,
+  type Comentario,
+  type ComentarioComRespostas,
+} from "@/lib/data/comentarios";
+import { SITE } from "@/lib/seo/site";
 import { Button } from "@/components/ui/Button";
 
 function quando(iso: string) {
@@ -26,12 +31,55 @@ function Enviar() {
   );
 }
 
+/**
+ * Um balão de comentário.
+ *
+ * O mesmo desenho serve a pergunta e a resposta, com `daEquipe` mudando só a
+ * assinatura e a cor. Duas marcações diferentes para a mesma coisa fariam a
+ * resposta ficar para trás na próxima mexida no visual.
+ */
+function Balao({ c }: { c: Comentario }) {
+  return (
+    <>
+      <div className="flex items-center gap-3">
+        <span
+          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${
+            c.daEquipe ? "bg-brand text-ink" : "bg-brand/15 text-brand-strong"
+          }`}
+        >
+          {c.daEquipe ? "JK" : iniciais(c.authorName)}
+        </span>
+        <div className="min-w-0">
+          <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-semibold text-ink">
+            {c.authorName}
+            {c.daEquipe ? (
+              // Selo, e não só a cor do balão: quem chega pela busca precisa
+              // saber em uma olhada que ali é a loja falando, e não outro
+              // cliente com a mesma dúvida.
+              <span className="inline-flex items-center gap-1 rounded-full bg-brand/15 px-2 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wide text-brand-strong">
+                <BadgeCheck size={11} aria-hidden />
+                Resposta da loja
+              </span>
+            ) : null}
+          </p>
+          <p className="text-xs text-muted">
+            <time dateTime={c.createdAt}>{quando(c.createdAt)}</time>
+          </p>
+        </div>
+      </div>
+      <p className="mt-3 whitespace-pre-wrap text-[15px] leading-relaxed text-foreground">
+        {c.body}
+      </p>
+    </>
+  );
+}
+
 export function Comentarios({
   contentId, slug, iniciais: lista,
 }: {
   contentId: string;
   slug: string;
-  iniciais: Comentario[];
+  iniciais: ComentarioComRespostas[];
 }) {
   const [estado, acao] = useActionState<ComentarState, FormData>(enviarComentario, {});
   const [abertoEm, setAbertoEm] = useState(0);
@@ -48,27 +96,30 @@ export function Comentarios({
       <h2 className="font-display flex items-center gap-2.5 text-2xl text-ink">
         <MessageCircle size={20} className="text-brand-nav" />
         Comentários
-        {lista.length > 0 ? <span className="text-lg text-muted">({lista.length})</span> : null}
+        {lista.length > 0 ? (
+          <span className="text-lg text-muted">({contarComentarios(lista)})</span>
+        ) : null}
       </h2>
 
       {lista.length > 0 ? (
         <ul className="mt-7 space-y-5">
           {lista.map((c) => (
             <li key={c.id} className="glass rounded-[16px] p-5">
-              <div className="flex items-center gap-3">
-                <span className="flex h-9 w-9 items-center justify-center rounded-full bg-brand/15 text-xs font-semibold text-brand-strong">
-                  {iniciais(c.authorName)}
-                </span>
-                <div>
-                  <p className="text-sm font-semibold text-ink">{c.authorName}</p>
-                  <p className="text-xs text-muted">
-                    <time dateTime={c.createdAt}>{quando(c.createdAt)}</time>
-                  </p>
-                </div>
-              </div>
-              <p className="mt-3 whitespace-pre-wrap text-[15px] leading-relaxed text-foreground">
-                {c.body}
-              </p>
+              <Balao c={c} />
+
+              {c.respostas.length > 0 ? (
+                /* A resposta mora DENTRO do balão da pergunta, encostada numa
+                   linha dourada: fio de conversa se lê pela indentação, e uma
+                   resposta solta na lista vira outro comentário aos olhos de
+                   quem passa. */
+                <ul className="mt-5 space-y-4 border-l-2 border-brand/30 pl-4 sm:pl-5">
+                  {c.respostas.map((r) => (
+                    <li key={r.id}>
+                      <Balao c={r} />
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
             </li>
           ))}
         </ul>
@@ -81,7 +132,8 @@ export function Comentarios({
       <form ref={form} action={acao} className="glass mt-8 rounded-[18px] p-6">
         <p className="text-sm font-semibold text-ink">Deixe sua dúvida ou experiência</p>
         <p className="mt-1 text-xs text-muted">
-          Todo comentário passa por revisão antes de aparecer. Seu e-mail não é publicado.
+          Todo comentário passa por revisão antes de aparecer. Seu e-mail não é
+          publicado, e quem responde por aqui é a equipe da {SITE.name}.
         </p>
 
         <input type="hidden" name="content_id" value={contentId} />
