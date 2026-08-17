@@ -11,7 +11,7 @@ import { ApoioMobile } from "./ApoioMobile";
 import { comIndice } from "@/lib/content/indice";
 import { comPrecosAtuais } from "@/lib/conteudo/precos";
 import { tempoDeLeitura } from "@/lib/content/leitura";
-import { comentariosAprovados } from "@/lib/data/comentarios";
+import { comentariosAprovados, contarComentarios } from "@/lib/data/comentarios";
 import { JsonLd } from "@/components/schema/JsonLd";
 import { faqsDoHtml, faqsUnidas } from "@/lib/content/faq-html";
 import { separarFerramentas } from "@/lib/content/ferramentas-html";
@@ -113,7 +113,7 @@ export async function PaginaDoGuia({ guia: recebido }: { guia: Content }) {
           imagemPrincipal: primeiraImagem,
         })}
       />
-      <JsonLd data={articleSchema(guia, primeiraImagem, comentarios.length)} />
+      <JsonLd data={articleSchema(guia, primeiraImagem, contarComentarios(comentarios))} />
       <JsonLd
         data={breadcrumbSchema([
           { name: "Início", url: absoluteUrl("/") },
