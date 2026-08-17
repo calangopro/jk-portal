@@ -62,18 +62,32 @@ A JK já tem os ativos (fábrica, lojas, catálogo, reputação). O problema é 
 
 ## 5. Arquitetura do site público
 
-URLs (no domínio principal — subdomínio `guia.jkaliancas.com.br` na Fase 1, depois `/guia/` via proxy/rewrite):
+URLs. O portal vive sob `/guias` no domínio principal, servido pela Vercel por
+trás de um proxy no Cloudflare. O DNS de `www.jkaliancas.com.br` continua na
+Tray, que responde por todo o resto. O prefixo vem do `basePath` do Next, então
+os caminhos abaixo são como o código os conhece:
 
 ```
-/                         Home — hero + guias em destaque + prova (lojas, avaliações)
-/guia                     Índice de guias
-/guia/[slug]              Guia/artigo (resposta rápida + conteúdo + FAQ + produtos + CTA)
+/                         Home: hero + posts em destaque + prova (lojas, avaliações)
+/dicas                    Índice de posts
+/[slug]                   Post (resposta rápida + conteúdo + FAQ + produtos + CTA)
 /lojas                    Índice das lojas
 /lojas/[slug]             Página local (NAP, horários, serviços, mapa, avaliações)
+/ferramentas              Índice das ferramentas
+/ferramentas/[slug]       Ferramenta (conversor, largura, materiais)
+/medidor-de-aliancas      Medidor de aliança
+/autor/[slug]             Página de autor
 /robots.txt /sitemap.xml  Gerados automaticamente
 /llms.txt                 Índice para crawlers de IA (GEO)
-/admin/*                  Painel interno (protegido, noindex) — A CONSTRUIR
+/admin/*                  Painel interno (protegido, noindex)
 ```
+
+Publicamente, cada um recebe o prefixo: `/dicas` é
+`https://www.jkaliancas.com.br/guias/dicas`, e um post é
+`https://www.jkaliancas.com.br/guias/ouro-10k-ou-18k`.
+
+**Post mora na raiz do portal**, e por isso divide espaço de nome com as páginas
+fixas. A trava contra colisão silenciosa é `src/lib/content/slugs-reservados.ts`.
 
 **Tipos de página e função:**
 - **Guia pilar** → dúvida ampla e comparação.
@@ -153,7 +167,7 @@ Tabelas-chave (todas com RLS, soft-delete, histórico): `contents`, `content_lin
 
 ## 9. Estado atual (o que já existe e funciona)
 
-✅ **Portal público já roda** (Next.js 15 + Supabase, Node 22): home, `/guia`, `/guia/[slug]` (com "resposta rápida" + FAQ), `/lojas`, `/lojas/[slug]`, `robots`, `sitemap`, `llms.txt`, JSON-LD (Article/Breadcrumb/Organization/JewelryStore/FAQ), tokens de marca (dourado + Montserrat), fallback com dados de exemplo quando o banco está vazio.
+✅ **Portal público já roda** (Next.js 15 + Supabase, Node 22): home, `/dicas`, `/[slug]` (com "resposta rápida" + FAQ), `/lojas`, `/lojas/[slug]`, `robots`, `sitemap`, `llms.txt`, JSON-LD (Article/Breadcrumb/Organization/JewelryStore/FAQ), tokens de marca (dourado + Montserrat), fallback com dados de exemplo quando o banco está vazio.
 ✅ Migrations Supabase base: `contents`, `locations`, `sources`, `redirects`, `content_links` + RLS.
 
 🔲 **Falta construir:** admin/CMS inteiro (§7), estética glassmorphism (§4), conteúdo real do cluster namoro (§6), integrações GSC/GA4/GTM, comentários, analisador SEO/GEO, sincronização com a Tray, deploy na Vercel.

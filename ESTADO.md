@@ -20,8 +20,8 @@ no ar. O que falta não é software: é conteúdo, foto das lojas e deploy.
 | Rota | O que faz |
 |---|---|
 | `/` | Home com um guia em destaque, prova da marca e chamada do medidor |
-| `/guia` | Índice agrupado por assunto, com capa, data e tempo de leitura |
-| `/guia/[slug]` | Artigo com cabeçalho editorial, capa, índice que acompanha a rolagem, FAQ em acordeão, comentários e compartilhamento no fim |
+| `/dicas` | Índice agrupado por assunto, com capa, data e tempo de leitura |
+| `/[slug]` | Artigo com cabeçalho editorial, capa, índice que acompanha a rolagem, FAQ em acordeão, comentários e compartilhamento no fim |
 | `/lojas` | As 10 unidades agrupadas por cidade, com rota e WhatsApp no próprio card |
 | `/lojas/[slug]` | Página completa da unidade: galeria, mapa, horário dia a dia, serviços, história, avaliações e FAQ |
 | `/medidor-de-aliancas` | Página clara e indexável, com o modo de medição em tela cheia |
@@ -139,7 +139,7 @@ subir arquivo novo, e a mesma foto acabava no bucket três vezes, cada cópia co
 diferente. Imagem sem alt aparece marcada e não entra no conteúdo.
 
 **Seletor de link interno** com busca real, mostrando slug e consulta alvo. Antes era um
-prompt pedindo para digitar `/guia/algo` de cabeça, que errava calado quando a página
+prompt pedindo para digitar o caminho de cabeça, que errava calado quando a página
 não existia. O link entra também no grafo `content_links`, e é dele que saem os
 relacionados no fim do artigo e o relatório de páginas órfãs.
 
@@ -472,7 +472,8 @@ gravando quem editou, é registro que ninguém vai ler.
       entrarem em Mídia com alt, elas aparecem na página e no card do índice.
 - [ ] **História e data de inauguração de cada unidade.** Campos prontos no admin.
 - [ ] **Acesso ao Google Meu Negócio**, que é o que destrava as avaliações reais.
-- [ ] Decisão sobre `/guia/` como subpasta, antes de 10 guias publicados.
+- [x] Decisão sobre subpasta: RESOLVIDO. O portal roda em `/guias` por
+      `basePath`, com o Cloudflare na frente. Ver a seção de produção no CLAUDE.md.
 
 ---
 
@@ -516,7 +517,7 @@ O build usa pasta separada, então não derruba o dev nem corrompe o cache.
 
 Confira à mão, na ordem em que quebra mais:
 
-1. Um guia abre em `/guia/[slug]` com resposta rápida, índice e FAQ.
+1. Um guia abre em `/[slug]` com resposta rápida, índice e FAQ.
 2. O editor salva sozinho e mostra "Salvo às".
 3. Publicar sem fonte é recusado com mensagem clara.
 4. `/preview/<token adulterado>` responde 404.

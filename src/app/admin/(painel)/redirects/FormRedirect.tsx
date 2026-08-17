@@ -36,7 +36,7 @@ export function FormRedirect({ redirect }: { redirect?: LinhaDeRedirect }) {
             required
             defaultValue={redirect?.origem}
             className={campo}
-            placeholder="/guia/alianca-antiga"
+            placeholder="/alianca-antiga"
           />
           <span className="mt-1.5 block text-xs text-muted">
             Começa com barra. É o endereço que as pessoas ainda pedem e não
@@ -73,7 +73,7 @@ export function FormRedirect({ redirect }: { redirect?: LinhaDeRedirect }) {
             name="destination_url"
             defaultValue={redirect?.destino}
             className={campo}
-            placeholder="/guia/alianca-de-namoro-como-escolher"
+            placeholder="/alianca-de-namoro-como-escolher"
           />
           <span className="mt-1.5 block text-xs text-muted">
             Endereço interno começando com barra, ou endereço completo com

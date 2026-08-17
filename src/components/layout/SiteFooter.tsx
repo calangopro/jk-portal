@@ -4,8 +4,9 @@ import { Container } from "./Container";
 import { SITE } from "@/lib/seo/site";
 import { itensDeFerramenta } from "@/lib/ferramentas/registro";
 
+import { comBasePath } from "@/lib/seo/base-path";
 const NAVEGACAO = [
-  { href: "/guia", rotulo: "Dicas de alianças e joias" },
+  { href: "/dicas", rotulo: "Dicas de alianças e joias" },
   { href: "/lojas", rotulo: "Nossas lojas" },
   { href: "/ferramentas", rotulo: "Todas as ferramentas" },
 ];
@@ -41,7 +42,13 @@ export function SiteFooter() {
         <div className="grid gap-12 sm:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr_1.1fr]">
           <div className="max-w-sm">
             <Image
-              src="/logo.svg"
+              // `next/image` entrega SVG as-is (sem `dangerouslyAllowSVG`, o
+              // otimizador não toca em .svg), e nesse caminho o `src` sai cru,
+              // sem o basePath. Imagem OTIMIZADA não precisa disto: ela vira
+              // /guias/_next/image?url=… porque o Next prefixa `images.path`,
+              // e prefixar o `url` ali faria o otimizador procurar o arquivo
+              // em public/guias/. Por isso o prefixo entra só aqui.
+              src={comBasePath("/logo.svg")}
               alt={SITE.name}
               width={150}
               height={50}

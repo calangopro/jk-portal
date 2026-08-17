@@ -48,8 +48,10 @@ Palavra simples, e de preferência a palavra que a pessoa **digita no Google**.
   casamento e namoro", que é como a pessoa pergunta.
 * **Nome de seção é o nome que as pessoas conhecem.** A lista de conteúdo é
   "Últimos posts" na home e "Dicas sobre alianças" no índice, não "Guias de
-  alianças", que ninguém busca. A URL continua `/guia`, porque endereço com
-  histórico de busca não se mexe.
+  alianças", que ninguém busca. O endereço do índice era `/guia` e hoje é
+  `/dicas`: a troca coube porque o portal ainda não estava no ar, então não
+  havia histórico de busca para preservar. Depois de publicado, endereço com
+  histórico não se mexe sem 301.
 * **A ferramenta se chama pelo produto, não pela medida interna.** É "Medidor de
   aliança", não "Medidor de aro". "Aro" continua valendo dentro do texto, porque
   é o termo do mercado e da busca, mas não é o nome da porta.

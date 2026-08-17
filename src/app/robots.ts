@@ -7,6 +7,19 @@ import { absoluteUrl, isProduction } from "@/lib/seo/site";
 // no robots. A página também sai com `noindex`, como cinto e suspensório.
 const BLOQUEADOS = ["/admin", "/api", "/preview", "/busca"];
 
+/**
+ * ATENÇÃO, leia antes de contar com este arquivo em produção.
+ *
+ * Com o basePath, este robots é servido em /guias/robots.txt. Rastreador só lê
+ * robots.txt na RAIZ do host, e a raiz de www.jkaliancas.com.br é da Tray. Ou
+ * seja: em produção quem manda no rastreamento é o robots.txt da loja, não este.
+ *
+ * Este arquivo continua valendo por dois motivos: cobre o endereço .vercel.app,
+ * onde ele É a raiz, e documenta a intenção. Mas o bloqueio de verdade de
+ * /admin, /api, /preview e /busca vem das metatags `noindex` que essas rotas já
+ * emitem, e não daqui. Para o robots valer no domínio público, as linhas
+ * precisam entrar no robots.txt da Tray, com o prefixo /guias.
+ */
 export default function robots(): MetadataRoute.Robots {
   // Preview/desenvolvimento: nada é indexável (evita rascunho no Google).
   if (!isProduction()) {

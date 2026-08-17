@@ -111,7 +111,7 @@ export async function buscar(consulta: string, limite = 8): Promise<ResultadoBus
       titulo: l.titulo,
       href:
         l.tipo === "guia"
-          ? `/guia/${l.slug}${l.ancora ? `#${l.ancora}` : ""}`
+          ? `/${l.slug}${l.ancora ? `#${l.ancora}` : ""}`
           : `/lojas/${l.slug}`,
       secao: l.secao,
       trecho: l.trecho,

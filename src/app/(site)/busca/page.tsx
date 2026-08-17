@@ -60,7 +60,7 @@ export default async function PaginaDeBusca({ searchParams }: Props) {
             <EmptyState
               title="Nada encontrado para essa busca"
               description="Tente com outras palavras, ou veja os posts publicados. Se você procurou uma loja, o índice de lojas tem todas as unidades."
-              action={<Button href="/guia">Ver os posts</Button>}
+              action={<Button href="/dicas">Ver os posts</Button>}
             />
           </div>
         ) : null}

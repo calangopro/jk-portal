@@ -70,19 +70,19 @@ export default async function GuiaIndex() {
       <JsonLd
         data={[
           webPageSchema({
-            url: absoluteUrl("/guia"),
+            url: absoluteUrl("/dicas"),
             name: "Dicas de alianças e joias",
           }),
           breadcrumbSchema([
             { name: "Início", url: absoluteUrl("/") },
-            { name: "Dicas", url: absoluteUrl("/guia") },
+            { name: "Dicas", url: absoluteUrl("/dicas") },
           ]),
           // A lista existe na tela; declarar isso é o tipo mais específico que
           // cabe numa página de índice, como pede a documentação.
           itemListSchema(
             guias.map((g) => ({
               name: g.title,
-              url: absoluteUrl(`/guia/${g.slug}`),
+              url: absoluteUrl(`/${g.slug}`),
             })),
             "Dicas de alianças e joias",
           ),
@@ -139,7 +139,7 @@ export default async function GuiaIndex() {
                   {lista.map((g, i) => (
                     <li key={g.id} className="rise" style={{ animationDelay: `${i * 90}ms` }}>
                       <Card
-                        href={`/guia/${g.slug}`}
+                        href={`/${g.slug}`}
                         titulo={g.title}
                         resumo={g.excerpt}
                         imagem={g.capa}
@@ -163,7 +163,7 @@ export default async function GuiaIndex() {
                   {soltos.map((g, i) => (
                     <li key={g.id} className="rise" style={{ animationDelay: `${i * 90}ms` }}>
                       <Card
-                        href={`/guia/${g.slug}`}
+                        href={`/${g.slug}`}
                         titulo={g.title}
                         resumo={g.excerpt}
                         imagem={g.capa}

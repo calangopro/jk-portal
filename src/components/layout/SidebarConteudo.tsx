@@ -59,7 +59,7 @@ export function SidebarConteudo({
           <ul className="mt-4 space-y-4">
             {outros.map((g) => (
               <li key={g.id}>
-                <Link href={`/guia/${g.slug}`} className="group flex gap-3">
+                <Link href={`/${g.slug}`} className="group flex gap-3">
                   {g.capa ? (
                     <span className="relative block h-14 w-20 shrink-0 overflow-hidden rounded-sm bg-media">
                       <Image
@@ -79,7 +79,7 @@ export function SidebarConteudo({
             ))}
           </ul>
           <Link
-            href="/guia"
+            href="/dicas"
             className="mt-5 inline-block text-nota font-semibold text-brand-nav hover:underline"
           >
             Ver todos os posts

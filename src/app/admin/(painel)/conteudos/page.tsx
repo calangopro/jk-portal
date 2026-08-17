@@ -146,7 +146,7 @@ export default async function ConteudosPage({
                       >
                         {c.title}
                       </Link>
-                      <p className="text-xs text-muted">/guia/{c.slug}</p>
+                      <p className="text-xs text-muted">/{c.slug}</p>
                       {/* Agendamento na lista, porque o pior caso desta função
                           seria a hora passar, a trava recusar e ninguém ficar
                           sabendo até alguém abrir o conteúdo por acaso. */}
@@ -179,7 +179,7 @@ export default async function ConteudosPage({
 
                         {c.status === "published" ? (
                           <Link
-                            href={`/guia/${c.slug}`}
+                            href={`/${c.slug}`}
                             target="_blank"
                             className={botao}
                           >

@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { BASE_PATH } from "./src/lib/seo/base-path";
 
 /**
  * IMPORTANTE: não importar bibliotecas pesadas (ex.: @supabase/supabase-js)
@@ -31,6 +32,17 @@ function hostDoSupabase(): string | null {
 const host = hostDoSupabase();
 
 const nextConfig: NextConfig = {
+  /**
+   * O portal roda dentro de /guias porque o domínio não é dele: a loja da Tray
+   * continua respondendo por www.jkaliancas.com.br e um proxy na frente manda
+   * só /guias/* para a Vercel. Com o `basePath` oficial, TODA rota, todo
+   * arquivo de `public/` e todo bundle de `/_next/*` já nascem sob o prefixo,
+   * então a origem nunca pede nada na raiz do domínio (que é da Tray).
+   *
+   * O valor mora em src/lib/seo/base-path.ts para o config e a aplicação
+   * lerem a mesma constante.
+   */
+  basePath: BASE_PATH,
   distDir: process.env.BUILD_DIR || ".next",
   images: {
     remotePatterns: [
@@ -63,15 +75,26 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       {
+        // `source` do Next já recebe o basePath sozinho: isto cobre
+        // /guias/:path*, que é tudo que esta aplicação serve.
         source: "/:path*",
         headers: [
-          // HSTS: depois da primeira visita, o navegador nem tenta HTTP. O
-          // Google trata HTTPS como sinal de qualidade de página, e um salto
-          // por HTTP é onde a sessão pode ser interceptada.
-          {
-            key: "Strict-Transport-Security",
-            value: "max-age=63072000; includeSubDomains; preload",
-          },
+          // SEM Strict-Transport-Security aqui, de propósito.
+          //
+          // HSTS não é política de pasta, é política de HOST: o navegador
+          // aplica ao domínio inteiro, não ao caminho que mandou o cabeçalho.
+          // Como o portal serve só /guias e o dono de www.jkaliancas.com.br é a
+          // loja na Tray, emitir daqui seria este aplicativo decidindo pelo
+          // domínio todo. Com `includeSubDomains` alcançaria subdomínios que
+          // nem conhecemos, e `preload` é porta de mão única: a lista vai
+          // compilada dentro do navegador e sair dela leva meses.
+          //
+          // O lugar certo é a borda, ligado por quem é dono do domínio. O
+          // Cloudflare, que já vai ficar na frente, tem isso em uma chave só e
+          // aplica à zona inteira, de forma coerente com a loja.
+          //
+          // Não perdemos nada hoje: Vercel e Cloudflare já servem só HTTPS.
+          //
           // Impede o navegador de adivinhar o tipo do arquivo, que é como um
           // upload vira script executável.
           { key: "X-Content-Type-Options", value: "nosniff" },

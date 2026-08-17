@@ -32,7 +32,7 @@ Configure separadamente em Development, Preview e Production.
 
 | Variável | Onde usar | Observação |
 |---|---|---|
-| `NEXT_PUBLIC_SITE_URL` | todos | Endereço público. Em produção, `https://guia.jkaliancas.com.br`. Sem isso, canonical e sitemap saem apontando para localhost. |
+| `NEXT_PUBLIC_SITE_URL` | todos | **Só a origem, sem `/guias` e sem barra no fim.** Em produção, `https://www.jkaliancas.com.br`. O prefixo é somado por `absoluteUrl()`. Sem esta variável, canonical e sitemap saem apontando para localhost. |
 | `NEXT_PUBLIC_SUPABASE_URL` | todos | Pública. |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | todos | Pública, protegida por RLS. |
 | `SUPABASE_SERVICE_ROLE_KEY` | servidor | **Secreta.** Convite de editores e sincronização. |
@@ -49,25 +49,44 @@ propósito se alguém tentar usar a `service_role` no cliente.
 
 ## 4. Domínio
 
-Fase 1: subdomínio `guia.jkaliancas.com.br`, que é seguro e não mexe na loja.
+**O portal NÃO recebe domínio na Vercel.** `www.jkaliancas.com.br` continua
+apontando para a Tray, no DNS. A Vercel é só a origem que o Cloudflare consulta.
 
-Fase 2: mover para `/guia/` no domínio principal por proxy ou rewrite, o que
-concentra autoridade. **Só depois de homologação e com plano de rollback.**
-Nunca trocar nameserver nem colocar proxy na raiz sem isso.
+O aplicativo roda sob `basePath: "/guias"`, então tudo que ele serve (rota,
+`/_next/*`, `/api/*`, arquivos de `public/`) já nasce dentro do prefixo. Nada é
+pedido na raiz do domínio, que é da loja.
+
+O Worker precisa repassar `/guias/*` **sem tirar o prefixo**. Se ele reescrever
+para a raiz da Vercel, todas as rotas quebram, porque o aplicativo espera o
+`/guias`. Todo o resto do domínio continua indo para a Tray.
+
+Ordem segura: publicar na Vercel, homologar em `https://<projeto>.vercel.app/guias`
+e só então ligar o Worker, com plano de rollback (desligar a rota do Worker
+devolve tudo para a Tray na hora). Nunca trocar nameserver por causa disso.
 
 ## 5. Depois de publicar
 
-1. Confira `https://.../robots.txt` e `https://.../sitemap.xml`.
-2. Cadastre a propriedade no Search Console e envie o sitemap.
-3. Conecte GTM e GA4 em `/admin/integracoes`. As tags só carregam em produção
-   e só quando a integração está conectada.
-4. Troque a senha do usuário master e rotacione a chave da OpenAI.
-5. Ligue "leaked password protection" no painel do Supabase, em Authentication.
-6. Rode a primeira sincronização da Tray em `/admin/produtos`.
-7. Cadastre o webhook da Tray apontando para
-   `https://SEU-DOMINIO/api/tray/webhook?secret=SEU_SEGREDO`.
+1. Confira `https://<projeto>.vercel.app/guias`, e também
+   `/guias/sitemap.xml` e `/guias/robots.txt`.
+2. **O `robots.txt` do portal não governa o domínio.** Rastreador só lê na raiz
+   do host, e a raiz é da Tray. Peça para incluírem no robots.txt da loja:
+   `Disallow: /guias/admin`, `/guias/api`, `/guias/preview`, `/guias/busca` e
+   `Sitemap: https://www.jkaliancas.com.br/guias/sitemap.xml`.
+3. Search Console: crie a propriedade de PREFIXO
+   `https://www.jkaliancas.com.br/guias/` e envie o sitemap na mão, já que o
+   robots do domínio não anuncia ele.
+4. Conecte GTM e GA4 em `/guias/admin/integracoes`. As tags só carregam em
+   produção e só quando a integração está conectada.
+5. **Desligue o cadastro público** no Supabase (Authentication > Sign In /
+   Providers), troque a senha do usuário master e rotacione a chave da OpenAI.
+6. Ligue "leaked password protection" no painel do Supabase, em Authentication.
+7. Preencha `site_settings.cron` **com o prefixo**, senão a publicação agendada
+   não dispara: o SQL faz `url || '/api/cron/publicar'`.
+8. Rode a primeira sincronização da Tray em `/guias/admin/produtos`.
+9. Cadastre o webhook da Tray apontando para
+   `https://SEU-DOMINIO/guias/api/tray/webhook?secret=SEU_SEGREDO`.
 
 ## 6. Sincronização periódica
 
 Além do webhook, vale um agendamento diário de reconciliação. Na Vercel, use
-Cron Jobs chamando a mesma rota do webhook com o segredo.
+Cron Jobs chamando a mesma rota do webhook com o segredo, lembrando do `/guias`.

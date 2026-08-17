@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { LoginForm } from "./LoginForm";
 
+import { comBasePath } from "@/lib/seo/base-path";
 // A área administrativa nunca deve ser indexada.
 export const metadata: Metadata = {
   title: { absolute: "Entrar no Painel JK" },
@@ -17,9 +18,10 @@ export default async function LoginPage({
   return (
     <main className="flex min-h-screen items-center justify-center px-5 py-16">
       <div className="glass w-full max-w-md rounded-[28px] p-8 text-center sm:p-10">
+        {/* `img` cru não recebe o basePath; ver comBasePath. */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src="/logo.svg"
+          src={comBasePath("/logo.svg")}
           alt="JK Alianças"
           width={150}
           height={50}

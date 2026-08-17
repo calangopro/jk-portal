@@ -84,7 +84,7 @@ export async function enderecosQuebrados(): Promise<EnderecoQuebrado[]> {
 
   const alvos = [
     ...((guias ?? []) as { title: string; slug: string }[]).map((g) => ({
-      url: `/guia/${g.slug}`,
+      url: `/${g.slug}`,
       titulo: g.title,
       termos: palavras(g.slug),
     })),
@@ -135,7 +135,7 @@ function validarOrigem(bruto: string): { origem?: string; erro?: string } {
   const t = bruto.trim();
   if (!t) return { erro: "Informe o endereço antigo, o que está quebrado." };
   if (!t.startsWith("/")) {
-    return { erro: "O endereço antigo precisa começar com barra, como /guia/alianca-antiga." };
+    return { erro: "O endereço antigo precisa começar com barra, como /alianca-antiga." };
   }
   if (t.startsWith("/admin") || t.startsWith("/api")) {
     return { erro: "O middleware não atende /admin nem /api, então um redirect aí não faria efeito." };

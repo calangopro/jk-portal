@@ -7,7 +7,7 @@ import { buscarAlvosDeLink, registrarLink, type AlvoDeLink } from "./actions";
 /**
  * Escolhe o destino de um link.
  *
- * Antes era um prompt pedindo para digitar "/guia/algo", o que obrigava a
+ * Antes era um prompt pedindo para digitar "/algo", o que obrigava a
  * decorar slug e errava calado quando a página não existia. Aqui o destino é
  * escolhido de uma lista real e o link entra também no grafo, que é o que
  * alimenta os relacionados e o relatório de página órfã.
@@ -43,7 +43,7 @@ export function SeletorLink({
 
   const escolherInterno = (a: AlvoDeLink) => {
     registrarLink(contentId, { targetContentId: a.id, anchor: textoSelecionado || a.title });
-    aoEscolher(`/guia/${a.slug}`);
+    aoEscolher(`/${a.slug}`);
     aoFechar();
   };
 
@@ -112,7 +112,7 @@ export function SeletorLink({
                       ) : null}
                     </span>
                     <span className="block text-[0.7rem] text-muted">
-                      /guia/{a.slug}
+                      /{a.slug}
                       {a.targetQuery ? ` · alvo: ${a.targetQuery}` : ""}
                     </span>
                   </button>

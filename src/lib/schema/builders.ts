@@ -139,9 +139,9 @@ export function profilePageSchema(
       ? {
           hasPart: conteudos.map((c) => ({
             "@type": "Article",
-            "@id": `${absoluteUrl(`/guia/${c.slug}`)}#article`,
+            "@id": `${absoluteUrl(`/${c.slug}`)}#article`,
             headline: c.title,
-            url: absoluteUrl(`/guia/${c.slug}`),
+            url: absoluteUrl(`/${c.slug}`),
             ...(c.publishedAt ? { datePublished: c.publishedAt } : {}),
           })),
         }
@@ -231,7 +231,7 @@ export function webPageSchema(input: {
 /**
  * ItemList de uma página de índice.
  *
- * As páginas /guia e /lojas listam dezenas de itens e não declaravam nenhum.
+ * As páginas /dicas e /lojas listam dezenas de itens e não declaravam nenhum.
  * A documentação de dados estruturados pede o tipo mais específico que couber,
  * e uma lista de links para páginas irmãs é exatamente um ItemList.
  */

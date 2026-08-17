@@ -19,7 +19,7 @@ export async function moderar(formData: FormData) {
   await supabase.from("comments").update({ status }).eq("id", id);
 
   revalidatePath("/admin/comentarios");
-  if (slug) revalidatePath(`/guia/${slug}`);
+  if (slug) revalidatePath(`/${slug}`);
 }
 
 /** Remoção definitiva. Só admin, e só do que já está marcado como spam. */
@@ -41,7 +41,14 @@ export async function aprovarTodos() {
   const supabase = await createClient();
   await supabase.from("comments").update({ status: "approved" }).eq("status", "pending");
   revalidatePath("/admin/comentarios");
-  revalidatePath("/guia", "layout");
+  // Aprovar em lote mexe em post que não dá para saber qual é sem consultar um
+  // por um, então revalida a ROTA inteira dos posts. Antes isto era
+  // `revalidatePath("/guia", "layout")`, que funcionava porque todo post morava
+  // sob /guia. Com o post na raiz (`(site)/[slug]`), essa forma passou a
+  // revalidar só o índice, e o comentário aprovado ficaria invisível no artigo
+  // até o ISR vencer. O padrão de rota com "page" é o jeito documentado de
+  // atingir todas as páginas de um segmento dinâmico de uma vez.
+  revalidatePath("/[slug]", "page");
 }
 
 export type ResponderState = { erro?: string; ok?: string };
@@ -108,7 +115,7 @@ export async function responder(
   }
 
   revalidatePath("/admin/comentarios");
-  if (slug) revalidatePath(`/guia/${slug}`);
+  if (slug) revalidatePath(`/${slug}`);
 
   return {
     ok:
@@ -143,5 +150,5 @@ export async function apagarResposta(formData: FormData) {
     .not("author_profile_id", "is", null);
 
   revalidatePath("/admin/comentarios");
-  if (slug) revalidatePath(`/guia/${slug}`);
+  if (slug) revalidatePath(`/${slug}`);
 }

@@ -7,7 +7,7 @@ import type { Content, Location } from "@/lib/content/types";
  *
  * A unidade é a SEÇÃO, não a página. Quem busca "em qual dedo se usa" merece
  * cair no parágrafo que responde, e não no topo de um guia de dez seções. Por
- * isso cada trecho carrega a âncora do H2 e o resultado vira `/guia/slug#ancora`.
+ * isso cada trecho carrega a âncora do H2 e o resultado vira `/slug#ancora`.
  */
 
 export type Trecho = {

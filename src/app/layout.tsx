@@ -35,7 +35,22 @@ const corpo = Montserrat({
  * público ficam em (site)/layout.tsx, e o /admin tem o seu próprio.
  */
 export const metadata: Metadata = {
-  metadataBase: new URL(SITE.url),
+  /**
+   * ORIGEM, sem o /guias. Isto não é descuido, é o contrário.
+   *
+   * O `metadataBase` só é usado para resolver URL RELATIVA de metadata, e a
+   * principal delas é a imagem de compartilhamento gerada por convenção
+   * (`opengraph-image.tsx`). O Next monta o caminho dessa imagem já COM o
+   * basePath (`/guias/ouro-10k/opengraph-image-…`) e depois junta com o caminho
+   * do `metadataBase`. Com `/guias` nos dois lados, o og:image saía como
+   * `.../guias/guias/ouro-10k/opengraph-image`, que foi exatamente o que o build
+   * mostrou antes desta correção.
+   *
+   * O canonical e o og:url não dependem daqui: `buildMetadata` já entrega os
+   * dois como URL absoluta, montada por `absoluteUrl()`, que é quem soma o
+   * prefixo. Ver src/lib/seo/site.ts.
+   */
+  metadataBase: new URL(SITE.origin),
   title: {
     default: `${SITE.name}: guia de alianças`,
     template: `%s | ${SITE.name}`,

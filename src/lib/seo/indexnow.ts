@@ -6,6 +6,12 @@ import { SITE, absoluteUrl } from "@/lib/seo/site";
  * esperar o robô passar. O Google não participa, então isto não substitui
  * sitemap nem Search Console, mas é gratuito e leva uma requisição.
  *
+ * Sobre o prefixo /guias: o arquivo de chave é servido em /guias/indexnow.txt,
+ * e o protocolo aceita chave fora da raiz desde que as URLs enviadas fiquem
+ * dentro da MESMA pasta da chave. Todo endereço deste portal está sob /guias,
+ * então a regra é cumprida. A raiz do domínio é da Tray e não é nossa para
+ * hospedar arquivo.
+ *
  * A chave fica em INDEXNOW_KEY e é servida em /indexnow.txt, que é como o
  * buscador confirma que quem avisou controla mesmo o domínio. Sem chave, ou
  * rodando em localhost, a função não faz nada: avisar buscador sobre um

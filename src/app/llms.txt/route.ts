@@ -34,7 +34,7 @@ export async function GET() {
     ),
     "",
     "## Dicas de alianças e joias",
-    ...guias.map((g) => `- [${g.title}](${absoluteUrl(`/guia/${g.slug}`)})`),
+    ...guias.map((g) => `- [${g.title}](${absoluteUrl(`/${g.slug}`)})`),
     "",
     "## Lojas",
     `- [Índice de lojas](${absoluteUrl("/lojas")})`,
