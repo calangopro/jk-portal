@@ -1,28 +1,25 @@
 import Link from "next/link";
-import Image from "next/image";
-import { Ruler, BookOpen, MapPin, ArrowRight } from "lucide-react";
+import { Ruler, MapPin, ArrowRight } from "lucide-react";
 import { IndiceAtivo } from "@/components/conteudo/IndiceAtivo";
 import type { ItemIndice } from "@/lib/content/indice";
-import type { Content } from "@/lib/content/types";
 
 /**
  * Coluna lateral do artigo.
  *
- * Serve a três coisas: localizar a pessoa no texto (índice), oferecer a
- * ferramenta que resolve a dúvida mais buscada (medidor) e manter a navegação
- * viva com guias vizinhos, o que também alimenta a linkagem interna exigida.
+ * Serve a duas coisas: localizar a pessoa no texto (índice) e oferecer a
+ * ferramenta que resolve a dúvida mais buscada (medidor), com as lojas fechando
+ * em tom baixo.
  *
  * Os blocos NÃO têm o mesmo peso de propósito. Antes eram quatro cards de vidro
  * idênticos, e quando tudo grita ninguém escuta: o índice é discreto, o medidor
  * é o único com fundo cheio e as lojas fecham em tom baixo.
+ *
+ * A lista de guias vizinhos saiu daqui para o "Leia também" do fim do artigo.
+ * Uma coluna que já rolou para fora da tela é o pior lugar para pôr a saída de
+ * quem terminou de ler, e repetir os mesmos links nos dois lugares não ajudava
+ * a escolher.
  */
-export function SidebarConteudo({
-  indice,
-  outros,
-}: {
-  indice: ItemIndice[];
-  outros: Content[];
-}) {
+export function SidebarConteudo({ indice }: { indice: ItemIndice[] }) {
   return (
     <aside className="hidden lg:col-start-2 lg:row-start-1 lg:block lg:sticky lg:top-24 lg:h-fit lg:space-y-8">
       {/* Índice: sem caixa, para não competir com o texto. */}
@@ -51,42 +48,6 @@ export function SidebarConteudo({
         </div>
       </div>
 
-      {outros.length > 0 ? (
-        <div>
-          <p className="eyebrow flex items-center gap-1.5">
-            <BookOpen size={12} aria-hidden /> Continue lendo
-          </p>
-          <ul className="mt-4 space-y-4">
-            {outros.map((g) => (
-              <li key={g.id}>
-                <Link href={`/${g.slug}`} className="group flex gap-3">
-                  {g.capa ? (
-                    <span className="relative block h-14 w-20 shrink-0 overflow-hidden rounded-sm bg-media">
-                      <Image
-                        src={g.capa.url}
-                        alt={g.capa.alt || g.title}
-                        fill
-                        sizes="80px"
-                        className="object-cover transition-transform duration-500 group-hover:scale-105"
-                      />
-                    </span>
-                  ) : null}
-                  <span className="block text-apoio font-medium leading-snug text-ink transition-colors group-hover:text-brand-nav">
-                    {g.title}
-                  </span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-          <Link
-            href="/dicas"
-            className="mt-5 inline-block text-nota font-semibold text-brand-nav hover:underline"
-          >
-            Ver todos os posts
-          </Link>
-        </div>
-      ) : null}
-
       <div className="border-t border-border pt-6">
         <p className="eyebrow flex items-center gap-1.5">
           <MapPin size={12} aria-hidden /> Experimente na loja
@@ -96,7 +57,7 @@ export function SidebarConteudo({
         </p>
         <Link
           href="/lojas"
-          className="mt-3 inline-flex items-center gap-1.5 text-apoio font-semibold text-brand-nav hover:underline"
+          className="alvo-44 mt-3 inline-flex items-center gap-1.5 text-apoio font-semibold text-brand-nav hover:underline"
         >
           Ver as lojas <ArrowRight size={13} aria-hidden />
         </Link>

@@ -1,11 +1,29 @@
 import { ImageResponse } from "next/og";
+import { OG_PADRAO } from "@/lib/seo/og";
 
-// Imagem de compartilhamento padrão (aplicada a todas as rotas sem OG própria).
-export const size = { width: 1200, height: 630 };
-export const contentType = "image/png";
-export const alt = "JK Alianças: guia de alianças";
+/*
+  Arte de compartilhamento padrão do site, servida num endereço FIXO.
 
-export default function OpengraphImage() {
+  Era um `opengraph-image.tsx` de convenção, e a convenção não entrega o que
+  parece entregar: o arquivo vale para o segmento onde está e **não desce** para
+  os segmentos de baixo. Na raiz de `app/` ele não alcançava nem a home, porque
+  as páginas vivem no grupo `(site)`; movido para dentro do grupo, passou a
+  valer só para a home. Conferido no HTML do `next build`: `/dicas`, `/lojas`,
+  `/ferramentas`, `/medidor-de-aliancas`, cada página de loja e cada página de
+  autor saíam com `twitter:card: summary_large_image` e nenhuma imagem. Quem
+  colasse o link no WhatsApp, que é o canal desse mercado, via um card cego.
+
+  Como rota, o endereço é um só e conhecido (`/guias/og`), e quem aponta para
+  ele é o `buildMetadata`, de uma vez, para o site inteiro. Ganha também
+  `og:image:width`, `height` e `alt`, que a convenção só escreve quando gera a
+  tag ela mesma.
+
+  `force-static` porque a arte não depende de nada: é gerada no build e servida
+  do cache dali em diante.
+*/
+export const dynamic = "force-static";
+
+export function GET() {
   return new ImageResponse(
     (
       <div
@@ -24,7 +42,7 @@ export default function OpengraphImage() {
         <div
           style={{
             display: "flex",
-            color: "#9b7846",
+            color: "#84663c",
             fontSize: 26,
             letterSpacing: 10,
             fontWeight: 600,
@@ -67,6 +85,6 @@ export default function OpengraphImage() {
         </div>
       </div>
     ),
-    { ...size },
+    { width: OG_PADRAO.width, height: OG_PADRAO.height },
   );
 }

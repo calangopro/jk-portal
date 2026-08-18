@@ -505,7 +505,7 @@ export function Editor({
       TableRow, CabecalhoDeTabela, TableCell,
     ],
     content: inicial.body_html ?? "",
-    editorProps: { attributes: { class: "conteudo-rico min-h-[20rem] focus:outline-none" } },
+    editorProps: { attributes: { class: "conteudo-rico abertura min-h-[20rem] focus:outline-none" } },
     onUpdate: ({ editor }) => {
       setHtml(editor.getHTML());
       setTexto(editor.getText());

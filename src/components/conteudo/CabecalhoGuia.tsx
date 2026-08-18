@@ -6,7 +6,6 @@ import { Pill } from "@/components/ui/Pill";
 import { Figura } from "@/components/ui/Figura";
 import {
   dataLonga,
-  dataCurta,
   mostrarAtualizacao,
 } from "@/lib/content/leitura";
 import type { Content } from "@/lib/content/types";
@@ -61,9 +60,13 @@ export function CabecalhoGuia({
   const nomeDoAutor = guia.autor?.name ?? guia.authorName ?? null;
   const nomeDoRevisor = guia.revisor?.name ?? guia.reviewerName ?? null;
 
+  // As duas datas ficam na MESMA grafia. Antes a de publicação saía por extenso
+  // e a de atualização em número, lado a lado na mesma linha ("12 de agosto de
+  // 2026 · Atualizado em 12/08/2026"), o que lê como duas informações de
+  // origens diferentes em vez de duas datas do mesmo artigo.
   const publicado = dataLonga(guia.publishedAt);
   const atualizado = mostrarAtualizacao(guia.publishedAt, guia.updatedAt)
-    ? dataCurta(guia.updatedAt)
+    ? dataLonga(guia.updatedAt)
     : null;
 
   return (

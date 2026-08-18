@@ -76,7 +76,7 @@ export function layoutPadraoDaHome(): Layout {
         tipo: "ultimos-conteudos",
         visivel: true,
         travado: false,
-        props: { titulo: "Últimos posts", quantidade: 5, verTodos: "Ver todos" },
+        props: { titulo: "Últimos posts", quantidade: 6, verTodos: "Ver todos" },
       },
       {
         id: "vitrine",

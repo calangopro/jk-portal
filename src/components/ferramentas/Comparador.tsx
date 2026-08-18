@@ -63,8 +63,8 @@ export async function Comparador({ className = "" }: { className?: string }) {
       </p>
 
       <div className="rolagem-discreta mt-6 overflow-x-auto">
-        <table className="conteudo-rico w-full min-w-[46rem] border-collapse text-sm">
-          <caption className="pb-3 text-left text-xs text-muted">
+        <table className="conteudo-rico w-full min-w-[46rem] border-collapse text-apoio">
+          <caption className="pb-3 text-left text-nota text-muted">
             Materiais de aliança da JK Alianças: teor, faixa de preço praticada e
             quantidade de modelos no catálogo. Preço lido da loja oficial na hora
             de gerar esta página.
@@ -106,7 +106,7 @@ export async function Comparador({ className = "" }: { className?: string }) {
                 </td>
                 <td className="border-b border-border/60 px-3 py-3 text-muted">
                   <span className="block font-medium text-ink">{dinheiro(m.precoMediano)}</span>
-                  <span className="text-xs">
+                  <span className="text-nota">
                     a maioria entre {dinheiro(m.precoTipicoMin)} e {dinheiro(m.precoTipicoMax)}
                   </span>
                 </td>
@@ -129,7 +129,7 @@ export async function Comparador({ className = "" }: { className?: string }) {
         </table>
       </div>
 
-      <p className="mt-4 text-xs leading-relaxed text-muted">
+      <p className="mt-4 text-nota leading-relaxed text-muted">
         O valor em destaque é a mediana do catálogo, o número que melhor resume o
         grupo. A faixa abaixo dele deixa de fora os 10% mais baratos e os 10%
         mais caros, porque um caso fora da curva distorceria a leitura. Preço,

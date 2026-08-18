@@ -3,6 +3,7 @@ import { Container } from "@/components/layout/Container";
 import { EmptyState } from "@/components/ui/states";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { grade } from "@/components/ui/grade";
 import { Trilha } from "@/components/ui/Trilha";
 import { Pill } from "@/components/ui/Pill";
 import { JsonLd } from "@/components/schema/JsonLd";
@@ -137,7 +138,7 @@ export default async function GuiaIndex() {
                   </div>
                 </div>
 
-                <ul className="mt-7 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                <ul className={`mt-7 grid gap-6 ${grade(lista.length, 3)}`}>
                   {lista.map((g, i) => (
                     <li key={g.id} className="rise" style={{ animationDelay: `${i * 90}ms` }}>
                       <Card
@@ -161,7 +162,7 @@ export default async function GuiaIndex() {
                   </h2>
                   <span aria-hidden className="hairline min-w-12 flex-1" />
                 </div>
-                <ul className="mt-7 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                <ul className={`mt-7 grid gap-6 ${grade(soltos.length, 3)}`}>
                   {soltos.map((g, i) => (
                     <li key={g.id} className="rise" style={{ animationDelay: `${i * 90}ms` }}>
                       <Card

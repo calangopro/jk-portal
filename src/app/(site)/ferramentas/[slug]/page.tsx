@@ -206,7 +206,7 @@ export default async function FerramentaPage({ params }: { params: Promise<{ slu
           </div>
         </div>
 
-        <p className="mt-10 text-sm text-muted">
+        <p className="mt-10 text-apoio text-muted">
           <Link href="/dicas" className="underline underline-offset-4 hover:text-ink">
             Ver as dicas de alianças e joias
           </Link>

@@ -515,7 +515,7 @@ export default async function LojaPage({
                 <span aria-hidden className="hairline flex-1" />
                 <Link
                   href="/lojas"
-                  className="shrink-0 text-apoio font-semibold text-brand-nav hover:underline"
+                  className="alvo-44 shrink-0 text-apoio font-semibold text-brand-nav hover:underline"
                 >
                   Ver todas
                 </Link>

@@ -24,7 +24,11 @@ export default async function Home() {
     lerLayout("home"),
     comCapas(await getPublishedGuias()),
     getPublishedLocations(),
-    produtosParaVitrine(10),
+    // Pede o TETO que o admin aceita (o campo "Quantos produtos" vai de 4 a 12) e
+    // deixa o bloco cortar. O layout só é conhecido depois do `lerLayout`, e
+    // esperar por ele para só então buscar produto serializaria duas idas ao
+    // banco numa página que hoje resolve tudo em paralelo.
+    produtosParaVitrine(12),
   ]);
 
   const dados = { guias, lojas, produtos };

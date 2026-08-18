@@ -163,7 +163,7 @@ export function VitrineDaLargura({
                       className="aspect-square w-full rounded-[10px] object-cover"
                     />
                   ) : null}
-                  <p className="mt-3 text-sm leading-snug text-ink">{p.nome}</p>
+                  <p className="mt-3 text-apoio leading-snug text-ink">{p.nome}</p>
                   {preco ? (
                     <p className="mt-1 font-display text-lg text-brand-strong">{preco}</p>
                   ) : null}

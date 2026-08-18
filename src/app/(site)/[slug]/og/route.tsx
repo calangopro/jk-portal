@@ -2,23 +2,29 @@ import { ImageResponse } from "next/og";
 import { getGuiaBySlug } from "@/lib/data/contents";
 import { SITE } from "@/lib/seo/site";
 
-/**
- * Imagem de compartilhamento própria de cada guia.
- *
- * Antes o site inteiro compartilhava a mesma arte, então um link de guia no
- * WhatsApp parecia igual ao da home. Aqui a arte carrega o título real e a
- * resposta rápida, que é o que faz a pessoa clicar.
- */
-export const size = { width: 1200, height: 630 };
-export const contentType = "image/png";
-export const alt = "Guia da JK Alianças";
+/*
+  Imagem de compartilhamento própria de cada guia, servida em `/<slug>/og`.
 
-export default async function OgDoGuia({
-  params,
-}: {
-  params: { slug: string };
-}) {
-  const guia = await getGuiaBySlug(params.slug);
+  Antes o site inteiro compartilhava a mesma arte, então um link de guia no
+  WhatsApp parecia igual ao da home. Aqui a arte carrega o título real e a
+  resposta rápida, que é o que faz a pessoa clicar.
+
+  Virou rota, e não `opengraph-image.tsx` de convenção, pelo mesmo motivo da
+  arte padrão em `(site)/og`: quem escreve a tag agora é o `buildMetadata`, e
+  metadata declarado vence o arquivo de convenção. Deixado como convenção, este
+  arquivo continuaria gerando a imagem e nenhuma página apontaria para ela.
+
+  O endereço fica sob o slug do guia, então não disputa espaço com as páginas
+  fixas da raiz e não precisa entrar em `slugs-reservados`.
+*/
+export const dynamic = "force-static";
+
+export async function GET(
+  _requisicao: Request,
+  { params }: { params: Promise<{ slug: string }> },
+) {
+  const { slug } = await params;
+  const guia = await getGuiaBySlug(slug);
 
   const titulo = guia?.title ?? "Guia de alianças";
   // A resposta rápida é o melhor resumo que existe, e já foi escrita para ser
@@ -86,6 +92,6 @@ export default async function OgDoGuia({
         </div>
       </div>
     ),
-    { ...size },
+    { width: 1200, height: 630 },
   );
 }

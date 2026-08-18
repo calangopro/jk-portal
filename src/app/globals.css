@@ -390,13 +390,53 @@ h4 {
   display: none;
 }
 
-/* Rótulo dourado em caixa-alta (eyebrow). */
-.eyebrow {
-  font-size: 0.72rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.2em;
-  color: var(--color-brand-nav);
+/* Rótulo dourado em caixa-alta (eyebrow).
+
+   Precisa estar em @layer components pelo mesmo motivo do seletor `a` acima:
+   CSS fora de layer vence as utilidades do Tailwind. Solto, o `color` daqui
+   ganhava do `text-brand-light` que o TSX aplica sobre fundo escuro, e o rótulo
+   saía em #84663c sobre carvão, 3,33:1, reprovado no WCAG AA. Eram oito telas
+   do site público, o rodapé e o "Passo N de 3" do medidor entre elas. O
+   `font-size` sofria o mesmo: os ajustes `text-[0.66rem]` das lojas nunca
+   valeram. */
+@layer components {
+  .eyebrow {
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    color: var(--color-brand-nav);
+  }
+}
+
+/* Área de toque de 44 px sem mexer no desenho.
+
+   Link de fim de seção ("Ver todos", "Ver a loja", "Ver as 10 lojas") é texto
+   puro de 14 px, o que dá 22 px de altura tocável: menos que os 24 px mínimos
+   do WCAG 2.5.8 e metade dos 44 px recomendados. E são justamente os links de
+   navegação entre seções, os mais usados no celular.
+
+   Crescer por `padding` resolveria o toque e estragaria o desenho: esses links
+   vivem numa linha alinhada por `items-baseline`, ao lado do título e do
+   filete, e qualquer altura a mais desloca a linha inteira. O retângulo
+   invisível do `::after` cresce por cima, sem ocupar espaço no fluxo, então o
+   alvo aumenta e nada se move.
+
+   Fica dentro do link, então o que ele cobre é a própria área clicável. O
+   filete ao lado é decorativo (`aria-hidden`) e não perde nada com isso. */
+@layer components {
+  .alvo-44 {
+    position: relative;
+  }
+  .alvo-44::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    right: 0;
+    left: 0;
+    height: 44px;
+    transform: translateY(-50%);
+  }
 }
 
 /* Filete decorativo. */
@@ -552,8 +592,20 @@ h4 {
 
 /* Primeiro paragrafo com um pouco mais de peso, como abertura de jornal.
    Vale nos dois lados (editor e publicado), porque a classe e a mesma e o
-   preview precisa continuar fiel ao que vai ao ar. */
-.conteudo-rico > p:first-child {
+   preview precisa continuar fiel ao que vai ao ar.
+
+   Pede a classe `abertura` em vez de valer para todo `.conteudo-rico`, e isso
+   conserta dois enganos. O corpo do guia e cortado nos marcadores de
+   ferramenta, e cada pedaco vira um `.conteudo-rico` proprio, entao o
+   `p:first-child` reaparecia depois de CADA ferramenta, como se o artigo
+   recomecasse ali. E a mesma classe veste a historia da loja, o passo a passo
+   das ferramentas e a tabela do comparador, que nao sao abertura de nada.
+
+   No guia a classe so entra quando NAO ha linha de apoio no cabecalho: com ela,
+   a leitura ja descia por quatro degraus seguidos (titulo serifado, linha de
+   apoio serifada, primeiro paragrafo aumentado, corpo), e o terceiro degrau
+   existia para um tempo em que os dois primeiros eram um so. */
+.conteudo-rico.abertura > p:first-child {
   font-size: 1.08em;
   color: var(--color-ink);
 }

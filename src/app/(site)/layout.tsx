@@ -20,7 +20,7 @@ export default async function SiteLayout({
       {/* Link de pulo para o conteúdo (acessibilidade / teclado). */}
       <a
         href="#conteudo"
-        className="sr-only rounded-full bg-ink px-4 py-2 text-sm font-semibold text-white focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-[100]"
+        className="sr-only rounded-full bg-ink px-4 py-2 text-apoio font-semibold text-white focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-[100]"
       >
         Pular para o conteúdo
       </a>
