@@ -18,7 +18,7 @@ export function EmptyState({
     <div className="glass rounded-[20px] px-6 py-14 text-center">
       <p className="font-display text-2xl text-ink">{title}</p>
       {description ? (
-        <p className="mx-auto mt-3 max-w-md text-sm text-muted">{description}</p>
+        <p className="mx-auto mt-3 max-w-md text-apoio text-muted">{description}</p>
       ) : null}
       {action ? (
         <div className="mt-7 flex justify-center">{action}</div>
@@ -39,7 +39,7 @@ export function ErrorState({
   return (
     <div className="glass rounded-[20px] px-6 py-14 text-center">
       <p className="font-display text-2xl text-ink">{title}</p>
-      <p className="mx-auto mt-3 max-w-md text-sm text-muted">{description}</p>
+      <p className="mx-auto mt-3 max-w-md text-apoio text-muted">{description}</p>
       {action ? (
         <div className="mt-7 flex justify-center">{action}</div>
       ) : null}

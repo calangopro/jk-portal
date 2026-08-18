@@ -37,7 +37,9 @@ export function Pill({
 
   if (href) {
     return (
-      <Link href={href} className={`${classes} transition-colors hover:bg-brand/20`}>
+      // Só o Pill que leva a algum lugar ganha alvo de toque; etiqueta de
+      // categoria é texto parado e não precisa de área clicável nenhuma.
+      <Link href={href} className={`alvo-44 ${classes} transition-colors hover:bg-brand/20`}>
         {icone}
         {children}
       </Link>

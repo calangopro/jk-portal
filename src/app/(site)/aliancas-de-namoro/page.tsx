@@ -31,7 +31,7 @@ export default function AliancasDeNamoroPlaceholder() {
         ])}
       />
       <Container className="py-16 sm:py-24">
-        <p className="inline-block rounded-full bg-cream px-3 py-1 text-xs font-semibold text-brand-strong">
+        <p className="inline-block rounded-full bg-cream px-3 py-1 text-nota font-semibold text-brand-strong">
           Em construção (placeholder)
         </p>
         <h1 className="mt-5 max-w-2xl text-3xl font-medium tracking-tight sm:text-4xl">

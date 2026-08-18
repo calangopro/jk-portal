@@ -111,8 +111,12 @@ export default function MedidorPage() {
         ])}
       />
 
+      {/* Uma coluna só, centrada, para a página inteira. O Container é de
+          72 rem e todo o conteúdo cabe em 56 rem, mas sem `mx-auto` esses
+          56 rem encostavam na esquerda e sobravam 16 rem mortos na direita,
+          o que lê como desalinhamento mesmo sem ninguém saber nomear. */}
       <Container size="wide" className="py-12 sm:py-16">
-        <div className="max-w-4xl">
+        <div className="mx-auto max-w-4xl">
           <Trilha
             passos={[
               { nome: "Início", href: "/" },
@@ -145,7 +149,7 @@ export default function MedidorPage() {
 
         {/* A ferramenta em si. Ela também renderiza a tabela de aros, para o
             resultado medido aparecer destacado lá. */}
-        <div className="mt-10 max-w-4xl space-y-16">
+        <div className="mx-auto mt-10 max-w-4xl space-y-16">
           <Medidor>
             <section aria-labelledby="como-funciona">
               <h2

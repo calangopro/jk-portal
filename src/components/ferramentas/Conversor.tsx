@@ -45,7 +45,7 @@ export function Conversor({ aroInicial = 18 }: { aroInicial?: number }) {
   return (
     <div className="glass rounded-[20px] p-6 sm:p-8">
       <div className="grid gap-4 sm:grid-cols-[1fr_auto] sm:items-end">
-        <label className="block text-sm font-medium text-ink">
+        <label className="block text-apoio font-medium text-ink">
           A medida que você já tem
           <select
             value={unidade}
@@ -58,10 +58,10 @@ export function Conversor({ aroInicial = 18 }: { aroInicial?: number }) {
               </option>
             ))}
           </select>
-          <span className="mt-1.5 block text-xs text-muted">{UNIDADE_AJUDA[unidade]}</span>
+          <span className="mt-1.5 block text-nota text-muted">{UNIDADE_AJUDA[unidade]}</span>
         </label>
 
-        <label className="block text-sm font-medium text-ink">
+        <label className="block text-apoio font-medium text-ink">
           <span className="sr-only">Valor</span>
           <input
             value={texto}
@@ -98,7 +98,7 @@ export function Conversor({ aroInicial = 18 }: { aroInicial?: number }) {
                     c.destaque ? "bg-brand/20" : "bg-white/50"
                   }`}
                 >
-                  <dt className="text-xs text-muted">{c.termo}</dt>
+                  <dt className="text-nota text-muted">{c.termo}</dt>
                   <dd
                     className={`font-display mt-0.5 text-ink ${
                       c.destaque ? "text-3xl" : "text-2xl"
@@ -111,7 +111,7 @@ export function Conversor({ aroInicial = 18 }: { aroInicial?: number }) {
             </dl>
 
             {foraDaFaixa ? (
-              <p className="mt-4 rounded-[12px] bg-wine/10 px-4 py-3 text-sm text-wine">
+              <p className="mt-4 rounded-[12px] bg-wine/10 px-4 py-3 text-apoio text-wine">
                 Esse valor está fora da faixa que a joalheria produz, do aro {ARO_MINIMO} ao{" "}
                 {ARO_MAXIMO}. A conversão acima mostra o limite mais próximo.
               </p>
@@ -121,13 +121,13 @@ export function Conversor({ aroInicial = 18 }: { aroInicial?: number }) {
       </div>
 
       <details className="mt-7 border-t border-border pt-5">
-        <summary className="cursor-pointer text-sm text-muted transition-colors hover:text-ink">
+        <summary className="cursor-pointer text-apoio text-muted transition-colors hover:text-ink">
           Ver a tabela completa, do aro {ARO_MINIMO} ao {ARO_MAXIMO}
         </summary>
 
         <div className="mt-4 overflow-x-auto">
-          <table className="w-full min-w-[34rem] border-collapse text-sm">
-            <caption className="pb-3 text-left text-xs text-muted">
+          <table className="w-full min-w-[34rem] border-collapse text-apoio">
+            <caption className="pb-3 text-left text-nota text-muted">
               Equivalência entre o aro brasileiro, o tamanho americano, o padrão europeu ISO 8653,
               a circunferência e o diâmetro internos.
             </caption>

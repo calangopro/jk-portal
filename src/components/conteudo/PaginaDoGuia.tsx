@@ -8,6 +8,8 @@ import { CabecalhoGuia } from "./CabecalhoGuia";
 import { CapaDeFundo } from "./CapaDeFundo";
 import { IndiceMobile } from "./IndiceMobile";
 import { ApoioMobile } from "./ApoioMobile";
+import { FimDoArtigo } from "./FimDoArtigo";
+import { produtosParaOArtigo } from "@/lib/data/produtos";
 import { comIndice } from "@/lib/content/indice";
 import { comPrecosAtuais } from "@/lib/conteudo/precos";
 import { comBasePathNosLinks } from "@/lib/conteudo/links-html";
@@ -54,6 +56,9 @@ export async function PaginaDoGuia({ guia: recebido }: { guia: Content }) {
 
   const comentarios = await comentariosAprovados(guia.id);
   const produtos = await produtosDoConteudo(guia.id);
+  // Lista separada para a TELA: aquela acima existe para o JSON-LD e zera o
+  // preço de propósito. Ver `produtosParaOArtigo`.
+  const produtosNaTela = await produtosParaOArtigo(guia.id);
 
   // Índice a partir dos H2, e outros guias para a coluna lateral.
   const dimensoes = await mapaDeDimensoes(guia.bodyHtml ?? "");
@@ -106,6 +111,14 @@ export async function PaginaDoGuia({ guia: recebido }: { guia: Content }) {
   // O corpo em pedaços, com os marcadores de ferramenta separados do HTML.
   // Sem marcador nenhum, isto devolve um único pedaço e nada muda.
   const pedacos = separarFerramentas(corpoComIndice);
+
+  // A abertura de jornal (primeiro parágrafo mais forte) só entra no PRIMEIRO
+  // pedaço de texto, senão ela reaparece depois de cada ferramenta embutida,
+  // como se o artigo recomeçasse ali. E só quando não há linha de apoio no
+  // cabeçalho: com ela, a entrada já desce por título serifado, linha de apoio
+  // serifada e corpo, e um quarto degrau no meio não organiza mais nada.
+  const classeDeAbertura = guia.answer ? "" : "abertura";
+  const primeiroPedacoDeTexto = pedacos.findIndex((p) => p.tipo !== "ferramenta");
 
   return (
     <main>
@@ -194,13 +207,15 @@ export async function PaginaDoGuia({ guia: recebido }: { guia: Content }) {
                   ) : (
                     <div
                       key={`html-${i}`}
-                      className="conteudo-rico mt-8 max-w-leitura-larga"
+                      className={["conteudo-rico mt-8 max-w-leitura-larga", i === primeiroPedacoDeTexto ? classeDeAbertura : ""]
+                        .filter(Boolean)
+                        .join(" ")}
                       dangerouslySetInnerHTML={{ __html: p.valor }}
                     />
                   ),
                 )
               ) : guia.bodyMd ? (
-                <div className="conteudo-rico mt-8 max-w-leitura-larga">
+                <div className={["conteudo-rico mt-8 max-w-leitura-larga", classeDeAbertura].filter(Boolean).join(" ")}>
                   {guia.bodyMd.split("\n\n").map((block, i) => {
                     const heading = block.match(/^##\s+(.*)$/);
                     return heading ? <h2 key={i}>{heading[1]}</h2> : <p key={i}>{block}</p>;
@@ -242,10 +257,12 @@ export async function PaginaDoGuia({ guia: recebido }: { guia: Content }) {
                 ) : null}
               </div>
 
-              <ApoioMobile outros={outros} />
+              <FimDoArtigo produtos={produtosNaTela} outros={outros} />
+
+              <ApoioMobile />
             </div>
 
-            <SidebarConteudo indice={indice} outros={outros} />
+            <SidebarConteudo indice={indice} />
 
             {/* Comentários: no desktop voltam para a coluna do texto, logo
                 abaixo dele. No celular ficam por último, como deve ser. */}

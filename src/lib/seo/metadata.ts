@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { SITE, absoluteUrl } from "./site";
+import { OG_PADRAO } from "./og";
 import type { Content, Location } from "@/lib/content/types";
 
 type OgImage = { url: string; width?: number; height?: number; alt?: string };
@@ -24,8 +25,11 @@ type BuildInput = {
  * template do layout (`%s | JK Alianças`), porque cada função abaixo já inclui
  * a marca uma única vez, evitando a duplicação "| JK Alianças | JK Alianças".
  *
- * Quando `images` não é informado, deixamos o Next usar a imagem de OG gerada
- * por convenção em app/opengraph-image.tsx (arte de marca única para o site).
+ * Quando `images` não é informado, entra a arte de marca de `(site)/og`. Ela é
+ * declarada aqui, e não deixada para a convenção `opengraph-image.tsx`, porque
+ * a convenção vale só para o segmento onde o arquivo está e não desce para os
+ * de baixo: com ela, só a home tinha imagem e todo o resto do site ia para o
+ * WhatsApp com card cego.
  *
  * As diretivas de preview (`max-image-preview:large`, `max-snippet:-1`,
  * `max-video-preview:-1`) não são detalhe: sem `max-image-preview:large` o
@@ -35,7 +39,16 @@ type BuildInput = {
  */
 export function buildMetadata(input: BuildInput): Metadata {
   const canonical = input.canonical ?? absoluteUrl(input.path);
-  const hasImages = !!input.images?.length;
+  const imagens: OgImage[] = input.images?.length
+    ? input.images
+    : [
+        {
+          url: absoluteUrl(OG_PADRAO.path),
+          width: OG_PADRAO.width,
+          height: OG_PADRAO.height,
+          alt: OG_PADRAO.alt,
+        },
+      ];
 
   return {
     title: { absolute: input.title },
@@ -57,7 +70,7 @@ export function buildMetadata(input: BuildInput): Metadata {
       siteName: SITE.name,
       locale: SITE.locale,
       type: input.type ?? "website",
-      ...(hasImages ? { images: input.images } : {}),
+      images: imagens,
       ...(input.publishedTime ? { publishedTime: input.publishedTime } : {}),
       ...(input.modifiedTime ? { modifiedTime: input.modifiedTime } : {}),
     },
@@ -65,7 +78,7 @@ export function buildMetadata(input: BuildInput): Metadata {
       card: "summary_large_image",
       title: input.title,
       description: input.description,
-      ...(hasImages ? { images: input.images } : {}),
+      images: imagens,
     },
   };
 }
@@ -116,7 +129,21 @@ export function guiaMetadata(c: Content): Metadata {
     path: `/${c.slug}`,
     canonical: canonicalDoGuia(c),
     type: "article",
-    images: c.ogImageUrl ? [{ url: c.ogImageUrl }] : undefined,
+    // Ordem de preferência: a imagem escolhida no admin, senão a arte que o
+    // próprio guia gera com o título e a resposta rápida dentro. A arte de
+    // marca do site é a última linha, e para o guia ela nunca é a melhor: no
+    // WhatsApp o link ficava igual ao da home. Dimensão e alt vão junto porque
+    // sem elas o card sai sem prévia grande em alguns leitores.
+    images: c.ogImageUrl
+      ? [{ url: c.ogImageUrl }]
+      : [
+          {
+            url: absoluteUrl(`/${c.slug}/og`),
+            width: 1200,
+            height: 630,
+            alt: `${c.title} | ${SITE.name}`,
+          },
+        ],
     publishedTime: c.publishedAt ?? undefined,
     modifiedTime: c.updatedAt ?? undefined,
   });

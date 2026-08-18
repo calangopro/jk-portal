@@ -10,12 +10,18 @@ import {
   type ComentarioComRespostas,
 } from "@/lib/data/comentarios";
 import { SITE } from "@/lib/seo/site";
+import { dataLonga } from "@/lib/content/leitura";
 import { Button } from "@/components/ui/Button";
 
+/*
+  Data de comentário sai pelo MESMO formatador do resto do site.
+
+  A versão anterior chamava `toLocaleDateString` direto e sem `timeZone`, então
+  usava o fuso de quem renderiza. Na Vercel isso é UTC, e comentário escrito
+  depois das 21h no Brasil aparecia com a data do dia seguinte.
+*/
 function quando(iso: string) {
-  return new Date(iso).toLocaleDateString("pt-BR", {
-    day: "2-digit", month: "long", year: "numeric",
-  });
+  return dataLonga(iso) ?? "";
 }
 
 function iniciais(nome: string) {
@@ -43,14 +49,14 @@ function Balao({ c }: { c: Comentario }) {
     <>
       <div className="flex items-center gap-3">
         <span
-          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${
+          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-nota font-semibold ${
             c.daEquipe ? "bg-brand text-ink" : "bg-brand/15 text-brand-strong"
           }`}
         >
           {c.daEquipe ? "JK" : iniciais(c.authorName)}
         </span>
         <div className="min-w-0">
-          <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-semibold text-ink">
+          <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-apoio font-semibold text-ink">
             {c.authorName}
             {c.daEquipe ? (
               // Selo, e não só a cor do balão: quem chega pela busca precisa
@@ -62,7 +68,7 @@ function Balao({ c }: { c: Comentario }) {
               </span>
             ) : null}
           </p>
-          <p className="text-xs text-muted">
+          <p className="text-nota text-muted">
             <time dateTime={c.createdAt}>{quando(c.createdAt)}</time>
           </p>
         </div>
@@ -130,8 +136,8 @@ export function Comentarios({
       )}
 
       <form ref={form} action={acao} className="glass mt-8 rounded-[18px] p-6">
-        <p className="text-sm font-semibold text-ink">Deixe sua dúvida ou experiência</p>
-        <p className="mt-1 text-xs text-muted">
+        <p className="text-apoio font-semibold text-ink">Deixe sua dúvida ou experiência</p>
+        <p className="mt-1 text-nota text-muted">
           Todo comentário passa por revisão antes de aparecer. Seu e-mail não é
           publicado, e quem responde por aqui é a equipe da {SITE.name}.
         </p>
@@ -150,25 +156,25 @@ export function Comentarios({
 
         <div className="mt-5 grid gap-4 sm:grid-cols-2">
           <label className="block">
-            <span className="text-xs font-semibold text-ink">Nome</span>
+            <span className="text-nota font-semibold text-ink">Nome</span>
             <input name="nome" required maxLength={120} className={`${campo} mt-1.5`} placeholder="Como podemos te chamar" />
           </label>
           <label className="block">
-            <span className="text-xs font-semibold text-ink">E-mail (opcional)</span>
+            <span className="text-nota font-semibold text-ink">E-mail (opcional)</span>
             <input name="email" type="email" maxLength={200} className={`${campo} mt-1.5`} placeholder="Só para responder você" />
           </label>
         </div>
 
         <label className="mt-4 block">
-          <span className="text-xs font-semibold text-ink">Comentário</span>
+          <span className="text-nota font-semibold text-ink">Comentário</span>
           <textarea name="corpo" required rows={4} maxLength={2000} className={`${campo} mt-1.5 resize-y`} placeholder="Escreva aqui" />
         </label>
 
         {estado.erro ? (
-          <p role="alert" className="mt-4 rounded-[12px] border border-wine/25 bg-wine/5 px-4 py-3 text-sm text-wine">{estado.erro}</p>
+          <p role="alert" className="mt-4 rounded-[12px] border border-wine/25 bg-wine/5 px-4 py-3 text-apoio text-wine">{estado.erro}</p>
         ) : null}
         {estado.ok ? (
-          <p role="status" className="mt-4 rounded-[12px] border border-brand/30 bg-brand/8 px-4 py-3 text-sm text-brand-strong">{estado.ok}</p>
+          <p role="status" className="mt-4 rounded-[12px] border border-brand/30 bg-brand/8 px-4 py-3 text-apoio text-brand-strong">{estado.ok}</p>
         ) : null}
 
         <div className="mt-5">

@@ -273,6 +273,48 @@ docs/                identidade-visual-jk.md (marca)
   `lojas/[slug]/page.tsx`. A checagem é comparar `scrollWidth` com `clientWidth`
   do `documentElement` a 320 px e a 375 px, ignorando quem está dentro de
   container com `overflow-x` (carrossel de produto rola de propósito).
+- **CSS fora de `@layer` vence utilitário do Tailwind, e `.eyebrow` estava fora.**
+  O arquivo já registrava a armadilha para o seletor `a` (`globals.css`, comentário
+  do `@layer base`), mas a classe `.eyebrow` continuava solta com
+  `color: var(--color-brand-nav)`. Resultado: os oito pontos do site público que
+  escrevem `eyebrow text-brand-light` para fundo escuro renderizavam em `#84663c`
+  sobre carvão, 3,33:1, reprovado no WCAG AA. Pegava o rodapé inteiro, o CTA da
+  home, a faixa do medidor em `/lojas`, o hero de `/ferramentas` e o "Passo N de 3"
+  do modo de medição. O `font-size` sofria o mesmo, então os `text-[0.66rem]` das
+  lojas nunca valeram. Agora `.eyebrow` mora em `@layer components`. Ao criar
+  classe nova em `globals.css` que defina cor ou tamanho, ela vai dentro de um
+  layer, senão o TSX perde o poder de sobrescrever e ninguém percebe.
+- **`opengraph-image.tsx` NÃO desce para os segmentos de baixo.** A convenção vale
+  para o segmento onde o arquivo está, e só. Na raiz de `app/` ele não alcançava
+  nem a home, porque as páginas vivem em `(site)`; movido para dentro do grupo,
+  passou a valer só para a home. Conferido no HTML do `next build`: `/dicas`,
+  `/lojas`, `/ferramentas`, `/medidor-de-aliancas`, toda página de loja e toda
+  página de autor saíam com `twitter:card: summary_large_image` e nenhum
+  `og:image`, ou seja, card cego no WhatsApp, que é o canal desse mercado. A arte
+  virou rota de endereço fixo (`(site)/og/route.tsx`, mais `[slug]/og` para a arte
+  por guia) e quem escreve a tag é o `buildMetadata`, de uma vez para o site todo.
+  Consequência: **metadata declarado vence arquivo de convenção**, então criar um
+  `opengraph-image.tsx` novo agora não faz nada sem apontar para ele.
+- **Sorteio por deslocamento em faixa contígua devolve vizinhança, não amostra.**
+  A vitrine da home tirava dez produtos com `.order("name")` mais `.range` de
+  início aleatório. Como a faixa é contígua e o catálogo estava ordenado por nome,
+  saía sempre um pedaço do alfabeto: a home anunciava "Tudo sobre alianças" com
+  nove anéis de formatura na vitrine. São duas correções, e uma sozinha não basta:
+  filtro de categoria (`categories` por padrão de slug `alianca%`, 639 peças) e
+  ordem por `id`, que é uuid e não tem relação com o nome.
+- **`products` chega em `categories` por dois caminhos, e o PostgREST recusa o
+  embed ambíguo.** Existem a chave estrangeira `products.category_id` e a tabela
+  de ligação `product_categories` (que está VAZIA). Pedir `categories(...)` levanta
+  `PGRST201`, e como o acesso a dados devolve `[]` no erro, o sintoma é seção
+  sumida sem nenhuma mensagem. Escreva a chave por extenso:
+  `categories!products_category_id_fkey!inner(slug)`.
+- **`.conteudo-rico` é aplicado uma vez por PEDAÇO do corpo, não por artigo.** O
+  corpo é cortado nos marcadores de ferramenta, então `> p:first-child` casava com
+  o primeiro parágrafo depois de CADA ferramenta, como se o artigo recomeçasse
+  ali. A mesma classe ainda veste a história da loja, o passo a passo das
+  ferramentas e a tabela do comparador. A abertura de jornal agora pede a classe
+  `abertura`, que só entra no primeiro pedaço de texto e só quando o guia não tem
+  linha de apoio no cabeçalho.
 
 ## Convenções & regras
 - **Idioma do produto e do conteúdo: pt-BR.**

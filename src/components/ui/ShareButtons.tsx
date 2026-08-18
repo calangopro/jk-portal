@@ -47,7 +47,7 @@ export function ShareButtons({
     `https://wa.me/?text=${encodeURIComponent(`${title} ${url}`.trim())}`;
 
   const pill =
-    "inline-flex items-center gap-2 rounded-full border border-ink/15 bg-white/50 px-4 py-2 text-sm font-medium text-ink backdrop-blur-sm transition-colors hover:border-brand/50 hover:text-brand-nav";
+    "inline-flex items-center gap-2 rounded-full border border-ink/15 bg-white/50 px-4 py-2 text-apoio font-medium text-ink backdrop-blur-sm transition-colors hover:border-brand/50 hover:text-brand-nav";
 
   return (
     <div className={`flex flex-wrap items-center gap-2.5 ${className}`}>

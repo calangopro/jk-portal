@@ -7,6 +7,7 @@ import { Container } from "@/components/layout/Container";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Pill } from "@/components/ui/Pill";
+import { grade } from "@/components/ui/grade";
 import { CampoDeBusca } from "@/components/busca/CampoDeBusca";
 import { SITE } from "@/lib/seo/site";
 import { IconeAlianca } from "./IconeAlianca";
@@ -98,19 +99,29 @@ function Widget({
 }
 
 function HeroDeBusca({ p }: { p: Record<string, unknown> }) {
-  const widgets = (
-    /*
-      Três widgets do MESMO tamanho, alinhados pela direita e com o mesmo
-      espaçamento entre eles.
+  /*
+    Os três atalhos ficam DENTRO do fluxo, em linha centralizada sob o campo de
+    busca. Antes eles saíam do fluxo e grudavam na borda direita da seção, mas
+    só a partir de 1280 px, e o resultado não era grid nenhum: o título estava
+    centrado no eixo da página e os cartões encostados na direita, sem relação
+    entre os dois, com um vazio grande à esquerda.
 
-      A primeira versão escalonava largura e recuo para imitar a área de
-      trabalho do macOS, e o resultado leu como desalinhamento, não como
-      intenção: cartão de widget ali é sempre da mesma família, o que varia é o
-      conteúdo. O que dá a sensação de flutuar é a sombra de duas camadas e o
-      fato de estarem fora do fluxo, não o desencontro.
-    */
+    Abaixo de 1280 px o preço era pior. Fora do Container, a pilha herdava o
+    recuo de baixo da seção MAIS o próprio `mt-12`, o que abria 112 px de nada
+    entre o fim da busca e o primeiro cartão e jogava o medidor para depois da
+    dobra no celular. O medidor é a ferramenta que converte no telefone, e ele
+    não aparecia sem rolar.
+
+    Na linha os três ainda passam a ter a mesma altura sem ninguém combinar
+    isso, porque item de grade estica até a altura da fileira. O terceiro cartão
+    não tem texto de apoio e vinha 16 px mais baixo que os outros dois, contra a
+    intenção declarada de família igual. Empilhado no celular cada um continua
+    com a altura do próprio conteúdo, que é o certo: ali não há fileira para
+    emparelhar, e altura forçada só abriria vão dentro do cartão.
+  */
+  const atalhos = (
     <div
-      className="mx-auto mt-12 flex max-w-6xl flex-col gap-3 px-5 sm:px-8 xl:absolute xl:inset-y-0 xl:right-6 xl:mx-0 xl:mt-0 xl:w-[17.5rem] xl:max-w-none xl:justify-center xl:px-0 2xl:right-12 2xl:w-[19rem]"
+      className="mx-auto mt-10 grid max-w-4xl gap-3 sm:grid-cols-3"
       aria-label="Atalhos"
       role="group"
     >
@@ -138,8 +149,11 @@ function HeroDeBusca({ p }: { p: Record<string, unknown> }) {
 
   return (
     <section className="grain relative overflow-hidden">
-      <Container size="wide" className="relative py-16 sm:py-24 xl:py-32">
-        <div className="mx-auto w-full max-w-[44rem] text-center xl:max-w-[38rem]">
+      {/* O recuo em xl era `py-32`, 256 px de folga para cerca de 340 px de
+          conteúdo. Espaço em branco emoldura o que é denso; sobrando demais ele
+          lê como página por terminar, não como página sofisticada. */}
+      <Container size="wide" className="relative py-14 sm:py-20 xl:py-24">
+        <div className="mx-auto w-full max-w-[44rem] text-center">
           <p className="eyebrow">{texto(p, "eyebrow", "Guia JK Alianças")}</p>
           {/* Sem animação de entrada: este h1 define o LCP, e começar em
               opacity 0 atrasa a métrica de graça. */}
@@ -157,11 +171,9 @@ function HeroDeBusca({ p }: { p: Record<string, unknown> }) {
             />
           </div>
         </div>
-      </Container>
 
-      {/* Fora do Container: assim os widgets se posicionam pela SEÇÃO e ocupam a
-          margem que sobra ao lado da coluna de leitura. */}
-      {widgets}
+        {atalhos}
+      </Container>
     </section>
   );
 }
@@ -171,7 +183,10 @@ function HeroDeBusca({ p }: { p: Record<string, unknown> }) {
 function UltimosConteudos({ p, guias }: { p: Record<string, unknown>; guias: Content[] }) {
   if (guias.length === 0) return null;
 
-  const quantos = numero(p, "quantidade", 6);
+  // Mesmo limite que a ajuda do campo promete no admin ("De 1 a 12"). O padrão
+  // de fábrica também é 6: estava gravado 5, contra o próprio conselho do campo
+  // de que múltiplo de 3 fecha a grade.
+  const quantos = Math.min(12, Math.max(1, Math.round(numero(p, "quantidade", 6))));
   const lista = guias.slice(0, quantos);
 
   return (
@@ -211,7 +226,7 @@ function UltimosConteudos({ p, guias }: { p: Record<string, unknown>; guias: Con
             <span aria-hidden className="hairline flex-1" />
             <Link
               href="/dicas"
-              className="shrink-0 text-apoio font-semibold text-brand-nav hover:underline"
+              className="alvo-44 shrink-0 text-apoio font-semibold text-brand-nav hover:underline"
             >
               {texto(p, "verTodos", "Ver todos")}
             </Link>
@@ -225,7 +240,7 @@ function UltimosConteudos({ p, guias }: { p: Record<string, unknown>; guias: Con
           excesso de espaço, não por falta de conteúdo. O cartão aguenta um
           item ou doze sem mudar de cara.
         */}
-        <ul className="mt-9 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        <ul className={`mt-9 grid gap-5 ${grade(lista.length, 3)}`}>
           {lista.map((g, i) => (
             <li key={g.id} className="rise" style={{ animationDelay: `${i * 70}ms` }}>
               <Card
@@ -259,6 +274,13 @@ function VitrineDeProdutos({
 }) {
   if (produtos.length === 0) return null;
 
+  // A página busca o teto de 12 e o corte mora aqui, senão o campo "Quantos
+  // produtos" do admin ficava na tela sem governar nada. O limite é o mesmo que
+  // a ajuda do campo promete, para valor estranho gravado no banco não virar
+  // carrossel de um item nem de cem.
+  const quantos = Math.min(12, Math.max(4, Math.round(numero(p, "quantidade", 10))));
+  const emCartaz = produtos.slice(0, quantos);
+
   return (
     <section>
       <Container size="wide" className="pb-14 sm:pb-20">
@@ -273,7 +295,7 @@ function VitrineDeProdutos({
               target="_blank"
               rel="noopener noreferrer"
               data-evento="clique_produto"
-              className="shrink-0 text-apoio font-semibold text-brand-nav hover:underline"
+              className="alvo-44 shrink-0 text-apoio font-semibold text-brand-nav hover:underline"
             >
               Ver a loja
             </a>
@@ -284,7 +306,7 @@ function VitrineDeProdutos({
         </p>
 
         <div className="mt-7">
-          <Vitrine produtos={produtos} rotuloBotao={texto(p, "botao", "Ver produto")} />
+          <Vitrine produtos={emCartaz} rotuloBotao={texto(p, "botao", "Ver produto")} />
         </div>
       </Container>
     </section>
@@ -312,7 +334,7 @@ function Trilhas({ p, guias }: { p: Record<string, unknown>; guias: Content[] })
         <p className="mt-2 max-w-[52ch] leading-relaxed text-muted">
           {texto(p, "subtitulo", "Escolha o assunto e comece por aí.")}
         </p>
-        <ul className="mt-7 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <ul className={`mt-7 grid gap-4 ${grade(contagem.size, 4)}`}>
           {[...contagem].map(([cluster, n]) => (
             <li key={cluster}>
               <Link
@@ -385,7 +407,7 @@ function Lojas({ p, lojas }: { p: Record<string, unknown>; lojas: Location[] }) 
           </h2>
           <div className="flex min-w-32 flex-1 items-baseline gap-4">
             <span aria-hidden className="hairline flex-1" />
-            <Link href="/lojas" className="shrink-0 text-apoio font-semibold text-brand-nav hover:underline">
+            <Link href="/lojas" className="alvo-44 shrink-0 text-apoio font-semibold text-brand-nav hover:underline">
               Ver as {lojas.length} lojas
             </Link>
           </div>

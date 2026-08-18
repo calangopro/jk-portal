@@ -36,27 +36,12 @@ const FORMATO_LONGO = new Intl.DateTimeFormat("pt-BR", {
   timeZone: "America/Sao_Paulo",
 });
 
-const FORMATO_CURTO = new Intl.DateTimeFormat("pt-BR", {
-  day: "2-digit",
-  month: "2-digit",
-  year: "numeric",
-  timeZone: "America/Sao_Paulo",
-});
-
 /** Data por extenso ("12 de agosto de 2026"). Fuso de São Paulo, como o admin. */
 export function dataLonga(iso: string | null | undefined): string | null {
   if (!iso) return null;
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return null;
   return FORMATO_LONGO.format(d);
-}
-
-/** Data curta ("12/08/2026"), para linhas de metadados apertadas. */
-export function dataCurta(iso: string | null | undefined): string | null {
-  if (!iso) return null;
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return null;
-  return FORMATO_CURTO.format(d);
 }
 
 /**

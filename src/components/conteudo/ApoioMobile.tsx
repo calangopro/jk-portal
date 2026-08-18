@@ -1,17 +1,19 @@
 import Link from "next/link";
-import Image from "next/image";
 import { Ruler, MapPin, ArrowRight } from "lucide-react";
-import type { Content } from "@/lib/content/types";
 
 /**
- * Blocos de apoio no celular: medidor, guias vizinhos e lojas.
+ * Blocos de apoio no celular: medidor e lojas.
  *
  * No desktop isso vive na coluna lateral. No celular entra aqui, logo depois do
  * artigo e ANTES dos comentários, porque todo o aparato de conversão ficava
  * escondido no fim da página, que é justamente onde está a maior parte do
  * tráfego.
+ *
+ * A lista de leitura saiu daqui: ela virou o "Leia também" do fim do artigo, que
+ * aparece em qualquer largura. Mantida nos dois lugares, o celular mostrava os
+ * mesmos quatro links duas vezes seguidas.
  */
-export function ApoioMobile({ outros }: { outros: Content[] }) {
+export function ApoioMobile() {
   return (
     <div className="mt-14 space-y-8 lg:hidden">
       <div className="relative overflow-hidden rounded-lg bg-charcoal p-6 text-white">
@@ -36,28 +38,6 @@ export function ApoioMobile({ outros }: { outros: Content[] }) {
         </div>
       </div>
 
-      {outros.length > 0 ? (
-        <div>
-          <p className="eyebrow">Continue lendo</p>
-          <ul className="mt-4 space-y-4">
-            {outros.map((g) => (
-              <li key={g.id}>
-                <Link href={`/${g.slug}`} className="group flex items-center gap-4">
-                  {g.capa ? (
-                    <span className="relative block h-16 w-24 shrink-0 overflow-hidden rounded-sm bg-media">
-                      <Image src={g.capa.url} alt={g.capa.alt || g.title} fill sizes="96px" className="object-cover" />
-                    </span>
-                  ) : null}
-                  <span className="block text-apoio font-medium leading-snug text-ink transition-colors group-hover:text-brand-nav">
-                    {g.title}
-                  </span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
-
       <div className="border-t border-border pt-6">
         <p className="eyebrow flex items-center gap-1.5">
           <MapPin size={12} aria-hidden /> Experimente na loja
@@ -67,7 +47,7 @@ export function ApoioMobile({ outros }: { outros: Content[] }) {
         </p>
         <Link
           href="/lojas"
-          className="mt-3 inline-flex items-center gap-1.5 text-apoio font-semibold text-brand-nav hover:underline"
+          className="alvo-44 mt-3 inline-flex items-center gap-1.5 text-apoio font-semibold text-brand-nav hover:underline"
         >
           Ver as lojas <ArrowRight size={13} aria-hidden />
         </Link>
