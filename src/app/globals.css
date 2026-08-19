@@ -1434,3 +1434,47 @@ h4 {
 .painel-conteudo:has([data-painel-largo]) {
   max-width: 84rem;
 }
+
+/* Barra de progresso da troca de página (components/ui/BarraDeRota.tsx).
+
+   Fica em `fixed` no topo, acima de tudo, inclusive do cabeçalho de vidro, que
+   é `z-40` no site e no painel. Ela cresce por `transform`, e não por `width`,
+   porque transform não recalcula layout: a barra anda no compositor e não
+   custa nada enquanto o servidor responde.
+
+   Está fora de qualquer `.glass`: `backdrop-filter` cria bloco de contenção e
+   um `fixed` lá dentro se ancoraria no cartão, não na janela. Essa armadilha já
+   custou uma tarde no visor 3D. */
+@layer components {
+  .barra-rota {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    z-index: 100;
+    pointer-events: none;
+  }
+
+  .barra-rota-trilho {
+    height: 100%;
+    width: 100%;
+    transform-origin: 0 50%;
+    background: linear-gradient(
+      90deg,
+      var(--color-brand-nav),
+      var(--color-brand) 55%,
+      var(--color-brand-light)
+    );
+    box-shadow: 0 0 10px -1px rgb(var(--jk-brand-rgb) / 0.75);
+    transition:
+      transform 200ms ease-out,
+      opacity 260ms ease-out 60ms;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .barra-rota-trilho {
+      transition: opacity 120ms linear;
+    }
+  }
+}

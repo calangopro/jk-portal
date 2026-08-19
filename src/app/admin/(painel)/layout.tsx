@@ -4,6 +4,7 @@ import { requireStaff, ROLE_LABEL } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { signOut } from "@/app/admin/login/actions";
 import { Navegacao } from "./Navegacao";
+import { BotaoSair } from "./BotaoSair";
 
 import { comBasePath } from "@/lib/seo/base-path";
 /**
@@ -66,12 +67,7 @@ export default async function PainelLayout({
                 <p className="text-xs leading-tight text-muted">{ROLE_LABEL[profile.role]}</p>
               </div>
               <form action={signOut}>
-                <button
-                  type="submit"
-                  className="rounded-full border border-ink/15 bg-white/50 px-4 py-2 text-sm font-medium text-ink transition-colors hover:border-brand/50 hover:text-brand-nav"
-                >
-                  Sair
-                </button>
+                <BotaoSair />
               </form>
             </div>
           </div>
