@@ -1,10 +1,12 @@
 "use client";
 
-import Link from "next/link";
+import Link, { useLinkStatus } from "next/link";
 import { usePathname } from "next/navigation";
+import type { LucideIcon } from "lucide-react";
 import {
   LayoutDashboard, FileText, ImageIcon, MessageCircle, Package,
   TrendingUp, Plug, Users, MapPin, PenLine, Palette, LayoutTemplate, BookCheck, ListChecks, CalendarDays, Milestone,
+  Loader2,
 } from "lucide-react";
 
 /**
@@ -57,13 +59,45 @@ const GRUPOS = [
   },
 ];
 
+/**
+ * Ícone do item, que vira giro enquanto a página não chega.
+ *
+ * O clique no painel abre rota dinâmica (sessão e consulta ao Supabase em toda
+ * visita), então existe um intervalo real entre clicar e ver. Sem isto a tela
+ * fica parada e a pessoa clica de novo.
+ *
+ * `useLinkStatus` só funciona DENTRO do Link, por isso o ícone é um componente
+ * separado em vez de um `if` lá em cima. O `data-carregando` existe para o
+ * próprio Link poder se pintar por `:has()`, já que o pai não enxerga o estado
+ * do filho de outro jeito.
+ */
+function IconeDoItem({ Icone }: { Icone: LucideIcon }) {
+  const { pending } = useLinkStatus();
+
+  if (!pending) return <Icone size={15} className="shrink-0" />;
+
+  return (
+    <>
+      <Loader2
+        size={15}
+        className="shrink-0 animate-spin text-brand-nav"
+        data-carregando=""
+        aria-hidden="true"
+      />
+      <span className="sr-only">Carregando</span>
+    </>
+  );
+}
+
 export function Navegacao({ pendentes }: { pendentes: number }) {
   const caminho = usePathname();
   const ativo = (href: string) =>
     href === "/admin" ? caminho === "/admin" : caminho.startsWith(href);
 
+  // O `:has()` deixa o link inteiro reagir ao giro que mora dentro dele.
   const base =
-    "group flex items-center gap-2.5 rounded-[10px] px-3 py-2 text-sm transition-colors";
+    "group flex items-center gap-2.5 rounded-[10px] px-3 py-2 text-sm transition-colors " +
+    "[&:has([data-carregando])]:bg-brand/12 [&:has([data-carregando])]:text-brand-strong";
 
   return (
     <nav aria-label="Administração" className="space-y-6">
@@ -75,7 +109,7 @@ export function Navegacao({ pendentes }: { pendentes: number }) {
             : "text-ink/75 hover:bg-brand/10 hover:text-brand-nav"
         }`}
       >
-        <LayoutDashboard size={15} className="shrink-0" />
+        <IconeDoItem Icone={LayoutDashboard} />
         <span className="font-medium">Visão geral</span>
       </Link>
 
@@ -98,7 +132,7 @@ export function Navegacao({ pendentes }: { pendentes: number }) {
                         : "text-ink/75 hover:bg-brand/8 hover:text-brand-nav"
                     }`}
                   >
-                    <Icone size={15} className="shrink-0" />
+                    <IconeDoItem Icone={Icone} />
                     <span className="min-w-0 flex-1">
                       <span className="block font-medium leading-tight">{label}</span>
                       <span className="block text-[0.68rem] leading-tight text-muted">{desc}</span>

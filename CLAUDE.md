@@ -315,6 +315,25 @@ docs/                identidade-visual-jk.md (marca)
   ferramentas e a tabela do comparador. A abertura de jornal agora pede a classe
   `abertura`, que só entra no primeiro pedaço de texto e só quando o guia não tem
   linha de apoio no cabeçalho.
+- **Barra de progresso da rota tem que escutar o clique na CAPTURA.** O
+  `next/link` chama `preventDefault()` no próprio clique para trocar a página
+  pelo lado do cliente, então um ouvinte na fase de bolha recebe todo link
+  interno já com `defaultPrevented` e desiste. A primeira versão de
+  `BarraDeRota.tsx` era assim e nunca desenhou barra nenhuma, sem erro no
+  console e sem nada quebrado: só não aparecia. Na captura passamos antes do
+  React. O preço é não saber se alguém vai cancelar o clique depois, e por isso
+  existe o prazo de `DESISTIR`.
+- **Quem termina a espera é o `usePathname`, e ele só muda no commit.** Foi
+  medido: em rota fria o caminho troca ao fim da navegação, não no clique. Nas
+  rotas do admin, que têm `loading.tsx`, o commit é o esqueleto entrando, então
+  a barra encerra exatamente quando o esqueleto assume. É a passagem de bastão
+  que faz a espera parecer curta.
+- **`loading.tsx` em rota dinâmica não é enfeite, é o que liga o prefetch.** O
+  padrão do `next/link` (`prefetch` nulo) só busca de rota dinâmica até o
+  primeiro `loading.tsx`. Sem esse arquivo, o Next não busca NADA antes do
+  clique, para não puxar árvore demais, e a tela fica congelada na página
+  anterior até o servidor responder. Com ele, o esqueleto já está na mão quando
+  a pessoa clica.
 
 ## Convenções & regras
 - **Idioma do produto e do conteúdo: pt-BR.**
@@ -495,6 +514,20 @@ pergunta que o site não mostra. Resposta cujo pai saiu do ar não sobe para a
 lista de cima: `comentariosAprovados` monta o fio e descarta órfã. Quem escreveu
 uma resposta errada apaga por `apagarResposta`, que só encosta em linha com
 perfil, ou seja, nunca em comentário de visitante.
+
+✅ **Resposta ao clique (18/08):** o painel não dava sinal nenhum entre clicar
+e a página aparecer, o que fazia rota de 300 ms parecer site travado e levava a
+pessoa a clicar duas vezes. São três camadas, e cada uma cobre um pedaço da
+espera. **Barra de progresso** no topo (`components/ui/BarraDeRota.tsx`, montada
+no layout raiz), que vale para o site e para o admin, aparece só depois de 90 ms
+(navegação instantânea não pisca barra) e nunca enche sozinha, porque barra que
+chega ao fim antes da página promete o que não pode cumprir. **Giro no item do
+menu** do admin, por `useLinkStatus` dentro do próprio Link, que responde em
+zero e diz QUAL item foi clicado. **Esqueleto por rota**, em
+`admin/(painel)/loading.tsx`, em `admin/(painel)/conteudos/[id]/loading.tsx` (o
+editor, que é a rota mais pesada) e em `(site)/busca/loading.tsx` (a única
+rota pública que consulta o banco a cada visita). O botão "Sair" do cabeçalho
+do painel era o último sem estado de espera e ganhou `useFormStatus`.
 
 🔲 **A construir:** conteúdo (só 1 guia publicado), OAuth do Search Console e do GMB, deploy na Vercel.
 ⚠️ **Pendências:** **preencher o endereço do portal em `site_settings.cron`, COM o prefixo**

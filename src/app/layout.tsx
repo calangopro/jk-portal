@@ -4,6 +4,7 @@ import "./globals.css";
 import { SITE } from "@/lib/seo/site";
 import { lerTema } from "@/lib/tema/ler";
 import { cssDoTema, hashDoTema } from "@/lib/tema/css";
+import { BarraDeRota } from "@/components/ui/BarraDeRota";
 
 /**
  * Fontes auto-hospedadas pelo next/font.
@@ -108,7 +109,12 @@ export default async function RootLayout({
         precedence="tema"
         dangerouslySetInnerHTML={{ __html: css }}
       />
-      <body>{children}</body>
+      <body>
+        {/* Aviso de "estou indo", no site e no painel. Fica no layout raiz
+            porque o clique pode partir de qualquer link da árvore. */}
+        <BarraDeRota />
+        {children}
+      </body>
     </html>
   );
 }
