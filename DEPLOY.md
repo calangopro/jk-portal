@@ -2,6 +2,14 @@
 
 Como colocar o portal no ar. Passo a passo, sem pular etapa.
 
+> **Onde ele está hoje (19/08/2026):** publicado na Vercel, respondendo em
+> https://jk-portal.vercel.app/guias
+>
+> As etapas 1, 2 e 3 estão cumpridas. A 4 está **travada** no acesso ao Registro.br, que
+> a Kathleen ainda vai passar: sem ele não dá para trocar os nameservers para a
+> Cloudflare, e nenhum registro de DNS foi alterado até agora. As etapas 5 e 6 valem
+> desde já, com o endereço temporário no lugar do domínio final.
+
 ## Antes de tudo
 
 O build de produção precisa passar localmente:
@@ -32,7 +40,7 @@ Configure separadamente em Development, Preview e Production.
 
 | Variável | Onde usar | Observação |
 |---|---|---|
-| `NEXT_PUBLIC_SITE_URL` | todos | **Só a origem, sem `/guias` e sem barra no fim.** Em produção, `https://www.jkaliancas.com.br`. O prefixo é somado por `absoluteUrl()`. Sem esta variável, canonical e sitemap saem apontando para localhost. |
+| `NEXT_PUBLIC_SITE_URL` | todos | **Só a origem, sem `/guias` e sem barra no fim.** Hoje é `https://jk-portal.vercel.app`, e vira `https://www.jkaliancas.com.br` no dia da virada. O prefixo é somado por `absoluteUrl()`. Sem esta variável, canonical e sitemap saem apontando para localhost. |
 | `NEXT_PUBLIC_SUPABASE_URL` | todos | Pública. |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | todos | Pública, protegida por RLS. |
 | `SUPABASE_SERVICE_ROLE_KEY` | servidor | **Secreta.** Convite de editores e sincronização. |
@@ -60,13 +68,20 @@ O Worker precisa repassar `/guias/*` **sem tirar o prefixo**. Se ele reescrever
 para a raiz da Vercel, todas as rotas quebram, porque o aplicativo espera o
 `/guias`. Todo o resto do domínio continua indo para a Tray.
 
-Ordem segura: publicar na Vercel, homologar em `https://<projeto>.vercel.app/guias`
+Ordem segura: publicar na Vercel, homologar em `https://jk-portal.vercel.app/guias`
 e só então ligar o Worker, com plano de rollback (desligar a rota do Worker
-devolve tudo para a Tray na hora). Nunca trocar nameserver por causa disso.
+devolve tudo para a Tray na hora).
+
+Uma parte pode ser adiantada sem risco nenhum, e vale fazer antes: criar o Worker e
+testar num endereço `workers.dev`. Isso não encosta no domínio da loja. O que precisa
+esperar os nameservers é só pendurar a rota `www.jkaliancas.com.br/guias*` nele.
+
+O Worker consulta `https://jk-portal.vercel.app` como origem, e repassa o `/guias` **sem
+remover o prefixo**.
 
 ## 5. Depois de publicar
 
-1. Confira `https://<projeto>.vercel.app/guias`, e também
+1. Confira `https://jk-portal.vercel.app/guias`, e também
    `/guias/sitemap.xml` e `/guias/robots.txt`.
 2. **O `robots.txt` do portal não governa o domínio.** Rastreador só lê na raiz
    do host, e a raiz é da Tray. Peça para incluírem no robots.txt da loja:

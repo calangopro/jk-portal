@@ -348,7 +348,14 @@ docs/                identidade-visual-jk.md (marca)
 - **Soft-delete / desativar** em vez de apagar — preservar histórico.
 - Secrets: `service_role` e tokens da Tray **jamais** com prefixo `NEXT_PUBLIC_`. `.env.local` não é versionado.
 
-## Estado atual (12/08/2026)
+## Estado atual (19/08/2026)
+
+🟢 **O portal está NO AR**, em endereço temporário da Vercel:
+**https://jk-portal.vercel.app/guias**
+A virada para `www.jkaliancas.com.br/guias` está travada no acesso ao Registro.br, que a
+Kathleen ainda vai passar. **Nenhum registro de DNS foi alterado e nenhum Worker do
+Cloudflare foi criado.** Isso não bloqueia nada do trabalho editorial: dá para escrever,
+revisar e publicar no endereço temporário desde já.
 ✅ **Público:** home, `/dicas`, `/[slug]`, `/lojas`, `/lojas/[slug]`, `/medidor-de-aliancas`, robots/sitemap/llms.txt, JSON-LD, compartilhamento.
 ✅ **Estrutura:** `src/app/(site)/` = público, `src/app/admin/(painel)/` = protegido, `src/app/layout.tsx` = só html/body/fontes.
 ✅ **Supabase:** 36 migrations aplicadas e em arquivo, 22 tabelas com RLS, bucket `media`.
@@ -529,8 +536,8 @@ editor, que é a rota mais pesada) e em `(site)/busca/loading.tsx` (a única
 rota pública que consulta o banco a cada visita). O botão "Sair" do cabeçalho
 do painel era o último sem estado de espera e ganhou `useFormStatus`.
 
-🔲 **A construir:** conteúdo (só 1 guia publicado), OAuth do Search Console e do GMB, deploy na Vercel.
-⚠️ **Pendências:** **preencher o endereço do portal em `site_settings.cron`, COM o prefixo**
+🔲 **A construir:** conteúdo (só 1 guia publicado, e é o gargalo de resultado), OAuth do Search Console e do GMB, virada do domínio (travada no Registro.br).
+⚠️ **Pendências (nenhuma delas resolvida até 19/08):** **preencher o endereço do portal em `site_settings.cron`, COM o prefixo**
 (`update public.site_settings set value = jsonb_build_object('url','https://SEU-DOMINIO/guias') where key='cron';`).
 O SQL faz `url || '/api/cron/publicar'`, e o endpoint vive sob `/guias`.
 Sem isso o job `publicar-agendados` do `pg_cron` roda de 5 em 5 minutos e não faz
@@ -545,7 +552,8 @@ O advisor acusa `pg_net` instalado no schema `public`: fica assim de propósito,
 porque a extensão **não aceita `set schema`** e a única saída seria derrubar e
 recriar, o que quebraria a publicação agendada por uma advertência cosmética.
 As funções dela vivem em `net`, que é onde o cron as chama. Projeto sem `eslint.config.js`,
-então o lint não roda. README desatualizado.
+então o lint não roda. **Cadastrar o webhook da Tray** no painel da loja, apontando para
+`https://SEU-DOMINIO/guias/api/tray/webhook?secret=SEU_SEGREDO`.
 ⚠️ **Depende da JK:** fotos das lojas, horário confirmado de sete unidades, história por unidade, avaliações reais do GMB, razão social e CNPJ.
 
 ## Regras de dado que o código faz valer
