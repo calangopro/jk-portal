@@ -128,9 +128,12 @@ Prioridades seguintes: **P2** casamento e noivado · **P3** ouro e alternativas 
 
 ---
 
-## 7. O Admin / CMS (a grande peça a construir)
+## 7. O Admin / CMS (construído, ver o que sobrou no fim da seção)
 
 Objetivo: **"É possível criar, revisar, publicar, medir e atualizar conteúdo sem precisar de um dev a cada página."** Um "canal de notícias perfeito" para conteúdo de joalheria.
+
+> **Este objetivo foi cumprido.** O que está descrito abaixo existe e funciona, com as
+> exceções listadas em 7.6. O retrato item a item está em [`ESTADO.md`](ESTADO.md).
 
 ### 7.1 Usuários, papéis e segurança
 - **Cadastro só por convite** (sem signup público). **MFA** para admins.
@@ -157,22 +160,71 @@ Painel lateral no editor que pontua o conteúdo **em tempo real** e sugere melho
 - Dashboard mensal: conteúdos publicados, páginas indexadas, impressões, cliques orgânicos, novas buscas em que a JK aparece, páginas em maior crescimento, posições conquistadas, conteúdos perto da 1ª página.
 - **Integrações:** Google **Search Console** (dados de busca), **GA4** (comportamento), **GTM** (tags/eventos). Rastreio de cliques para produto, WhatsApp, telefone, rota e loja; UTMs por unidade/origem; comparação com baseline.
 
+### 7.6 O que desta seção ainda não existe
+
+- **MFA para admins** e **papéis diferenciados na prática.** As roles existem no banco,
+  mas hoje uma pessoa escreve sozinha. Passa a valer quando entrar redator externo.
+- **`audit_logs`.** A tabela `revisions` já grava quem editou o quê e quando, e com
+  poucos usuários nomeados um log separado é registro que ninguém vai ler.
+- **OAuth do Search Console e do Google Meu Negócio.** Hoje as métricas entram por
+  importação do CSV do Search Console, que funciona mas é manual.
+
+### 7.7 O que foi construído além do previsto aqui
+
+- **Base de fatos.** O fato é escrito uma vez, com fonte, e citar dentro do editor cria
+  a linha de `sources` que destrava a publicação.
+- **Fila de pautas** lendo o Search Console e ordenando por impressão alta com CTR
+  baixo, com recusa de pauta que canibaliza página existente.
+- **Ferramentas próprias** (medidor, conversor de tamanhos, simulador de largura e
+  comparador de materiais com aliança em 3D), que se declaram uma vez no código e
+  aparecem sozinhas no menu, no sitemap e dentro do editor.
+- **Redirects** com a fila dos endereços quebrados que alguém abriu.
+- **Resposta da loja no comentário**, assinada como JK Alianças, com a trava no banco.
+- **Aparência e home editáveis** pelo admin, sem tocar em código.
+
 ---
 
 ## 8. Modelo de dados (Supabase — resumo)
 
-Tabelas-chave (todas com RLS, soft-delete, histórico): `contents`, `content_links`, `content_products`, `sources`, `locations`, `reviews`, `redirects`, `products`/`product_variants`/`categories` (leitura sincronizada da Tray), `attributes`, `sales_snapshots`, `sync_logs`, `revisions`, `audit_logs`, `comments` (novo), `users`/`roles`. A Tray é sincronizada **somente leitura** via API + webhooks; nunca escrevemos preço/estoque.
+22 tabelas, todas com RLS, soft-delete e histórico. As principais: `contents`,
+`content_links`, `content_products`, `content_media`, `sources`, `facts` (base de
+fatos), `briefings` (pautas), `locations`, `reviews`, `redirects`, `not_found_hits`,
+`products`/`product_variants`/`categories` (leitura sincronizada da Tray),
+`analytics_snapshots`, `sync_logs`, `revisions`, `comments`, `profiles`,
+`site_settings` e `integration_tokens`.
+
+A Tray é sincronizada **somente leitura**; nunca escrevemos preço nem estoque. A lista
+viva das migrations está em `supabase/migrations/`, e toda migration aplicada precisa
+existir como arquivo.
 
 ---
 
 ## 9. Estado atual (o que já existe e funciona)
 
-✅ **Portal público já roda** (Next.js 15 + Supabase, Node 22): home, `/dicas`, `/[slug]` (com "resposta rápida" + FAQ), `/lojas`, `/lojas/[slug]`, `robots`, `sitemap`, `llms.txt`, JSON-LD (Article/Breadcrumb/Organization/JewelryStore/FAQ), tokens de marca (dourado + Montserrat), fallback com dados de exemplo quando o banco está vazio.
-✅ Migrations Supabase base: `contents`, `locations`, `sources`, `redirects`, `content_links` + RLS.
+> Esta seção é o resumo. O retrato completo, com o que falta e em que ordem, vive em
+> [`ESTADO.md`](ESTADO.md), que é atualizado a cada rodada.
 
-🔲 **Falta construir:** admin/CMS inteiro (§7), estética glassmorphism (§4), conteúdo real do cluster namoro (§6), integrações GSC/GA4/GTM, comentários, analisador SEO/GEO, sincronização com a Tray, deploy na Vercel.
+✅ **O portal está no ar**, em endereço temporário da Vercel:
+https://jk-portal.vercel.app/guias
 
-⚠️ Pequenos ajustes pendentes: título duplicado ("| JK Alianças | JK Alianças"), imagem `/og/default.png` e favicon faltando, README desatualizado.
+✅ **Site público completo:** home, `/dicas`, `/[slug]`, `/lojas`, `/lojas/[slug]`,
+`/medidor-de-aliancas`, `/ferramentas` e as três ferramentas, `/autor/[slug]`, `/busca`,
+404 e 410 com a marca, `robots`, `sitemap`, `llms.txt` e JSON-LD real.
+
+✅ **Admin completo** (§7): editor em blocos, analisador de SEO e GEO ao vivo, trava de
+publicação, agendamento, base de fatos, fila de pautas, histórico de versões,
+comentários com resposta da casa, mídia, produtos, lojas, métricas, integrações,
+redirects, autores e usuários.
+
+✅ **Banco:** 36 migrations aplicadas e em arquivo, 22 tabelas com RLS, 1.110 produtos
+sincronizados da Tray.
+
+✅ **10 lojas físicas publicadas**, com endereço, telefone, WhatsApp, mapa e rota.
+
+🔲 **Falta:** **conteúdo** (um guia publicado), a **virada para o domínio da JK** (que
+depende do acesso ao Registro.br, ainda com a Kathleen), OAuth do Search Console e do
+Google Meu Negócio, e os **materiais da JK** (fotos das lojas, horário de sete unidades,
+avaliações reais, razão social e CNPJ).
 
 ---
 
@@ -187,13 +239,24 @@ Tabelas-chave (todas com RLS, soft-delete, histórico): `contents`, `content_lin
 
 ## 11. Roadmap sugerido (por fases)
 
-1. **Fase 0 — Base (feito):** portal público rodando, arquitetura SEO, dados de exemplo.
-2. **Fase 1 — Estética:** aplicar o design glassmorphism/luxo em todo o público; corrigir OG/favicon/título; deploy na Vercel (Pro, preview por PR, admin noindex).
-3. **Fase 2 — Admin & Auth:** login por convite, papéis/RLS, CRUD de conteúdo e lojas, workflow editorial, gate de publicação.
-4. **Fase 3 — Conteúdo real:** cluster **alianças de namoro** com fontes JK; conectar Supabase real; páginas locais das 10 lojas.
-5. **Fase 4 — Inteligência:** analisador SEO/GEO ao vivo, comentários + moderação, compartilhamento.
-6. **Fase 5 — Medição:** dashboard, integração GSC/GA4/GTM, rastreio de cliques, baseline e comparação mensal.
-7. **Fase 6 — Tray:** sincronização de catálogo (somente leitura) via API + webhooks.
+1. **Fase 0, base: FEITO.** Portal público rodando, arquitetura SEO.
+2. **Fase 1, estética: FEITO.** Design aplicado no público, com camada editorial (capa
+   de revista na entrada, corpo de jornal na leitura). Deploy na Vercel feito, com
+   preview por Pull Request e admin em noindex.
+3. **Fase 2, admin e auth: FEITO.** Login por convite, papéis e RLS, CRUD de conteúdo e
+   lojas, fluxo editorial e trava de publicação.
+4. **Fase 3, conteúdo real: EM ABERTO, e é a prioridade.** As 10 páginas de loja estão
+   no ar e o Supabase é real, mas o cluster de alianças de namoro ainda não foi escrito.
+   É o único item da lista onde software não resolve nada.
+5. **Fase 4, inteligência: FEITO.** Analisador ao vivo, comentários com moderação e
+   resposta da casa, compartilhamento com imagem própria por guia.
+6. **Fase 5, medição: PARCIAL.** Painel e importação do Search Console funcionam, e os
+   eventos de clique estão prontos no código. Falta o GA4 e o GTM conectados, que
+   dependem de acesso da JK, e o OAuth para aposentar o CSV manual.
+7. **Fase 6, Tray: FEITO.** 1.110 produtos sincronizados em somente leitura. Falta
+   cadastrar o webhook no painel da loja e ligar a reconciliação diária.
+8. **Fase 7, domínio: TRAVADA.** Depende do acesso ao Registro.br para trocar os
+   nameservers e ligar o Worker que serve `/guias` no domínio da JK.
 
 ---
 
