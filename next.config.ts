@@ -44,6 +44,51 @@ const nextConfig: NextConfig = {
    */
   basePath: BASE_PATH,
   distDir: process.env.BUILD_DIR || ".next",
+  experimental: {
+    serverActions: {
+      /**
+       * Hosts públicos por onde o portal é acessado, para a checagem de CSRF de
+       * Server Action aceitar a ação.
+       *
+       * O Next compara o host do cabeçalho `Origin` (o que o NAVEGADOR mandou,
+       * ou seja, o endereço na barra) com o host da própria aplicação, que ele
+       * tira de `x-forwarded-host`. Atrás do proxy do Cloudflare os dois deixam
+       * de bater: o navegador diz `www.jkaliancas.com.br` e a Vercel reescreve
+       * `x-forwarded-host` com o host DELA, `jk-portal.vercel.app`. A ação é
+       * recusada e o login do painel responde 500, com
+       * "Invalid Server Actions request" no log.
+       *
+       * Mandar `x-forwarded-host` pelo Worker não resolve: a Vercel sobrescreve
+       * o cabeçalho. Já foi testado e confirmado no log, então a correção mora
+       * aqui.
+       *
+       * Isto NÃO desliga a proteção, apenas soma hosts conhecidos à lista de
+       * quem pode invocar a ação. Sem curinga amplo, de propósito.
+       *
+       * Três regras que a doc impõe e que o formato abaixo respeita:
+       * 1. vale o HOST, então vai sem `https://`, sem barra no fim e sem caminho;
+       * 2. entrada sem curinga não cobre subdomínio, por isso a raiz e o `www`
+       *    são duas linhas separadas, e não uma;
+       * 3. `jk-portal.vercel.app` fica FORA da lista porque ali o acesso é
+       *    direto: `Origin` e `x-forwarded-host` são o mesmo host e a checagem
+       *    passa sozinha.
+       *
+       * No 15.5 a chave vive dentro de `experimental` (conferido em
+       * node_modules/next/dist/server/config-shared.d.ts, interface
+       * `ExperimentalConfig`). Ela já mudou de lugar entre versões, então ao
+       * subir de major confira o tipo antes, senão o Next ignora em silêncio e
+       * o 500 volta.
+       */
+      allowedOrigins: [
+        // Endereço de teste do Worker, que é por onde o proxy responde hoje.
+        "jk-guias.jkaliancasmkt.workers.dev",
+        // Endereço definitivo, para o dia da virada do domínio.
+        "www.jkaliancas.com.br",
+        // Raiz sem `www`, que é o que responde a link velho e a redirecionamento.
+        "jkaliancas.com.br",
+      ],
+    },
+  },
   images: {
     remotePatterns: [
       ...(host
