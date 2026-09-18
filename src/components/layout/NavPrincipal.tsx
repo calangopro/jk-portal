@@ -5,6 +5,25 @@ import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Menu, X, ChevronDown } from "lucide-react";
 import { SimboloDaFerramenta } from "@/components/ferramentas/Simbolo";
+import { Button } from "@/components/ui/Button";
+import { SITE } from "@/lib/seo/site";
+
+/**
+ * Saída para a loja, no cabeçalho.
+ *
+ * O portal e a loja são a mesma marca em dois endereços, e até 17/09/2026 a
+ * ligação entre eles era de mão única e fraca: a loja não linkava o portal em
+ * nenhuma página, e o portal só devolvia pelo rodapé. Quem chega em um guia
+ * pelo Google não tem o que fazer depois de ler.
+ *
+ * O rótulo é "Comprar alianças" e não "Loja" por causa do vizinho: o item
+ * "Lojas" da navegação é a rede de lojas FÍSICAS, e dois itens quase iguais no
+ * mesmo cabeçalho mandam a pessoa para o lugar errado.
+ */
+const LOJA = {
+  href: `${SITE.lojaUrl}?utm_source=portal&utm_medium=cabecalho`,
+  rotulo: "Comprar alianças",
+};
 
 export type SubItemNav = {
   href: string;
@@ -214,6 +233,21 @@ export function NavPrincipal({ itens }: { itens: ItemNav[] }) {
               </li>
             ),
           )}
+
+          {/* A saída para a loja fecha a barra, depois do conteúdo. Ela é a
+              única ação da navegação, então vem como botão e não como mais um
+              link de texto, senão some no meio dos outros quatro. */}
+          <li>
+            <Button
+              href={LOJA.href}
+              externo
+              size="sm"
+              data-evento="clique_produto"
+              data-destino="cabecalho"
+            >
+              {LOJA.rotulo}
+            </Button>
+          </li>
         </ul>
       </nav>
 
@@ -297,6 +331,19 @@ export function NavPrincipal({ itens }: { itens: ItemNav[] }) {
                   </li>
                 ))}
               </ul>
+
+              {/* No celular a gaveta é a navegação inteira, então a saída para
+                  a loja precisa estar aqui dentro. Largura cheia porque é o
+                  último elemento e o polegar chega nele. */}
+              <Button
+                href={LOJA.href}
+                externo
+                className="mt-5 w-full"
+                data-evento="clique_produto"
+                data-destino="gaveta"
+              >
+                {LOJA.rotulo}
+              </Button>
             </nav>
           </div>
         </div>
