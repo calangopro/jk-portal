@@ -140,6 +140,43 @@ const nextConfig: NextConfig = {
           //
           // Não perdemos nada hoje: Vercel e Cloudflare já servem só HTTPS.
           //
+          // NOINDEX EM TUDO, e quem libera é o proxy. Lido ao contrário parece
+          // errado, então vale a explicação inteira.
+          //
+          // O portal responde por dois endereços: www.jkaliancas.com.br/guias,
+          // que é o público, e jk-portal.vercel.app/guias, que é a origem e
+          // está aberta para qualquer um. O segundo é conteúdo duplicado do
+          // primeiro, e o canonical sozinho é dica, não trava.
+          //
+          // O caminho óbvio seria emitir o noindex só quando o host fosse o da
+          // Vercel. Não funciona, e o teste está registrado: a Vercel recebe
+          // `Host: jk-portal.vercel.app` MESMO no tráfego real, porque o Worker
+          // faz `new Request` para esse endereço e o domínio da JK não está
+          // cadastrado no projeto (com `Host: www.jkaliancas.com.br` a Vercel
+          // responde DEPLOYMENT_NOT_FOUND). `x-forwarded-host` também não
+          // serve: a Vercel sobrescreve com o host dela, o que já custou o 500
+          // do login e está documentado em `allowedOrigins` acima. Ou seja, a
+          // aplicação NÃO consegue saber por qual endereço está sendo servida.
+          //
+          // Então a regra vira: é indexável o que passa pelo proxy. O Worker
+          // apaga este cabeçalho na resposta, do mesmo jeito que já apaga o
+          // HSTS. O que não passa por ele (endereço .vercel.app, prévia de
+          // branch, qualquer domínio novo apontado para cá sem proxy) continua
+          // com o noindex e some do Google sozinho.
+          //
+          // As duas pontas se conferem em uma requisição:
+          //   curl -sI https://www.jkaliancas.com.br/guias | grep -i x-robots
+          //     -> vazio, a página é indexável
+          //   curl -sI https://jk-portal.vercel.app/guias  | grep -i x-robots
+          //     -> noindex
+          //
+          // Se a primeira linha passar a devolver `noindex`, o site inteiro
+          // está saindo do índice: é o `headers.delete("X-Robots-Tag")` que
+          // sumiu do Worker (fonte versionada em infra/cloudflare/worker.js).
+          //
+          // Sem `nofollow` de propósito: o objetivo é tirar a cópia do índice,
+          // não impedir que o rastreador siga os links e chegue ao canonical.
+          { key: "X-Robots-Tag", value: "noindex" },
           // Impede o navegador de adivinhar o tipo do arquivo, que é como um
           // upload vira script executável.
           { key: "X-Content-Type-Options", value: "nosniff" },
