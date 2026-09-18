@@ -52,7 +52,15 @@ export function Medidor({ children }: { children?: ReactNode }) {
         const s = JSON.parse(bruto) as Salvo;
         if (s.pxPorMm > 0) {
           setPxPorMm(s.pxPorMm);
-          setReferencia(s.referencia);
+          // `localStorage` é dado de fora, e dado de fora se confere. Sem este
+          // teste, um registro gravado por versão antiga, ou escrito à mão, ou
+          // truncado, entrava com `referencia` indefinida, e algumas linhas
+          // abaixo `REFERENCIAS[referencia].nome` derrubava o medidor inteiro
+          // com "Algo deu errado". A calibração continua valendo: só o nome do
+          // objeto volta ao padrão.
+          if (s.referencia && s.referencia in REFERENCIAS) {
+            setReferencia(s.referencia);
+          }
           setLarguraSalva(s.largura ?? null);
           if (s.diametroMm) {
             setDiametroMm(s.diametroMm);
@@ -133,7 +141,9 @@ export function Medidor({ children }: { children?: ReactNode }) {
   };
 
   const aro = aroRecomendado(diametroMm);
-  const ref = REFERENCIAS[referencia];
+  // Nunca indefinido, mesmo que algum caminho novo escreva uma chave estranha:
+  // esta tela não vale um erro em cima da pessoa que já calibrou.
+  const ref = REFERENCIAS[referencia] ?? REFERENCIAS.moeda;
   const Icone = referencia === "moeda" ? Coins : CreditCard;
 
   // A calibração vale para o tamanho de tela em que foi feita. Se a janela
