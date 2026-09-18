@@ -16,6 +16,7 @@ import { buildMetadata } from "@/lib/seo/metadata";
 import { SITE, absoluteUrl } from "@/lib/seo/site";
 import { breadcrumbSchema, faqPageSchema, howToSchema, webPageSchema } from "@/lib/schema/builders";
 import { comDestaque } from "@/components/ui/Destaque";
+import { separarPrimeiraFrase } from "@/lib/texto/primeira-frase";
 
 export const revalidate = 86400;
 export const dynamicParams = false;
@@ -117,9 +118,27 @@ export default async function FerramentaPage({ params }: { params: Promise<{ slu
               No celular ela vem em corpo, não em lede: em serifada grande a
               resposta virava treze linhas e empurrava a ferramenta inteira para
               fora da primeira tela. O texto é o mesmo, o GEO não muda. */}
-          <p className="linha-apoio mt-4 text-corpo leading-relaxed sm:mt-5 sm:text-lede">
-            {f.resposta}
-          </p>
+          {/* A resposta inteira, em dois tempos. Nada foi cortado: este mesmo
+              campo alimenta o llms.txt e a `descricao` do schema HowTo, então
+              encurtar para caber melhor tiraria conteúdo de dois lugares feitos
+              para máquina ler. O que muda é o ritmo. Em bloco único ela vinha
+              como oito linhas de parágrafo antes da ferramenta, e parágrafo
+              longo em corpo grande ninguém lê: pula. */}
+          {(() => {
+            const [abertura, detalhe] = separarPrimeiraFrase(f.resposta);
+            return (
+              <>
+                <p className="linha-apoio mt-4 text-corpo leading-relaxed sm:mt-5 sm:text-lede">
+                  {abertura}
+                </p>
+                {detalhe ? (
+                  <p className="mt-3 max-w-[62ch] text-corpo leading-relaxed text-muted">
+                    {detalhe}
+                  </p>
+                ) : null}
+              </>
+            );
+          })()}
           <div className="filete-dourado mt-7" />
         </div>
 
