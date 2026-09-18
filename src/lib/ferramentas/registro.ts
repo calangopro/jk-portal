@@ -33,6 +33,14 @@ export type Ferramenta = {
   nome: string;
   /** H1 da página. */
   titulo: string;
+  /**
+   * A palavra do `titulo` que sai em serifada itálica.
+   *
+   * Escolhida à mão, e é a palavra que carrega o SENTIDO da ferramenta, não a
+   * primeira nem a mais bonita: quem chega aqui procurou "tamanho", "largura"
+   * ou "materiais". Sem este campo o título sai todo em sans, que é o padrão.
+   */
+  destaque?: string;
   /** Título da aba e da busca, até 60 caracteres. */
   metaTitle: string;
   metaDescription: string;
@@ -43,6 +51,14 @@ export type Ferramenta = {
   resposta: string;
   /** Uma linha para o card e para o bloco dentro do artigo. */
   chamada: string;
+  /**
+   * O verbo do botão que abre a ferramenta.
+   *
+   * "Abrir ferramenta" é rótulo de índice, e foi justamente o que fazia a
+   * página não parecer um conjunto de ferramentas: o botão dizia o que ele era
+   * em vez de dizer o que faz. Aqui cada uma promete a própria ação.
+   */
+  acao: string;
   /** Vira `HowTo` quando existe. */
   passos?: { nome: string; texto: string }[];
   faqs: { question: string; answer: string }[];
@@ -53,8 +69,10 @@ export type Ferramenta = {
 export const FERRAMENTAS: Ferramenta[] = [
   {
     slug: "conversor-de-aros",
+    acao: "Converter tamanho",
     nome: "Conversor de tamanhos",
     titulo: "Conversor de tamanho de anel: aro brasileiro, americano e europeu",
+    destaque: "tamanho",
     metaTitle: "Conversor de tamanho de anel e aliança",
     metaDescription:
       "Converta o tamanho do anel entre o aro brasileiro, o número americano, o padrão europeu, a circunferência e o diâmetro. Tabela completa do aro 7 ao 35.",
@@ -103,8 +121,10 @@ export const FERRAMENTAS: Ferramenta[] = [
   },
   {
     slug: "largura-da-alianca",
+    acao: "Ver as larguras",
     nome: "Simulador de largura",
     titulo: "Simulador de largura de aliança: veja 2, 3, 4, 5, 6 e 8 mm no tamanho real",
+    destaque: "largura",
     metaTitle: "Simulador de largura de aliança",
     metaDescription:
       "Veja a largura da aliança em tamanho real na sua tela, de 2 a 8 mm, sobre um dedo do tamanho do seu aro. Compare todas lado a lado antes de escolher.",
@@ -154,8 +174,10 @@ export const FERRAMENTAS: Ferramenta[] = [
   },
   {
     slug: "materiais-de-alianca",
+    acao: "Comparar materiais",
     nome: "Comparador de materiais",
     titulo: "Materiais de aliança comparados: prata 925, prata 950, ouro 10k e ouro 18k",
+    destaque: "Materiais",
     metaTitle: "Materiais de aliança: prata e ouro comparados",
     metaDescription:
       "Teor real e faixa de preço praticada em cada material de aliança da JK Alianças: prata 925, prata 950, prata banhada, prata com ouro, ouro 10k e ouro 18k.",
@@ -232,12 +254,15 @@ export const MEDIDOR = {
   href: "/medidor-de-aliancas",
   nome: "Medidor de aliança",
   chamada: "Descubra seu aro pela tela, com uma moeda de R$ 1.",
+  acao: "Medir agora",
 } as const;
 
 export type ItemDeFerramenta = {
   href: string;
   nome: string;
   chamada: string;
+  /** Verbo do botão. Ver `acao` em `Ferramenta`. */
+  acao: string;
   /** Chave do desenho e do ícone. O medidor não tem slug de rota. */
   chave: string;
 };
@@ -250,11 +275,18 @@ export type ItemDeFerramenta = {
  */
 export function itensDeFerramenta(): ItemDeFerramenta[] {
   return [
-    { href: MEDIDOR.href, nome: MEDIDOR.nome, chamada: MEDIDOR.chamada, chave: "medidor" },
+    {
+      href: MEDIDOR.href,
+      nome: MEDIDOR.nome,
+      chamada: MEDIDOR.chamada,
+      acao: MEDIDOR.acao,
+      chave: "medidor",
+    },
     ...FERRAMENTAS.map((f) => ({
       href: `/ferramentas/${f.slug}`,
       nome: f.nome,
       chamada: f.chamada,
+      acao: f.acao,
       chave: f.slug as string,
     })),
   ];

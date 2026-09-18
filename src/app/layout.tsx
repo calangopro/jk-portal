@@ -14,19 +14,35 @@ import { BarraDeRota } from "@/components/ui/BarraDeRota";
  * fonte em outro). Assim o arquivo sai do nosso próprio domínio, com preload
  * automático e sem requisição a terceiros.
  *
- * Só os pesos realmente usados: Cormorant em 500 nos títulos, Montserrat de
- * 400 a 700 no corpo e na interface.
+ * Só os pesos realmente usados: Montserrat de 400 a 700 no corpo, na interface
+ * e AGORA TAMBÉM nos títulos, e Cormorant em 500, normal e itálico, só onde ela
+ * ainda aparece.
+ *
+ * A Cormorant deixou de vestir todo título em 18/09/2026. A loja carrega
+ * Montserrat e só, então o portal com serifada em H1, H2, H3, linha de apoio e
+ * citação lia como um site de outra marca. Agora ela é acento: UMA palavra do
+ * título, em itálico (ver `.serifada` no globals.css), mais a citação no corpo
+ * do artigo.
+ *
+ * O peso 600 saiu junto, porque o único lugar que pedia era o h3 do artigo, que
+ * virou sans. Se alguém reintroduzir serifada em 600, precisa voltar aqui,
+ * senão o navegador engorda a de 500 por conta própria e o desenho da letra sai
+ * deformado.
  */
 const display = Cormorant_Garamond({
   subsets: ["latin"],
-  weight: ["500", "600"],
+  weight: ["500"],
+  style: ["normal", "italic"],
   variable: "--fonte-display",
   display: "swap",
 });
 
 const corpo = Montserrat({
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
+  // O 300 existe para os títulos GRANDES. Quanto maior o corpo da letra, menos
+  // espessura ela precisa para ter presença, e Montserrat em 600 num título de
+  // 4 rem vira parede, que é o contrário da elegância da marca. Ver `.font-display`.
+  weight: ["300", "400", "500", "600", "700"],
   variable: "--fonte-corpo",
   display: "swap",
 });

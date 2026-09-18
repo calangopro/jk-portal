@@ -11,6 +11,7 @@ import { absoluteUrl } from "@/lib/seo/site";
 import { getPublishedLocations, comFotos } from "@/lib/data/locations";
 import { ListaDeLojas } from "@/components/lojas/ListaDeLojas";
 import { INSTITUCIONAL, anosDeMercado } from "@/lib/content/institucional";
+import { Destaque } from "@/components/ui/Destaque";
 
 export const metadata: Metadata = lojasIndexMetadata();
 export const revalidate = 3600;
@@ -46,7 +47,7 @@ export default async function LojasIndex() {
             <Pill>Onde comprar</Pill>
           </div>
           <h1 className="font-display max-w-[16ch] text-titulo-artigo text-ink">
-            Lojas JK Alianças em São Paulo
+            <Destaque>Lojas</Destaque> JK Alianças em São Paulo
           </h1>
           <p className="linha-apoio mt-6 max-w-[50ch] text-lede">
             São {INSTITUCIONAL.lojasFisicas} unidades em São Paulo e na Grande

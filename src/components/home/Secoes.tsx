@@ -17,6 +17,7 @@ import { tempoDeLeitura, dataLonga } from "@/lib/content/leitura";
 import { INSTITUCIONAL, anosDeMercado } from "@/lib/content/institucional";
 import type { Content, Location } from "@/lib/content/types";
 import { listaDeTexto, numero, texto, type Bloco } from "@/lib/blocos/tipos";
+import { comDestaque } from "@/components/ui/Destaque";
 
 export type DadosDaHome = {
   guias: Content[];
@@ -158,7 +159,7 @@ function HeroDeBusca({ p }: { p: Record<string, unknown> }) {
           {/* Sem animação de entrada: este h1 define o LCP, e começar em
               opacity 0 atrasa a métrica de graça. */}
           <h1 className="font-display mx-auto mt-5 max-w-[18ch] text-display text-ink">
-            {texto(p, "titulo", "Tudo sobre alianças, joias e semijoias")}
+            {comDestaque(texto(p, "titulo", "Tudo sobre alianças, joias e semijoias"), "alianças")}
           </h1>
           <p className="mx-auto mt-5 max-w-[50ch] text-lede leading-relaxed text-muted">
             {texto(p, "lede", "Tamanho, largura, material e preço, explicado por quem fabrica.")}
