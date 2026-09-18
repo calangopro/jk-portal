@@ -4,14 +4,12 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Check, Ruler } from "lucide-react";
 import {
-  DedoComAlianca,
   MATERIAIS,
-  TONS,
   gradienteDoMaterial,
   type MaterialDaPeca,
-  type TipoDeDedo,
-  type TomDePele,
-} from "./Dedo";
+} from "@/lib/ferramentas/materiais";
+import { MaoComAlianca } from "./MaoComAlianca";
+import type { TipoDeMao } from "@/lib/ferramentas/maos";
 import {
   LARGURAS_COMUNS,
   comoFicaNoDedo,
@@ -26,7 +24,13 @@ const CHAVE = "jk-medidor-calibracao";
 const CHAVE_DESENHO = "jk-simulador-dedo";
 
 type Salvo = { pxPorMm?: number; diametroMm?: number };
-type Preferencia = { tipo?: TipoDeDedo; tom?: TomDePele; material?: MaterialDaPeca };
+/**
+ * O `tom` saiu da interface junto com a ilustração, mas continua aceito aqui: já
+ * existe gravado no navegador de quem usou a ferramenta antes, e um campo a mais
+ * no JSON não atrapalha ninguém. No dia em que existir foto de pele média e
+ * escura ele volta a ser lido.
+ */
+type Preferencia = { tipo?: TipoDeMao; tom?: string; material?: MaterialDaPeca };
 
 /**
  * Simulador de largura da aliança.
@@ -46,8 +50,7 @@ export function SimuladorDeLargura({ aroInicial = 16 }: { aroInicial?: number })
   const [pxPorMm, setPxPorMm] = useState<number | null>(null);
   const [aro, setAro] = useState(aroInicial);
   const [largura, setLargura] = useState<number>(4);
-  const [tipo, setTipo] = useState<TipoDeDedo>("feminino");
-  const [tom, setTom] = useState<TomDePele>("clara");
+  const [tipo, setTipo] = useState<TipoDeMao>("feminino");
   const [material, setMaterial] = useState<MaterialDaPeca>("ouro");
   const [carregou, setCarregou] = useState(false);
 
@@ -75,7 +78,6 @@ export function SimuladorDeLargura({ aroInicial = 16 }: { aroInicial?: number })
       if (desenho) {
         const d = JSON.parse(desenho) as Preferencia;
         if (d.tipo === "feminino" || d.tipo === "masculino") setTipo(d.tipo);
-        if (d.tom && TONS.some((t) => t.id === d.tom)) setTom(d.tom);
         if (d.material && MATERIAIS.some((m) => m.id === d.material)) setMaterial(d.material);
       }
     } catch {
@@ -89,11 +91,11 @@ export function SimuladorDeLargura({ aroInicial = 16 }: { aroInicial?: number })
   useEffect(() => {
     if (!carregou) return;
     try {
-      window.localStorage.setItem(CHAVE_DESENHO, JSON.stringify({ tipo, tom, material }));
+      window.localStorage.setItem(CHAVE_DESENHO, JSON.stringify({ tipo, material }));
     } catch {
       /* sem armazenamento, a escolha vale só nesta visita */
     }
-  }, [carregou, tipo, tom, material]);
+  }, [carregou, tipo, material]);
 
   // Guard de hidratação: nunca ler localStorage no primeiro render.
   if (!carregou) return <div className="glass h-96 animate-pulse rounded-[20px]" aria-hidden />;
@@ -108,7 +110,13 @@ export function SimuladorDeLargura({ aroInicial = 16 }: { aroInicial?: number })
     <div className="glass overflow-hidden rounded-[20px]">
       <div className="grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)]">
         {/* ------------------------------------------------------ palco */}
-        <div className="relative flex flex-col items-center justify-center border-b border-border/70 bg-[radial-gradient(120%_90%_at_50%_0%,var(--color-glow),var(--color-sand))] px-4 py-8 sm:px-6 lg:border-b-0 lg:border-r">
+        {/* `min-w-0` não é enfeite: sem ele, esta coluna cresce até o tamanho
+            da mão (463 px no celular), estoura o grid e o `overflow-hidden` do
+            cartão passa a cortar TAMBÉM os controles ao lado. Item de grid e de
+            flex tem largura mínima igual ao conteúdo, e é ela que precisa ser
+            desligada para o `overflow-x-auto` de dentro voltar a funcionar.
+            A ilustração de traço era mais estreita e escondia o defeito. */}
+        <div className="relative flex min-w-0 flex-col items-center justify-center border-b border-border/70 bg-[radial-gradient(120%_90%_at_50%_0%,var(--color-glow),var(--color-sand))] px-4 py-8 sm:px-6 lg:border-b-0 lg:border-r">
           <div className="flex items-baseline gap-2">
             <span
               key={largura}
@@ -126,12 +134,11 @@ export function SimuladorDeLargura({ aroInicial = 16 }: { aroInicial?: number })
               Se não couber, a área rola de lado e a escala continua honesta. */}
           <div className="mt-5 w-full overflow-x-auto">
             <div className="mx-auto w-max px-2">
-              <DedoComAlianca
+              <MaoComAlianca
                 diametroMm={diametro}
                 larguraMm={largura}
                 escala={escala}
                 tipo={tipo}
-                tom={tom}
                 material={material}
                 rotulo={comoFicaNoDedo(largura, aro)}
               />
@@ -225,11 +232,20 @@ export function SimuladorDeLargura({ aroInicial = 16 }: { aroInicial?: number })
             </div>
           </fieldset>
 
-          <div className="mt-7 grid gap-5 sm:grid-cols-2">
-            <fieldset>
-              <legend className="text-apoio font-semibold text-ink">Dedo</legend>
-              <div className="mt-3 flex rounded-full border border-border bg-white/60 p-1">
-                {(["feminino", "masculino"] as TipoDeDedo[]).map((t) => (
+          {/* SEM seletor de tom de pele enquanto existir foto de um tom só.
+              A ilustração de traço tinha três tons, e as fotos começam pela pele
+              clara. Manter o seletor com duas opções sem imagem seria anunciar
+              uma falta; mandar quem escolhe pele escura de volta para o desenho
+              seria entregar a versão pior justamente para ela. Quando
+              `mao-feminina-media.webp` e companhia existirem, ele volta: as
+              medidas de cada mão são por arquivo, em `lib/ferramentas/maos.ts`,
+              e o componente não muda.
+              O grid de duas colunas saiu junto: com um campo só, ele deixava
+              metade da linha vazia. */}
+          <fieldset className="mt-7">
+              <legend className="text-apoio font-semibold text-ink">Mão</legend>
+              <div className="mt-3 flex max-w-sm rounded-full border border-border bg-white/60 p-1">
+                {(["feminino", "masculino"] as TipoDeMao[]).map((t) => (
                   <button
                     key={t}
                     type="button"
@@ -243,30 +259,7 @@ export function SimuladorDeLargura({ aroInicial = 16 }: { aroInicial?: number })
                   </button>
                 ))}
               </div>
-            </fieldset>
-
-            <fieldset>
-              <legend className="text-apoio font-semibold text-ink">Tom de pele</legend>
-              <div className="mt-3 flex items-center gap-3">
-                {TONS.map((t) => (
-                  <button
-                    key={t.id}
-                    type="button"
-                    onClick={() => setTom(t.id)}
-                    aria-pressed={tom === t.id}
-                    aria-label={t.nome}
-                    title={t.nome}
-                    className={`h-11 w-11 rounded-full border-2 transition-all ${
-                      tom === t.id
-                        ? "border-brand ring-2 ring-brand/30"
-                        : "border-white/80 hover:border-brand/40"
-                    }`}
-                    style={{ background: t.amostra }}
-                  />
-                ))}
-              </div>
-            </fieldset>
-          </div>
+          </fieldset>
 
           <label className="mt-7 block text-apoio font-semibold text-ink">
             Seu aro
