@@ -264,15 +264,38 @@ export function ModoMedicao({
     const alt = Math.max(0, areaPalco.altura - FOLGA * 2);
     if (!larg || !alt) return { deitado: true, escalaMax: PX_POR_MM_MAX };
 
+    /**
+     * O teto sai da BORDA QUE SE ALINHA, e só dela.
+     *
+     * A primeira versão exigia que o objeto inteiro coubesse
+     * (`min(largura/85,6, altura/53,98)`), e isso travava a calibração antes da
+     * hora. Numa janela de 1280 por 470 o teto caía para 4,39 px/mm, abaixo dos
+     * cerca de 5,0 de um MacBook: a pessoa chegava ao fim do controle com o
+     * desenho ainda menor que o cartão de verdade, e não tinha o que fazer.
+     *
+     * O erro era exigir que a dimensão que NINGUÉM usa também coubesse. Para
+     * calibrar você encosta o cartão e alinha as duas bordas de 85,6 mm. Se o
+     * topo e a base saírem cortados, não muda nada: as bordas que importam
+     * continuam na tela, porque é exatamente a largura que estamos limitando.
+     *
+     * Cortar ficou barato depois que o desenho passou a ser CENTRADO: ele apara
+     * igual dos dois lados, em vez de fugir para um canto, que era o defeito
+     * antigo de verdade.
+     */
     const c = REFERENCIAS.cartao;
     if (refEscolhida === "moeda") {
-      // Círculo não tem orientação: cabe pelo menor lado do palco.
-      const s = Math.min(larg, alt) / REFERENCIAS.moeda.medidaMm;
-      return { deitado: true, escalaMax: Math.min(PX_POR_MM_MAX, s) };
+      // Na moeda a medida é o diâmetro, alinhado na horizontal.
+      return {
+        deitado: true,
+        escalaMax: Math.min(PX_POR_MM_MAX, larg / REFERENCIAS.moeda.medidaMm),
+      };
     }
 
-    const sDeitado = Math.min(larg / c.medidaMm, alt / c.alturaMm);
-    const sEmPe = Math.min(larg / c.alturaMm, alt / c.medidaMm);
+    // Deitado alinha os 85,6 mm na largura; em pé, na altura. Fica o que
+    // permite o desenho chegar maior, e a decisão continua saindo só do
+    // tamanho do palco, então nada gira no meio do ajuste.
+    const sDeitado = larg / c.medidaMm;
+    const sEmPe = alt / c.medidaMm;
     const escolhido = sDeitado >= sEmPe;
     return {
       deitado: escolhido,
