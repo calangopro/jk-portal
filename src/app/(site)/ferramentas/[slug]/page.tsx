@@ -15,6 +15,7 @@ import { FERRAMENTAS, acharFerramenta, type Ferramenta } from "@/lib/ferramentas
 import { buildMetadata } from "@/lib/seo/metadata";
 import { SITE, absoluteUrl } from "@/lib/seo/site";
 import { breadcrumbSchema, faqPageSchema, howToSchema, webPageSchema } from "@/lib/schema/builders";
+import { comDestaque } from "@/components/ui/Destaque";
 
 export const revalidate = 86400;
 export const dynamicParams = false;
@@ -109,7 +110,7 @@ export default async function FerramentaPage({ params }: { params: Promise<{ slu
         />
 
         <div className="mt-6 max-w-leitura-larga">
-          <h1 className="font-display text-titulo-pagina text-ink">{f.titulo}</h1>
+          <h1 className="font-display max-w-[20ch] text-titulo-artigo text-ink">{comDestaque(f.titulo, f.destaque)}</h1>
           {/* Resposta primeiro. É o primeiro texto da página, e é o trecho que
               a IA cita quando alguém pergunta a ela em vez de buscar.
 

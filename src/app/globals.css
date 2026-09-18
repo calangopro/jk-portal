@@ -3,8 +3,10 @@
 /*
  * Sistema visual — JK Alianças
  * Direção: atelier editorial de luxo. Canvas marfim quente + brilho dourado
- * atmosférico, painéis de VIDRO (glassmorphism) como assinatura, serifada
- * elegante (Cormorant) nos títulos + Montserrat no corpo. Dourado como único
+ * atmosférico, painéis de VIDRO (glassmorphism) como assinatura, Montserrat no
+ * corpo E nos títulos (a mesma da loja), com a serifada Cormorant reduzida a
+ * acento: UMA palavra por título, em itálico (`.serifada`), mais a citação no
+ * corpo do artigo. Dourado como único
  * acento. Contenção e alto contraste (WCAG AA) — o vidro nunca atrapalha a leitura.
  * Tokens de marca: docs/identidade-visual-jk.md.
  */
@@ -215,11 +217,55 @@ body {
 }
 
 /* Serifada de display: elegância de joalheria, ecoando o logo serifado. */
+/* Título do site. SANS, e não serifada, desde 18/09/2026.
+   A loja em www.jkaliancas.com.br carrega Montserrat e só. O portal vestia todo
+   título em Cormorant, e o resultado era que as duas pontas da mesma marca
+   pareciam sites diferentes. O charme não sumiu, mudou de lugar: ele mora em
+   `.serifada`, uma palavra por título. */
+/* O peso CAI conforme o corpo da letra cresce, e essa é a regra que faz a
+   troca de serifada para sans não virar manchete de jornal popular.
+   Quanto maior o tamanho, menos espessura a letra precisa para ter presença:
+   em display quem chama é o corpo, não o traço. Montserrat 600 num título de
+   4 rem fica pesado e comercial, que é o oposto do que a JK vende.
+   Esta classe mora FORA de @layer, então ela vence utilitário do Tailwind:
+   escrever `font-light` no TSX não muda nada, o peso se decide aqui. */
 .font-display {
+  font-family: var(--font-sans);
+  font-weight: 500;
+  letter-spacing: -0.008em;
+  line-height: 1.12;
+}
+
+/* Título de página e hero: o peso mais leve que a Montserrat tem. */
+.font-display.text-display,
+.font-display.text-titulo-artigo {
+  font-weight: 300;
+  letter-spacing: -0.012em;
+  line-height: 1.07;
+}
+
+/* Título de seção: no meio do caminho, porque ele ainda precisa ancorar a
+   leitura, mas já é grande o bastante para não pedir 500. */
+.font-display.text-titulo-secao {
+  font-weight: 400;
+  letter-spacing: -0.01em;
+}
+
+/* O charme, em UMA palavra do título.
+   Itálico de propósito: serifada reta no meio de sans lê como fonte que não
+   carregou, e itálico lê como escolha. E o tamanho sobe um pouco porque a
+   Cormorant tem altura-x bem menor que a Montserrat, então na mesma medida ela
+   parece encolhida ao lado das vizinhas. */
+.serifada {
   font-family: var(--font-display);
   font-weight: 500;
+  font-style: italic;
+  font-size: 1.1em;
   letter-spacing: 0;
-  line-height: 1.06;
+  /* O itálico inclina para a direita e quase encosta no que vem depois. Isto é
+     respiro, e é pequeno de propósito: em 0.06em a vírgula de "alianças," ficava
+     visivelmente descolada da palavra, que é pior que o encosto que ele evita. */
+  padding-right: 0.02em;
 }
 
 h1,
@@ -352,8 +398,8 @@ h4 {
    abertura de jornal em vez de caixa colada em cima do conteudo. Continua sendo
    o primeiro texto do artigo, entao a extracao por IA nao perde nada. */
 .linha-apoio {
-  font-family: var(--font-display);
-  font-weight: 500;
+  font-family: var(--font-sans);
+  font-weight: 400;
   letter-spacing: 0;
   color: var(--color-ink);
   text-wrap: pretty;
@@ -616,9 +662,12 @@ h4 {
 
 .conteudo-rico h2 {
   position: relative;
-  font-family: var(--font-display);
+  font-family: var(--font-sans);
   font-size: var(--text-titulo-secao);
-  font-weight: 500;
+  /* 400, igual ao `text-titulo-secao` do resto do site. Em 600 o H2 pesava
+     mais que o H1 da própria página, o que inverte a hierarquia. */
+  font-weight: 400;
+  letter-spacing: -0.01em;
   line-height: 1.15;
   margin-top: 2.1em;
   padding-top: 0.85em;
@@ -643,9 +692,10 @@ h4 {
 }
 
 .conteudo-rico h3 {
-  font-family: var(--font-display);
+  font-family: var(--font-sans);
   font-size: var(--text-titulo-bloco);
   font-weight: 600;
+  letter-spacing: -0.012em;
   line-height: 1.25;
   margin-top: 1.7em;
   color: var(--color-ink);
@@ -678,7 +728,8 @@ h4 {
   padding: 0.2em 0 0.2em 1.6em;
   border-left: 2px solid rgb(var(--jk-brand-rgb) / 0.45);
   font-family: var(--font-display);
-  font-size: 1.35rem;
+  font-style: italic;
+  font-size: 1.45rem;
   line-height: 1.4;
   color: var(--color-ink);
 }

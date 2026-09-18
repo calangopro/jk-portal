@@ -170,14 +170,17 @@ export function Medidor({ children }: { children?: ReactNode }) {
                 </p>
               </>
             ) : (
+              /* Antes este bloco repetia, palavra por palavra, o H1 e o selo
+                 "Ferramenta" que a página já mostra logo acima. Eram dois
+                 títulos iguais e dois parágrafos antes de aparecer o botão, e
+                 a ferramenta em si só começava abaixo da dobra. O que sobra é
+                 a única informação que a pessoa PRECISA antes de clicar: o que
+                 ter em mãos. */
               <>
-                <p className="eyebrow">Ferramenta</p>
-                <p className="font-display mt-2 max-w-sm text-titulo-secao text-ink">
-                  Descubra o tamanho da sua aliança pela tela
-                </p>
-                <p className="mt-3 max-w-md text-apoio leading-relaxed text-muted">
-                  Você vai precisar da aliança que já serve e de uma moeda de
-                  R$ 1 ou um cartão, para o site aprender a escala da sua tela.
+                <p className="eyebrow">Antes de começar</p>
+                <p className="mt-2 max-w-md text-corpo leading-relaxed text-ink">
+                  Tenha em mãos uma aliança que já serve e uma moeda de R$ 1 ou
+                  um cartão de banco.
                 </p>
               </>
             )}

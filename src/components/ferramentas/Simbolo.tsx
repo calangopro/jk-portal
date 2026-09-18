@@ -10,6 +10,15 @@
  *
  * Sem estado e sem hook de propósito: assim o mesmo componente entra no
  * cabeçalho, que é cliente, e nas páginas, que são servidor.
+ *
+ * REGRA APRENDIDA NO ERRO, em 18/09/2026: desenho abstrato também tem duplo
+ * sentido, e o `REGRAS.md` proíbe duplo sentido. A primeira leva de emblemas
+ * foi lida como pênis (o dedo de perfil em pé do simulador de largura), cacho
+ * de uva (os três círculos em triângulo do comparador) e símbolo de gênero (os
+ * dois aros com setas do conversor). Antes de aprovar emblema novo: olhe ele
+ * GRANDE, olhe ele CORTADO e mostre para alguém sem dizer o que deveria ser.
+ * Forma vertical alongada e agrupamento de três círculos são os dois arranjos
+ * que mais escorregam.
  */
 export function SimboloDaFerramenta({
   chave,
@@ -43,35 +52,42 @@ export function SimboloDaFerramenta({
   }
 
   if (chave === "conversor-de-aros") {
-    // Dois aros de tamanhos diferentes e a troca entre eles.
+    // Dois aros CONCÊNTRICOS e a cota do diâmetro entre eles: a mesma peça em
+    // duas escalas. A versão anterior eram dois aros lado a lado com setas
+    // saindo para fora, e aquilo lia como símbolo de gênero.
     return (
       <svg {...comum}>
-        <circle cx="13" cy="24" r="8.5" />
-        <circle cx="35" cy="24" r="5.5" />
-        <path d="M20 18.5h8.5M26.5 16.5l2.4 2-2.4 2" strokeOpacity="0.8" />
-        <path d="M28.5 29.5H20M22.5 27.5l-2.4 2 2.4 2" strokeOpacity="0.8" />
+        <circle cx="24" cy="24" r="16.5" />
+        <circle cx="24" cy="24" r="9.5" strokeOpacity="0.55" />
+        <path d="M15.5 24h17" strokeOpacity="0.85" />
+        <path d="M18 21.6 15.4 24 18 26.4" strokeOpacity="0.85" />
+        <path d="M30 21.6 32.6 24 30 26.4" strokeOpacity="0.85" />
       </svg>
     );
   }
 
   if (chave === "largura-da-alianca") {
-    // O dedo de perfil com a faixa atravessada, e a cota da largura ao lado.
+    // A faixa da aliança DEITADA, com a cota da largura ao lado. Antes era um
+    // dedo de perfil em pé, forma que, ampliada, lia como outra coisa. Deitada
+    // ela só pode ser uma faixa, e a cota diz que o assunto é a medida dela.
     return (
       <svg {...comum}>
-        <path d="M17 41V17.5a6.5 6.5 0 0 1 13 0V41" />
-        <path d="M15.5 26.5h16M15.5 33h16" />
-        <path d="M38 26.5v6.5M36 28l2-1.6 2 1.6M36 31.5l2 1.6 2-1.6" strokeOpacity="0.7" />
+        <rect x="7" y="17" width="26" height="14" rx="3.5" />
+        <path d="M39 17v14" strokeOpacity="0.75" />
+        <path d="M36.8 19.2 39 17l2.2 2.2" strokeOpacity="0.75" />
+        <path d="M36.8 28.8 39 31l2.2-2.2" strokeOpacity="0.75" />
       </svg>
     );
   }
 
   if (chave === "materiais-de-alianca") {
-    // Três metais lado a lado, um deles em traço partido: teor diferente.
+    // DOIS aros sobrepostos, um deles em traço partido: dois metais comparados.
+    // Eram três em triângulo, arranjo que lia como cacho de uva. Dois lado a
+    // lado é a figura clássica de comparação e não vira outra coisa.
     return (
       <svg {...comum}>
-        <circle cx="18" cy="19" r="9" />
-        <circle cx="30" cy="19" r="9" strokeOpacity="0.6" strokeDasharray="3 3.2" />
-        <circle cx="24" cy="31" r="9" strokeOpacity="0.85" />
+        <circle cx="19" cy="24" r="11.5" />
+        <circle cx="29" cy="24" r="11.5" strokeOpacity="0.6" strokeDasharray="3 3.2" />
       </svg>
     );
   }

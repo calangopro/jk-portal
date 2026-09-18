@@ -8,6 +8,7 @@ import { itensDeFerramenta } from "@/lib/ferramentas/registro";
 import { buildMetadata } from "@/lib/seo/metadata";
 import { absoluteUrl } from "@/lib/seo/site";
 import { breadcrumbSchema, itemListSchema, webPageSchema } from "@/lib/schema/builders";
+import { Destaque } from "@/components/ui/Destaque";
 
 export const revalidate = 86400;
 
@@ -83,7 +84,7 @@ export default function FerramentasPage() {
           <div className="relative max-w-3xl">
             <p className="eyebrow text-brand-light">Ferramentas JK Alianças</p>
             <h1 className="font-display mt-4 text-titulo-artigo text-[#f6efe4]">
-              Descubra o tamanho e a largura da sua aliança
+              Descubra o tamanho e a <Destaque>largura</Destaque> da sua aliança
             </h1>
             {/* Resposta primeiro: é o primeiro texto da página e o trecho que
                 a IA cita quando alguém pergunta a ela em vez de buscar. */}
@@ -93,11 +94,10 @@ export default function FerramentasPage() {
                 grande ela virava nove linhas e empurrava as ferramentas para
                 fora da primeira tela. O texto é o mesmo, o GEO não muda. */}
             <p className="font-display mt-4 max-w-[52ch] text-corpo font-medium leading-relaxed text-pretty text-[#f3ece1]/85 sm:mt-5 sm:text-lede">
-              São quatro ferramentas gratuitas para escolher aliança sem chutar:
-              descobrir o número do aro pela tela, converter entre o tamanho
-              brasileiro, o americano e o europeu, ver cada largura em tamanho
-              real no dedo e comparar os materiais por teor e preço. Todas
-              funcionam no celular, na hora, sem cadastro.
+              Quatro ferramentas gratuitas para acertar a aliança sem chutar: o
+              aro pela tela, a conversão entre padrões, a largura em tamanho real
+              e o comparativo de materiais. Funcionam no celular, na hora, sem
+              cadastro.
             </p>
 
             <ul className="mt-6 flex flex-wrap gap-x-6 gap-y-2.5 sm:mt-8 sm:gap-y-3">
@@ -121,6 +121,7 @@ export default function FerramentasPage() {
             href={principal.href}
             nome={principal.nome}
             chamada={principal.chamada}
+            acao={principal.acao}
             chave={principal.chave}
             destaque
             className="sm:col-span-2 lg:col-span-3"
@@ -132,6 +133,7 @@ export default function FerramentasPage() {
               href={f.href}
               nome={f.nome}
               chamada={f.chamada}
+              acao={f.acao}
               chave={f.chave}
               // Sobra ímpar em duas colunas: a última abre a linha toda em vez
               // de deixar um buraco do lado.
@@ -183,6 +185,7 @@ function CartaoDeFerramenta({
   href,
   nome,
   chamada,
+  acao,
   chave,
   destaque = false,
   className = "",
@@ -190,6 +193,7 @@ function CartaoDeFerramenta({
   href: string;
   nome: string;
   chamada: string;
+  acao: string;
   chave: string;
   destaque?: boolean;
   className?: string;
@@ -199,17 +203,15 @@ function CartaoDeFerramenta({
       href={href}
       className={`glass-card group relative flex min-h-40 flex-col overflow-hidden rounded-lg p-6 sm:p-7 ${className}`}
     >
-      <span
-        aria-hidden
-        className="pointer-events-none absolute -bottom-10 -right-8 text-brand/12 transition-transform duration-[700ms] ease-[cubic-bezier(0.2,0.75,0.25,1)] group-hover:-translate-y-1 group-hover:rotate-6"
-      >
-        <SimboloDaFerramenta
-          chave={chave}
-          strokeWidth={1}
-          className={destaque ? "h-56 w-56" : "h-40 w-40"}
-        />
-      </span>
-
+      {/* SEM marca d'água aqui, e não por economia de enfeite.
+          O emblema ampliado para 224 px e CORTADO no canto do cartão parava de
+          ler como símbolo e virava mancha, e mancha o olho preenche sozinho: o
+          dedo de perfil em pé do simulador de largura, os três círculos do
+          comparador e os dois aros com setas do conversor foram lidos, nesta
+          ordem, como pênis, cacho de uva e símbolo de gênero. O `REGRAS.md` já
+          proíbe duplo sentido no texto; vale igual para desenho.
+          O emblema continua no cartão, no quadrado de 48 px, onde ele é
+          pequeno, inteiro e sem recorte. */}
       <span className="relative flex h-12 w-12 items-center justify-center rounded-sm border border-brand/30 bg-brand/12 text-brand-nav transition-colors duration-300 group-hover:border-brand/60 group-hover:bg-brand/20">
         <SimboloDaFerramenta chave={chave} className="h-6 w-6" />
       </span>
@@ -229,9 +231,21 @@ function CartaoDeFerramenta({
         {chamada}
       </p>
 
+      {/* Botão de verdade, e não mais um link de texto dizendo "Abrir
+          ferramenta". Duas coisas mudaram junto, porque uma sem a outra não
+          resolvia: a CAIXA, que é o que diz onde se clica, e o RÓTULO, que
+          agora é o verbo da ferramenta e não o nome da categoria.
+          Continua sendo `span`: o cartão inteiro já é o link, e link dentro de
+          link não existe em HTML. */}
       <span className="relative mt-auto pt-6">
-        <span className="inline-flex items-center gap-1.5 text-apoio font-semibold text-brand-nav">
-          Abrir ferramenta
+        <span
+          className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-full px-5 text-apoio font-semibold transition-[background-color,border-color,color,box-shadow] duration-300 ${
+            destaque
+              ? "bg-brand text-ink shadow-[var(--jk-sombra-acao)] group-hover:bg-brand-light group-hover:shadow-[var(--jk-sombra-acao-alta)]"
+              : "border border-brand/45 bg-brand/10 text-brand-nav group-hover:border-brand group-hover:bg-brand group-hover:text-ink"
+          }`}
+        >
+          {acao}
           <ArrowRight
             size={15}
             aria-hidden

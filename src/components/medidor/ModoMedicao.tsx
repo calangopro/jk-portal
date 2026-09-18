@@ -216,59 +216,84 @@ export function ModoMedicao({
   /* --------------------------------------------- orientação do cartão */
 
   /**
-   * O cartão tem 85,6 mm de largura e a tela de um celular tem cerca de 70 mm.
-   * Deitado, ele nunca cabe, e era exatamente por isso que esta etapa rolava de
-   * lado. Rolar não resolvia nada: ninguém alinha uma borda que está fora da
-   * tela. Quando não cabe, o desenho fica EM PÉ e a calibração passa a ser pela
-   * borda menor do cartão, os 53,98 mm do mesmo padrão internacional. A conta
-   * continua exata, e o gesto volta a ser possível com uma mão só.
+   * A orientação sai do TAMANHO DO PALCO, e só dele.
+   *
+   * Antes ela saía da escala atual: o cartão era preso pela borda esquerda,
+   * crescia só para a direita e, quando não cabia mais, GIRAVA 90 graus no meio
+   * do ajuste e trocava a referência de 85,6 mm para os 53,98 mm. Quem estava
+   * com o cartão de verdade encostado na tela via o desenho fugir para fora e
+   * depois virar de lado sozinho. Eram dois defeitos no mesmo gesto.
+   *
+   * Agora escolhemos de uma vez a orientação que permite o desenho CHEGAR MAIOR
+   * dentro deste palco, comparando as duas possibilidades:
+   *
+   *   deitado: precisa de 85,6 mm na largura e 53,98 mm na altura
+   *   em pé:   precisa de 53,98 mm na largura e 85,6 mm na altura
+   *
+   * Em tela de computador, larga, ganha o deitado. Em celular, alto e estreito,
+   * ganha o em pé. É o que a intuição já dizia, mas derivado da medida em vez
+   * de um ponto de corte arbitrário de largura.
+   *
+   * Duas consequências boas. A referência passa a ser SEMPRE a borda de
+   * 85,6 mm, nos dois casos, que é a medida longa e portanto a mais precisa:
+   * errar um pixel numa borda de 85,6 mm custa menos que na de 53,98 mm. E como
+   * isto não depende de `rascunho`, nada gira enquanto a pessoa ajusta.
    */
   const areaCalibragem = useRef<HTMLDivElement>(null);
-  const [larguraDaArea, setLarguraDaArea] = useState(0);
-
-  // Ao trocar de objeto, a próxima âncora se centra pela escala atual.
-  useEffect(() => {
-    escalaAoAncorar.current = rascunho;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [refEscolhida]);
+  const [areaPalco, setAreaPalco] = useState({ largura: 0, altura: 0 });
 
   useEffect(() => {
     const el = areaCalibragem.current;
     if (!el) return;
-    setLarguraDaArea(el.clientWidth);
+    const medir = (w: number, h: number) => setAreaPalco({ largura: w, altura: h });
+    medir(el.clientWidth, el.clientHeight);
     const observador = new ResizeObserver(([entrada]) =>
-      setLarguraDaArea(entrada.contentRect.width),
+      medir(entrada.contentRect.width, entrada.contentRect.height),
     );
     observador.observe(el);
     return () => observador.disconnect();
   }, [etapa]);
 
-  const ANCORA_MINIMA = 20;
-  const emPe =
-    refEscolhida === "cartao" &&
-    larguraDaArea > 0 &&
-    REFERENCIAS.cartao.medidaMm * rascunho > larguraDaArea - ANCORA_MINIMA - 8;
+  /** Folga para o desenho não morder a borda do palco. Pequena de propósito:
+      cada pixel aqui é pixel a menos de escala máxima, e é a escala máxima que
+      decide se a pessoa CONSEGUE calibrar nesta tela. */
+  const FOLGA = 12;
+
+  const { deitado, escalaMax } = useMemo(() => {
+    const larg = Math.max(0, areaPalco.largura - FOLGA * 2);
+    const alt = Math.max(0, areaPalco.altura - FOLGA * 2);
+    if (!larg || !alt) return { deitado: true, escalaMax: PX_POR_MM_MAX };
+
+    const c = REFERENCIAS.cartao;
+    if (refEscolhida === "moeda") {
+      // Círculo não tem orientação: cabe pelo menor lado do palco.
+      const s = Math.min(larg, alt) / REFERENCIAS.moeda.medidaMm;
+      return { deitado: true, escalaMax: Math.min(PX_POR_MM_MAX, s) };
+    }
+
+    const sDeitado = Math.min(larg / c.medidaMm, alt / c.alturaMm);
+    const sEmPe = Math.min(larg / c.alturaMm, alt / c.medidaMm);
+    const escolhido = sDeitado >= sEmPe;
+    return {
+      deitado: escolhido,
+      escalaMax: Math.min(PX_POR_MM_MAX, escolhido ? sDeitado : sEmPe),
+    };
+  }, [areaPalco, refEscolhida]);
 
   /**
-   * Onde a borda esquerda do desenho fica presa.
+   * O limite superior do controle acompanha o que CABE no palco.
    *
-   * Duas exigências que brigam: a âncora não pode se mexer enquanto a pessoa
-   * ajusta (foi o que fazia a tela fugir debaixo da mão), e o desenho não pode
-   * nascer torto no canto esquerdo de uma tela larga. A saída é congelar a
-   * âncora no ponto que CENTRALIZA o objeto na escala em que a etapa abriu.
-   * Depois disso ela não se mexe mais: cresce só para a direita, a partir de um
-   * desenho que começou no meio da tela.
+   * Sem isto, arrastar o controle até o fim empurraria o desenho para fora da
+   * tela de novo, que é exatamente o defeito que estamos consertando. O limite
+   * de baixo continua fixo: desenho pequeno demais não atrapalha ninguém.
    */
-  const escalaAoAncorar = useRef(rascunho);
-  const ancoraX = useMemo(() => {
-    const objetoMm = emPe
-      ? REFERENCIAS.cartao.alturaMm
-      : REFERENCIAS[refEscolhida].medidaMm;
-    const largura = objetoMm * escalaAoAncorar.current;
-    return Math.max(ANCORA_MINIMA, Math.round((larguraDaArea - largura) / 2));
-    // De propósito sem `rascunho`: é justamente o que não pode mover a âncora.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [refEscolhida, larguraDaArea, emPe]);
+  const escalaTeto = Math.max(PX_POR_MM_MIN + 0.1, +escalaMax.toFixed(3));
+
+  // Se o palco encolher (girar o aparelho, teclado abrir), a escala desce junto
+  // em vez de deixar o desenho estourando a borda.
+  useEffect(() => {
+    setRascunho((v) => (v > escalaTeto ? escalaTeto : v));
+  }, [escalaTeto]);
 
   /* ------------------------------------------------------------ etapas */
 
@@ -358,80 +383,50 @@ export function ModoMedicao({
 
         {/* ---------------------------------------------- 2. calibrar */}
         {etapa === "calibrar" ? (
-          <div key="calibrar" className="etapa flex flex-1 flex-col overflow-hidden">
-            <div className="mx-auto w-full max-w-3xl shrink-0 px-5 pt-6 text-center sm:px-8">
-              <h2 className="font-display text-titulo-secao text-[#f6efe4]">
-                Encoste {refEscolhida === "moeda" ? "a moeda" : "o cartão"} na tela
+          <div key="calibrar" className="etapa relative flex flex-1 flex-col overflow-hidden">
+            {/* Véu atrás do texto. Ele flutua sobre o desenho para o palco
+                ficar com a altura inteira, e sem o véu a frase some quando cai
+                em cima do cartão claro. O gradiente morre antes do meio da
+                tela, então a BORDA do desenho, que é o que se compara, nunca
+                fica escurecida. */}
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-x-0 top-0 z-[9] h-40 bg-gradient-to-b from-[#12100e] via-[#12100e]/85 to-transparent"
+            />
+            <div className="pointer-events-none absolute inset-x-0 top-0 z-10 mx-auto w-full max-w-3xl px-5 pt-5 text-center sm:px-8">
+              <h2 className="font-display text-titulo-bloco text-[#f6efe4]">
+                Deixe o desenho do tamanho{" "}
+                {refEscolhida === "moeda" ? "da moeda" : "do cartão"}
               </h2>
               <p className="mx-auto mt-2 max-w-md text-apoio leading-relaxed text-[#f3ece1]/65">
-                {refEscolhida === "moeda" ? (
-                  <>
-                    Encoste a moeda no filete dourado, pela esquerda, e ajuste o
-                    desenho até o outro lado bater com a moeda de verdade.
-                  </>
-                ) : emPe ? (
-                  <>
-                    O cartão não cabe deitado nesta tela, então ele entra{" "}
-                    <strong className="font-semibold text-[#f6efe4]">em pé</strong>:
-                    encoste a borda esquerda dele no filete dourado, também em
-                    pé, e ajuste até a borda direita do desenho bater com a do
-                    cartão.
-                  </>
-                ) : (
-                  <>
-                    Encoste a borda esquerda do cartão no filete dourado e
-                    ajuste o desenho até o outro lado bater com o cartão de
-                    verdade.
-                  </>
-                )}
+                {refEscolhida === "moeda"
+                  ? "Ponha a moeda em cima do desenho e ajuste até ela cobrir o dourado."
+                  : "Ponha o cartão em cima do desenho e ajuste até as bordas baterem."}
               </p>
             </div>
 
-            {/* Âncora fixa, sem nenhuma rolagem.
-                Antes esta área rolava nos dois eixos para caber o cartão de
-                85,6 mm. O efeito colateral era pior que o problema: a cada
-                toque no controle o desenho crescia, o container recalculava a
-                rolagem e a tela andava sozinha debaixo da mão, com o objeto
-                real encostado nela. Agora o desenho é posicionado por absoluto,
-                preso pela borda esquerda: crescer não mexe em layout nenhum,
-                então não há o que rolar. A pessoa encosta a borda esquerda do
-                objeto no filete dourado e estica até a direita bater. */}
+            {/* O desenho fica CENTRADO e cresce por igual para os dois lados.
+                Antes ele era preso pela borda esquerda e crescia só para a
+                direita: saía do meio da tela conforme a pessoa ajustava, até
+                vazar a borda e sumir. E como cresce a partir do centro, o erro
+                se divide entre as duas bordas, então um desencontro aparece dos
+                dois lados ao mesmo tempo e fica mais fácil de ver do que numa
+                borda só.
+                Continua sem rolagem: o desenho é posicionado por absoluto, e
+                crescer não mexe em layout nenhum. Era a rolagem que fazia a tela
+                andar sozinha debaixo da mão com o objeto encostado nela. */}
             <div className="relative flex-1 overflow-hidden">
               <div ref={areaCalibragem} className="relative h-full w-full">
-                {/* O filete é a marca de encostar: fica onde a borda esquerda
-                    do desenho começou, no meio da tela. */}
                 <div
-                  aria-hidden
-                  className="absolute inset-y-0 w-px bg-gradient-to-b from-transparent via-brand/70 to-transparent"
-                  style={{ left: ancoraX }}
-                />
-                <span
-                  className="eyebrow absolute top-2 text-[0.62rem] text-brand-light/70"
-                  style={{ left: ancoraX + 8 }}
+                  className="absolute left-1/2 top-1/2"
+                  style={{
+                    // O giro é em torno do CENTRO, então virar o cartão em pé
+                    // não tira ele do meio da tela.
+                    transform: `translate(-50%, -50%) rotate(${deitado ? 0 : 90}deg)`,
+                  }}
                 >
-                  encoste aqui
-                </span>
-
-                {emPe ? (
-                  // Em pé, o giro é do desenho, não do layout: a borda esquerda
-                  // fica presa no mesmo eixo e o cartão desce pela tela.
-                  <div
-                    className="absolute top-10 origin-top-left"
-                    style={{
-                      left: ancoraX,
-                      transform: `translateX(${REFERENCIAS.cartao.alturaMm * rascunho}px) rotate(90deg)`,
-                    }}
-                  >
-                    <ObjetoReferencia id={refEscolhida} pxPorMm={rascunho} />
-                  </div>
-                ) : (
-                  <div
-                    className="absolute top-1/2 -translate-y-1/2"
-                    style={{ left: ancoraX }}
-                  >
-                    <ObjetoReferencia id={refEscolhida} pxPorMm={rascunho} />
-                  </div>
-                )}
+                  <ObjetoReferencia id={refEscolhida} pxPorMm={rascunho} />
+                </div>
               </div>
             </div>
 
@@ -440,7 +435,7 @@ export function ModoMedicao({
                 <div className="flex items-center gap-3">
                   <BotaoFino
                     aoClicar={() =>
-                      setRascunho((v) => limitar(+(v - 0.02).toFixed(3), PX_POR_MM_MIN, PX_POR_MM_MAX))
+                      setRascunho((v) => limitar(+(v - 0.02).toFixed(3), PX_POR_MM_MIN, escalaTeto))
                     }
                     rotulo="Diminuir o desenho"
                   >
@@ -450,7 +445,7 @@ export function ModoMedicao({
                   <input
                     type="range"
                     min={PX_POR_MM_MIN}
-                    max={PX_POR_MM_MAX}
+                    max={escalaTeto}
                     step={0.01}
                     value={rascunho}
                     onChange={(e) => setRascunho(Number(e.target.value))}
@@ -461,7 +456,7 @@ export function ModoMedicao({
 
                   <BotaoFino
                     aoClicar={() =>
-                      setRascunho((v) => limitar(+(v + 0.02).toFixed(3), PX_POR_MM_MIN, PX_POR_MM_MAX))
+                      setRascunho((v) => limitar(+(v + 0.02).toFixed(3), PX_POR_MM_MIN, escalaTeto))
                     }
                     rotulo="Aumentar o desenho"
                   >

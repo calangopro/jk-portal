@@ -11,6 +11,7 @@ import { Medidor } from "@/components/medidor/Medidor";
 import { breadcrumbSchema, faqPageSchema, howToSchema } from "@/lib/schema/builders";
 import { buildMetadata } from "@/lib/seo/metadata";
 import { absoluteUrl } from "@/lib/seo/site";
+import { Destaque } from "@/components/ui/Destaque";
 
 export const metadata: Metadata = buildMetadata({
   title: "Medidor de aliança online: descubra seu tamanho | JK Alianças",
@@ -130,18 +131,17 @@ export default function MedidorPage() {
           </div>
 
           <h1 className="font-display max-w-[17ch] text-titulo-artigo text-ink">
-            Descubra o tamanho da sua aliança pela tela
+            Descubra o <Destaque>tamanho</Destaque> da sua aliança pela tela
           </h1>
 
           {/* Resposta direta, primeiro texto da página, como manda a regra de
               GEO. Aqui ela é a linha de apoio do artigo, não uma caixa
               plantada em cima do conteúdo. */}
           <p className="linha-apoio mt-6 max-w-[48ch] text-lede">
-            Para descobrir o tamanho pela tela, calibre com uma moeda de R$ 1,
-            que mede 27 mm, ou um cartão de banco, que mede 85,60 mm. Depois
-            deite a aliança em cima da tela, com o círculo dourado por dentro
-            dela, e aumente o dourado até ele tocar a aliança. O número do aro
-            aparece na hora, junto do diâmetro em milímetros.
+            Calibre a tela com uma moeda de R$ 1, que mede 27 mm, ou um cartão
+            de banco, que mede 85,60 mm. Depois deite a aliança na tela e aumente
+            o círculo dourado até ele tocar nela. O número do aro aparece na
+            hora, com o diâmetro em milímetros.
           </p>
 
           <div aria-hidden className="filete-dourado mt-7" />

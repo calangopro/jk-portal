@@ -13,6 +13,7 @@ import { absoluteUrl } from "@/lib/seo/site";
 import { getPublishedGuias, comCapas } from "@/lib/data/contents";
 import { tempoDeLeitura, dataLonga } from "@/lib/content/leitura";
 import type { Content } from "@/lib/content/types";
+import { Destaque } from "@/components/ui/Destaque";
 
 export const metadata: Metadata = guiaIndexMetadata();
 export const revalidate = 3600;
@@ -101,7 +102,7 @@ export default async function GuiaIndex() {
               peça. Quem chegava pelo menu "Dicas" e caía num título mais estreito
               lia a página como se ela fosse só sobre tamanho de aliança. */}
           <h1 className="font-display max-w-[18ch] text-titulo-artigo text-ink">
-            Dicas de alianças e joias
+            <Destaque>Dicas</Destaque> de alianças e joias
           </h1>
           <p className="linha-apoio mt-6 max-w-[52ch] text-lede">
             Como escolher o tamanho, a largura e o material, o que muda entre
