@@ -80,10 +80,19 @@ sob `basePath: "/guias"` (mecanismo oficial do Next), e não por rewrite.
   ao servir, em `comBasePathNosLinks` (`src/lib/conteudo/links-html.ts`). É o que
   deixa a tabela sobreviver a uma troca de prefixo sem migration.
 - **`robots.txt` do portal NÃO governa o domínio.** Rastreador só lê na raiz do
-  host, e a raiz é da Tray. O nosso responde em `/guias/robots.txt`. Quem protege
-  `/admin` e `/preview` são as metatags `noindex` que essas rotas já emitem.
+  host, e a raiz é da Tray. O nosso responde em `/guias/robots.txt` e vale para o
+  endereço da Vercel, onde ele É a raiz. Desde 18/09 o robots da Tray traz as
+  linhas do `/guias` e anuncia o nosso sitemap, subido pelo painel em
+  **Configurações → SEO → Robots**. Duas coisas para lembrar antes de mexer nele
+  de novo: subir arquivo próprio **substitui** o automático da Tray inteiro (são
+  72 user-agents e os `Disallow` de checkout e carrinho, que precisam ir junto),
+  e **a Cloudflare cacheia o `robots.txt` por 4 horas**, então logo depois de
+  subir ele ainda responde a versão velha e é preciso limpar o cache daquele
+  arquivo. De toda forma, quem de fato protege `/admin` e `/preview` continua
+  sendo a metatag `noindex` que essas rotas emitem.
 - **Sem HSTS no aplicativo, de propósito.** HSTS é política de host, não de
-  pasta. Quem liga é o dono do domínio, na borda.
+  pasta. Quem liga é o dono do domínio, na borda. Segue **desligado na zona**,
+  e o Worker remove o cabeçalho que a Vercel injeta.
 
 ## Mapa do código
 ```
@@ -348,14 +357,37 @@ docs/                identidade-visual-jk.md (marca)
 - **Soft-delete / desativar** em vez de apagar — preservar histórico.
 - Secrets: `service_role` e tokens da Tray **jamais** com prefixo `NEXT_PUBLIC_`. `.env.local` não é versionado.
 
-## Estado atual (19/08/2026)
+## Estado atual (18/09/2026)
 
-🟢 **O portal está NO AR**, em endereço temporário da Vercel:
-**https://jk-portal.vercel.app/guias**
-A virada para `www.jkaliancas.com.br/guias` está travada no acesso ao Registro.br, que a
-Kathleen ainda vai passar. **Nenhum registro de DNS foi alterado e nenhum Worker do
-Cloudflare foi criado.** Isso não bloqueia nada do trabalho editorial: dá para escrever,
-revisar e publicar no endereço temporário desde já.
+🟢 **O portal está NO AR no domínio da JK: https://www.jkaliancas.com.br/guias**
+A virada aconteceu em 17/09/2026. Os nameservers estão na Cloudflare, `www` é CNAME para
+`1305187.tcdn.com.br` com o **proxy ligado**, e a rota `www.jkaliancas.com.br/guias*` vai
+para o Worker `jk-guias`, que busca em `jk-portal.vercel.app`. Todo o resto do domínio
+continua indo para a Tray, **sem passar pelo Worker**. É essa rota única que faz editar o
+Worker não alcançar a loja.
+**A fonte do Worker é versionada em `infra/cloudflare/worker.js`**, com o README ao lado.
+Ele já se perdeu uma vez por existir só dentro da Cloudflare: o desvio de 404 que havia
+nos testes sumiu e ninguém tinha como comparar o que rodava com o que se pretendia.
+⚠️ **`jk-portal.vercel.app` continua respondendo, e isso é de propósito:** é a origem que
+o Worker consulta. O que tira essa cópia do Google é o `X-Robots-Tag: noindex` que o
+portal emite em TODA resposta e o Worker apaga na saída. Lido de fora parece invertido, e
+é: a Vercel recebe `Host: jk-portal.vercel.app` mesmo no tráfego real (testado, com o host
+da JK ela responde `DEPLOYMENT_NOT_FOUND`), então a aplicação **não tem como saber** por
+qual endereço está sendo servida, e a decisão passa a ser do proxy. Explicado por extenso
+em `next.config.ts`. A conferência é de uma linha, e a primeira é a que importa:
+```bash
+curl -sI https://www.jkaliancas.com.br/guias | grep -i x-robots   # vazio
+curl -sI https://jk-portal.vercel.app/guias  | grep -i x-robots   # noindex
+```
+⚠️ **O `http` vira `https` dentro do Worker, e não pelo "Always Use HTTPS" da zona.**
+Aquele botão vale para o domínio inteiro, e o domínio inteiro é a loja: um callback de
+pagamento ainda apontado para `http://` perderia o corpo num 301. A loja já se vira
+sozinha, porque a própria Tray desvia na origem.
+🟢 **A loja aponta para o portal** desde 18/09: rodapé com três links e item "Dicas" no
+menu, e o portal devolve com o botão "Comprar alianças" no cabeçalho. Antes disso a loja
+não linkava `/guias` em página nenhuma, e o portal só era alcançável pelo sitemap.
+O tema da loja vive em `~/Projetos/jk-tema-loja`, e **toda mudança lá precisa entrar nos
+dois temas** (raiz e `Esquenta/`), como o `TEMAS.md` daquele repositório exige.
 ✅ **Público:** home, `/dicas`, `/[slug]`, `/lojas`, `/lojas/[slug]`, `/medidor-de-aliancas`, robots/sitemap/llms.txt, JSON-LD, compartilhamento.
 ✅ **Estrutura:** `src/app/(site)/` = público, `src/app/admin/(painel)/` = protegido, `src/app/layout.tsx` = só html/body/fontes.
 ✅ **Supabase:** 36 migrations aplicadas e em arquivo, 22 tabelas com RLS, bucket `media`.
@@ -536,14 +568,18 @@ editor, que é a rota mais pesada) e em `(site)/busca/loading.tsx` (a única
 rota pública que consulta o banco a cada visita). O botão "Sair" do cabeçalho
 do painel era o último sem estado de espera e ganhou `useFormStatus`.
 
-🔲 **A construir:** conteúdo (só 1 guia publicado, e é o gargalo de resultado), OAuth do Search Console e do GMB, virada do domínio (travada no Registro.br).
-⚠️ **Pendências (nenhuma delas resolvida até 19/08):** **preencher o endereço do portal em `site_settings.cron`, COM o prefixo**
-(`update public.site_settings set value = jsonb_build_object('url','https://SEU-DOMINIO/guias') where key='cron';`).
-O SQL faz `url || '/api/cron/publicar'`, e o endpoint vive sob `/guias`.
-Sem isso o job `publicar-agendados` do `pg_cron` roda de 5 em 5 minutos e não faz
-nada, então a publicação agendada fica só na tela. O segredo do disparo já existe
-em `integration_tokens` (provider `cron`) e é o mesmo que o endpoint
-`/api/cron/publicar` confere. **Desligar o cadastro público no painel do Supabase**
+🔲 **A construir:** conteúdo (só 1 guia publicado, e é o gargalo de resultado), OAuth do Search Console e do GMB.
+🚨 **A pendência mais séria hoje é o plano da Vercel.** A conta que hospeda o `jk-portal`
+está em **Free (Hobby)**, confirmado em 18/09. Hobby é para uso **não comercial**, e hoje
+ele serve o domínio de uma loja que vende. Não é questão de fatura, é motivo de suspensão,
+e se a Vercel agir o `/guias` sai do ar inteiro. O time `Agencia Setup` já está em Pro, já
+é pago, e não tem projeto com esse nome, então mover para lá não custa assinatura nova.
+**Ao mover, conferir se `jk-portal.vercel.app` continua respondendo**, porque é o destino
+escrito no Worker; se mudar, ajustar `infra/cloudflare/worker.js` e republicar.
+✅ **Cron do agendamento resolvido em 18/09:** `site_settings.cron` está preenchido com
+`https://jk-portal.vercel.app/guias`, apontando direto para a Vercel para o cabeçalho do
+segredo não depender do Worker. O SQL faz `url || '/api/cron/publicar'`.
+⚠️ **Pendências:** **desligar o cadastro público no painel do Supabase**
 (Authentication → Sign In / Providers → "Allow new users to sign up"), que hoje
 está ligado e é a única parte da falha de 0020 que não dá para fechar por
 migration. Trocar a senha temporária do master e rotacionar a chave da OpenAI.
@@ -553,7 +589,12 @@ porque a extensão **não aceita `set schema`** e a única saída seria derrubar
 recriar, o que quebraria a publicação agendada por uma advertência cosmética.
 As funções dela vivem em `net`, que é onde o cron as chama. Projeto sem `eslint.config.js`,
 então o lint não roda. **Cadastrar o webhook da Tray** no painel da loja, apontando para
-`https://SEU-DOMINIO/guias/api/tray/webhook?secret=SEU_SEGREDO`.
+`https://www.jkaliancas.com.br/guias/api/tray/webhook?secret=SEU_SEGREDO`.
+⚠️ **Sitemap da LOJA tem cerca de 156 URLs mortas** (medido em 18/09, amostra de 180 das
+1.217: 12,8% redirecionam). São produtos removidos que o gerador da Tray ainda lista, e
+cada um gasta dois saltos até `/sem-resultados-na-busca`, que é `noindex`. Não suja o
+índice, queima orçamento de rastreamento. Decidido não mexer agora. Registrado no card
+"04 — HOST, HTTPS, CANONICAL, SITEMAP E REDIRECTS", com o experimento a testar.
 ⚠️ **Depende da JK:** fotos das lojas, horário confirmado de sete unidades, história por unidade, avaliações reais do GMB, razão social e CNPJ.
 
 ## Regras de dado que o código faz valer
