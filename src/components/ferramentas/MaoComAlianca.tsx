@@ -128,10 +128,21 @@ export function MaoComAlianca({
   /**
    * A sombra que a peça joga na pele, logo abaixo dela.
    *
-   * Esta sim é recortada pelo alpha da foto: sombra cai SOBRE o dedo, então ela
-   * tem de morrer na borda da pele. Sem ela a aliança flutua.
+   * Recortada pelo alpha da foto, porque sombra cai SOBRE o dedo e tem de morrer
+   * na borda da pele. Sem ela a aliança flutua.
+   *
+   * MAS ela é curta e clara de propósito, e isso não é timidez de desenho.
+   * A primeira versão tinha metade da altura da faixa e começava escura
+   * encostada na borda de baixo. Medido na tela, com 5 mm a 5 px/mm: a faixa
+   * saía com 25,00 px, ou seja 5,000 mm exatos, e logo abaixo vinham 12,5 px de
+   * sombra. O olho lia as duas como uma coisa só e via 7,5 mm de aliança.
+   *
+   * Numa ferramenta de MEDIDA isso é pior que feio, é errado: a pessoa encosta a
+   * aliança dela na tela e conclui que o site mente. Sombra aqui vale no máximo
+   * cerca de 1 mm e em contraste baixo. O realismo que ela acrescenta não paga
+   * um milímetro de erro percebido.
    */
-  const sombraAltura = Math.max(5, alturaDaFaixa * 0.5);
+  const sombraAltura = Math.max(3, alturaDaFaixa * 0.22);
   const sombraTopo = faixaBase;
   const sombraEsq = (mao.alianca.centroX - mao.corte.x) * k - (mao.alianca.larguraDoDedo * k) / 2;
   const sombraLargura = mao.alianca.larguraDoDedo * k;
@@ -178,7 +189,7 @@ export function MaoComAlianca({
             width: sombraLargura,
             height: sombraAltura,
             background:
-              "linear-gradient(to bottom, rgb(72 38 14 / 0.38), rgb(72 38 14 / 0.12) 45%, rgb(72 38 14 / 0))",
+              "linear-gradient(to bottom, rgb(72 38 14 / 0.20), rgb(72 38 14 / 0.07) 45%, rgb(72 38 14 / 0))",
             ...mascaraDaSombra,
           }}
         />
@@ -194,7 +205,10 @@ export function MaoComAlianca({
             height: alturaDaFaixa,
             borderRadius: raio,
             background: gradienteDoMaterial(material),
-            boxShadow: "0 1px 2px rgb(50 26 8 / 0.45)",
+            // Sem deslocamento vertical: `0 1px 2px` jogava uma linha escura
+            // logo abaixo da borda e somava altura à peça aos olhos de quem
+            // mede. Uma sombra centrada assenta a aliança sem engordá-la.
+            boxShadow: "0 0 2px rgb(50 26 8 / 0.38)",
           }}
         >
           {/* O que faz o olho ler METAL POLIDO, e não plástico amarelo.

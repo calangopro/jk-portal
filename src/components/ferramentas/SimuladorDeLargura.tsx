@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Check, Ruler } from "lucide-react";
+import { Button } from "@/components/ui/Button";
 import {
   MATERIAIS,
   gradienteDoMaterial,
@@ -132,17 +133,56 @@ export function SimuladorDeLargura({ aroInicial = 16 }: { aroInicial?: number })
 
           {/* O desenho não encolhe: encolher seria mentir sobre o tamanho real.
               Se não couber, a área rola de lado e a escala continua honesta. */}
-          <div className="mt-5 w-full overflow-x-auto">
-            <div className="mx-auto w-max px-2">
-              <MaoComAlianca
-                diametroMm={diametro}
-                larguraMm={largura}
-                escala={escala}
-                tipo={tipo}
-                material={material}
-                rotulo={comoFicaNoDedo(largura, aro)}
-              />
+          <div className="relative mt-5 w-full">
+            <div
+              className={`w-full overflow-x-auto transition-[opacity,filter] duration-500 ${
+                escalaReal ? "" : "pointer-events-none opacity-35 blur-[2px]"
+              }`}
+              aria-hidden={escalaReal ? undefined : true}
+            >
+              <div className="mx-auto w-max px-2">
+                <MaoComAlianca
+                  diametroMm={diametro}
+                  larguraMm={largura}
+                  escala={escala}
+                  tipo={tipo}
+                  material={material}
+                  rotulo={comoFicaNoDedo(largura, aro)}
+                />
+              </div>
             </div>
+
+            {/* SEM CALIBRAÇÃO, A MÃO NÃO PODE PARECER TAMANHO REAL.
+                Isto nasceu de um teste com aliança de verdade encostada na tela:
+                sem calibrar, a ferramenta usa uma escala de reserva e o desenho
+                saiu cerca de 1,5 vez maior que a peça. O aviso existia, mas em
+                texto pequeno embaixo do desenho, e ninguém lê aviso pequeno
+                quando a imagem parece confiável.
+                O H1 da página promete "no tamanho real". Enquanto a promessa não
+                puder ser cumprida, o desenho fica embaçado e a única coisa nítida
+                é o caminho para cumpri-la. */}
+            {escalaReal ? null : (
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 px-5 text-center">
+                <div className="glass max-w-[30ch] rounded-lg px-6 py-6">
+                  <p className="text-corpo font-semibold leading-snug text-ink">
+                    Esta tela ainda não foi medida, então o desenho não está em
+                    tamanho real.
+                  </p>
+                  <Button
+                    href="/medidor-de-aliancas?calibrar=1"
+                    size="sm"
+                    className="mt-4"
+                    icone={<Ruler size={16} aria-hidden />}
+                  >
+                    Calibrar a tela
+                  </Button>
+                  <p className="mt-3 text-nota leading-relaxed text-muted">
+                    Leva 20 segundos, com uma moeda de R$ 1 ou um cartão. Depois
+                    vale para o site inteiro.
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
 
           <p className="mt-4 max-w-[34ch] text-center text-nota leading-relaxed text-muted">
@@ -164,16 +204,7 @@ export function SimuladorDeLargura({ aroInicial = 16 }: { aroInicial?: number })
                 </Link>
               </>
             ) : (
-              <>
-                Comparação entre larguras, ainda sem tamanho real.{" "}
-                <Link
-                  href="/medidor-de-aliancas?calibrar=1"
-                  className="font-semibold text-brand-nav underline underline-offset-2"
-                >
-                  Calibre no medidor
-                </Link>{" "}
-                para ver na escala certa.
-              </>
+              "As larguras abaixo continuam valendo uma em relação à outra: a de 6 mm é o dobro da de 3 mm em qualquer tela."
             )}
           </p>
         </div>
