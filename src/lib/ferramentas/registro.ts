@@ -182,7 +182,7 @@ export const FERRAMENTAS: Ferramenta[] = [
     metaDescription:
       "Teor real e faixa de preço praticada em cada material de aliança da JK Alianças: prata 925, prata 950, prata banhada, prata com ouro, ouro 10k e ouro 18k.",
     resposta:
-      "A escolha do material define teor, preço e manutenção da aliança. Prata 925 tem 92,5% de prata e prata 950 tem 95%; ouro 10k tem cerca de 41,7% de ouro e ouro 18k tem 75%. Na loja da JK Alianças, a mediana vai de cerca de R$ 450 na prata 950 a cerca de R$ 9.900 no ouro 18k, com prata banhada e ouro 10k entre as duas pontas.",
+      "O material define teor, preço e manutenção da aliança: prata 925 tem 92,5% de prata e prata 950 tem 95%, e o ouro 10k tem cerca de 41,7% de ouro contra 75% do ouro 18k. Na loja da JK Alianças, a mediana vai de cerca de R$ 450 na prata 950 a cerca de R$ 9.900 no ouro 18k, com prata banhada e ouro 10k entre as duas pontas.",
     chamada: "Prata e ouro comparados por teor e por preço.",
     passos: [
       {
