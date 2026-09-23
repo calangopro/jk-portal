@@ -218,6 +218,17 @@ docs/                identidade-visual-jk.md (marca)
   incluído) e o padrão é aplicado FORA do cache. Regra geral: dentro do cache
   vai o que veio do banco, nunca o que veio do código. Ao mexer nisso, troque
   também a versão em `keyParts`, senão a entrada velha continua respondendo.
+- **Extensão do TipTap com `parseHTML` errado destrói conteúdo ao ABRIR.** O
+  `CabecalhoDeTabela` tinha a regra copiada da tabela (`caption`, `table`) e
+  nunca reconhecia `<th>`. Abrir um rascunho no editor achatava o cabeçalho numa
+  célula só ("MaterialCorManutençãoFaixa de preço") e o salvamento automático
+  gravava o estrago: foram as 30 tabelas dos rascunhos de 23/09. Nó novo no
+  editor se testa abrindo HTML que já existe e comparando com o que volta.
+- **Tabela não rola por `display: block` nela mesma.** Isso transformava
+  `<thead>` e `<tbody>` em duas grades com colunas desalinhadas e espremia a
+  `<caption>`. A rolagem mora na caixa em volta: `.tabela-rolavel`, posta ao
+  servir por `comTabelasRolaveis` (`src/lib/conteudo/tabelas-html.ts`), e
+  `.tableWrapper`, que o TipTap cria no editor.
 - **`.conteudo-rico` é a MESMA classe no editor e no site publicado.** Mexeu nela, confira
   os dois lados, senão o preview passa a mentir sobre o que vai ao ar.
 - **`.conteudo-rico` é um container CSS (`container-name: leitura`).** Bloco de dentro

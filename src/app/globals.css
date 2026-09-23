@@ -989,24 +989,50 @@ h4 {
 }
 
 /* Tabela comparativa e conteudo de alto valor, inclusive para IA, e era a
-   parte mais fragil no celular: tres colunas espremidas sem rolagem propria.
-   Agora a tabela rola dentro da propria caixa, sem empurrar a pagina. */
-.conteudo-rico :is(table) {
-  display: block;
-  width: 100%;
+   parte mais fragil no celular. A rolagem mora numa CAIXA em volta da tabela
+   (`.tabela-rolavel` no site, `.tableWrapper` que o TipTap cria no editor), e
+   a tabela continua sendo tabela. A versao anterior punha `display: block` na
+   propria <table> e `display: table` no <thead> e no <tbody>: viravam duas
+   grades independentes, com colunas que nao se alinhavam, e a legenda ficava
+   espremida numa coluna estreita a esquerda. */
+.conteudo-rico :is(.tabela-rolavel, .tableWrapper) {
+  margin-block: 2em;
   overflow-x: auto;
-  border-collapse: collapse;
-  font-size: 0.94rem;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
+  background: rgb(255 255 255 / 0.35);
   -webkit-overflow-scrolling: touch;
 }
 
-.conteudo-rico table tbody,
-.conteudo-rico table thead {
-  display: table;
+.conteudo-rico .tabela-rolavel:focus-visible {
+  outline: 2px solid var(--color-brand);
+  outline-offset: 3px;
+}
+
+.conteudo-rico :is(.tabela-rolavel, .tableWrapper) > table {
   width: 100%;
-  min-width: 32rem;
+  margin: 0;
+  border-collapse: collapse;
+  font-size: 0.94rem;
+  line-height: 1.5;
+}
+
+/* Tabela de duas ou tres colunas cabe no celular. Com quatro ou mais, as
+   celulas virariam colunas de uma palavra por linha, e ai vale rolar de lado. */
+.conteudo-rico :is(.tabela-rolavel, .tableWrapper) > table:has(tr > :nth-child(4)) {
+  min-width: 36rem;
+}
+
+/* Dentro da caixa, a legenda vira o titulo dela, com um filete embaixo. */
+.conteudo-rico :is(.tabela-rolavel, .tableWrapper) caption {
+  padding: 0.85em 0.9em 0.75em;
+  border-bottom: 1px solid var(--color-border);
+}
+
+/* O TipTap guarda cada celula com um <p> dentro, e a margem de paragrafo do
+   corpo abria um vao em cima e embaixo de cada linha. */
+.conteudo-rico :is(th, td) > p {
+  margin: 0;
 }
 
 .conteudo-rico th,
@@ -1029,11 +1055,12 @@ h4 {
 .conteudo-rico th {
   background: rgb(var(--jk-brand-rgb) / 0.12);
   font-family: var(--font-sans);
-  font-size: 0.82rem;
+  font-size: 0.78rem;
   font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--color-brand-strong);
+  vertical-align: bottom;
 }
 
 /* Numero em coluna de tabela nao pode dancar. */

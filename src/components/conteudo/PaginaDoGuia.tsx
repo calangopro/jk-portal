@@ -13,6 +13,7 @@ import { produtosParaOArtigo } from "@/lib/data/produtos";
 import { comIndice } from "@/lib/content/indice";
 import { comPrecosAtuais } from "@/lib/conteudo/precos";
 import { comBasePathNosLinks } from "@/lib/conteudo/links-html";
+import { comTabelasRolaveis } from "@/lib/conteudo/tabelas-html";
 import { tempoDeLeitura } from "@/lib/content/leitura";
 import { comentariosAprovados, contarComentarios } from "@/lib/data/comentarios";
 import { JsonLd } from "@/components/schema/JsonLd";
@@ -67,7 +68,10 @@ export async function PaginaDoGuia({ guia: recebido }: { guia: Content }) {
   // Os links internos do texto ganham o prefixo do portal na hora de servir.
   // No banco eles continuam sendo caminho interno (/ouro-10k), que é o que
   // sobrevive a uma eventual troca de prefixo sem migration.
-  const corpo = comBasePathNosLinks(await comPrecosAtuais(guia.bodyHtml ?? ""));
+  // Cada tabela ganha a caixa que rola de lado. Ver src/lib/conteudo/tabelas-html.ts.
+  const corpo = comTabelasRolaveis(
+    comBasePathNosLinks(await comPrecosAtuais(guia.bodyHtml ?? "")),
+  );
   const { html: corpoComIndice, indice } = comIndice(corpo, dimensoes);
 
   // A primeira imagem do corpo vira a imagem do Article, com dimensão real.
