@@ -63,15 +63,13 @@ export const TabelaNode = Table.extend({
  * linha, e lê a tabela inteira sem associar valor a cabeçalho.
  */
 export const CabecalhoDeTabela = TableHeader.extend({
+  // Lê `<th>`, e só isso. Esta regra já foi uma cópia da regra da TABELA
+  // (`caption` e `table`), e aí nenhum `<th>` era reconhecido: ao abrir o
+  // conteúdo no editor, a linha de cabeçalho inteira virava uma célula comum
+  // com os títulos colados ("MaterialCorManutençãoFaixa de preço"), e o
+  // salvamento automático gravava o estrago no banco.
   parseHTML() {
-    return [
-      // Ignora o <caption> na leitura do CONTEÚDO. O schema de tabela do TipTap
-      // só aceita linhas, então sem esta regra o parser tirava a legenda de
-      // dentro da tabela e a transformava num parágrafo solto acima dela. O
-      // texto continua sendo lido, mas pelo atributo `legenda` logo abaixo.
-      { tag: "caption", ignore: true },
-      { tag: "table" },
-    ];
+    return [{ tag: "th" }];
   },
 
   renderHTML({ HTMLAttributes }) {
