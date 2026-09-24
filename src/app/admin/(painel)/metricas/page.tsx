@@ -14,8 +14,8 @@ export const maxDuration = 60;
 
 /** Situação da leitura automática, para o painel da tela. */
 async function situacaoDoAutomatico() {
-  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) return { email: null, ultima: null };
-  const [{ contaDeServico }, { createAdminClient }] = await Promise.all([
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) return { email: null, problema: null, ultima: null };
+  const [{ lerContaDeServico }, { createAdminClient }] = await Promise.all([
     import("@/lib/search-console/conta"),
     import("@/lib/supabase/admin"),
   ]);
@@ -25,8 +25,10 @@ async function situacaoDoAutomatico() {
     .eq("provider", "gsc")
     .maybeSingle();
   const meta = (data?.meta ?? null) as { ok?: boolean; mensagem?: string; executado_em?: string } | null;
+  const leitura = lerContaDeServico();
   return {
-    email: contaDeServico()?.email ?? null,
+    email: leitura.conta?.email ?? null,
+    problema: leitura.problema ?? null,
     ultima: meta?.executado_em ? { ok: Boolean(meta.ok), mensagem: meta.mensagem ?? "", quando: meta.executado_em } : null,
   };
 }
@@ -202,7 +204,7 @@ export default async function MetricasPage() {
       ) : null}
 
       <section className="mt-6">
-        <Automatico email={automatico.email} ultima={automatico.ultima} />
+        <Automatico email={automatico.email} problema={automatico.problema} ultima={automatico.ultima} />
       </section>
 
       <section className="mt-6 grid gap-5 lg:grid-cols-[1.2fr_1fr]">

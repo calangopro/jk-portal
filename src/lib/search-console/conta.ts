@@ -21,21 +21,60 @@ import { createSign } from "node:crypto";
 
 export type ContaDeServico = { email: string; chave: string };
 
-/** Lê a conta da variável de ambiente. Null quando falta ou não é o JSON certo. */
-export function contaDeServico(): ContaDeServico | null {
+export type LeituraDaConta =
+  | { conta: ContaDeServico; problema?: undefined }
+  | { conta: null; problema: string };
+
+/**
+ * Lê a conta da variável de ambiente e, quando não dá, diz POR QUÊ.
+ *
+ * "Falta a variável" e "a variável está lá mas o conteúdo não serve" pedem
+ * consertos diferentes, e a tela de Métricas mostra qual dos dois é. A
+ * mensagem nunca cita o conteúdo, só o tamanho e o primeiro caractere, para
+ * dar pista de colagem errada sem expor a chave.
+ */
+export function lerContaDeServico(): LeituraDaConta {
   const bruto = process.env.GSC_SERVICE_ACCOUNT_JSON?.trim();
-  if (!bruto) return null;
-  try {
-    const json = JSON.parse(bruto) as { client_email?: string; private_key?: string };
-    if (!json.client_email || !json.private_key) return null;
+  if (!bruto) {
     return {
+      conta: null,
+      problema:
+        "Falta a variável GSC_SERVICE_ACCOUNT_JSON neste deploy. Se ela já foi salva na Vercel, falta um Redeploy feito DEPOIS de salvar.",
+    };
+  }
+
+  let json: { client_email?: string; private_key?: string };
+  try {
+    json = JSON.parse(bruto);
+  } catch {
+    return {
+      conta: null,
+      problema:
+        `A variável GSC_SERVICE_ACCOUNT_JSON existe, mas o conteúdo não é um JSON válido (${bruto.length} caracteres, começa com "${bruto.charAt(0)}"). ` +
+        "Cole o arquivo inteiro, do { ao }, copiado de um editor de texto simples.",
+    };
+  }
+
+  if (!json.client_email || !json.private_key) {
+    return {
+      conta: null,
+      problema:
+        "A variável GSC_SERVICE_ACCOUNT_JSON é um JSON, mas não traz client_email e private_key. Confira se é o arquivo da chave da conta de serviço.",
+    };
+  }
+
+  return {
+    conta: {
       email: json.client_email,
       // Colado em alguns painéis, o `\n` da chave chega escapado duas vezes.
       chave: json.private_key.replace(/\\n/g, "\n"),
-    };
-  } catch {
-    return null;
-  }
+    },
+  };
+}
+
+/** Atalho para quem só precisa da conta. Null quando falta ou não serve. */
+export function contaDeServico(): ContaDeServico | null {
+  return lerContaDeServico().conta;
 }
 
 const ESCOPO = "https://www.googleapis.com/auth/webmasters.readonly";

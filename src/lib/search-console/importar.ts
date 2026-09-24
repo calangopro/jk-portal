@@ -1,6 +1,6 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { contaDeServico, tokenDeAcesso } from "./conta";
+import { lerContaDeServico, tokenDeAcesso } from "./conta";
 
 /**
  * Importa do Search Console para `analytics_snapshots`, no MESMO formato da
@@ -110,13 +110,8 @@ export function paraSnapshots(linhas: LinhaDaApi[], dimensao: "query" | "page", 
 }
 
 export async function importarDoSearchConsole(periodo = periodoPadrao()): Promise<ResultadoImportacao> {
-  const conta = contaDeServico();
-  if (!conta) {
-    return {
-      ok: false,
-      mensagem: "Falta a variável GSC_SERVICE_ACCOUNT_JSON no servidor. O passo a passo está em docs/search-console-automatico.md.",
-    };
-  }
+  const { conta, problema } = lerContaDeServico();
+  if (!conta) return { ok: false, mensagem: problema };
 
   const supabase = createAdminClient();
   const { data: integracao } = await supabase
