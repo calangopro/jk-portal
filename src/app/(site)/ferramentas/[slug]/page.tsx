@@ -18,7 +18,10 @@ import { breadcrumbSchema, faqPageSchema, howToSchema, webPageSchema } from "@/l
 import { comDestaque } from "@/components/ui/Destaque";
 import { separarPrimeiraFrase } from "@/lib/texto/primeira-frase";
 
-export const revalidate = 86400;
+// Uma hora, como a home e o guia, porque a vitrine do simulador de largura
+// sai com preço dentro do HTML. Com um dia, a promoção que acabou à meia-noite
+// continuaria anunciada até a noite seguinte.
+export const revalidate = 3600;
 export const dynamicParams = false;
 
 export function generateStaticParams() {

@@ -1,5 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 
+// A leitura da loja inteira leva uns dez segundos.
+export const maxDuration = 60;
+
 /**
  * Webhook da Tray: recebe aviso de produto criado, alterado ou removido e
  * dispara a sincronização, para o portal não depender só do agendamento.
@@ -23,10 +26,12 @@ export async function POST(request: NextRequest) {
   }
 
   const { sincronizarCatalogo } = await import("@/lib/tray/sincronizar");
+  const { revalidarPrecos } = await import("@/lib/tray/revalidar");
   const r = await sincronizarCatalogo();
+  if (r.revalidar) revalidarPrecos();
 
   return NextResponse.json(
-    { ok: r.ok, produtos: r.produtos, categorias: r.categorias, erro: r.erro },
+    { ok: r.ok, produtos: r.produtos, alterados: r.alterados, categorias: r.categorias, erro: r.erro },
     { status: r.ok ? 200 : 500 },
   );
 }

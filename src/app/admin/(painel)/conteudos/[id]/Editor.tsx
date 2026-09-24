@@ -1494,7 +1494,9 @@ export function Editor({
                 setSeletorProduto(false);
               }}
               aoEscolher={(p, url) => {
-                // Preço promocional vence quando existe e é menor.
+                // Preço promocional vence quando existe e é menor. A janela
+                // da promoção já foi conferida em `buscarProdutos`: fora dela,
+                // `precoPromocional` chega nulo.
                 const temPromo =
                   p.precoPromocional !== null && p.preco !== null && p.precoPromocional < p.preco;
                 const novo: ProdutoDoBloco = {

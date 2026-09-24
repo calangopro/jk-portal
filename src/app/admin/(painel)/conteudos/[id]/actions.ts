@@ -9,6 +9,7 @@ import { publicarNoBanco, reindexarBusca } from "@/lib/publicacao/publicar";
 import { evidenciaDoFato, type Fato, type ModuloDoFato } from "@/lib/content/fatos";
 
 import { comBasePath } from "@/lib/seo/base-path";
+import { hojeEmSaoPaulo, precoVigente } from "@/lib/tray/preco";
 export type SalvarPayload = {
   id: string;
   /** updated_at que o editor carregou. Serve para detectar edição concorrente. */
@@ -657,18 +658,28 @@ export type ProdutoResumo = {
   imagem: string | null;
   disponivel: boolean;
   preco: number | null;
+  /** Só preenchido com a promoção valendo hoje, pela janela da Tray. */
   precoPromocional: number | null;
   prazo: string | null;
 };
 
-/** Busca produtos sincronizados da Tray, para inserir no conteúdo. */
+/**
+ * Busca produtos sincronizados da Tray, para inserir no conteúdo.
+ *
+ * O preço que volta é o que a loja cobra hoje. O card grava esse valor no HTML
+ * como plano B, e na hora de servir quem manda é `comPrecosAtuais`, mas o plano
+ * B também não pode nascer com uma promoção que já acabou.
+ */
 export async function buscarProdutos(termo: string): Promise<ProdutoResumo[]> {
   await requireStaff();
   const supabase = await createClient();
 
   let q = supabase
     .from("products")
-    .select("id, name, url, main_image_url, status, price, promotional_price, availability_text")
+    .select(
+      "id, name, url, main_image_url, status, price, promotional_price, availability_text, " +
+        "start_promotion:raw->>start_promotion, end_promotion:raw->>end_promotion",
+    )
     .eq("is_active", true)
     .order("name")
     .limit(20);
@@ -676,20 +687,25 @@ export async function buscarProdutos(termo: string): Promise<ProdutoResumo[]> {
   if (termo.trim()) q = q.ilike("name", `%${termo.trim()}%`);
 
   const { data } = await q;
-  return (data ?? []).map((p: {
+  const hoje = hojeEmSaoPaulo();
+  return ((data ?? []) as unknown as {
     id: string; name: string; url: string | null; main_image_url: string | null;
     status: string | null; price: number | null; promotional_price: number | null;
+    start_promotion: string | null; end_promotion: string | null;
     availability_text: string | null;
-  }) => ({
-    id: p.id,
-    nome: p.name,
-    url: p.url,
-    imagem: p.main_image_url,
-    disponivel: p.status === "available",
-    preco: p.price,
-    precoPromocional: p.promotional_price,
-    prazo: p.availability_text,
-  }));
+  }[]).map((p) => {
+    const { atual, anterior } = precoVigente(p, hoje);
+    return {
+      id: p.id,
+      nome: p.name,
+      url: p.url,
+      imagem: p.main_image_url,
+      disponivel: p.status === "available",
+      preco: anterior ?? atual,
+      precoPromocional: anterior != null ? atual : null,
+      prazo: p.availability_text,
+    };
+  });
 }
 
 /* ---------------------------------------------------------- links internos */

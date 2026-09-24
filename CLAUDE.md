@@ -113,7 +113,7 @@ src/lib/schema/      builders de JSON-LD (Article, Breadcrumb, Organization, Jew
 src/lib/seo/         metadata + constantes do site
 src/lib/supabase/    read (SSG), server, client, admin (service_role), middleware
 src/lib/data/rotas.ts  links de Google Maps, Waze, WhatsApp e telefone das lojas
-supabase/migrations/ 0001 a 0038, todas em arquivo e todas aplicadas
+supabase/migrations/ 0001 a 0040, todas em arquivo e todas aplicadas
 supabase/templates/  modelos de e-mail do Supabase (convite, recuperar senha): a fonte do que
                      está colado no painel dele
 public/              logo.png, logo.svg, og/ (og/default.png ainda falta)
@@ -397,6 +397,27 @@ docs/                identidade-visual-jk.md (marca)
   sessão ao clicar para a loja. `utm_source=portal` abria sessão nova e a venda
   virava "portal". A posição do clique saiu da URL e foi para o evento
   (`posicao`, lida de `data-regiao` no cabeçalho e no rodapé do site).
+- **A Tray não apaga `promotional_price` quando a promoção acaba.** O campo
+  fica preenchido com a janela vencida (`raw->>start_promotion`,
+  `raw->>end_promotion`, formato `AAAA-MM-DD`, `0000-00-00` quando vazia) e a
+  loja volta a cobrar o cheio. Em 24/09 eram 589 produtos com promocional
+  guardado e 8 dentro da janela, e o portal anunciava "de 1.549,90 por
+  1.399,90" com promoção de agosto de 2025. Todo preço que vai para a tela
+  passa por `precoVigente` (`src/lib/tray/preco.ts`), com o dia de São Paulo e
+  as duas pontas inclusivas. Consulta nova de produto que mostra preço precisa
+  trazer as duas datas do `raw`.
+- **Produto indisponível não entra em vitrine.** A Tray tira a página dele do
+  ar (quatro de cinco caíam em "sem resultados na busca"), então o cartão
+  anunciava preço de peça que a loja não vende e levava para página morta.
+  Vitrine pede `status = available`, e o card no corpo do artigo fica só com
+  "Sem estoque no momento".
+- **A sincronização gravava produto por produto e morria na Vercel.** Eram
+  mais de dois minutos, e em 24/09 ficaram 740 produtos com preço do dia e o
+  resto com preço de agosto, sem nenhuma linha em `sync_logs` (o registro era
+  feito no fim). Agora grava em lotes e só o que mudou (`sync_hash`, 0039):
+  10 s na primeira rodada, 7 s nas seguintes. O `pg_cron` roda de 15 em 15
+  minutos (0040) e a rota refaz as páginas quando um preço muda e na primeira
+  rodada do dia, que é a que tira do ar a promoção vencida à meia-noite.
 
 ## Convenções & regras
 - **Idioma do produto e do conteúdo: pt-BR.**
@@ -451,7 +472,7 @@ dois temas** (raiz e `Esquenta/`), como o `TEMAS.md` daquele repositório exige.
 ✅ **Editor de conteúdo:** blocos com TipTap, salvamento automático com detecção de conflito, modelos, links internos com busca, fontes com trava na publicação, canibalização determinística, preview de rascunho assinado, analisador SEO/GEO ao vivo e assistente de IA.
 ✅ **Inserção no editor (13/08):** botão `+` na margem, alinhado à linha do cursor, e comando por `/` no texto (filtra sem acento, setas, Enter, Esc). Tudo entra no ponto onde o cursor está, não no fim do artigo: linha vazia é substituída, linha com texto recebe o bloco logo abaixo. Linha de texto garantida no fim para bloco atômico não prender o cursor.
 ✅ **Vitrine de produtos (13/08):** de um a quatro produtos no mesmo bloco, em três formatos (vertical, quadrado, horizontal), com mover e remover por card. O card inteiro é o link. Conteúdo antigo (card solto `div[data-produto]`) sobe para vitrine ao abrir. O preço exibido sai da tabela `products` na hora de servir a página, não do que ficou gravado no texto.
-✅ **Tray:** cliente só-leitura, sincronização com upsert por `tray_id`, webhook, 1.110 produtos. Funciona SEM credencial, pela busca pública.
+✅ **Tray:** cliente só-leitura, sincronização com upsert por `tray_id`, webhook, 1.162 produtos. Funciona SEM credencial, pela busca pública. Roda sozinha de 15 em 15 minutos (`/api/cron/sincronizar-tray`, migration 0040) e refaz as páginas com preço quando algo muda (`revalidarPrecos`).
 ✅ **Medidor:** página clara e indexável mais **modo de medição em tela cheia** sobre carvão. Anel em SVG com manipulação direta (arrastar, pinçar, roda, teclado), objetos de calibração desenhados, tabela ligada ao resultado, `aria-valuetext` e `aria-live`. Fórmula: circunferência = aro + 40.
 ✅ **Design editorial (12/08):** capa de revista na entrada do artigo, corpo de jornal na leitura. Escala tipográfica fluida em `clamp()`, coluna de leitura em `ch`, vidro em três níveis (`.glass-sutil`, `.glass`, `.glass-escuro`), raios unificados nos tokens, componentes compartilhados em `ui/`, header com gaveta no celular.
 ✅ **Resposta rápida:** deixou de ser caixa de vidro e virou **linha de apoio editorial** (standfirst). Continua sendo o primeiro texto do artigo, então o GEO segue intacto. Não voltar ao formato de caixa: foi rejeitado explicitamente.
