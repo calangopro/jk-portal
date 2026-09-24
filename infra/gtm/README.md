@@ -56,21 +56,62 @@ Vêm do Trello (quadro "🧠 JK Alianças | ADM") e valem para qualquer pessoa o
 - As "2 atualizações de modelo" que o GTM oferece não foram aceitas de
   propósito.
 
-## O portal não precisa de nada neste contêiner
+## O que o portal usa deste contêiner
 
-Decidido em 24/09. O que o portal mede (visita, clique para a loja, contato com
-loja física) vai para o **GA4 direto**, pelo código. O GTM já carrega no portal
-e já faz, sem mudança nenhuma:
+O que o portal mede para o **orgânico** (visita, clique para a loja, contato
+com loja física) vai para o **GA4 direto**, pelo código, sem GTM. O GTM já
+carrega no portal e já faz sozinho:
 
 - **Pinterest**: a tag base e o Page Visit rodam em todas as páginas do
-  domínio, `/guias` incluído. Quem lê as dicas já entra no público do Pinterest,
-  e o Carlos pode usar isso em remarketing criando um público por URL que
-  contenha `/guias`.
-- **Google Ads**: o remarketing também roda no portal (com o `AW-AW-` acima).
+  domínio, `/guias` incluído. Quem lê as dicas já entra no público do
+  Pinterest (público por URL que contenha `/guias`).
+- **Google Ads**: o remarketing roda no portal, mas com o `AW-AW-` acima, e a
+  tag nativa da Tray não roda no portal. Para público do Google Ads com quem
+  leu o portal, o caminho é um público do GA4 ("visitou /guias"), que passa
+  para o Google Ads pelo vínculo entre os dois.
 
-Foi testado e descartado um evento `lead` do Pinterest para os cliques de
-WhatsApp, telefone e rota do portal. O anúncio do Pinterest leva a pessoa para
-a loja, não para o portal, então esse evento não servia às campanhas.
+Foi testado e descartado um evento `lead` do Pinterest: o anúncio do Pinterest
+leva para a loja, não para o portal, e o evento não servia às campanhas.
+
+## Meta Pixel no portal: preparado, NÃO publicado
+
+O pixel do Meta só existe na loja, porque quem instala é a Tray. Sem ele no
+portal, quem lê as dicas não entra nos públicos do Instagram e do Facebook, e
+o Meta não vê os contatos com as lojas físicas.
+
+Está pronto no espaço de trabalho **"Portal /guias - Meta Pixel (aguardando OK
+da Marcela)"** (espaço 28), a partir de `portal-meta.json`:
+
+| Tipo | Nome | O que faz |
+|---|---|---|
+| Variável | JK Portal - Pixel Meta | `364357034958645`, o pixel da JK (o mesmo da Tray) |
+| Variável | JK Portal - destino | Slug da loja, do `dataLayer` |
+| Acionador | JK Portal - Páginas /guias | Visualização de página com caminho começando em `/guias` |
+| Acionador | JK Portal - Contato com loja | `clique_whatsapp` ou `clique_telefone` |
+| Acionador | JK Portal - Rota para loja | `clique_rota` ou `clique_waze` |
+| Tag | JK Portal - Meta PageView | PageView só no portal. As trocas de página sem recarregar o próprio pixel registra |
+| Tag | JK Portal - Meta Contact (WhatsApp e telefone) | Evento padrão Contact, com `content_name` = loja |
+| Tag | JK Portal - Meta FindLocation (como chegar) | Evento padrão FindLocation, com `content_name` = loja |
+
+Sem correspondência avançada e sem dado pessoal. O modelo "Facebook Pixel"
+aparece como "Modificado" na importação, mas o comparador do GTM confirma "As
+duas versões são idênticas".
+
+Testado no Visualizar em 24/09: PageView no carregamento de `/guias/lojas`,
+Contact e FindLocation com `content_name: santana-parque-shopping`, um PageView
+a cada troca de página sem recarregar, e na home da LOJA a tag de PageView do
+portal não disparou (o Tag Assistant mostra "disparou 1 vez", só no portal).
+Os testes geraram alguns eventos reais no pixel.
+
+**Para publicar** (depois do OK da Marcela): abrir esse espaço de trabalho,
+**Enviar**, nome da versão "Portal /guias: Meta Pixel (PageView, Contact,
+FindLocation)". Se o Default Workspace tiver sido publicado nesse meio tempo, o
+GTM pede para **Atualizar** o espaço antes; é só aceitar. Para voltar: Versões,
+versão anterior, Publicar.
+
+A regra "não ligar Meta pelo GTM" do Trello foi escrita para a loja, onde a Tray
+já instala o pixel e o GTM duplicaria. No portal não há pixel da Tray, então
+não há duplicidade; o acionador trava a tag em `/guias`.
 
 ## Opcional, depois: contato pelo portal como conversão no Google Ads
 
