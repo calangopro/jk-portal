@@ -6,6 +6,10 @@ import { Sincronizar } from "./Sincronizar";
 
 export const metadata = { title: "Produtos" };
 
+// O botão "Sincronizar agora" roda dentro desta rota, e ler a loja inteira
+// leva uns dez segundos.
+export const maxDuration = 60;
+
 type Produto = {
   id: string;
   tray_id: string;
@@ -80,7 +84,7 @@ export default async function ProdutosPage() {
                 <li key={i} className="flex items-start justify-between gap-3 border-b border-border/50 pb-2 text-xs last:border-0">
                   <span className={l.status === "success" ? "text-brand-strong" : "text-wine"}>
                     {l.status === "success"
-                      ? `${l.payload?.produtos ?? 0} produtos, ${l.payload?.categorias ?? 0} categorias`
+                      ? `${l.payload?.produtos ?? 0} produtos, ${l.payload?.alterados ?? 0} atualizados`
                       : (l.error ?? "erro").slice(0, 90)}
                   </span>
                   <span className="shrink-0 text-muted">{quando(l.finished_at)}</span>
@@ -114,7 +118,7 @@ export default async function ProdutosPage() {
                 <tr className="border-b border-border/70 text-xs uppercase tracking-wider text-muted">
                   <th className="px-6 py-4 font-semibold">Produto</th>
                   <th className="px-6 py-4 font-semibold">Situação</th>
-                  <th className="px-6 py-4 font-semibold">Sincronizado</th>
+                  <th className="px-6 py-4 font-semibold">Atualizado</th>
                   <th className="px-6 py-4 font-semibold">Loja</th>
                 </tr>
               </thead>

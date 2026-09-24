@@ -13,22 +13,24 @@ export async function sincronizarAgora(
   await requireStaff();
 
   const { sincronizarCatalogo } = await import("@/lib/tray/sincronizar");
+  const { revalidarPrecos } = await import("@/lib/tray/revalidar");
   const r = await sincronizarCatalogo();
 
+  if (r.revalidar) revalidarPrecos();
   revalidatePath("/admin/produtos");
 
   if (!r.ok) return { erro: r.erro ?? "A sincronização falhou." };
 
   const partes = [
-    `${r.produtos} produtos`,
-    `${r.categorias} categorias`,
-    `${r.atributos} com atributos`,
+    `${r.produtos} produtos conferidos`,
+    r.alterados > 0 ? `${r.alterados} atualizados` : "nenhum mudou na loja",
     r.desativados > 0 ? `${r.desativados} desativados` : null,
   ].filter(Boolean);
 
-  const aviso = r.falhas > 0
+  const falhas = r.falhas > 0
     ? ` ${r.falhas} não gravaram. Primeiro erro: ${r.primeiroErro ?? "sem detalhe"}.`
     : "";
+  const aviso = r.aviso ? ` ${r.aviso}` : "";
 
-  return { ok: `Pronto em ${(r.duracaoMs / 1000).toFixed(1)}s: ${partes.join(", ")}.${aviso}` };
+  return { ok: `Pronto em ${(r.duracaoMs / 1000).toFixed(1)}s: ${partes.join(", ")}.${falhas}${aviso}` };
 }

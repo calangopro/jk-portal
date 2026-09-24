@@ -21,12 +21,23 @@
  *
  * O contrato está escrito nos dois arquivos. Quebrou de um lado, quebra do
  * outro, e o preço passa a mentir sem avisar.
+ *
+ * ## Por que o preço chega pronto
+ *
+ * A linha não traz `price` e `promotional_price` soltos, traz o resultado de
+ * `precoVigente` (src/lib/tray/preco.ts). A Tray deixa o preço promocional
+ * preenchido depois que a promoção acaba, e ler o campo sem a janela anunciava
+ * desconto que a loja não dá mais. Com o preço resolvido fora daqui, este
+ * arquivo continua sem import de valor, e a regra da janela continua morando
+ * num lugar só.
  */
+
+import type { PrecoVigente } from "../tray/preco";
 
 export type LinhaDeProduto = {
   id: string;
-  price: number | null;
-  promotional_price: number | null;
+  /** O preço de hoje, já com a janela da promoção resolvida. */
+  preco: PrecoVigente;
   status: string | null;
   availability_text: string | null;
 };
@@ -73,21 +84,20 @@ export function aplicarPrecos(html: string, linhas: LinhaDeProduto[]): string {
   let saida = html;
   for (const linha of linhas) {
     const id = linha.id;
-    // Promoção vence quando existe e é menor, a mesma regra da inserção.
-    const temPromo =
-      linha.promotional_price != null &&
-      linha.price != null &&
-      linha.promotional_price < linha.price;
-
-    const preco = moeda(temPromo ? linha.promotional_price : linha.price);
-    const antigo = temPromo ? moeda(linha.price) : null;
-
-    let desconto: string | null = null;
-    if (temPromo && linha.price && linha.promotional_price) {
-      desconto = `${Math.round((1 - linha.promotional_price / linha.price) * 100)}% OFF`;
-    }
-
     const disponivel = linha.status === "available";
+
+    // Sem estoque, a Tray tira a página do produto do ar, então não existe
+    // preço sendo praticado: o card fica só com o aviso.
+    // `anterior` e `desconto` só existem com a promoção valendo HOJE.
+    const { atual, anterior, desconto: percentual } = disponivel
+      ? linha.preco
+      : { atual: null, anterior: null, desconto: null };
+
+    const preco = moeda(atual);
+    const antigo = moeda(anterior);
+    // Desconto que arredonda para zero não é selo, é ruído.
+    const desconto = percentual ? `${percentual}% OFF` : null;
+
     const aviso = !disponivel ? "Sem estoque no momento" : linha.availability_text || null;
 
     saida = trocarFolha(saida, "strong", "produto-card__preco", "data-preco-de", id, preco);

@@ -30,6 +30,10 @@ export function Sincronizar({ configurada }: { configurada: boolean }) {
         (largura, acabamento) direto da loja. A Tray continua sendo a fonte de
         verdade, e nada é escrito de volta lá.
       </p>
+      <p className="mt-2 text-xs leading-relaxed text-muted">
+        Roda sozinha a cada 15 minutos. O botão é para quando a loja acabou de
+        mudar um preço e não dá para esperar.
+      </p>
 
       {!configurada ? (
         <p className="mt-4 rounded-[10px] border border-border bg-white/60 px-3 py-2 text-xs leading-relaxed text-muted">
