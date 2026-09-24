@@ -27,10 +27,12 @@ e as contas de cada pessoa. O código correspondente está na branch
 6. **Os links para a loja tinham `utm_source=portal`.** Portal e loja são o
    mesmo domínio e o mesmo GA4, então esse UTM abria uma sessão nova com origem
    "portal" e apagava o "Google orgânico" da venda.
-7. **A tag de remarketing do Google Ads no GTM parece mal configurada.** Ela
-   chama o destino `AW-AW-16750399342`, com o prefixo repetido. Ver o passo 6.
+7. **O GTM chama `AW-AW-16750399342`, com o prefixo repetido.** Já era
+   conhecido e a decisão registrada no Trello (WM-025) é **não corrigir**: a
+   conversão que vale é a nativa da Tray, e consertar a do GTM contaria a venda
+   em dobro. Ver [`infra/gtm/README.md`](../infra/gtm/README.md).
 
-Os itens 2, 3, 5 e 6 foram corrigidos no código. O resto é configuração, abaixo.
+Os itens 2, 3, 5 e 6 foram corrigidos no código. O item 7 fica como está, por decisão. O resto é configuração, abaixo.
 
 ---
 
@@ -46,7 +48,7 @@ uma página que ainda não existe em produção.
 5. Supabase: regras de senha e cadastro público (passo 4).
 6. Painel do portal: reativar quem nasceu inativo e reenviar convites (passo 5).
 7. Testar com um convite para um e-mail pessoal.
-8. Medição: ligar o GA4 no painel e configurar o GA4 (passos 6 e 7).
+8. Medição: ligar o GA4 no painel e configurar o GA4 (passos 6 e 7). Feito em 24/09, falta só marcar os eventos-chave.
 
 ---
 
@@ -170,28 +172,10 @@ Tudo cai na mesma propriedade (**G-9V89YVR635**), com o mesmo cookie `_ga`,
 porque portal e loja estão no mesmo domínio. A venda fica com a origem de quem
 chegou pelo guia. Por isso o link para a loja NÃO pode ter UTM.
 
-### No painel do portal
-
-Em `/guias/admin/integracoes`, no cartão **Google Analytics 4**, clicar em
-**Conectar** (o ID `G-9V89YVR635` já está preenchido). O GTM continua ligado.
-O GA4 só carrega em produção.
-
 ### No GTM (GTM-WWT3T789)
 
-- **GA4: não criar nada.** O portal manda direto, igual a Tray faz na loja. Uma
-  tag de GA4 no GTM disparando em todas as páginas contaria em dobro a loja e o
-  portal.
-- **Corrigir a tag de remarketing do Google Ads.** As requisições saem para
-  `AW-AW-16750399342`, com o prefixo duplicado. No modelo de tag "Remarketing
-  do Google Ads", o campo "ID de conversão" leva só o número (`16750399342`).
-  Confira com o [Tag Assistant](https://tagassistant.google.com) antes e depois
-  de publicar: o destino certo é `AW-16750399342`. Isso vale para a loja
-  também, porque o contêiner é o mesmo.
-- **Conversão de anúncio a partir do portal (opcional):** o caminho mais simples
-  é importar os eventos-chave do GA4 no Google Ads (Ferramentas → Conversões →
-  Importar → Google Analytics 4), sem tag nova no GTM. Se preferir tag, os
-  eventos chegam no `dataLayer` com `event`, `destino`, `posicao`, `url` e
-  `origem`.
+O portal não precisa de nada lá. Detalhes em
+[`infra/gtm/README.md`](../infra/gtm/README.md).
 
 Eventos que o portal envia:
 
@@ -210,30 +194,22 @@ que os links carregavam.
 
 ## Passo 7. GA4, configuração
 
-**Admin**, na propriedade da loja:
+Propriedade 430853950 ("jkaliancas.com.br", ID de métrica G-9V89YVR635),
+acessada pela conta `jkaliancasmkt@gmail.com`. Estado em 24/09:
 
-1. **Coleta e modificação de dados → Retenção de dados → 14 meses.** O padrão
-   é 2 meses, e a exploração não enxerga nada além do prazo.
-2. **Definições personalizadas → Criar dimensão personalizada**, escopo
-   "Evento": `destino` e `posicao`. Dimensão não vale para trás, então crie
-   logo depois do deploy.
-3. **Eventos-chave:** marcar `clique_whatsapp`, `clique_telefone`,
-   `clique_rota` e `clique_waze` (lead de loja física) e `clique_produto` (ida
-   para a loja). Dá para cadastrar pelo nome antes de o evento chegar, em
-   "Novo evento-chave". Confira que `purchase` já está marcado.
-4. **Fluxos de dados → o fluxo web → Medição otimizada:** manter ligado
-   "Mudanças de página com base em eventos do histórico do navegador" (o
-   portal troca de página sem recarregar) e "Pesquisa no site" (o portal usa
-   `q` na busca).
-5. **Fluxos de dados → Configurar tag → Listar referências indesejadas:** somar
-   os meios de pagamento da loja, `mercadopago.com`, `mercadopago.com.br`,
-   `mercadolivre.com` e `appmax.com.br`. Se o pagamento devolver a pessoa por
-   um desses domínios, a venda vira "referência" do meio de pagamento e perde
-   a origem orgânica.
-6. **Vinculações de produto → Search Console:** vincular
-   `sc-domain:jkaliancas.com.br`. Traz as buscas do Google para dentro do GA4.
-7. **Confirmar que a Tray manda `purchase`:** Relatórios → Monetização →
-   Compras de e-commerce precisa ter dados. Não deu para conferir daqui.
+| Item | Estado |
+|---|---|
+| GA4 ligado no painel do portal | **Feito** em 24/09. Conferido: o portal manda `page_view` e `clique_whatsapp` (com `destino` e `posicao`), e a loja continua a MESMA sessão, com o mesmo `_ga` |
+| Retenção de dados | Já estava em 14 meses |
+| Medição otimizada | Já estava certa: troca de página sem recarregar e pesquisa no site ligadas |
+| Dimensões personalizadas | **Criadas** em 24/09: "Destino do clique" (`destino`) e "Posição do clique" (`posicao`), escopo Evento. Não valem para trás |
+| Eventos-chave | **Falta.** O GA4 só deixa marcar evento que já apareceu na lista, e evento novo leva até um dia. Em Administrador → Eventos → Eventos recentes, marcar a estrela de `clique_whatsapp`, `clique_telefone`, `clique_rota` e `clique_waze`. Os que já existiam: `add_to_cart`, `begin_checkout`, `purchase`, `close_convert_lead` e `qualify_lead` |
+| `clique_produto` | Fica como evento comum, sem estrela. A venda já é o `purchase`, e marcar a ida para a loja inflaria o total de eventos-chave |
+| Referências indesejadas | Não mexido. O Trello registra "checkout como referral no GA4"; entra no plano de rastreamento da loja, com os meios de pagamento (Appmax, Mercado Pago) |
+| Search Console no GA4 | Não mexido. Administrador → Vinculações de produto → Search Console, `sc-domain:jkaliancas.com.br` |
+
+Qualquer mudança no GA4 segue a regra da casa: registrar na lista RELATÓRIO DE
+MUDANÇAS do Trello.
 
 ### Os relatórios que respondem às perguntas
 
@@ -280,7 +256,9 @@ variável de ambiente.
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | chave anon | Pública |
 | `SUPABASE_SERVICE_ROLE_KEY` | chave service_role | **Secreta.** Sem ela não sai convite, reenvio nem o aviso de convite pendente |
 | `OPENAI_API_KEY` | chave | Secreta. Pendente de rotação |
-| `TRAY_API_URL`, `TRAY_CONSUMER_KEY`, `TRAY_CONSUMER_SECRET`, `TRAY_CODE`, `TRAY_WEBHOOK_SECRET`, `TRAY_STORE_URL` | da Tray | Secretas, exceto a URL |
+| `TRAY_API_URL`, `TRAY_CONSUMER_KEY`, `TRAY_CONSUMER_SECRET`, `TRAY_CODE` | **deixar vazias** | O catálogo é lido pela busca pública da loja, sem credencial. Essas quatro são da API autenticada, que nenhuma tela usa hoje e exige aplicativo aprovado pela Tray |
+| `TRAY_WEBHOOK_SECRET` | opcional | Senha inventada por nós (`openssl rand -hex 32`). Só serve para sincronizar o catálogo sem clicar no painel |
+| `TRAY_STORE_URL` | opcional | Padrão `https://www.jkaliancas.com.br` |
 | `PREVIEW_SECRET` | segredo | Assina o link de preview de rascunho |
 | `INDEXNOW_KEY` | 32 caracteres hexadecimais | Aviso ao Bing |
 | `GOOGLE_SITE_VERIFICATION` | código | Verificação do Search Console |

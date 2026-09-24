@@ -441,7 +441,7 @@ dois temas** (raiz e `Esquenta/`), como o `TEMAS.md` daquele repositório exige.
 ✅ **Supabase:** 36 migrations aplicadas e em arquivo, 22 tabelas com RLS, bucket `media`.
 ✅ **Admin:** login por e-mail e senha (sem tela de cadastro; o endpoint de signup do Supabase ainda está aberto, ver Pendências), rotas protegidas por middleware, `noindex`, dashboard, usuários, mídia, comentários, produtos, métricas, integrações e lojas.
 ✅ **Convite e senha (24/09):** o convite leva para `/admin/senha`, onde a pessoa cria a senha e entra direto. "Esqueci minha senha" no login (`/admin/recuperar-senha`). Na lista de usuários, aviso de quem ainda não criou a senha e botão de reenviar. **Falta a parte do painel do Supabase** (endereços, modelos de e-mail, SMTP próprio), passo a passo em `docs/acesso-e-medicao.md`.
-✅ **Medição (24/09):** GA4 carregado direto no portal, na mesma propriedade da loja, e links para a loja sem UTM. **Falta ligar o GA4 em Integrações** e configurar o GA4 (retenção, dimensões, eventos-chave), em `docs/acesso-e-medicao.md`.
+✅ **Medição (24/09):** GA4 carregado direto no portal, na mesma propriedade da loja (G-9V89YVR635), ligado em Integrações e conferido: portal e loja caem na MESMA sessão. Links para a loja sem UTM. Dimensões "Destino do clique" e "Posição do clique" criadas no GA4. **Falta marcar como evento-chave** `clique_whatsapp`, `clique_telefone`, `clique_rota` e `clique_waze` (o GA4 só deixa depois que o evento aparece na lista). O portal não precisa de nada no GTM (`infra/gtm/README.md`).
 ✅ **Editor de conteúdo:** blocos com TipTap, salvamento automático com detecção de conflito, modelos, links internos com busca, fontes com trava na publicação, canibalização determinística, preview de rascunho assinado, analisador SEO/GEO ao vivo e assistente de IA.
 ✅ **Inserção no editor (13/08):** botão `+` na margem, alinhado à linha do cursor, e comando por `/` no texto (filtra sem acento, setas, Enter, Esc). Tudo entra no ponto onde o cursor está, não no fim do artigo: linha vazia é substituída, linha com texto recebe o bloco logo abaixo. Linha de texto garantida no fim para bloco atômico não prender o cursor.
 ✅ **Vitrine de produtos (13/08):** de um a quatro produtos no mesmo bloco, em três formatos (vertical, quadrado, horizontal), com mover e remover por card. O card inteiro é o link. Conteúdo antigo (card solto `div[data-produto]`) sobe para vitrine ao abrir. O preço exibido sai da tabela `products` na hora de servir a página, não do que ficou gravado no texto.
@@ -630,9 +630,9 @@ escrito no Worker; se mudar, ajustar `infra/cloudflare/worker.js` e republicar.
 `https://jk-portal.vercel.app/guias`, apontando direto para a Vercel para o cabeçalho do
 segredo não depender do Worker. O SQL faz `url || '/api/cron/publicar'`.
 ⚠️ **Pendências:** **Supabase ainda com Site URL da Vercel e SMTP de teste** (só entrega
-para membro do time do projeto no Supabase), ver `docs/acesso-e-medicao.md`. **Tag de
-remarketing do Google Ads no GTM saindo como `AW-AW-16750399342`** (prefixo duplicado,
-provável ID de conversão preenchido com o `AW-`). **Desligar o cadastro público no painel do Supabase**
+para membro do time do projeto no Supabase), ver `docs/acesso-e-medicao.md`. O `AW-AW-16750399342` do GTM é
+conhecido e **não se corrige** (Trello WM-025: contaria compra em dobro com a conversão
+nativa da Tray); regras do contêiner em `infra/gtm/README.md`. **Desligar o cadastro público no painel do Supabase**
 (Authentication → Sign In / Providers → "Allow new users to sign up"), que hoje
 está ligado e é a única parte da falha de 0020 que não dá para fechar por
 migration. Trocar a senha temporária do master e rotacionar a chave da OpenAI.
