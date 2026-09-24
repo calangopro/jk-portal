@@ -31,7 +31,7 @@ function nomeDaRede(url: string): string {
 /** Rodapé de autoridade em painel escuro, com dourado e filete no topo. */
 export function SiteFooter() {
   return (
-    <footer className="relative mt-28 overflow-hidden bg-charcoal text-white">
+    <footer className="relative mt-28 overflow-hidden bg-charcoal text-white" data-regiao="rodape">
       <div className="h-px w-full bg-gradient-to-r from-transparent via-brand/60 to-transparent" />
       <div
         aria-hidden
@@ -108,7 +108,7 @@ export function SiteFooter() {
               Preço, estoque e compra ficam na loja oficial. Aqui é só conteúdo.
             </p>
             <a
-              href={`${SITE.lojaUrl}?utm_source=portal&utm_medium=rodape`}
+              href={SITE.lojaUrl}
               target="_blank"
               rel="noopener"
               data-evento="clique_produto"

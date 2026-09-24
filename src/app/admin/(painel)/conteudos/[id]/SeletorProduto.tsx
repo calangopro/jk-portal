@@ -30,11 +30,10 @@ export function SeletorProduto({
 
   const escolher = (p: ProdutoResumo) => {
     if (!p.url) return;
-    const url = p.url.includes("?")
-      ? `${p.url}&utm_source=portal&utm_medium=conteudo`
-      : `${p.url}?utm_source=portal&utm_medium=conteudo`;
+    // Sem UTM: loja e portal dividem domínio e GA4, e UTM em link interno
+    // troca a origem da sessão (ver `linkDaLoja` em lib/data/produtos.ts).
     vincularProduto(contentId, p.id);
-    aoEscolher(p, url);
+    aoEscolher(p, p.url);
     aoFechar();
   };
 

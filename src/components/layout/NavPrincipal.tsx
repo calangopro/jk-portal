@@ -21,7 +21,7 @@ import { SITE } from "@/lib/seo/site";
  * mesmo cabeçalho mandam a pessoa para o lugar errado.
  */
 const LOJA = {
-  href: `${SITE.lojaUrl}?utm_source=portal&utm_medium=cabecalho`,
+  href: SITE.lojaUrl,
   rotulo: "Comprar alianças",
 };
 

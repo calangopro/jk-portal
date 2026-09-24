@@ -31,7 +31,7 @@ const ITENS: ItemNav[] = [
  */
 export function SiteHeader() {
   return (
-    <header className="glass-nav sticky top-0 z-50">
+    <header className="glass-nav sticky top-0 z-50" data-regiao="cabecalho">
       <Container
         size="wide"
         className="flex h-16 items-center justify-between gap-4 sm:gap-6"

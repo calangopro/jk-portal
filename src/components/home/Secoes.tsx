@@ -139,7 +139,7 @@ function HeroDeBusca({ p }: { p: Record<string, unknown> }) {
         apoio={texto(p, "atalhoLojasApoio", "Aro de prova, ajuste de tamanho e atendimento presencial.")}
       />
       <Widget
-        href={`${SITE.lojaUrl}?utm_source=portal&utm_medium=home&utm_campaign=widget`}
+        href={SITE.lojaUrl}
         Icone={() => <ShoppingBag size={18} />}
         titulo={texto(p, "atalhoLojaTitulo", "Comprar na loja oficial")}
         externo
@@ -292,7 +292,7 @@ function VitrineDeProdutos({
           <div className="flex min-w-32 flex-1 items-baseline gap-4">
             <span aria-hidden className="hairline flex-1" />
             <a
-              href={`${SITE.lojaUrl}?utm_source=portal&utm_medium=vitrine&utm_campaign=ver_tudo`}
+              href={SITE.lojaUrl}
               target="_blank"
               rel="noopener noreferrer"
               data-evento="clique_produto"

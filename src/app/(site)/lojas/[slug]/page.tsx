@@ -556,7 +556,7 @@ export default async function LojaPage({
             <p className="max-w-md text-apoio leading-relaxed text-muted">
               Preço, estoque e compra ficam na{" "}
               <a
-                href={`${SITE.lojaUrl}?utm_source=portal&utm_medium=loja&utm_content=${loja.slug}`}
+                href={SITE.lojaUrl}
                 target="_blank"
                 rel="noopener"
                 data-evento="clique_produto"

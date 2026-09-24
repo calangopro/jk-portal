@@ -2,6 +2,20 @@
 
 import { useEffect } from "react";
 import { semBasePath } from "@/lib/seo/base-path";
+import { registrarEvento } from "@/lib/analytics/eventos";
+
+/**
+ * Parte da página onde o clique aconteceu. Substitui o `utm_medium` que os
+ * links para a loja carregavam (cabecalho, rodape...), sem mexer na origem da
+ * sessão.
+ *
+ * Lê `data-regiao`, posto no cabeçalho e no rodapé do SITE, e não a tag
+ * `<header>`: a capa do guia e a página de loja também usam `<header>`, e o
+ * botão de WhatsApp no topo de uma loja não é clique no cabeçalho do site.
+ */
+function posicaoDo(alvo: HTMLElement): string {
+  return alvo.closest<HTMLElement>("[data-regiao]")?.dataset.regiao ?? "conteudo";
+}
 
 /**
  * Rastreia cliques que importam para o negócio, sem precisar de código em cada
@@ -19,11 +33,10 @@ export function RastreioCliques() {
       const evento = alvo.dataset.evento;
       if (!evento) return;
 
-      window.dataLayer = window.dataLayer || [];
-      window.dataLayer.push({
-        event: evento,
+      registrarEvento(evento, {
         destino: alvo.dataset.produtoNome ?? alvo.dataset.destino ?? null,
         url: alvo.getAttribute("href"),
+        posicao: posicaoDo(alvo),
         // Sem o prefixo, para a origem do clique continuar comparável com o
         // caminho das rotas e com o que já foi medido antes do /guias.
         origem: semBasePath(window.location.pathname),

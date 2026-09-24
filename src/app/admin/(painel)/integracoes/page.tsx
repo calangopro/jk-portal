@@ -30,20 +30,21 @@ export default async function IntegracoesPage() {
         <Cartao
           provider="gtm"
           nome="Google Tag Manager"
-          descricao="Carrega as tags e envia os eventos de clique para o GA4. Quando o GTM está ligado, o GA4 não é carregado em separado, para não medir em dobro."
+          descricao="É o mesmo contêiner da loja. Hoje carrega Google Ads e Pinterest, e recebe os eventos de clique para quem quiser montar conversão de anúncio."
           status={achar("gtm")?.status ?? "disconnected"}
           config={achar("gtm")?.config ?? {}}
           campos={[{ nome: "container_id", rotulo: "ID do contêiner", exemplo: "GTM-XXXXXXX" }]}
-          aviso="Eventos já disparados pelo site: clique_produto, clique_whatsapp, clique_telefone, clique_rota e clique_loja."
+          aviso="Não crie tag de GA4 neste contêiner para as páginas /guias: o GA4 do site já é carregado direto, como a Tray faz na loja, e uma tag a mais contaria cada visita duas vezes."
         />
 
         <Cartao
           provider="ga4"
           nome="Google Analytics 4"
-          descricao="Comportamento de quem visita: páginas, origem do tráfego e conversão."
+          descricao="Precisa ser a MESMA propriedade da loja (G-9V89YVR635). É isso que liga quem leu um guia à venda feita na Tray, numa sessão só."
           status={achar("ga4")?.status ?? "disconnected"}
           config={achar("ga4")?.config ?? {}}
           campos={[{ nome: "measurement_id", rotulo: "ID de métrica", exemplo: "G-XXXXXXXXXX" }]}
+          aviso="Eventos enviados pelo site: clique_produto, clique_loja, clique_whatsapp, clique_telefone, clique_rota, clique_waze e clique_guia, com os parâmetros destino, posicao e link_url."
         />
 
         <Cartao
