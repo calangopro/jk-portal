@@ -33,9 +33,11 @@ function quando(iso: string) {
  */
 export function Automatico({
   email,
+  problema,
   ultima,
 }: {
   email: string | null;
+  problema: string | null;
   ultima: { ok: boolean; mensagem: string; quando: string } | null;
 }) {
   const [estado, acao] = useActionState<ImportarAgoraState, FormData>(importarAgora, {});
@@ -87,8 +89,8 @@ export function Automatico({
         </div>
       ) : (
         <p className="mt-5 rounded-[10px] border border-dashed border-border px-3 py-2.5 text-xs leading-relaxed text-muted">
-          Ainda não configurado: falta a variável GSC_SERVICE_ACCOUNT_JSON na
-          Vercel. O passo a passo está em docs/search-console-automatico.md, no
+          Ainda não configurado. {problema ?? "Falta a variável GSC_SERVICE_ACCOUNT_JSON na Vercel."} O
+          passo a passo está em docs/search-console-automatico.md, no
           repositório do portal.
         </p>
       )}
