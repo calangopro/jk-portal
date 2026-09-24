@@ -1,9 +1,10 @@
 // worker.js
 //
 // Proxy do portal editorial. As rotas registradas na zona são
-// `www.jkaliancas.com.br/guias*`, `www.jkaliancas.com.br/bio` e
-// `www.jkaliancas.com.br/bio/*`, ou seja, este código NUNCA responde pela
-// loja da Tray. Qualquer coisa fora delas segue para a origem original.
+// `www.jkaliancas.com.br/guias*` e `www.jkaliancas.com.br/bio*`. A segunda
+// também casa com qualquer caminho da loja que comece com "bio" (nenhum, no
+// sitemap de 24/09), e por isso tudo que não é /guias nem /bio segue intacto
+// para a origem original, que é a Tray.
 var worker_default = {
   async fetch(request) {
     const url = new URL(request.url);

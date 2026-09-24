@@ -85,7 +85,7 @@ const blocoCaptura = z.object({
  * De onde a vitrine tira os produtos. Tudo vem da busca pública da loja, com
  * preço ao vivo, e nunca de preço digitado aqui.
  */
-const fonteDaVitrine = z.discriminatedUnion("tipo", [
+export const esquemaDaFonte = z.discriminatedUnion("tipo", [
   /** Uma categoria da loja, pelo slug da URL (ex.: `esquenta`, `black`). */
   z.object({ tipo: z.literal("categoria"), slug: z.string().min(1) }),
   /** Produtos escolhidos à mão, pelo id da Tray, na ordem da lista. */
@@ -98,13 +98,30 @@ const fonteDaVitrine = z.discriminatedUnion("tipo", [
   z.object({ tipo: z.literal("lancamentos") }),
 ]);
 
-export type FonteDaVitrine = z.infer<typeof fonteDaVitrine>;
+export type FonteDaVitrine = z.infer<typeof esquemaDaFonte>;
+
+/**
+ * O produto como a vitrine da bio desenha. Mora aqui, e não em `produtos.ts`,
+ * porque a prévia do painel desenha a bio no navegador, e `produtos.ts` é só
+ * de servidor.
+ */
+export type ProdutoDaBio = {
+  /** Id da Tray, o mesmo `item_id` que a loja manda ao GA4. */
+  id: string;
+  nome: string;
+  imagem: string;
+  href: string;
+  categoria: string | null;
+  atual: number;
+  anterior: number | null;
+  desconto: number | null;
+};
 
 const blocoVitrine = z.object({
   ...base,
   tipo: z.literal("vitrine"),
   titulo: z.string().min(1),
-  fonte: fonteDaVitrine,
+  fonte: esquemaDaFonte,
   limite: z.number().int().min(2).max(16).default(8),
   /** Rótulo do botão dentro do cartão. */
   rotuloComprar: z.string().default("Comprar"),
@@ -374,4 +391,75 @@ export function normalizarBio(valor: unknown): Bio {
 
   const resto = esquemaDaBio.omit({ blocos: true }).safeParse(bruto);
   return resto.success ? { ...resto.data, blocos } : { ...fabrica, blocos };
+}
+
+/** Nome de cada tipo de bloco, como o painel mostra. */
+export const NOMES_DOS_BLOCOS: Record<BlocoDaBio["tipo"], string> = {
+  campanha: "Oferta com contador",
+  captura: "Grupo de ofertas no WhatsApp",
+  vitrine: "Vitrine de produtos",
+  links: "Links",
+  lojas: "WhatsApp das lojas",
+};
+
+/**
+ * Bloco recém-criado no painel, já preenchido com texto que funciona.
+ *
+ * Bloco vazio aparece na prévia como um buraco, e a pessoa não entende o que
+ * acabou de adicionar. Com um conteúdo de partida, ela vê o bloco no lugar e só
+ * troca o texto.
+ */
+export function blocoNovo(tipo: BlocoDaBio["tipo"], id: string): BlocoDaBio {
+  const base = { id, visivel: true, inicio: null, fim: null };
+  switch (tipo) {
+    case "campanha":
+      return {
+        ...base,
+        tipo,
+        eyebrow: "Oferta JK",
+        titulo: "Escreva a oferta aqui",
+        texto: "",
+        contadorAte: null,
+        rotuloContador: "A oferta acaba em",
+        botao: { rotulo: "Ver as peças", href: "https://www.jkaliancas.com.br/" },
+      };
+    case "captura": {
+      const fabrica = bioDeFabrica().blocos.find((b) => b.tipo === "captura");
+      return { ...(fabrica as BlocoDe<"captura">), ...base };
+    }
+    case "vitrine":
+      return {
+        ...base,
+        tipo,
+        titulo: "Vitrine",
+        fonte: { tipo: "mais-vendidos" },
+        limite: 8,
+        rotuloComprar: "Comprar",
+        verTudo: null,
+      };
+    case "links":
+      return { ...base, tipo, titulo: "", itens: [] };
+    case "lojas":
+      return {
+        ...base,
+        tipo,
+        titulo: "Fale com a loja mais perto",
+        detalhe: "Escolha a unidade e chame no WhatsApp",
+        mensagem: "Olá! Vim pelo Instagram e queria falar sobre alianças na loja {loja}.",
+      };
+  }
+}
+
+/** Link novo dentro de um bloco de links. */
+export function linkNovo(id: string): ItemDeLink {
+  return {
+    id,
+    rotulo: "Novo link",
+    detalhe: "",
+    href: "https://www.jkaliancas.com.br/",
+    icone: "link",
+    destaque: false,
+    inicio: null,
+    fim: null,
+  };
 }

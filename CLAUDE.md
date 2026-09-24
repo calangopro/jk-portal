@@ -74,9 +74,10 @@ sob `basePath: "/guias"` (mecanismo oficial do Next), e não por rewrite.
 - **O link da bio é a única página fora do `/guias`:** `jkaliancas.com.br/bio`
   mostra `/guias/bio` sem o endereço mudar, e quem faz isso é o Worker, não o
   Next. Reescrever para dentro do `basePath` um caminho que está fora dele o
-  Next recusa no boot ("Invalid rewrite found"). As rotas na Cloudflare são
-  `/bio` e `/bio/*`, exatas, e nunca `/bio*`, que alcançaria página da loja.
-  Detalhes em `infra/cloudflare/README.md`.
+  Next recusa no boot ("Invalid rewrite found"). A rota na Cloudflare é
+  `www.jkaliancas.com.br/bio*`, COM o asterisco: rota exata não casa com
+  parâmetro, e `/bio?fbclid=...` (todo clique vindo do Instagram) caía na
+  Tray. Detalhes em `infra/cloudflare/README.md`.
 - **URL de post é plana:** `/guias/<slug>`, de `(site)/[slug]`. O índice é
   `/guias/dicas`. Isso faz o post dividir espaço de nome com as páginas fixas, e
   no Next o segmento estático ganha do dinâmico EM SILÊNCIO. A trava é
