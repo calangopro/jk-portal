@@ -1,6 +1,7 @@
 import { requireAdmin, ROLE_LABEL, type AppRole } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { InviteForm } from "./InviteForm";
+import { BotaoReenviar } from "./BotaoReenviar";
 import { updateRole, toggleActive } from "./actions";
 
 export const metadata = { title: "Usuários" };
@@ -14,6 +15,25 @@ type Row = {
   created_at: string;
 };
 
+/**
+ * Quem foi convidado e ainda não criou a senha.
+ *
+ * A confirmação do e-mail mora em `auth.users`, que só a service_role lê. Sem
+ * a chave, a tela continua funcionando, só sem o aviso de convite pendente.
+ */
+async function contasSemSenha(): Promise<Set<string>> {
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) return new Set();
+  try {
+    const { createAdminClient } = await import("@/lib/supabase/admin");
+    const { data } = await createAdminClient().auth.admin.listUsers({ perPage: 1000 });
+    return new Set(
+      (data?.users ?? []).filter((u) => !u.email_confirmed_at).map((u) => u.id),
+    );
+  } catch {
+    return new Set();
+  }
+}
+
 export default async function UsuariosPage() {
   const me = await requireAdmin();
   const supabase = await createClient();
@@ -24,6 +44,7 @@ export default async function UsuariosPage() {
     .order("created_at", { ascending: true });
 
   const users = (data ?? []) as Row[];
+  const pendentes = await contasSemSenha();
 
   return (
     <>
@@ -41,7 +62,9 @@ export default async function UsuariosPage() {
       <section className="glass mt-8 rounded-[20px] p-7">
         <h2 className="font-display text-2xl text-ink">Convidar pessoa</h2>
         <p className="mt-2 text-sm text-muted">
-          A pessoa recebe um e-mail para definir a própria senha.
+          A pessoa recebe um e-mail, clica no link e cria a própria senha no
+          site. O link funciona uma vez só: se vencer, use “Reenviar convite”
+          na lista abaixo.
         </p>
         <div className="mt-6">
           <InviteForm />
@@ -139,26 +162,34 @@ export default async function UsuariosPage() {
                           />
                           {u.is_active ? "Ativo" : "Inativo"}
                         </span>
+                        {pendentes.has(u.id) ? (
+                          <p className="mt-1 text-xs text-muted">
+                            Ainda não criou a senha
+                          </p>
+                        ) : null}
                       </td>
 
                       <td className="px-6 py-4">
                         {isMe ? (
                           <span className="text-xs text-muted">não se aplica</span>
                         ) : (
-                          <form action={toggleActive}>
-                            <input type="hidden" name="user_id" value={u.id} />
-                            <input
-                              type="hidden"
-                              name="is_active"
-                              value={String(u.is_active)}
-                            />
-                            <button
-                              type="submit"
-                              className="rounded-full border border-ink/15 px-4 py-1.5 text-xs font-semibold text-ink transition-colors hover:border-wine/50 hover:text-wine"
-                            >
-                              {u.is_active ? "Desativar" : "Reativar"}
-                            </button>
-                          </form>
+                          <div className="flex flex-wrap items-center gap-2">
+                            {pendentes.has(u.id) ? <BotaoReenviar userId={u.id} /> : null}
+                            <form action={toggleActive}>
+                              <input type="hidden" name="user_id" value={u.id} />
+                              <input
+                                type="hidden"
+                                name="is_active"
+                                value={String(u.is_active)}
+                              />
+                              <button
+                                type="submit"
+                                className="rounded-full border border-ink/15 px-4 py-1.5 text-xs font-semibold text-ink transition-colors hover:border-wine/50 hover:text-wine"
+                              >
+                                {u.is_active ? "Desativar" : "Reativar"}
+                              </button>
+                            </form>
+                          </div>
                         )}
                       </td>
                     </tr>
