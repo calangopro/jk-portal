@@ -112,7 +112,10 @@ Nenhuma imagem entra sem:
 
 * `Product` schema só com produto real e dado sincronizado.
 * Preço, estoque e disponibilidade são espelho da Tray, nunca editados aqui.
-* Link para o produto na Tray com UTM de origem.
+* Link para o produto na Tray **sem UTM**. Portal e loja são o mesmo domínio e a mesma
+  propriedade do GA4, e UTM em link interno abre sessão nova com origem "portal", o que
+  apaga o Google orgânico da venda. O clique se mede por evento (`data-evento`), não pela
+  URL. Regra decidida em 24/09/2026, ver `docs/acesso-e-medicao.md`.
 
 ### Loja (SEO local)
 

@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { LoginForm } from "./LoginForm";
+import { MolduraDeAcesso } from "../_acesso/Moldura";
 
-import { comBasePath } from "@/lib/seo/base-path";
 // A área administrativa nunca deve ser indexada.
 export const metadata: Metadata = {
   title: { absolute: "Entrar no Painel JK" },
@@ -16,27 +17,21 @@ export default async function LoginPage({
   const next = (await searchParams).next ?? "/admin";
 
   return (
-    <main className="flex min-h-screen items-center justify-center px-5 py-16">
-      <div className="glass w-full max-w-md rounded-[28px] p-8 text-center sm:p-10">
-        {/* `img` cru não recebe o basePath; ver comBasePath. */}
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={comBasePath("/logo.svg")}
-          alt="JK Alianças"
-          width={150}
-          height={50}
-          className="mx-auto h-9 w-auto"
-        />
-        <p className="eyebrow mt-7">Painel editorial</p>
-        <h1 className="font-display mt-2 text-3xl text-ink">
-          Entrar no painel
-        </h1>
-        <p className="mt-3 text-sm text-muted">
-          Acesso restrito à equipe. Não há cadastro público.
-        </p>
+    <MolduraDeAcesso rotulo="Painel editorial" titulo="Entrar no painel">
+      <p className="mt-3 text-sm text-muted">
+        Acesso restrito à equipe. Não há cadastro público.
+      </p>
 
-        <LoginForm next={next} />
-      </div>
-    </main>
+      <LoginForm next={next} />
+
+      <p className="mt-6 text-sm text-muted">
+        <Link
+          href="/admin/recuperar-senha"
+          className="font-medium text-ink underline decoration-brand/50 underline-offset-4 hover:decoration-brand"
+        >
+          Esqueci minha senha
+        </Link>
+      </p>
+    </MolduraDeAcesso>
   );
 }

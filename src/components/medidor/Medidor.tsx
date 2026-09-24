@@ -5,6 +5,7 @@ import { Ruler, RotateCcw, Coins, CreditCard, ArrowRight, TriangleAlert } from "
 import { ModoMedicao } from "./ModoMedicao";
 import { TabelaAros } from "./TabelaAros";
 import { REFERENCIAS, type ReferenciaId, aroRecomendado } from "@/lib/medidor/aros";
+import { SITE } from "@/lib/seo/site";
 
 /**
  * Medidor digital de aliança.
@@ -234,11 +235,11 @@ export function Medidor({ children }: { children?: ReactNode }) {
         {mediu && pxPorMm ? (
           <div className="relative mt-7 flex flex-wrap gap-3 border-t border-border pt-6">
             <a
-              href={`https://www.jkaliancas.com.br/namoro-e-compromisso?utm_source=portal&utm_medium=medidor&utm_content=aro-${aro}`}
+              href={`${SITE.lojaUrl}/namoro-e-compromisso`}
               target="_blank"
               rel="noopener"
               data-evento="clique_produto"
-              data-destino="medidor"
+              data-destino={`medidor, aro ${aro}`}
               className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-ink px-6 text-apoio font-semibold text-white transition-colors hover:bg-charcoal"
             >
               Ver alianças no aro {aro}

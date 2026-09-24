@@ -1,27 +1,12 @@
 "use client";
 
 import { useActionState } from "react";
-import { useFormStatus } from "react-dom";
 import { signIn, type LoginState } from "./actions";
-
-function SubmitButton() {
-  const { pending } = useFormStatus();
-  return (
-    <button
-      type="submit"
-      disabled={pending}
-      className="mt-2 inline-flex min-h-12 w-full items-center justify-center rounded-full bg-brand px-6 text-sm font-semibold text-ink transition-colors hover:bg-brand-light disabled:opacity-60"
-    >
-      {pending ? "Entrando…" : "Entrar"}
-    </button>
-  );
-}
+import { AvisoDeErro, CAMPO_DE_ACESSO } from "../_acesso/Moldura";
+import { BotaoDeAcesso } from "../_acesso/BotaoDeAcesso";
 
 export function LoginForm({ next }: { next: string }) {
   const [state, formAction] = useActionState<LoginState, FormData>(signIn, {});
-
-  const field =
-    "mt-1.5 w-full rounded-[12px] border border-border bg-white/70 px-4 py-3 text-ink outline-none transition-colors placeholder:text-muted/60 focus:border-brand";
 
   return (
     <form action={formAction} className="mt-8 text-left">
@@ -35,7 +20,7 @@ export function LoginForm({ next }: { next: string }) {
           type="email"
           autoComplete="email"
           required
-          className={field}
+          className={CAMPO_DE_ACESSO}
           placeholder="voce@jkaliancas.com.br"
         />
       </label>
@@ -51,21 +36,14 @@ export function LoginForm({ next }: { next: string }) {
           type="password"
           autoComplete="current-password"
           required
-          className={field}
+          className={CAMPO_DE_ACESSO}
           placeholder="••••••••"
         />
       </label>
 
-      {state.error ? (
-        <p
-          role="alert"
-          className="mt-5 rounded-[12px] border border-wine/25 bg-wine/5 px-4 py-3 text-sm text-wine"
-        >
-          {state.error}
-        </p>
-      ) : null}
+      {state.error ? <AvisoDeErro>{state.error}</AvisoDeErro> : null}
 
-      <SubmitButton />
+      <BotaoDeAcesso texto="Entrar" esperando="Entrando…" />
     </form>
   );
 }

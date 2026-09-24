@@ -6,8 +6,14 @@ import { SITE } from "@/lib/seo/site";
  * Produtos para a vitrine da home.
  *
  * O portal NÃO vende: preço, estoque e checkout são da Tray (PROJETO §3). Aqui
- * é espelho de leitura, e todo link sai para a loja oficial com UTM, para dar
- * para medir quanto o conteúdo empurra para a venda.
+ * é espelho de leitura, e todo link sai para a loja oficial.
+ *
+ * SEM UTM, de propósito. Portal e loja são o mesmo domínio e a mesma
+ * propriedade do GA4, então quem chega do Google em /guias continua na MESMA
+ * sessão quando clica para a loja. Um `utm_source=portal` no link abria uma
+ * sessão nova com origem "portal" e a venda deixava de ser do orgânico, que é
+ * justamente o que o portal existe para provar. O clique é medido pelo evento
+ * `clique_produto` (ver `RastreioCliques`), não pela URL.
  */
 
 // O tipo e a formatação do preço moram em `data/vitrine.ts`, sem dependência do
@@ -15,10 +21,8 @@ import { SITE } from "@/lib/seo/site";
 // Seguem exportados daqui para quem já os importava deste arquivo.
 export { precoLegivel, type ProdutoDaVitrine } from "./vitrine";
 
-function comUtm(url: string | null, id: string, medium = "vitrine", campanha = "home"): string {
-  const base = url && url.startsWith("http") ? url : SITE.lojaUrl;
-  const separador = base.includes("?") ? "&" : "?";
-  return `${base}${separador}utm_source=portal&utm_medium=${medium}&utm_campaign=${campanha}&utm_content=${id}`;
+function linkDaLoja(url: string | null): string {
+  return url && url.startsWith("http") ? url : SITE.lojaUrl;
 }
 
 type Linha = {
@@ -133,7 +137,7 @@ export async function produtosParaVitrine(limite = 8): Promise<ProdutoDaVitrine[
         imagem: l.main_image_url,
         preco: l.price,
         precoPromocional: l.promotional_price,
-        href: comUtm(l.url, l.id),
+        href: linkDaLoja(l.url),
       }));
   } catch {
     return [];
@@ -181,7 +185,7 @@ export async function produtosPorLargura(
       imagem: p.main_image_url,
       preco: p.price,
       precoPromocional: p.promotional_price,
-      href: comUtm(p.url, p.id),
+      href: linkDaLoja(p.url),
     });
 
     if (achados.length >= limite) break;
@@ -235,7 +239,7 @@ export async function produtosParaOArtigo(
         imagem: p.main_image_url,
         preco: p.price,
         precoPromocional: p.promotional_price,
-        href: comUtm(p.url, p.id, "artigo", contentId),
+        href: linkDaLoja(p.url),
       });
       if (achados.length >= limite) break;
     }

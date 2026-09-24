@@ -108,6 +108,8 @@ src/lib/seo/         metadata + constantes do site
 src/lib/supabase/    read (SSG), server, client, admin (service_role), middleware
 src/lib/data/rotas.ts  links de Google Maps, Waze, WhatsApp e telefone das lojas
 supabase/migrations/ 0001 a 0036, todas em arquivo e todas aplicadas
+supabase/templates/  modelos de e-mail do Supabase (convite, recuperar senha): a fonte do que
+                     está colado no painel dele
 public/              logo.png, logo.svg, og/ (og/default.png ainda falta)
 docs/                identidade-visual-jk.md (marca)
 ```
@@ -355,6 +357,41 @@ docs/                identidade-visual-jk.md (marca)
   anterior até o servidor responder. Com ele, o esqueleto já está na mão quando
   a pessoa clica.
 
+- **Convite fora da lista de "Redirect URLs" cai no "Site URL", em silêncio.**
+  O Supabase não recusa o `redirectTo` desconhecido: troca pelo Site URL do
+  painel dele, que era `jk-portal-jk-alianca.vercel.app`. Era esse o "convite
+  que cai na Vercel". Site URL certo é `https://www.jkaliancas.com.br/guias`, e
+  a lista leva `https://www.jkaliancas.com.br/guias/**`. O log de auth mostra o
+  destino usado no campo `referer`, e é o jeito de conferir sem mandar e-mail.
+- **Convidado nascia INATIVO, por ordem de gravação no Supabase.** O trigger
+  `handle_new_user` ativa quem tem `invited_at`, mas o Supabase insere o
+  usuário e só preenche `invited_at` num UPDATE seguinte, depois do trigger de
+  INSERT. Quem ativa agora é a ação `inviteUser` (service_role,
+  `is_active: true`). Consequência: convite feito pelo painel do SUPABASE
+  continua nascendo inativo. Convide sempre pelo `/admin/usuarios`.
+- **Link de e-mail se gasta no ENVIO do formulário, nunca ao abrir a página.**
+  Leitor de e-mail corporativo abre os links da mensagem para checar segurança,
+  e com o `{{ .ConfirmationURL }}` padrão o robô gastava o convite antes da
+  pessoa. Os modelos em `supabase/templates/` mandam `token_hash` para
+  `/admin/senha`, e quem chama `verifyOtp` é a ação `definirSenha`. A mesma
+  tela ainda entende o formato antigo (sessão depois do `#`), então trocar o
+  modelo no painel não precisa ser sincronizado com o deploy, só vir depois dele.
+- **Recuperação de senha usa cliente em fluxo IMPLÍCITO, não o do servidor.** O
+  cliente de `lib/supabase/server` é PKCE, e em PKCE o link só funciona no
+  navegador que pediu. Quem pede no computador e abre o e-mail no celular
+  cairia em erro (`recuperar-senha/actions.ts`).
+- **O GTM do portal é o da LOJA, e ele não tem GA4.** GTM-WWT3T789 carrega
+  Google Ads e Pinterest. O GA4 da loja (G-9V89YVR635) vem da integração nativa
+  da Tray, por gtag com fila própria (`dataLayerGa4`). A regra antiga do
+  `Medicao` ("com GTM ligado, GA4 não carrega") partia de um GTM com GA4 dentro,
+  e deixou o portal meses sem mandar nada ao GA4. Agora os dois carregam juntos,
+  espelhando a loja, e tag de GA4 no GTM NÃO pode disparar em `/guias`.
+- **UTM em link para a loja apaga o orgânico.** Mesmo domínio, mesma
+  propriedade, mesmo `_ga`: a pessoa que veio do Google continua na mesma
+  sessão ao clicar para a loja. `utm_source=portal` abria sessão nova e a venda
+  virava "portal". A posição do clique saiu da URL e foi para o evento
+  (`posicao`, lida de `data-regiao` no cabeçalho e no rodapé do site).
+
 ## Convenções & regras
 - **Idioma do produto e do conteúdo: pt-BR.**
 - O portal **complementa a loja Tray** — nunca duplicar checkout nem editar preço/estoque aqui.
@@ -403,6 +440,8 @@ dois temas** (raiz e `Esquenta/`), como o `TEMAS.md` daquele repositório exige.
 ✅ **Estrutura:** `src/app/(site)/` = público, `src/app/admin/(painel)/` = protegido, `src/app/layout.tsx` = só html/body/fontes.
 ✅ **Supabase:** 36 migrations aplicadas e em arquivo, 22 tabelas com RLS, bucket `media`.
 ✅ **Admin:** login por e-mail e senha (sem tela de cadastro; o endpoint de signup do Supabase ainda está aberto, ver Pendências), rotas protegidas por middleware, `noindex`, dashboard, usuários, mídia, comentários, produtos, métricas, integrações e lojas.
+✅ **Convite e senha (24/09):** o convite leva para `/admin/senha`, onde a pessoa cria a senha e entra direto. "Esqueci minha senha" no login (`/admin/recuperar-senha`). Na lista de usuários, aviso de quem ainda não criou a senha e botão de reenviar. **Falta a parte do painel do Supabase** (endereços, modelos de e-mail, SMTP próprio), passo a passo em `docs/acesso-e-medicao.md`.
+✅ **Medição (24/09):** GA4 carregado direto no portal, na mesma propriedade da loja, e links para a loja sem UTM. **Falta ligar o GA4 em Integrações** e configurar o GA4 (retenção, dimensões, eventos-chave), em `docs/acesso-e-medicao.md`.
 ✅ **Editor de conteúdo:** blocos com TipTap, salvamento automático com detecção de conflito, modelos, links internos com busca, fontes com trava na publicação, canibalização determinística, preview de rascunho assinado, analisador SEO/GEO ao vivo e assistente de IA.
 ✅ **Inserção no editor (13/08):** botão `+` na margem, alinhado à linha do cursor, e comando por `/` no texto (filtra sem acento, setas, Enter, Esc). Tudo entra no ponto onde o cursor está, não no fim do artigo: linha vazia é substituída, linha com texto recebe o bloco logo abaixo. Linha de texto garantida no fim para bloco atômico não prender o cursor.
 ✅ **Vitrine de produtos (13/08):** de um a quatro produtos no mesmo bloco, em três formatos (vertical, quadrado, horizontal), com mover e remover por card. O card inteiro é o link. Conteúdo antigo (card solto `div[data-produto]`) sobe para vitrine ao abrir. O preço exibido sai da tabela `products` na hora de servir a página, não do que ficou gravado no texto.
@@ -590,7 +629,10 @@ escrito no Worker; se mudar, ajustar `infra/cloudflare/worker.js` e republicar.
 ✅ **Cron do agendamento resolvido em 18/09:** `site_settings.cron` está preenchido com
 `https://jk-portal.vercel.app/guias`, apontando direto para a Vercel para o cabeçalho do
 segredo não depender do Worker. O SQL faz `url || '/api/cron/publicar'`.
-⚠️ **Pendências:** **desligar o cadastro público no painel do Supabase**
+⚠️ **Pendências:** **Supabase ainda com Site URL da Vercel e SMTP de teste** (só entrega
+para membro do time do projeto no Supabase), ver `docs/acesso-e-medicao.md`. **Tag de
+remarketing do Google Ads no GTM saindo como `AW-AW-16750399342`** (prefixo duplicado,
+provável ID de conversão preenchido com o `AW-`). **Desligar o cadastro público no painel do Supabase**
 (Authentication → Sign In / Providers → "Allow new users to sign up"), que hoje
 está ligado e é a única parte da falha de 0020 que não dá para fechar por
 migration. Trocar a senha temporária do master e rotacionar a chave da OpenAI.

@@ -1,0 +1,35 @@
+<!--
+  Modelo do e-mail de CONVITE do Supabase.
+  Colar o arquivo inteiro em: Authentication > Emails > Templates > "Invite user".
+  Assunto: Seu acesso ao painel da JK Alianças
+
+  O link NÃO usa ConfirmationURL, de propósito. Aquele link é verificado
+  no servidor do Supabase ao ser aberto, e leitor de e-mail que abre link para
+  checar segurança gastava o convite antes da pessoa. Este leva para a nossa
+  tela, que só verifica quando a pessoa envia a senha.
+
+  O SiteURL precisa ser https://www.jkaliancas.com.br/guias, sem barra no
+  fim (Authentication > URL Configuration > Site URL).
+-->
+<div style="margin:0;padding:32px 16px;background:#fbfaf8;font-family:Arial,Helvetica,sans-serif;color:#171512;">
+  <div style="max-width:480px;margin:0 auto;background:#ffffff;border:1px solid #e8e2d8;border-radius:16px;padding:32px;">
+    <p style="margin:0 0 4px;font-size:12px;letter-spacing:2px;text-transform:uppercase;color:#76582b;">Painel editorial</p>
+    <h1 style="margin:0 0 16px;font-size:24px;line-height:1.3;font-weight:normal;color:#171512;">Seu acesso ao painel da JK Alianças</h1>
+    <p style="margin:0 0 24px;font-size:15px;line-height:1.6;color:#5f594f;">
+      Você recebeu acesso ao painel onde a equipe escreve e publica as dicas do site da JK Alianças.
+      Clique no botão para criar a sua senha.
+    </p>
+    <p style="margin:0 0 24px;">
+      <a href="{{ .SiteURL }}/admin/senha?token_hash={{ .TokenHash }}&type=invite"
+         style="display:inline-block;background:#be9b60;color:#171512;text-decoration:none;font-weight:bold;font-size:15px;padding:14px 28px;border-radius:999px;">
+        Criar minha senha
+      </a>
+    </p>
+    <p style="margin:0 0 8px;font-size:13px;line-height:1.6;color:#5f594f;">
+      O link funciona uma vez só e vence em pouco tempo. Se ele não abrir, peça um convite novo para quem te chamou.
+    </p>
+    <p style="margin:0;font-size:13px;line-height:1.6;color:#5f594f;">
+      Não esperava este e-mail? Pode ignorar, nada acontece sem o clique.
+    </p>
+  </div>
+</div>
