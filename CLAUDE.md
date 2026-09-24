@@ -71,6 +71,12 @@ sob `basePath: "/guias"` (mecanismo oficial do Next), e não por rewrite.
 - **O que precisa do prefixo na mão:** `fetch` escrito por extenso,
   `sendBeacon`, `window.open`, HTML cru fora do React, e SVG no `next/image`
   (SVG é servido as-is, sem otimizador, então o `src` sai cru).
+- **O link da bio é a única página fora do `/guias`:** `jkaliancas.com.br/bio`
+  mostra `/guias/bio` sem o endereço mudar, e quem faz isso é o Worker, não o
+  Next. Reescrever para dentro do `basePath` um caminho que está fora dele o
+  Next recusa no boot ("Invalid rewrite found"). As rotas na Cloudflare são
+  `/bio` e `/bio/*`, exatas, e nunca `/bio*`, que alcançaria página da loja.
+  Detalhes em `infra/cloudflare/README.md`.
 - **URL de post é plana:** `/guias/<slug>`, de `(site)/[slug]`. O índice é
   `/guias/dicas`. Isso faz o post dividir espaço de nome com as páginas fixas, e
   no Next o segmento estático ganha do dinâmico EM SILÊNCIO. A trava é
@@ -639,6 +645,7 @@ editor, que é a rota mais pesada) e em `(site)/busca/loading.tsx` (a única
 rota pública que consulta o banco a cada visita). O botão "Sair" do cabeçalho
 do painel era o último sem estado de espera e ganhou `useFormStatus`.
 
+✅ **Link da bio (24/09):** `jkaliancas.com.br/bio`, em `src/app/(bio)/`, sem cabeçalho nem rodapé do site. A bio é um objeto JSON (`lib/bio/tipos.ts`) lido de `site_settings` na chave `pagina:bio`, com a bio de fábrica como padrão. Blocos com início e fim, e tema padrão, Esquenta ou Black trocando sozinho pela data. **Preço ao vivo da loja**, pela busca pública da Tray (`buscarNaLoja`, 5 minutos de cache), e nunca da tabela `products`, que só muda quando alguém sincroniza. `category_id` na busca traz a categoria como secundária também, que é o caso das categorias de campanha. Eventos com o `item_id` da Tray, o mesmo que a loja manda ao GA4 na compra. Prévia por data em `/guias/bio/previa?data=AAAA-MM-DD`, só fora da produção. **Falta:** tabela de leads e o `/api/bio/lead` (o formulário já chama), repasse ao RD Station e ao webhook, e o painel `/admin/bio`.
 ✅ **Search Console automático (24/09):** conta de serviço do Google (`GSC_SERVICE_ACCOUNT_JSON`, sem OAuth e sem biblioteca do Google), importação toda segunda pelo `pg_cron` (0038) e botão "Importar agora" em Métricas. Grava no mesmo formato da planilha, e as leituras de `analytics_snapshots` passaram a ser paginadas (`lib/data/snapshots.ts`): o Supabase entrega no máximo 1.000 linhas por pedido e cada consulta ocupa quatro. **Ligado em 24/09:** projeto `jk-portal-509621` no Google Cloud (conta jkaliancasmkt), conta de serviço `portal-search-console@jk-portal-509621.iam.gserviceaccount.com` como Restrita no Search Console, primeira importação com 1.000 consultas e 1.000 páginas. Se o quadro de Métricas acusar "falta a variável" logo depois de salvar na Vercel, é Redeploy feito antes de salvar (aconteceu na primeira vez).
 🔲 **A construir:** conteúdo (o gargalo de resultado) e a leitura do GMB.
 🚨 **A pendência mais séria hoje é o plano da Vercel.** A conta que hospeda o `jk-portal`

@@ -24,7 +24,10 @@ export type TipoEvento =
   | "clique_loja"
   // Saída para outro guia, vinda do bloco de chamada para ação. Separada de
   // `clique_loja` porque leitura e visita à unidade são resultados diferentes.
-  | "clique_guia";
+  | "clique_guia"
+  // Link personalizado do link da bio que não vai para a loja nem para o
+  // WhatsApp (medidor, dicas, página externa). `destino` é o rótulo do link.
+  | "clique_link";
 
 type Detalhe = {
   /** De onde partiu, ex.: "/alianca-de-namoro" ou "/lojas/guarulhos". */

@@ -8,19 +8,36 @@ rodava com o que se pretendia.
 ## O que ele faz
 
 O domínio não é do portal. `www.jkaliancas.com.br` responde pela loja na Tray, e
-a rota `www.jkaliancas.com.br/guias*` manda só esse caminho para a Vercel.
+três rotas mandam só estes caminhos para a Vercel:
 
 | Onde | Quem responde |
 |---|---|
 | `www.jkaliancas.com.br/` e o resto | Tray, sem passar por aqui |
 | `www.jkaliancas.com.br/guias*` | este Worker, que busca em `jk-portal.vercel.app` |
+| `www.jkaliancas.com.br/bio` e `/bio/*` | este Worker, que busca `/guias/bio` e mantém `/bio` na barra |
 
-**A rota é `/guias*` e só.** Nenhuma edição neste arquivo alcança a loja. Para
-conferir antes de mexer:
+**As rotas são essas três e só.** Nenhuma edição neste arquivo alcança a loja.
+A bio tem duas rotas exatas, e não `/bio*`, de propósito: `/bio*` também casaria
+com qualquer página da loja que comece com essas letras, e cada uma passaria a
+atravessar o Worker sem motivo. Para conferir antes de mexer:
 
 ```bash
 curl -s "https://api.cloudflare.com/client/v4/zones/$ZONE/workers/routes" -H "Authorization: Bearer $CF_TOKEN"
 ```
+
+## A máscara do link da bio
+
+A bio mora no portal em `/guias/bio`, mas o endereço divulgado é
+`jkaliancas.com.br/bio`. O Worker pede `/guias/bio` para a Vercel e devolve a
+resposta no endereço `/bio`, sem redirecionar. `/bio/` volta para `/bio` com um
+301, para existir um endereço só.
+
+A máscara mora aqui porque o Next não aceita reescrever para dentro do
+`basePath` um caminho que está fora dele: o `next dev` recusa a configuração no
+boot com "Invalid rewrite found". Foi testado com um proxy local imitando este
+Worker: a página hidrata sem erro, os arquivos dela já saem em `/guias/...`
+(que este Worker serve), e a navegação da bio para o medidor e de volta
+funciona com `/bio` na barra.
 
 ## As três coisas que ele resolve
 
@@ -71,6 +88,8 @@ curl -s -o /dev/null -w "%{http_code}\n" https://www.jkaliancas.com.br/guias    
 curl -s -o /dev/null -w "%{http_code} %{redirect_url}\n" http://www.jkaliancas.com.br/guias  # 301 https
 curl -sI https://www.jkaliancas.com.br/guias | grep -i x-robots                  # vazio
 curl -sI https://jk-portal.vercel.app/guias  | grep -i x-robots                  # noindex
+curl -s -o /dev/null -w "%{http_code} %{url_effective}\n" https://www.jkaliancas.com.br/bio   # 200, sem sair de /bio
+curl -s -o /dev/null -w "%{http_code} %{redirect_url}\n" https://www.jkaliancas.com.br/bio/   # 301 /bio
 ```
 
 A quarta linha é a que importa. Se ela devolver `noindex`, o site está saindo do
