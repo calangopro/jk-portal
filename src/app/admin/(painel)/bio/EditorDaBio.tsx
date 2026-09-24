@@ -286,7 +286,7 @@ export function EditorDaBio({
   return (
     <div data-painel-largo className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_410px]">
       <div className="min-w-0">
-        <div className="glass sticky top-4 z-20 mb-6 flex flex-wrap items-center gap-3 rounded-[18px] p-4">
+        <div className="glass sticky top-20 z-20 mb-6 flex flex-wrap items-center gap-3 rounded-[18px] p-4">
           <button
             type="button"
             onClick={publicar}
@@ -358,11 +358,13 @@ export function EditorDaBio({
                     <Data
                       rotulo={`${tema === "esquenta" ? "Esquenta" : "Black"}: começa`}
                       valor={c.inicio}
+                      limpavel={false}
                       aoMudar={(v) => v && mudarCampanha(tema, { inicio: v })}
                     />
                     <Data
                       rotulo="Termina"
                       valor={c.fim}
+                      limpavel={false}
                       aoMudar={(v) => v && mudarCampanha(tema, { fim: v })}
                     />
                   </div>
@@ -417,7 +419,7 @@ export function EditorDaBio({
         </div>
       </div>
 
-      <aside className="min-w-0 xl:sticky xl:top-4 xl:self-start">
+      <aside className="min-w-0 xl:sticky xl:top-20 xl:self-start">
         <Previa bio={bio} lojas={lojas} hoje={hoje} />
       </aside>
     </div>
