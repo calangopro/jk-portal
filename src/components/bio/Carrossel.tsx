@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import Image from "next/image";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, ShoppingCart } from "lucide-react";
 import { precoLegivel } from "@/lib/data/vitrine";
 import { medirItemEscolhido, medirListaVista, type ItemDaLista } from "@/lib/bio/medicao";
 
@@ -92,88 +92,94 @@ export function Carrossel({ lista, produtos, rotuloComprar, prioridade = false }
 
   return (
     <div ref={raiz} className="relative">
-      <ul
-        ref={trilho}
-        id={idDaLista}
-        aria-label={lista.nome}
-        className="rolagem-discreta flex snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain"
-      >
-        {produtos.map((p, i) => {
-          const atual = precoLegivel(p.atual);
-          const anterior = precoLegivel(p.anterior);
-          return (
-            <li key={p.id} className="w-[calc((100%-0.75rem)/2)] shrink-0 snap-start">
-              <a
-                href={p.href}
-                data-evento="clique_produto"
-                data-produto-nome={p.nome}
-                onClick={() => medirItemEscolhido(lista, p, i)}
-                className="group flex h-full flex-col overflow-hidden rounded-[18px] border border-[var(--bio-linha)] bg-[var(--bio-superficie)] transition-colors hover:border-[var(--bio-linha-forte)]"
-              >
-                <span className="relative block aspect-square bg-[var(--bio-foto)]">
+      <div className="relative">
+        <ul
+          ref={trilho}
+          id={idDaLista}
+          aria-label={lista.nome}
+          className="rolagem-discreta flex snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain"
+        >
+          {produtos.map((p, i) => {
+            const atual = precoLegivel(p.atual);
+            const anterior = precoLegivel(p.anterior);
+            return (
+              <li key={p.id} className="w-[calc((100%-0.75rem)/2)] shrink-0 snap-start">
+                <a
+                  href={p.href}
+                  data-evento="clique_produto"
+                  data-produto-nome={p.nome}
+                  onClick={() => medirItemEscolhido(lista, p, i)}
+                  className="group relative block aspect-[4/5] overflow-hidden rounded-[20px] bg-[var(--bio-foto)] shadow-[0_12px_28px_-16px_rgb(0_0_0/0.5)]"
+                >
                   <Image
                     src={p.imagem}
-                    alt={p.nome}
+                    alt=""
                     fill
                     sizes="(min-width: 480px) 220px, 46vw"
                     priority={prioridade && i < 2}
-                    className="object-contain p-1.5 transition-transform duration-500 group-hover:scale-[1.03]"
+                    className="object-cover transition-transform duration-700 ease-[cubic-bezier(.2,.75,.25,1)] group-hover:scale-[1.04]"
                   />
+
+                  {/* O escurecido fica SÓ na parte de baixo, onde mora o texto.
+                      Sem ele, nome branco sobre foto clara some; com ele no
+                      cartão inteiro, a joia perde o brilho. */}
+                  <span
+                    aria-hidden
+                    className="absolute inset-0 bg-[linear-gradient(to_top,rgb(23_21_18/0.94)_0%,rgb(23_21_18/0.78)_30%,rgb(23_21_18/0)_62%)]"
+                  />
+
                   {p.desconto ? (
-                    <span className="numeros absolute left-2 top-2 rounded-full bg-[var(--bio-selo)] px-2 py-0.5 text-[0.7rem] font-semibold tracking-wide text-[var(--bio-selo-texto)]">
+                    <span className="numeros absolute left-2.5 top-2.5 rounded-full bg-[var(--bio-selo)] px-2 py-0.5 text-[0.68rem] font-semibold tracking-wide text-[var(--bio-selo-texto)]">
                       {p.desconto}% OFF
                     </span>
                   ) : null}
-                </span>
 
-                <span className="flex flex-1 flex-col px-3 pb-3 pt-2.5">
-                  <span className="line-clamp-2 text-[0.8rem] font-medium leading-snug text-[var(--bio-texto)]">
-                    {p.nome}
-                  </span>
+                  <span className="absolute inset-x-0 bottom-0 p-3">
+                    <span className="line-clamp-2 text-[0.74rem] font-medium leading-snug text-white">{p.nome}</span>
 
-                  <span className="numeros mt-auto pt-2">
-                    {anterior ? (
-                      <span className="block text-[0.72rem] text-[var(--bio-apoio)] line-through">
-                        <span className="sr-only">De </span>
-                        {anterior}
+                    <span className="mt-2 flex items-end justify-between gap-2">
+                      <span className="numeros min-w-0">
+                        {anterior ? (
+                          <span className="block text-[0.66rem] leading-tight text-white/70 line-through">
+                            <span className="sr-only">De </span>
+                            {anterior}
+                          </span>
+                        ) : null}
+                        <span className="block text-[0.95rem] font-semibold leading-tight text-white">
+                          {anterior ? <span className="sr-only">Por </span> : null}
+                          {atual}
+                        </span>
                       </span>
-                    ) : null}
-                    <span className="block text-[0.95rem] font-semibold text-[var(--bio-texto)]">
-                      {anterior ? <span className="sr-only">Por </span> : null}
-                      {atual}
+
+                      {/* O cartão inteiro já é o link; a bolinha é o sinal de
+                          que tocar leva para a compra. */}
+                      <span
+                        aria-hidden
+                        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--bio-carrinho)] text-[var(--bio-carrinho-icone)] shadow-[0_6px_14px_-6px_rgb(0_0_0/0.6)] transition-transform duration-300 group-hover:scale-110"
+                      >
+                        <ShoppingCart size={16} strokeWidth={2} />
+                      </span>
                     </span>
                   </span>
 
-                  <span className="mt-2.5 flex min-h-9 items-center justify-center rounded-full bg-[var(--bio-acao)] text-[0.78rem] font-semibold tracking-wide text-[var(--bio-acao-texto)] transition-colors group-hover:bg-[var(--bio-acao-realce)]">
-                    {rotuloComprar}
-                  </span>
-                </span>
-              </a>
-            </li>
-          );
-        })}
-      </ul>
+                  <span className="sr-only">{rotuloComprar}</span>
+                </a>
+              </li>
+            );
+          })}
+        </ul>
+
+        {produtos.length > 2 ? (
+          // Setas no meio da altura do cartão, sobre a foto.
+          <div className="pointer-events-none absolute inset-y-0 left-0 right-0 flex items-center justify-between">
+            <BotaoDeSeta lado="antes" visivel={temAntes} controla={idDaLista} aoClicar={() => andar(-1)} />
+            <BotaoDeSeta lado="depois" visivel={temDepois} controla={idDaLista} aoClicar={() => andar(1)} />
+          </div>
+        ) : null}
+      </div>
 
       {produtos.length > 2 ? (
         <>
-          {/* A faixa das setas tem a altura da linha de FOTOS (dois quadrados
-              lado a lado dão 2:1), então as setas ficam no meio da foto e não
-              em cima do preço. */}
-          <div className="pointer-events-none absolute inset-x-0 top-0 flex aspect-[2/1] items-center justify-between">
-            <BotaoDeSeta
-              lado="antes"
-              visivel={temAntes}
-              controla={idDaLista}
-              aoClicar={() => andar(-1)}
-            />
-            <BotaoDeSeta
-              lado="depois"
-              visivel={temDepois}
-              controla={idDaLista}
-              aoClicar={() => andar(1)}
-            />
-          </div>
-
           {/* Onde a pessoa está na fileira. Decorativo: o leitor de tela já
               anuncia a lista com a quantidade de itens. */}
           <div aria-hidden className="mx-auto mt-3 h-[3px] w-16 overflow-hidden rounded-full bg-[var(--bio-linha)]">
