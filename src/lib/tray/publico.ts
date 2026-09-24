@@ -95,6 +95,107 @@ function mapear(bruto: Record<string, unknown>): ProdutoPublico | null {
   };
 }
 
+/**
+ * A resposta da loja vem em ISO-8859-1, então decodificamos na mão para não
+ * transformar acento em caractere quebrado.
+ */
+async function lerJson(resp: Response): Promise<Record<string, unknown>> {
+  const buffer = await resp.arrayBuffer();
+  const tipo = resp.headers.get("content-type") ?? "";
+  const codificacao = /iso-8859-1|latin1/i.test(tipo) ? "iso-8859-1" : "utf-8";
+  const cru = new TextDecoder(codificacao).decode(buffer);
+  try {
+    return JSON.parse(cru) as Record<string, unknown>;
+  } catch {
+    throw new Error("A loja devolveu uma resposta que não é JSON válido.");
+  }
+}
+
+/**
+ * Uma página da busca pública, com filtro, para quem precisa de preço AO VIVO.
+ *
+ * A vitrine da bio lê daqui, e não da tabela `products`, porque a tabela só
+ * muda quando alguém sincroniza, e na Black o preço muda no meio do dia. O
+ * cache de alguns minutos segura o pico sem deixar o preço envelhecer.
+ *
+ * Filtros conferidos em 24/09/2026 na loja:
+ *   - `category_id` traz a categoria E as filhas, inclusive peça que está lá
+ *     como categoria secundária (é o caso das categorias de campanha);
+ *   - `id` traz um produto só;
+ *   - `sort` aceita `campo_direcao` com campos como `release`, `hot`, `price`.
+ *     Não existe ordenação por mais vendidos.
+ *
+ * Erro de rede ou de loja devolve lista vazia: vitrine some, página continua.
+ */
+export async function buscarNaLoja(
+  filtros: Record<string, string>,
+  opcoes: { revalidar?: number; tags?: string[] } = {},
+): Promise<ProdutoPublico[]> {
+  const url = new URL(`${urlDaLoja()}/web_api/search`);
+  for (const [chave, valor] of Object.entries(filtros)) url.searchParams.set(chave, valor);
+  if (!url.searchParams.has("limit")) url.searchParams.set("limit", String(POR_PAGINA));
+
+  try {
+    const resp = await fetch(url.toString(), {
+      headers: { Accept: "application/json" },
+      next: { revalidate: opcoes.revalidar ?? 300, tags: opcoes.tags },
+    });
+    if (!resp.ok) return [];
+    const dados = await lerJson(resp);
+    const lista = (dados.Products ?? []) as Record<string, unknown>[];
+    if (!Array.isArray(lista)) return [];
+    return lista.map(mapear).filter((p): p is ProdutoPublico => p !== null);
+  } catch {
+    return [];
+  }
+}
+
+/** Categoria da loja como a árvore pública descreve. */
+export type CategoriaDaLoja = { id: string; slug: string; nome: string; ativa: boolean };
+
+/**
+ * Árvore de categorias da loja, achatada.
+ *
+ * `web_api/categories/tree` é público (o `web_api/categories` pede
+ * credencial). É por aqui que o slug da URL da loja, como `esquenta` ou
+ * `noivado-e-casamento`, vira o id que a busca entende. A tabela `categories`
+ * do portal não serve para isso: ela só conhece a categoria PRINCIPAL de cada
+ * produto, e categoria de campanha nunca é a principal de ninguém.
+ */
+export async function categoriasDaLoja(revalidar = 3600): Promise<CategoriaDaLoja[]> {
+  try {
+    const resp = await fetch(`${urlDaLoja()}/web_api/categories/tree`, {
+      headers: { Accept: "application/json" },
+      next: { revalidate: revalidar },
+    });
+    if (!resp.ok) return [];
+    const dados = await lerJson(resp);
+
+    const achatadas: CategoriaDaLoja[] = [];
+    const andar = (nos: unknown) => {
+      if (!Array.isArray(nos)) return;
+      for (const no of nos as Record<string, unknown>[]) {
+        const c = (no.Category ?? no) as Record<string, unknown>;
+        const id = texto(c.id);
+        const slug = texto(c.slug);
+        if (id && slug) {
+          achatadas.push({
+            id,
+            slug,
+            nome: texto(c.name) ?? slug,
+            ativa: String(c.active ?? "1") === "1",
+          });
+        }
+        andar(c.children);
+      }
+    };
+    andar(dados.Category);
+    return achatadas;
+  } catch {
+    return [];
+  }
+}
+
 /** Lê o catálogo inteiro, paginando até acabar. */
 export async function lerCatalogoPublico(
   limitePaginas = 60,
@@ -119,19 +220,7 @@ export async function lerCatalogoPublico(
       );
     }
 
-    // A resposta vem em ISO-8859-1, então decodificamos na mão para não
-    // transformar acento em caractere quebrado.
-    const buffer = await resp.arrayBuffer();
-    const tipo = resp.headers.get("content-type") ?? "";
-    const codificacao = /iso-8859-1|latin1/i.test(tipo) ? "iso-8859-1" : "utf-8";
-    const cru = new TextDecoder(codificacao).decode(buffer);
-
-    let dados: Record<string, unknown>;
-    try {
-      dados = JSON.parse(cru) as Record<string, unknown>;
-    } catch {
-      throw new Error("A loja devolveu uma resposta que não é JSON válido.");
-    }
+    const dados = await lerJson(resp);
 
     const paging = (dados.paging ?? {}) as Record<string, unknown>;
     total = Number(paging.total ?? 0) || total;
