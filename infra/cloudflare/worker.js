@@ -1,14 +1,22 @@
 // worker.js
 //
-// Proxy do portal editorial. A rota registrada na zona é
-// `www.jkaliancas.com.br/guias*`, ou seja, este código NUNCA responde pela
-// loja da Tray. Qualquer coisa fora de /guias segue para a origem original.
+// Proxy do portal editorial. As rotas registradas na zona são
+// `www.jkaliancas.com.br/guias*`, `www.jkaliancas.com.br/bio` e
+// `www.jkaliancas.com.br/bio/*`, ou seja, este código NUNCA responde pela
+// loja da Tray. Qualquer coisa fora delas segue para a origem original.
 var worker_default = {
   async fetch(request) {
     const url = new URL(request.url);
     const p = url.pathname;
     const ehGuias = p === "/guias" || p.startsWith("/guias/");
-    if (!ehGuias) {
+    // O link da bio mora no portal em /guias/bio, mas a pessoa vê /bio. O
+    // Next não aceita reescrever para dentro do basePath um caminho que está
+    // fora dele (recusa no boot, "Invalid rewrite found"), então a máscara é
+    // feita aqui: o navegador pede /bio e recebe a página de /guias/bio sem o
+    // endereço mudar. Testado: a página hidrata sem erro e a navegação para o
+    // resto do portal funciona, porque tudo que ela carrega já sai em /guias.
+    const ehBio = p === "/bio" || p.startsWith("/bio/");
+    if (!ehGuias && !ehBio) {
       if (url.hostname.endsWith(".workers.dev")) {
         return new Response("Fora do /guias. No dominio real, quem responde aqui e a Tray.", { status: 200 });
       }
@@ -30,7 +38,14 @@ var worker_default = {
       return Response.redirect(seguro.toString(), permanente ? 301 : 308);
     }
 
-    const destino = new URL(p + url.search, "https://jk-portal.vercel.app");
+    // Um endereço só para a bio. Com barra no fim, o Next responderia 308 para
+    // /guias/bio e a máscara cairia na frente da pessoa.
+    if (p === "/bio/") {
+      return Response.redirect(`${url.origin}/bio${url.search}`, 301);
+    }
+
+    const caminho = ehBio ? `/guias${p}` : p;
+    const destino = new URL(caminho + url.search, "https://jk-portal.vercel.app");
     const pedido = new Request(destino, request);
     pedido.headers.set("x-forwarded-host", url.host);
     pedido.headers.set("x-forwarded-proto", "https");

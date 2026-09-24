@@ -293,6 +293,17 @@ h4 {
   border-radius: 4px;
 }
 
+/* Link da bio: o foco segue o desenho do elemento e a cor do tema.
+   A regra acima está fora de layer, então o `border-radius: 4px` dela vence o
+   `rounded-*` do Tailwind: na bio, onde quase tudo é pílula, o campo e o botão
+   viravam caixa quadrada no instante do foco. `revert-layer` devolve o raio
+   que a utilidade deu. E o dourado de navegação some sobre carvão (é o tom que
+   reprova no escuro), por isso a cor do contorno vem do tema. */
+.bio-pagina :focus-visible {
+  outline-color: var(--bio-acento);
+  border-radius: revert-layer;
+}
+
 ::selection {
   background: rgb(var(--jk-brand-rgb) / 0.28);
 }
