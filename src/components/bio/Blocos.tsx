@@ -89,7 +89,15 @@ export function Cabecalho({ nome, frase }: { nome: string; frase: string }) {
   );
 }
 
-export function BlocoCampanha({ bloco }: { bloco: BlocoDe<"campanha"> }) {
+export function BlocoCampanha({
+  bloco,
+  fimDaCampanha,
+}: {
+  bloco: BlocoDe<"campanha">;
+  /** Último dia da campanha em que o bloco está, para o contador sem data própria. */
+  fimDaCampanha: string | null;
+}) {
+  const contaAte = bloco.contador ? (bloco.contadorAte ?? fimDaCampanha) : null;
   return (
     <section
       data-regiao={`bio-${bloco.id}`}
@@ -112,9 +120,7 @@ export function BlocoCampanha({ bloco }: { bloco: BlocoDe<"campanha"> }) {
             {bloco.texto}
           </p>
         ) : null}
-        {bloco.contadorAte ? (
-          <Contador ate={fimDoDiaEmSaoPaulo(bloco.contadorAte)} rotulo={bloco.rotuloContador} />
-        ) : null}
+        {contaAte ? <Contador ate={fimDoDiaEmSaoPaulo(contaAte)} rotulo={bloco.rotuloContador} /> : null}
         {bloco.botao ? (
           <LinkDaBio
             href={bloco.botao.href}

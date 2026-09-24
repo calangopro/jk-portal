@@ -8,30 +8,29 @@ import { z } from "zod";
  * atômico, o histórico é uma cópia do objeto, e o painel só precisa editar este
  * formato. Nada de tabela com uma linha por link.
  *
- * Diferente da home, aqui quase tudo tem DATA. A bio é a porta do Instagram, e
- * o Instagram vive de campanha: o Esquenta entra em 01/10, a Black em 01/11, e o
- * congelamento de 20/11 proíbe mexer no ar durante a semana que mais vende. Por
- * isso cada bloco aceita início e fim, e o tema troca sozinho pela data. A
- * campanha inteira pode ser montada com semanas de antecedência e entra no ar
- * sem ninguém encostar em nada.
+ * A bio tem VERSÕES INTEIRAS, uma por campanha, e não blocos soltos com data.
+ * A primeira versão desenhava cada bloco com início e fim numa lista só, e a
+ * lista virou uma mistura de Esquenta, Black e dia a dia que ninguém conseguia
+ * ler. Agora é como a pessoa pensa: a bio Normal, a bio do Esquenta, a bio da
+ * Black, cada uma completa, com os próprios blocos e links, e a campanha entra e
+ * sai do ar sozinha pela data. Campanha nova (aniversário, Natal, ano novo) é
+ * uma versão a mais, sem código.
+ *
+ * A campanha pode ser montada com semanas de antecedência, o que importa porque
+ * o congelamento de 20/11 proíbe mexer no ar durante a semana que mais vende.
  */
 
-/** Dia no formato AAAA-MM-DD, sempre no fuso de São Paulo. */
-const dia = z
-  .string()
-  .regex(/^\d{4}-\d{2}-\d{2}$/)
-  .nullable()
-  .default(null);
+const dia = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 
+/** Paleta de cores. Mais de uma campanha pode usar a mesma. */
 export const TEMAS_DA_BIO = ["padrao", "esquenta", "black"] as const;
 export type TemaDaBio = (typeof TEMAS_DA_BIO)[number];
 
-/** Janela em que um tema de campanha vale, quando o tema está no automático. */
-const esquemaCampanha = z.object({
-  tema: z.enum(["esquenta", "black"]),
-  inicio: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  fim: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-});
+export const NOMES_DOS_TEMAS: Record<TemaDaBio, string> = {
+  padrao: "Claro (off white)",
+  esquenta: "Carvão e dourado",
+  black: "Carvão e dourado forte",
+};
 
 const botao = z.object({ rotulo: z.string().min(1), href: z.string().min(1) });
 
@@ -40,10 +39,6 @@ const base = {
   id: z.string().min(1),
   /** Ocultar sem apagar, para voltar depois com um clique. */
   visivel: z.boolean().default(true),
-  /** Primeiro dia em que o bloco aparece. Nulo é "desde sempre". */
-  inicio: dia,
-  /** Último dia em que o bloco aparece, inteiro. Nulo é "sem fim". */
-  fim: dia,
 };
 
 const blocoCampanha = z.object({
@@ -52,8 +47,13 @@ const blocoCampanha = z.object({
   eyebrow: z.string().default(""),
   titulo: z.string().min(1),
   texto: z.string().default(""),
-  /** Dia em que o contador zera, contando até 23h59 de São Paulo. */
-  contadorAte: dia,
+  contador: z.boolean().default(true),
+  /**
+   * Dia em que o contador zera, contando até 23h59 de São Paulo. Nulo é o fim
+   * da campanha, que é o caso comum: mudar a data da campanha já muda o
+   * contador junto.
+   */
+  contadorAte: dia.nullable().default(null),
   /** Frase que acompanha o contador, ex.: "O preço do Esquenta acaba em". */
   rotuloContador: z.string().default(""),
   botao: botao.nullable().default(null),
@@ -147,8 +147,6 @@ const itemDeLink = z.object({
   icone: z.enum(ICONES_DE_LINK).default("link"),
   /** Destaque pinta o link com a cor de ação. Um por página, de preferência. */
   destaque: z.boolean().default(false),
-  inicio: dia,
-  fim: dia,
 });
 
 export type ItemDeLink = z.infer<typeof itemDeLink>;
@@ -183,19 +181,141 @@ export const esquemaDoBlocoDaBio = z.discriminatedUnion("tipo", [
 export type BlocoDaBio = z.infer<typeof esquemaDoBlocoDaBio>;
 export type BlocoDe<T extends BlocoDaBio["tipo"]> = Extract<BlocoDaBio, { tipo: T }>;
 
+/**
+ * Uma campanha: a bio inteira para um período.
+ *
+ * O `id` é o código que vai nos eventos de captura (`jk_campanha`), e por isso
+ * o Esquenta é `esq` e a Black é `black`, os MESMOS códigos que o tema da loja
+ * manda. Relatório que junta loja e bio precisa do mesmo valor dos dois lados.
+ */
+const esquemaDaCampanha = z.object({
+  id: z.string().regex(/^[a-z0-9-]{1,40}$/),
+  nome: z.string().min(1).max(40),
+  tema: z.enum(TEMAS_DA_BIO),
+  inicio: dia,
+  fim: dia,
+  /** Desligada, a campanha não entra no ar nem na data. Rascunho de campanha. */
+  ativa: z.boolean().default(true),
+  blocos: z.array(esquemaDoBlocoDaBio).default([]),
+});
+
+export type CampanhaDaBio = z.infer<typeof esquemaDaCampanha>;
+
 export const esquemaDaBio = z.object({
-  versao: z.literal(1).default(1),
-  /** "automatico" segue `campanhas`; os outros fixam o tema. */
-  tema: z.enum(["automatico", ...TEMAS_DA_BIO]).default("automatico"),
-  campanhas: z.array(esquemaCampanha).default([]),
+  versao: z.literal(2),
   cabecalho: z.object({
     nome: z.string().min(1),
     frase: z.string().default(""),
   }),
-  blocos: z.array(esquemaDoBlocoDaBio).default([]),
+  /** A bio de todo dia, que vale quando nenhuma campanha está no ar. */
+  normal: z.object({ blocos: z.array(esquemaDoBlocoDaBio).default([]) }),
+  campanhas: z.array(esquemaDaCampanha).default([]),
 });
 
 export type Bio = z.infer<typeof esquemaDaBio>;
+
+/** A versão que a página desenha: tema, blocos e o que o contador precisa. */
+export type VersaoDaBio = {
+  tema: TemaDaBio;
+  blocos: BlocoDaBio[];
+  /** Último dia da campanha, para o contador sem data própria. Nulo na Normal. */
+  fim: string | null;
+  /** Código da campanha nos eventos, vazio na Normal. */
+  codigo: string;
+};
+
+// ---------------------------------------------------------------------------
+// Conteúdo de fábrica
+// ---------------------------------------------------------------------------
+
+function captura(): BlocoDe<"captura"> {
+  return {
+    id: "captura",
+    tipo: "captura",
+    visivel: true,
+    rotulo: "Receber as ofertas no WhatsApp",
+    detalhe: "Preço exclusivo e cupom com prazo, no grupo da JK",
+    eyebrow: "Grupo de ofertas JK",
+    titulo: "A oferta do dia chega primeiro no seu WhatsApp",
+    descricao: "No grupo, cada oferta vem com preço exclusivo e cupom com prazo para usar.",
+    aceite: "Aceito receber ofertas e novidades da JK Alianças pelo WhatsApp.",
+    botaoEnviar: "Quero receber as ofertas",
+    nota: "Para sair, é só responder SAIR. Seu contato fica só com a JK Alianças.",
+    sucessoTitulo: "Pronto! Falta um toque.",
+    sucessoTexto: "Entre no grupo para receber a primeira oferta.",
+    grupoLink: "",
+    grupoRotulo: "Entrar no grupo do WhatsApp",
+    email: "opcional",
+    momento: true,
+  };
+}
+
+function maisVendidas(): BlocoDe<"vitrine"> {
+  return {
+    id: "vitrine-mais-vendidas",
+    tipo: "vitrine",
+    visivel: true,
+    titulo: "As mais vendidas",
+    fonte: { tipo: "mais-vendidos" },
+    limite: 8,
+    rotuloComprar: "Comprar",
+    verTudo: { rotulo: "Ver todas", href: "https://www.jkaliancas.com.br/namoro-e-compromisso" },
+  };
+}
+
+function links(): BlocoDe<"links"> {
+  return {
+    id: "links",
+    tipo: "links",
+    visivel: true,
+    titulo: "",
+    itens: [
+      {
+        id: "medidor",
+        rotulo: "Descubra o tamanho da sua aliança",
+        detalhe: "Medidor grátis, direto no celular",
+        href: "/medidor-de-aliancas",
+        icone: "medidor",
+        destaque: false,
+      },
+      {
+        id: "namoro",
+        rotulo: "Alianças de namoro",
+        detalhe: "",
+        href: "https://www.jkaliancas.com.br/namoro-e-compromisso",
+        icone: "alianca",
+        destaque: false,
+      },
+      {
+        id: "casamento",
+        rotulo: "Alianças de casamento",
+        detalhe: "",
+        href: "https://www.jkaliancas.com.br/noivado-e-casamento",
+        icone: "alianca",
+        destaque: false,
+      },
+      {
+        id: "dicas",
+        rotulo: "Dicas sobre alianças",
+        detalhe: "Largura, material e cuidado, explicado por quem fabrica",
+        href: "/dicas",
+        icone: "dicas",
+        destaque: false,
+      },
+    ],
+  };
+}
+
+function lojas(): BlocoDe<"lojas"> {
+  return {
+    id: "lojas",
+    tipo: "lojas",
+    visivel: true,
+    titulo: "Fale com a loja mais perto",
+    detalhe: "Escolha a unidade e chame no WhatsApp",
+    mensagem: "Olá! Vim pelo Instagram e queria falar sobre alianças na loja {loja}.",
+  };
+}
 
 /**
  * A bio de fábrica.
@@ -210,188 +330,133 @@ export type Bio = z.infer<typeof esquemaDaBio>;
  */
 export function bioDeFabrica(): Bio {
   return {
-    versao: 1,
-    tema: "automatico",
-    campanhas: [
-      { tema: "esquenta", inicio: "2026-10-01", fim: "2026-10-31" },
-      { tema: "black", inicio: "2026-11-01", fim: "2026-11-30" },
-    ],
+    versao: 2,
     cabecalho: {
       nome: "JK Alianças",
       frase: "Alianças de fábrica própria e 10 lojas em São Paulo",
     },
-    blocos: [
+    normal: { blocos: [captura(), maisVendidas(), links(), lojas()] },
+    campanhas: [
       {
-        id: "campanha-esquenta",
-        tipo: "campanha",
-        visivel: true,
+        id: "esq",
+        nome: "Esquenta",
+        tema: "esquenta",
         inicio: "2026-10-01",
         fim: "2026-10-31",
-        eyebrow: "Esquenta Black JK",
-        titulo: "Até 20% OFF em peças selecionadas",
-        texto: "Prata com 10%, ouro com 5% e semijoias com 20%. Os 5% do Pix somam.",
-        contadorAte: "2026-10-31",
-        rotuloContador: "O preço do Esquenta acaba em",
-        botao: { rotulo: "Ver as peças do Esquenta", href: "https://www.jkaliancas.com.br/esquenta" },
-      },
-      {
-        id: "campanha-black",
-        tipo: "campanha",
-        visivel: true,
-        inicio: "2026-11-01",
-        fim: "2026-11-30",
-        eyebrow: "Black JK",
-        titulo: "Até 30% OFF em peças selecionadas",
-        texto:
-          "Prata com 20%, ouro com 5% e semijoias com 30%. Brinco de semijoia de brinde em todo pedido com oferta.",
-        contadorAte: "2026-11-30",
-        rotuloContador: "A Black acaba em",
-        botao: { rotulo: "Ver as peças da Black", href: "https://www.jkaliancas.com.br/black" },
-      },
-      {
-        id: "captura",
-        tipo: "captura",
-        visivel: true,
-        inicio: null,
-        fim: null,
-        rotulo: "Receber as ofertas no WhatsApp",
-        detalhe: "Preço exclusivo e cupom com prazo, no grupo da JK",
-        eyebrow: "Grupo de ofertas JK",
-        titulo: "A oferta do dia chega primeiro no seu WhatsApp",
-        descricao: "No grupo, cada oferta vem com preço exclusivo e cupom com prazo para usar.",
-        aceite: "Aceito receber ofertas e novidades da JK Alianças pelo WhatsApp.",
-        botaoEnviar: "Quero receber as ofertas",
-        nota: "Para sair, é só responder SAIR. Seu contato fica só com a JK Alianças.",
-        sucessoTitulo: "Pronto! Falta um toque.",
-        sucessoTexto: "Entre no grupo para receber a primeira oferta.",
-        grupoLink: "",
-        grupoRotulo: "Entrar no grupo do WhatsApp",
-        email: "opcional",
-        momento: true,
-      },
-      {
-        id: "vitrine-esquenta",
-        tipo: "vitrine",
-        visivel: true,
-        inicio: "2026-10-01",
-        fim: "2026-10-31",
-        titulo: "Peças do Esquenta",
-        fonte: { tipo: "categoria", slug: "esquenta" },
-        limite: 10,
-        rotuloComprar: "Comprar",
-        verTudo: { rotulo: "Ver todas", href: "https://www.jkaliancas.com.br/esquenta" },
-      },
-      {
-        id: "vitrine-black",
-        tipo: "vitrine",
-        visivel: true,
-        inicio: "2026-11-01",
-        fim: "2026-11-30",
-        titulo: "Peças da Black",
-        fonte: { tipo: "categoria", slug: "black" },
-        limite: 10,
-        rotuloComprar: "Comprar",
-        verTudo: { rotulo: "Ver todas", href: "https://www.jkaliancas.com.br/black" },
-      },
-      {
-        id: "vitrine-mais-vendidas",
-        tipo: "vitrine",
-        visivel: true,
-        inicio: null,
-        fim: null,
-        titulo: "As mais vendidas",
-        fonte: { tipo: "mais-vendidos" },
-        limite: 8,
-        rotuloComprar: "Comprar",
-        verTudo: { rotulo: "Ver todas", href: "https://www.jkaliancas.com.br/namoro-e-compromisso" },
-      },
-      {
-        id: "links",
-        tipo: "links",
-        visivel: true,
-        inicio: null,
-        fim: null,
-        titulo: "",
-        itens: [
+        ativa: true,
+        blocos: [
           {
-            id: "medidor",
-            rotulo: "Descubra o tamanho da sua aliança",
-            detalhe: "Medidor grátis, direto no celular",
-            href: "/medidor-de-aliancas",
-            icone: "medidor",
-            destaque: false,
-            inicio: null,
-            fim: null,
+            id: "oferta",
+            tipo: "campanha",
+            visivel: true,
+            eyebrow: "Esquenta Black JK",
+            titulo: "Até 20% OFF em peças selecionadas",
+            texto: "Prata com 10%, ouro com 5% e semijoias com 20%. Os 5% do Pix somam.",
+            contador: true,
+            contadorAte: null,
+            rotuloContador: "O preço do Esquenta acaba em",
+            botao: { rotulo: "Ver as peças do Esquenta", href: "https://www.jkaliancas.com.br/esquenta" },
           },
+          captura(),
           {
-            id: "namoro",
-            rotulo: "Alianças de namoro",
-            detalhe: "",
-            href: "https://www.jkaliancas.com.br/namoro-e-compromisso",
-            icone: "alianca",
-            destaque: false,
-            inicio: null,
-            fim: null,
+            id: "vitrine-campanha",
+            tipo: "vitrine",
+            visivel: true,
+            titulo: "Peças do Esquenta",
+            fonte: { tipo: "categoria", slug: "esquenta" },
+            limite: 10,
+            rotuloComprar: "Comprar",
+            verTudo: { rotulo: "Ver todas", href: "https://www.jkaliancas.com.br/esquenta" },
           },
-          {
-            id: "casamento",
-            rotulo: "Alianças de casamento",
-            detalhe: "",
-            href: "https://www.jkaliancas.com.br/noivado-e-casamento",
-            icone: "alianca",
-            destaque: false,
-            inicio: null,
-            fim: null,
-          },
-          {
-            id: "dicas",
-            rotulo: "Dicas sobre alianças",
-            detalhe: "Largura, material e cuidado, explicado por quem fabrica",
-            href: "/dicas",
-            icone: "dicas",
-            destaque: false,
-            inicio: null,
-            fim: null,
-          },
+          maisVendidas(),
+          links(),
+          lojas(),
         ],
       },
       {
-        id: "lojas",
-        tipo: "lojas",
-        visivel: true,
-        inicio: null,
-        fim: null,
-        titulo: "Fale com a loja mais perto",
-        detalhe: "Escolha a unidade e chame no WhatsApp",
-        mensagem: "Olá! Vim pelo Instagram e queria falar sobre alianças na loja {loja}.",
+        id: "black",
+        nome: "Black",
+        tema: "black",
+        inicio: "2026-11-01",
+        fim: "2026-11-30",
+        ativa: true,
+        blocos: [
+          {
+            id: "oferta",
+            tipo: "campanha",
+            visivel: true,
+            eyebrow: "Black JK",
+            titulo: "Até 30% OFF em peças selecionadas",
+            texto:
+              "Prata com 20%, ouro com 5% e semijoias com 30%. Brinco de semijoia de brinde em todo pedido com oferta.",
+            contador: true,
+            contadorAte: null,
+            rotuloContador: "A Black acaba em",
+            botao: { rotulo: "Ver as peças da Black", href: "https://www.jkaliancas.com.br/black" },
+          },
+          captura(),
+          {
+            id: "vitrine-campanha",
+            tipo: "vitrine",
+            visivel: true,
+            titulo: "Peças da Black",
+            fonte: { tipo: "categoria", slug: "black" },
+            limite: 10,
+            rotuloComprar: "Comprar",
+            verTudo: { rotulo: "Ver todas", href: "https://www.jkaliancas.com.br/black" },
+          },
+          maisVendidas(),
+          links(),
+          lojas(),
+        ],
       },
     ],
   };
 }
 
 /**
- * Valor do banco para uma bio válida. Inválido ou vazio devolve a de fábrica,
- * e bloco inválido sozinho não derruba os outros.
+ * Valor do banco para uma bio válida. Inválido ou vazio devolve a de fábrica.
+ * Bloco inválido sozinho não derruba os outros da mesma versão.
  */
 export function normalizarBio(valor: unknown): Bio {
   const inteira = esquemaDaBio.safeParse(valor);
   if (inteira.success) return inteira.data;
 
   const fabrica = bioDeFabrica();
-  if (!valor || typeof valor !== "object") return fabrica;
+  if (!valor || typeof valor !== "object" || (valor as { versao?: unknown }).versao !== 2) return fabrica;
 
-  // Salva o que der: um bloco quebrado não pode levar a página inteira junto.
   const bruto = valor as Record<string, unknown>;
-  const blocos = Array.isArray(bruto.blocos)
-    ? bruto.blocos
-        .map((b) => esquemaDoBlocoDaBio.safeParse(b))
-        .filter((r) => r.success)
-        .map((r) => r.data as BlocoDaBio)
-    : fabrica.blocos;
+  const salvarBlocos = (lista: unknown): BlocoDaBio[] =>
+    Array.isArray(lista)
+      ? lista
+          .map((b) => esquemaDoBlocoDaBio.safeParse(b))
+          .filter((r) => r.success)
+          .map((r) => r.data as BlocoDaBio)
+      : [];
 
-  const resto = esquemaDaBio.omit({ blocos: true }).safeParse(bruto);
-  return resto.success ? { ...resto.data, blocos } : { ...fabrica, blocos };
+  const cabecalho = esquemaDaBio.shape.cabecalho.safeParse(bruto.cabecalho);
+  const normal = bruto.normal as { blocos?: unknown } | undefined;
+  const campanhas = Array.isArray(bruto.campanhas)
+    ? bruto.campanhas
+        .map((c) => {
+          const semBlocos = esquemaDaCampanha.omit({ blocos: true }).safeParse(c);
+          if (!semBlocos.success) return null;
+          return { ...semBlocos.data, blocos: salvarBlocos((c as { blocos?: unknown }).blocos) };
+        })
+        .filter((c): c is CampanhaDaBio => c !== null)
+    : fabrica.campanhas;
+
+  return {
+    versao: 2,
+    cabecalho: cabecalho.success ? cabecalho.data : fabrica.cabecalho,
+    normal: { blocos: normal ? salvarBlocos(normal.blocos) : fabrica.normal.blocos },
+    campanhas,
+  };
 }
+
+// ---------------------------------------------------------------------------
+// Painel
+// ---------------------------------------------------------------------------
 
 /** Nome de cada tipo de bloco, como o painel mostra. */
 export const NOMES_DOS_BLOCOS: Record<BlocoDaBio["tipo"], string> = {
@@ -410,43 +475,28 @@ export const NOMES_DOS_BLOCOS: Record<BlocoDaBio["tipo"], string> = {
  * troca o texto.
  */
 export function blocoNovo(tipo: BlocoDaBio["tipo"], id: string): BlocoDaBio {
-  const base = { id, visivel: true, inicio: null, fim: null };
   switch (tipo) {
     case "campanha":
       return {
-        ...base,
+        id,
         tipo,
+        visivel: true,
         eyebrow: "Oferta JK",
         titulo: "Escreva a oferta aqui",
         texto: "",
+        contador: true,
         contadorAte: null,
         rotuloContador: "A oferta acaba em",
         botao: { rotulo: "Ver as peças", href: "https://www.jkaliancas.com.br/" },
       };
-    case "captura": {
-      const fabrica = bioDeFabrica().blocos.find((b) => b.tipo === "captura");
-      return { ...(fabrica as BlocoDe<"captura">), ...base };
-    }
+    case "captura":
+      return { ...captura(), id };
     case "vitrine":
-      return {
-        ...base,
-        tipo,
-        titulo: "Vitrine",
-        fonte: { tipo: "mais-vendidos" },
-        limite: 8,
-        rotuloComprar: "Comprar",
-        verTudo: null,
-      };
+      return { ...maisVendidas(), id, titulo: "Vitrine", verTudo: null };
     case "links":
-      return { ...base, tipo, titulo: "", itens: [] };
+      return { id, tipo, visivel: true, titulo: "", itens: [] };
     case "lojas":
-      return {
-        ...base,
-        tipo,
-        titulo: "Fale com a loja mais perto",
-        detalhe: "Escolha a unidade e chame no WhatsApp",
-        mensagem: "Olá! Vim pelo Instagram e queria falar sobre alianças na loja {loja}.",
-      };
+      return { ...lojas(), id };
   }
 }
 
@@ -459,7 +509,5 @@ export function linkNovo(id: string): ItemDeLink {
     href: "https://www.jkaliancas.com.br/",
     icone: "link",
     destaque: false,
-    inicio: null,
-    fim: null,
   };
 }

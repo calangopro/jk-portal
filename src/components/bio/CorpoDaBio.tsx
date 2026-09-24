@@ -1,17 +1,9 @@
-import { blocosDoDia, temaDoDia } from "@/lib/bio/agenda";
 import { variaveisDoTema } from "@/lib/bio/temas";
-import type { Bio, ProdutoDaBio, TemaDaBio } from "@/lib/bio/tipos";
+import type { Bio, ProdutoDaBio, VersaoDaBio } from "@/lib/bio/tipos";
 import type { Location } from "@/lib/content/types";
 import { BlocoCampanha, BlocoLinks, BlocoLojas, Cabecalho, Rodape, TituloDaVitrine } from "./Blocos";
 import { Captura } from "./Captura";
 import { Carrossel } from "./Carrossel";
-
-/**
- * Código da campanha nos eventos de captura, o MESMO que o tema da loja manda
- * em `jk_campanha` (`esq`, `black`). Relatório que junta loja e bio precisa do
- * mesmo valor dos dois lados.
- */
-const CAMPANHA_DO_TEMA: Record<TemaDaBio, string> = { padrao: "", esquenta: "esq", black: "black" };
 
 /** Produtos de cada vitrine, pelo id do bloco. */
 export type DadosDaBio = {
@@ -29,22 +21,23 @@ export type DadosDaBio = {
  * alguém esquecesse de fazer nos dois.
  *
  * Por isso nada aqui pode ser só de servidor.
+ *
+ * O fundo é chapado, sem o brilho dourado que havia atrás do logo. Foi pedido
+ * pela JK em 24/09: o off white limpo destaca o logo, e o degradê sujava o topo.
  */
 export function CorpoDaBio({
-  bio,
-  hoje,
+  cabecalho,
+  versao,
   dados,
   altura = "min-h-dvh",
 }: {
-  bio: Bio;
-  hoje: string;
+  cabecalho: Bio["cabecalho"];
+  versao: VersaoDaBio;
   dados: DadosDaBio;
   /** Na página é a tela inteira; na prévia do painel, a moldura do celular. */
   altura?: string;
 }) {
-  const tema = temaDoDia(bio, hoje);
-  const blocos = blocosDoDia(bio, hoje);
-  const campanha = CAMPANHA_DO_TEMA[tema];
+  const { tema, blocos } = versao;
 
   // Só a PRIMEIRA vitrine com produto carrega a foto com prioridade: é ela que
   // aparece na primeira tela.
@@ -56,25 +49,20 @@ export function CorpoDaBio({
     <div
       data-tema={tema}
       style={variaveisDoTema(tema)}
-      className={`bio-pagina relative ${altura} overflow-x-clip bg-[var(--bio-fundo)] text-[var(--bio-texto)]`}
+      className={`bio-pagina ${altura} overflow-x-clip bg-[var(--bio-fundo)] text-[var(--bio-texto)]`}
     >
-      <span
-        aria-hidden
-        className="pointer-events-none absolute left-1/2 top-0 h-72 w-[36rem] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[var(--bio-brilho)] blur-3xl"
-      />
-
-      <main className="relative mx-auto max-w-[30rem] px-4 pb-12 pt-8">
-        <Cabecalho nome={bio.cabecalho.nome} frase={bio.cabecalho.frase} />
+      <main className="mx-auto max-w-[30rem] px-4 pb-12 pt-8">
+        <Cabecalho nome={cabecalho.nome} frase={cabecalho.frase} />
 
         <div className="mt-7 space-y-7">
           {blocos.map((bloco) => {
             switch (bloco.tipo) {
               case "campanha":
-                return <BlocoCampanha key={bloco.id} bloco={bloco} />;
+                return <BlocoCampanha key={bloco.id} bloco={bloco} fimDaCampanha={versao.fim} />;
               case "captura":
                 return (
                   <section key={bloco.id} data-regiao={`bio-${bloco.id}`}>
-                    <Captura bloco={bloco} campanha={campanha} />
+                    <Captura bloco={bloco} campanha={versao.codigo} />
                   </section>
                 );
               case "vitrine": {

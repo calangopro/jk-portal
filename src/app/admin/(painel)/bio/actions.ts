@@ -38,45 +38,50 @@ function textos(valor: unknown, caminho: string, saida: [string, string][]) {
   return saida;
 }
 
-/** Nome legível do bloco para a mensagem de erro. */
-function nomeDoBloco(bio: Bio, caminho: string): string {
-  const m = caminho.match(/^blocos\[(\d+)\]/);
-  if (!m) return caminho.startsWith("cabecalho") ? "Cabeçalho" : "Aparência";
-  const bloco = bio.blocos[Number(m[1])];
-  if (!bloco) return caminho;
-  const titulo = "titulo" in bloco && bloco.titulo ? `: ${bloco.titulo}` : "";
-  return `bloco ${Number(m[1]) + 1}${titulo}`;
+/** Nome legível do lugar do erro, pelo caminho no JSON. */
+function ondeFica(bio: Bio, caminho: string): string {
+  const campanha = caminho.match(/^campanhas\[(\d+)\]/);
+  const aba = campanha ? `aba ${bio.campanhas[Number(campanha[1])]?.nome ?? ""}` : caminho.startsWith("normal") ? "aba Normal" : "cabeçalho";
+  const bloco = caminho.match(/blocos\[(\d+)\]/);
+  if (!bloco) return aba;
+  const lista = campanha ? bio.campanhas[Number(campanha[1])]?.blocos : bio.normal.blocos;
+  const b = lista?.[Number(bloco[1])];
+  const titulo = b && "titulo" in b && b.titulo ? ` (${b.titulo})` : "";
+  return `${aba}, bloco ${Number(bloco[1]) + 1}${titulo}`;
 }
 
 function conferir(bio: Bio): string | null {
   const todos = textos(bio, "", []);
 
-  const comTravessao = todos.filter(([, v]) => TRAVESSAO.test(v)).map(([c]) => nomeDoBloco(bio, c));
+  const comTravessao = todos.filter(([, v]) => TRAVESSAO.test(v)).map(([c]) => ondeFica(bio, c));
   if (comTravessao.length > 0) {
-    return `Tem travessão em ${[...new Set(comTravessao)].join(", ")}. Use vírgula, dois pontos ou parênteses.`;
+    return `Tem travessão em ${[...new Set(comTravessao)].join("; ")}. Use vírgula, dois pontos ou parênteses.`;
   }
 
   const links: [string, string][] = [];
-  bio.blocos.forEach((b, i) => {
-    const onde = `blocos[${i}]`;
-    if (b.tipo === "campanha" && b.botao) links.push([onde, b.botao.href]);
-    if (b.tipo === "vitrine" && b.verTudo) links.push([onde, b.verTudo.href]);
-    if (b.tipo === "captura" && b.grupoLink) links.push([onde, b.grupoLink]);
-    if (b.tipo === "links") b.itens.forEach((it) => links.push([onde, it.href]));
-  });
+  const juntarLinks = (blocos: Bio["normal"]["blocos"], prefixo: string) =>
+    blocos.forEach((b, i) => {
+      const onde = `${prefixo}.blocos[${i}]`;
+      if (b.tipo === "campanha" && b.botao) links.push([onde, b.botao.href]);
+      if (b.tipo === "vitrine" && b.verTudo) links.push([onde, b.verTudo.href]);
+      if (b.tipo === "captura" && b.grupoLink) links.push([onde, b.grupoLink]);
+      if (b.tipo === "links") b.itens.forEach((it) => links.push([onde, it.href]));
+    });
+  juntarLinks(bio.normal.blocos, "normal");
+  bio.campanhas.forEach((c, j) => juntarLinks(c.blocos, `campanhas[${j}]`));
   const ruins = links.filter(([, href]) => !linkAceito(href.trim()));
   if (ruins.length > 0) {
-    return `Link que não abre em ${[...new Set(ruins.map(([c]) => nomeDoBloco(bio, c)))].join(", ")}. Use o endereço completo, começando com https://, ou um caminho do site começando com /.`;
+    return `Link que não abre em ${[...new Set(ruins.map(([c]) => ondeFica(bio, c)))].join("; ")}. Use o endereço completo, começando com https://, ou um caminho do site começando com /.`;
   }
 
-  const datas: [string, string | null, string | null][] = [
-    ...bio.campanhas.map((c) => [`Aparência`, c.inicio, c.fim] as [string, string, string]),
-    ...bio.blocos.map((b, i) => [nomeDoBloco(bio, `blocos[${i}]`), b.inicio, b.fim] as [string, string | null, string | null]),
-  ];
-  const trocadas = datas.filter(([, ini, fim]) => ini && fim && ini > fim).map(([n]) => n);
+  const trocadas = bio.campanhas.filter((c) => c.inicio > c.fim).map((c) => c.nome);
   if (trocadas.length > 0) {
-    return `A data de início vem depois da data de fim em ${[...new Set(trocadas)].join(", ")}.`;
+    return `A campanha ${trocadas.join(", ")} termina antes de começar. Confira as datas.`;
   }
+
+  // O código da campanha vai nos eventos: dois iguais misturariam os relatórios.
+  const codigos = bio.campanhas.map((c) => c.id);
+  if (new Set(codigos).size !== codigos.length) return "Duas campanhas ficaram com o mesmo código.";
 
   return null;
 }
