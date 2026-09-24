@@ -122,3 +122,15 @@ export async function importarSearchConsole(
   const linhasImportadas = registros.length / Math.max(1, [iCliques, iImpr, iCtr, iPos].filter((i) => i >= 0).length);
   return { ok: `Importado: ${Math.round(linhasImportadas)} ${ehPagina ? "páginas" : "consultas"}.` };
 }
+
+export type ImportarAgoraState = { ok?: string; erro?: string };
+
+/** Botão "Importar agora": a mesma importação que o relógio faz na segunda. */
+export async function importarAgora(): Promise<ImportarAgoraState> {
+  await requireStaff();
+  const { importarDoSearchConsole } = await import("@/lib/search-console/importar");
+  const r = await importarDoSearchConsole();
+  revalidatePath("/admin/metricas");
+  revalidatePath("/admin/pautas");
+  return r.ok ? { ok: r.mensagem } : { erro: r.mensagem };
+}

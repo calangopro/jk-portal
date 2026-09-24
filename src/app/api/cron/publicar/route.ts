@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { timingSafeEqual } from "node:crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { cronAutorizado } from "@/lib/cron/autorizar";
 import { publicarNoBanco } from "@/lib/publicacao/publicar";
 
 /**
@@ -19,32 +19,12 @@ import { publicarNoBanco } from "@/lib/publicacao/publicar";
 
 export const dynamic = "force-dynamic";
 
-/** Comparação de tempo constante, para o segredo não vazar por cronometragem. */
-function segredoConfere(recebido: string, esperado: string): boolean {
-  const a = Buffer.from(recebido);
-  const b = Buffer.from(esperado);
-  if (a.length !== b.length) return false;
-  return timingSafeEqual(a, b);
-}
-
 export async function POST(request: Request) {
-  const recebido = request.headers.get("x-cron-secret") ?? "";
-  if (!recebido) {
-    return NextResponse.json({ erro: "sem segredo" }, { status: 401 });
-  }
-
   const supabase = createAdminClient();
 
-  const { data: token } = await supabase
-    .from("integration_tokens")
-    .select("access_token")
-    .eq("provider", "cron")
-    .maybeSingle();
-
-  const esperado = (token?.access_token ?? "") as string;
   // Sem segredo gravado, o endpoint fica FECHADO, não aberto. É a mesma
   // escolha do webhook da Tray: falta de configuração nunca vira porta aberta.
-  if (!esperado || !segredoConfere(recebido, esperado)) {
+  if (!(await cronAutorizado(request, supabase))) {
     return NextResponse.json({ erro: "segredo inválido" }, { status: 401 });
   }
 

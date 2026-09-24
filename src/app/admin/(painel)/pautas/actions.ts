@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { snapshotsDoPeriodo, ultimoPeriodo } from "@/lib/data/snapshots";
 import { createClient } from "@/lib/supabase/server";
 import { requireStaff } from "@/lib/auth/session";
 import { gerarSlug, slugDisponivel } from "@/lib/data/admin-contents";
@@ -81,24 +82,13 @@ export async function oportunidades(limite = 30): Promise<Oportunidade[]> {
   await requireStaff();
   const supabase = await createClient();
 
-  const { data: periodos } = await supabase
-    .from("analytics_snapshots")
-    .select("period_end")
-    .eq("source", "gsc")
-    .eq("dimension", "query")
-    .order("period_end", { ascending: false })
-    .limit(1);
+  const periodo = await ultimoPeriodo(supabase, "query");
+  if (!periodo) return [];
 
-  const ultimo = (periodos ?? [])[0]?.period_end as string | undefined;
-  if (!ultimo) return [];
-
-  const [{ data: linhas }, { data: pautas }, { data: conteudos }] = await Promise.all([
-    supabase
-      .from("analytics_snapshots")
-      .select("dimension_value, metric, value")
-      .eq("source", "gsc")
-      .eq("dimension", "query")
-      .eq("period_end", ultimo),
+  // Paginado: uma importação de 1.000 consultas são 4.000 linhas, e o
+  // Supabase entrega no máximo 1.000 por pedido (ver `snapshotsDoPeriodo`).
+  const [linhas, { data: pautas }, { data: conteudos }] = await Promise.all([
+    snapshotsDoPeriodo(supabase, periodo, "query"),
     supabase.from("briefings").select("target_query"),
     supabase.from("contents").select("target_query").not("target_query", "is", null),
   ]);
@@ -114,7 +104,7 @@ export async function oportunidades(limite = 30): Promise<Oportunidade[]> {
   }
 
   const porConsulta = new Map<string, Record<string, number>>();
-  for (const l of (linhas ?? []) as { dimension_value: string; metric: string; value: number }[]) {
+  for (const l of linhas) {
     const atual = porConsulta.get(l.dimension_value) ?? {};
     atual[l.metric] = Number(l.value);
     porConsulta.set(l.dimension_value, atual);
