@@ -133,11 +133,14 @@ export function Data({
   ajuda,
   valor,
   aoMudar,
+  limpavel = true,
 }: {
   rotulo: string;
   ajuda?: string;
   valor: string | null;
   aoMudar: (v: string | null) => void;
+  /** Data de campanha é obrigatória: sem o "Limpar", que só apertaria o campo. */
+  limpavel?: boolean;
 }) {
   const id = useId();
   return (
@@ -151,7 +154,7 @@ export function Data({
           onChange={(e) => aoMudar(e.target.value || null)}
           className={classeDoCampo}
         />
-        {valor ? (
+        {valor && limpavel ? (
           <button
             type="button"
             onClick={() => aoMudar(null)}

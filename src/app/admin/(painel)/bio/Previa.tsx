@@ -116,10 +116,11 @@ export function Previa({ bio, lojas, hoje }: { bio: Bio; lojas: Location[]; hoje
       </p>
 
       {/* Moldura de celular de 390 px, a largura de um iPhone comum. A página
-          dentro rola sozinha, como no aparelho. */}
+          dentro rola sozinha, como no aparelho. A altura cede em tela baixa,
+          senão a prévia presa no topo teria a parte de baixo cortada. */}
       <div className="mx-auto w-[390px] max-w-full rounded-[42px] border-[10px] border-ink bg-ink shadow-[var(--jk-sombra-modal)]">
         <div
-          className="h-[720px] overflow-y-auto overflow-x-hidden rounded-[32px] [scrollbar-width:thin]"
+          className="h-[min(720px,calc(100dvh-13rem))] overflow-y-auto overflow-x-hidden rounded-[32px] [scrollbar-width:thin]"
           onClickCapture={(e) => {
             if ((e.target as HTMLElement).closest("a")) e.preventDefault();
           }}
