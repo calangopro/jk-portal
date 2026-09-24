@@ -107,7 +107,7 @@ src/lib/schema/      builders de JSON-LD (Article, Breadcrumb, Organization, Jew
 src/lib/seo/         metadata + constantes do site
 src/lib/supabase/    read (SSG), server, client, admin (service_role), middleware
 src/lib/data/rotas.ts  links de Google Maps, Waze, WhatsApp e telefone das lojas
-supabase/migrations/ 0001 a 0036, todas em arquivo e todas aplicadas
+supabase/migrations/ 0001 a 0038, todas em arquivo e todas aplicadas
 supabase/templates/  modelos de e-mail do Supabase (convite, recuperar senha): a fonte do que
                      está colado no painel dele
 public/              logo.png, logo.svg, og/ (og/default.png ainda falta)
@@ -618,7 +618,8 @@ editor, que é a rota mais pesada) e em `(site)/busca/loading.tsx` (a única
 rota pública que consulta o banco a cada visita). O botão "Sair" do cabeçalho
 do painel era o último sem estado de espera e ganhou `useFormStatus`.
 
-🔲 **A construir:** conteúdo (só 1 guia publicado, e é o gargalo de resultado), OAuth do Search Console e do GMB.
+✅ **Search Console automático (24/09):** conta de serviço do Google (`GSC_SERVICE_ACCOUNT_JSON`, sem OAuth e sem biblioteca do Google), importação toda segunda pelo `pg_cron` (0038) e botão "Importar agora" em Métricas. Grava no mesmo formato da planilha, e as leituras de `analytics_snapshots` passaram a ser paginadas (`lib/data/snapshots.ts`): o Supabase entrega no máximo 1.000 linhas por pedido e cada consulta ocupa quatro. **Falta a JK criar a conta de serviço**, passo a passo em `docs/search-console-automatico.md`.
+🔲 **A construir:** conteúdo (o gargalo de resultado) e a leitura do GMB.
 🚨 **A pendência mais séria hoje é o plano da Vercel.** A conta que hospeda o `jk-portal`
 está em **Free (Hobby)**, confirmado em 18/09. Hobby é para uso **não comercial**, e hoje
 ele serve o domínio de uma loja que vende. Não é questão de fatura, é motivo de suspensão,

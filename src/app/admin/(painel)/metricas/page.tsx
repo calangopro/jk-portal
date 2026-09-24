@@ -2,18 +2,34 @@ import Link from "next/link";
 import { TrendingUp, Target, MousePointerClick, Eye, ArrowUpRight } from "lucide-react";
 import { requireStaff } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
+import { snapshotsDoPeriodo, ultimoPeriodo } from "@/lib/data/snapshots";
 import { Importar } from "./Importar";
+import { Automatico } from "./Automatico";
 
 export const metadata = { title: "Métricas" };
 
-type Snap = {
-  metric: string;
-  dimension: string;
-  dimension_value: string;
-  value: number;
-  period_start: string;
-  period_end: string;
-};
+// O botão "Importar agora" roda dentro desta rota, e a importação do Search
+// Console passa dos 10 segundos padrão da Vercel.
+export const maxDuration = 60;
+
+/** Situação da leitura automática, para o painel da tela. */
+async function situacaoDoAutomatico() {
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) return { email: null, ultima: null };
+  const [{ contaDeServico }, { createAdminClient }] = await Promise.all([
+    import("@/lib/search-console/conta"),
+    import("@/lib/supabase/admin"),
+  ]);
+  const { data } = await createAdminClient()
+    .from("integration_tokens")
+    .select("meta")
+    .eq("provider", "gsc")
+    .maybeSingle();
+  const meta = (data?.meta ?? null) as { ok?: boolean; mensagem?: string; executado_em?: string } | null;
+  return {
+    email: contaDeServico()?.email ?? null,
+    ultima: meta?.executado_em ? { ok: Boolean(meta.ok), mensagem: meta.mensagem ?? "", quando: meta.executado_em } : null,
+  };
+}
 
 function numero(n: number) {
   return n.toLocaleString("pt-BR", { maximumFractionDigits: n < 10 ? 1 : 0 });
@@ -45,26 +61,15 @@ export default async function MetricasPage() {
   await requireStaff();
   const supabase = await createClient();
 
-  const [{ data: snaps }, { count: publicados }, { count: total }] = await Promise.all([
-    supabase
-      .from("analytics_snapshots")
-      .select("metric, dimension, dimension_value, value, period_start, period_end")
-      .eq("source", "gsc")
-      .order("period_end", { ascending: false })
-      .limit(4000),
+  const [periodo, { count: publicados }, { count: total }, automatico] = await Promise.all([
+    ultimoPeriodo(supabase),
     supabase.from("contents").select("*", { count: "exact", head: true }).eq("status", "published"),
     supabase.from("contents").select("*", { count: "exact", head: true }),
+    situacaoDoAutomatico(),
   ]);
 
-  const linhas = (snaps ?? []) as Snap[];
-  const periodo = linhas[0]
-    ? { inicio: linhas[0].period_start, fim: linhas[0].period_end }
-    : null;
-
   // Só o período mais recente entra nos números do topo.
-  const doPeriodo = periodo
-    ? linhas.filter((l) => l.period_start === periodo.inicio && l.period_end === periodo.fim)
-    : [];
+  const doPeriodo = periodo ? await snapshotsDoPeriodo(supabase, periodo) : [];
 
   const somar = (metric: string, dim: string) =>
     doPeriodo.filter((l) => l.metric === metric && l.dimension === dim).reduce((a, b) => a + Number(b.value), 0);
@@ -195,6 +200,10 @@ export default async function MetricasPage() {
           </ul>
         </section>
       ) : null}
+
+      <section className="mt-6">
+        <Automatico email={automatico.email} ultima={automatico.ultima} />
+      </section>
 
       <section className="mt-6 grid gap-5 lg:grid-cols-[1.2fr_1fr]">
         <Importar />

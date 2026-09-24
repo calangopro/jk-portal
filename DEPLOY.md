@@ -50,6 +50,7 @@ Configure separadamente em Development, Preview e Production.
 | `TRAY_CONSUMER_SECRET` | servidor | **Secreta.** |
 | `TRAY_CODE` | servidor | **Secreta.** |
 | `TRAY_WEBHOOK_SECRET` | servidor | **Secreta.** Sem ela o webhook fica desligado. |
+| `GSC_SERVICE_ACCOUNT_JSON` | servidor | **Secreta.** Arquivo JSON da conta de serviço do Google, colado inteiro. Liga a importação automática do Search Console. Passo a passo em `docs/search-console-automatico.md`. |
 
 Nenhuma chave secreta pode receber o prefixo `NEXT_PUBLIC_`. O arquivo
 `src/lib/supabase/admin.ts` importa `server-only`, então o build quebra de

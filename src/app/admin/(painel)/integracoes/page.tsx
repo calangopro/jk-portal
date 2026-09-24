@@ -61,7 +61,7 @@ export default async function IntegracoesPage() {
               ajuda: "Use sc-domain: para propriedade de domínio, ou o endereço completo com https.",
             },
           ]}
-          aviso="A leitura automática pela API depende de autorização no Google. Enquanto isso, dá para importar a planilha exportada do Search Console na tela de Métricas."
+          aviso="A leitura automática usa uma conta de serviço do Google (variável GSC_SERVICE_ACCOUNT_JSON na Vercel) e roda toda segunda. A situação e o botão Importar agora ficam na tela de Métricas."
         />
 
         <Cartao

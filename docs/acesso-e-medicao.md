@@ -262,6 +262,7 @@ variável de ambiente.
 | `PREVIEW_SECRET` | segredo | Assina o link de preview de rascunho |
 | `INDEXNOW_KEY` | 32 caracteres hexadecimais | Aviso ao Bing |
 | `GOOGLE_SITE_VERIFICATION` | código | Verificação do Search Console |
+| `GSC_SERVICE_ACCOUNT_JSON` | arquivo JSON da conta de serviço | **Secreta.** Importação automática do Search Console, toda segunda. Passo a passo em `docs/search-console-automatico.md` |
 
 **A pendência mais séria continua sendo o plano.** O projeto está numa conta
 Hobby (o endereço `jk-portal-jk-alianca.vercel.app` do Site URL antigo é dela),
