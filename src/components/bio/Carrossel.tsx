@@ -109,24 +109,37 @@ export function Carrossel({ lista, produtos, rotuloComprar, prioridade = false }
                   data-evento="clique_produto"
                   data-produto-nome={p.nome}
                   onClick={() => medirItemEscolhido(lista, p, i)}
-                  className="group relative block aspect-[4/5] overflow-hidden rounded-[20px] bg-[var(--bio-foto)] shadow-[0_12px_28px_-16px_rgb(0_0_0/0.5)]"
+                  className="group relative isolate flex h-full flex-col overflow-hidden rounded-[20px] bg-[var(--bio-foto)] shadow-[0_12px_28px_-16px_rgb(0_0_0/0.5)] [transform:translateZ(0)]"
                 >
+                  {/* Fundo do rodapé: a MESMA foto, ampliada e desfocada, com
+                      um véu escuro leve. É o que dá ao texto a cor da própria
+                      peça, em vez de uma faixa preta. O navegador baixa a foto
+                      uma vez só, porque as duas pedem o mesmo endereço. */}
                   <Image
                     src={p.imagem}
                     alt=""
+                    aria-hidden
                     fill
                     sizes="(min-width: 480px) 220px, 46vw"
-                    priority={prioridade && i < 2}
-                    className="object-cover transition-transform duration-700 ease-[cubic-bezier(.2,.75,.25,1)] group-hover:scale-[1.04]"
+                    className="scale-125 object-cover object-bottom blur-xl"
                   />
+                  <span aria-hidden className="absolute inset-0 bg-[rgb(23_21_18/0.42)]" />
 
-                  {/* O escurecido fica SÓ na parte de baixo, onde mora o texto.
-                      Sem ele, nome branco sobre foto clara some; com ele no
-                      cartão inteiro, a joia perde o brilho. */}
-                  <span
-                    aria-hidden
-                    className="absolute inset-0 bg-[linear-gradient(to_top,rgb(23_21_18/0.94)_0%,rgb(23_21_18/0.78)_30%,rgb(23_21_18/0)_62%)]"
-                  />
+                  {/* A foto inteira, nítida e em quadrado, como a loja
+                      fotografa. A borda de baixo se dissolve no desfoque, para
+                      as duas partes do cartão serem uma peça só. Na primeira
+                      versão o texto ficava POR CIMA da foto, e o escurecido
+                      tomava metade da joia. */}
+                  <span className="relative block aspect-square [-webkit-mask-image:linear-gradient(to_bottom,#000_76%,transparent)] [mask-image:linear-gradient(to_bottom,#000_76%,transparent)]">
+                    <Image
+                      src={p.imagem}
+                      alt=""
+                      fill
+                      sizes="(min-width: 480px) 220px, 46vw"
+                      priority={prioridade && i < 2}
+                      className="object-cover transition-transform duration-700 ease-[cubic-bezier(.2,.75,.25,1)] group-hover:scale-[1.04]"
+                    />
+                  </span>
 
                   {p.desconto ? (
                     <span className="numeros absolute left-2.5 top-2.5 rounded-full bg-[var(--bio-selo)] px-2 py-0.5 text-[0.68rem] font-semibold tracking-wide text-[var(--bio-selo-texto)]">
@@ -134,13 +147,17 @@ export function Carrossel({ lista, produtos, rotuloComprar, prioridade = false }
                     </span>
                   ) : null}
 
-                  <span className="absolute inset-x-0 bottom-0 p-3">
-                    <span className="line-clamp-2 text-[0.74rem] font-medium leading-snug text-white">{p.nome}</span>
+                  <span className="relative -mt-7 flex flex-1 flex-col px-3 pb-3 [text-shadow:0_1px_3px_rgb(0_0_0/0.5)]">
+                    {/* Duas linhas reservadas sempre, para nome curto e nome
+                        comprido darem cartões da mesma altura. */}
+                    <span className="line-clamp-2 min-h-[2.5em] text-[0.74rem] font-medium leading-[1.25] text-white">
+                      {p.nome}
+                    </span>
 
-                    <span className="mt-2 flex items-end justify-between gap-2">
+                    <span className="mt-auto flex items-end justify-between gap-2 pt-2">
                       <span className="numeros min-w-0">
                         {anterior ? (
-                          <span className="block text-[0.66rem] leading-tight text-white/70 line-through">
+                          <span className="block text-[0.66rem] leading-tight text-white/75 line-through">
                             <span className="sr-only">De </span>
                             {anterior}
                           </span>
@@ -155,7 +172,7 @@ export function Carrossel({ lista, produtos, rotuloComprar, prioridade = false }
                           que tocar leva para a compra. */}
                       <span
                         aria-hidden
-                        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--bio-carrinho)] text-[var(--bio-carrinho-icone)] shadow-[0_6px_14px_-6px_rgb(0_0_0/0.6)] transition-transform duration-300 group-hover:scale-110"
+                        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--bio-carrinho)] text-[var(--bio-carrinho-icone)] shadow-[0_6px_14px_-6px_rgb(0_0_0/0.6)] transition-transform duration-300 [text-shadow:none] group-hover:scale-110"
                       >
                         <ShoppingCart size={16} strokeWidth={2} />
                       </span>
@@ -170,8 +187,9 @@ export function Carrossel({ lista, produtos, rotuloComprar, prioridade = false }
         </ul>
 
         {produtos.length > 2 ? (
-          // Setas no meio da altura do cartão, sobre a foto.
-          <div className="pointer-events-none absolute inset-y-0 left-0 right-0 flex items-center justify-between">
+          // Setas no meio da FOTO: a faixa tem a altura da linha de fotos
+          // (dois quadrados lado a lado dão 2:1), e não do cartão inteiro.
+          <div className="pointer-events-none absolute inset-x-0 top-0 flex aspect-[2/1] items-center justify-between">
             <BotaoDeSeta lado="antes" visivel={temAntes} controla={idDaLista} aoClicar={() => andar(-1)} />
             <BotaoDeSeta lado="depois" visivel={temDepois} controla={idDaLista} aoClicar={() => andar(1)} />
           </div>
