@@ -1,32 +1,41 @@
-import type { Bio, BlocoDaBio, ItemDeLink, TemaDaBio } from "./tipos";
+import type { Bio, CampanhaDaBio, VersaoDaBio } from "./tipos";
 
 /**
- * A bio no dia de hoje: qual tema vale e quais blocos aparecem.
+ * Qual versão da bio vale num dia.
  *
  * Tudo compara DIA com dia, em texto AAAA-MM-DD no fuso de São Paulo (ver
  * `hojeEmSaoPaulo`). Comparar hora cheia de fuso seria convidar erro de
  * madrugada, e a campanha da loja também vira pela data, não pela hora.
  */
 
-type ComAgenda = { inicio: string | null; fim: string | null };
-
-export function valeNoDia(item: ComAgenda, hoje: string): boolean {
-  return (!item.inicio || hoje >= item.inicio) && (!item.fim || hoje <= item.fim);
+function duracao(c: CampanhaDaBio): number {
+  return Date.parse(c.fim) - Date.parse(c.inicio);
 }
 
-export function temaDoDia(bio: Bio, hoje: string): TemaDaBio {
-  if (bio.tema !== "automatico") return bio.tema;
-  return bio.campanhas.find((c) => hoje >= c.inicio && hoje <= c.fim)?.tema ?? "padrao";
+/**
+ * A campanha no ar no dia, ou nenhuma.
+ *
+ * Duas campanhas no mesmo dia: vence a MAIS CURTA. É o caso do dia da Black
+ * dentro do mês da Black, em que o dia é a exceção e o mês é a regra. Empate
+ * fica com a que vem primeiro nas abas.
+ */
+export function campanhaDoDia(bio: Bio, hoje: string): CampanhaDaBio | null {
+  const vigentes = bio.campanhas.filter((c) => c.ativa && hoje >= c.inicio && hoje <= c.fim);
+  if (vigentes.length === 0) return null;
+  return vigentes.reduce((melhor, c) => (duracao(c) < duracao(melhor) ? c : melhor));
 }
 
-export function blocosDoDia(bio: Bio, hoje: string): BlocoDaBio[] {
-  return bio.blocos
-    .filter((b) => b.visivel && valeNoDia(b, hoje))
-    .map((b) =>
-      b.tipo === "links"
-        ? { ...b, itens: b.itens.filter((i: ItemDeLink) => valeNoDia(i, hoje)) }
-        : b,
-    );
+export function versaoNormal(bio: Bio): VersaoDaBio {
+  return { tema: "padrao", blocos: bio.normal.blocos.filter((b) => b.visivel), fim: null, codigo: "" };
+}
+
+export function versaoDaCampanha(c: CampanhaDaBio): VersaoDaBio {
+  return { tema: c.tema, blocos: c.blocos.filter((b) => b.visivel), fim: c.fim, codigo: c.id };
+}
+
+export function versaoDoDia(bio: Bio, hoje: string): VersaoDaBio {
+  const c = campanhaDoDia(bio, hoje);
+  return c ? versaoDaCampanha(c) : versaoNormal(bio);
 }
 
 /**

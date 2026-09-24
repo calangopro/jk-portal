@@ -3,28 +3,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { LoaderCircle } from "lucide-react";
 import { CorpoDaBio } from "@/components/bio/CorpoDaBio";
-import { blocosDoDia, temaDoDia } from "@/lib/bio/agenda";
-import type { Bio, BlocoDe, ProdutoDaBio } from "@/lib/bio/tipos";
+import type { Bio, BlocoDe, ProdutoDaBio, VersaoDaBio } from "@/lib/bio/tipos";
 import type { Location } from "@/lib/content/types";
 import { produtosParaPrevia } from "./actions";
 
-const NOME_DO_TEMA = { padrao: "Padrão", esquenta: "Esquenta", black: "Black" } as const;
-
-function dataLegivel(dia: string) {
-  const [a, m, d] = dia.split("-");
-  return `${d}/${m}/${a}`;
-}
-
-/** Um dia no meio da campanha, para a prévia não cair no primeiro dia de contador cheio. */
-function diaDaCampanha(inicio: string, fim: string): string {
-  const i = Date.parse(`${inicio}T12:00:00-03:00`);
-  const f = Date.parse(`${fim}T12:00:00-03:00`);
-  const meio = new Date(i + Math.max(0, (f - i) / 3));
-  return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(meio);
-}
-
 /**
- * A bio no celular, enquanto a pessoa edita.
+ * A aba aberta, desenhada no celular enquanto a pessoa edita.
  *
  * Desenha com o MESMO `CorpoDaBio` da página pública, então o que aparece aqui
  * é o que vai ao ar. Os produtos vêm da mesma busca ao vivo da loja, pedida ao
@@ -33,19 +17,28 @@ function diaDaCampanha(inicio: string, fim: string): string {
  * Nada aqui navega nem envia: clique em link fica na prévia, e o formulário do
  * grupo não manda contato de teste para a base.
  */
-export function Previa({ bio, lojas, hoje }: { bio: Bio; lojas: Location[]; hoje: string }) {
-  const [dia, setDia] = useState(hoje);
+export function Previa({
+  cabecalho,
+  versao,
+  lojas,
+  legenda,
+}: {
+  cabecalho: Bio["cabecalho"];
+  versao: VersaoDaBio;
+  lojas: Location[];
+  legenda: string;
+}) {
   const [produtos, setProdutos] = useState<Record<string, ProdutoDaBio[]>>({});
   const [carregando, setCarregando] = useState(false);
 
-  // Chave de cada vitrine: a mesma fonte e o mesmo limite dão os mesmos produtos,
-  // então não se pede de novo à loja por mudança de título ou de cor.
+  // A mesma fonte com o mesmo limite dá os mesmos produtos, então trocar título
+  // ou cor não pede nada de novo à loja.
   const vitrines = useMemo(
     () =>
-      blocosDoDia(bio, dia)
+      versao.blocos
         .filter((b): b is BlocoDe<"vitrine"> => b.tipo === "vitrine")
         .map((b) => ({ id: b.id, chave: JSON.stringify([b.fonte, b.limite]), fonte: b.fonte, limite: b.limite })),
-    [bio, dia],
+    [versao],
   );
   const faltando = vitrines.filter((v) => !(v.chave in produtos));
   const assinaturaFaltando = faltando.map((v) => v.chave).join("|");
@@ -75,39 +68,10 @@ export function Previa({ bio, lojas, hoje }: { bio: Bio; lojas: Location[]; hoje
     lojas,
   };
 
-  const atalhos = [
-    { rotulo: "Hoje", dia: hoje },
-    ...bio.campanhas.map((c) => ({ rotulo: NOME_DO_TEMA[c.tema], dia: diaDaCampanha(c.inicio, c.fim) })),
-  ];
-
   return (
     <div>
-      <div className="mb-3 flex flex-wrap items-center gap-1.5">
-        <span className="mr-1 text-[0.68rem] font-semibold uppercase tracking-[0.12em] text-muted">Ver como fica</span>
-        {atalhos.map((a) => (
-          <button
-            key={a.rotulo}
-            type="button"
-            onClick={() => setDia(a.dia)}
-            aria-pressed={dia === a.dia}
-            className={`rounded-full px-3 py-1 text-[0.72rem] font-semibold transition-colors ${
-              dia === a.dia ? "bg-ink text-white" : "border border-ink/15 text-ink hover:border-brand/50"
-            }`}
-          >
-            {a.rotulo}
-          </button>
-        ))}
-        <input
-          type="date"
-          value={dia}
-          onChange={(e) => e.target.value && setDia(e.target.value)}
-          aria-label="Outra data"
-          className="rounded-full border border-ink/15 bg-white/80 px-2.5 py-1 text-[0.72rem] text-ink"
-        />
-      </div>
-
-      <p className="mb-2 flex items-center gap-2 text-[0.72rem] text-muted">
-        Em {dataLegivel(dia)}, tema {NOME_DO_TEMA[temaDoDia(bio, dia)]}.
+      <p className="mb-3 flex min-h-5 flex-wrap items-center gap-x-2 text-[0.72rem] text-muted">
+        <span className="font-semibold text-ink">{legenda}</span>
         {carregando ? (
           <span className="inline-flex items-center gap-1 text-brand-strong">
             <LoaderCircle size={12} className="animate-spin" aria-hidden /> buscando produtos na loja
@@ -120,7 +84,7 @@ export function Previa({ bio, lojas, hoje }: { bio: Bio; lojas: Location[]; hoje
           senão a prévia presa no topo teria a parte de baixo cortada. */}
       <div className="mx-auto w-[390px] max-w-full rounded-[42px] border-[10px] border-ink bg-ink shadow-[var(--jk-sombra-modal)]">
         <div
-          className="h-[min(720px,calc(100dvh-13rem))] overflow-y-auto overflow-x-hidden rounded-[32px] [scrollbar-width:thin]"
+          className="h-[min(720px,calc(100dvh-11rem))] overflow-y-auto overflow-x-hidden rounded-[32px] [scrollbar-width:thin]"
           onClickCapture={(e) => {
             if ((e.target as HTMLElement).closest("a")) e.preventDefault();
           }}
@@ -129,7 +93,7 @@ export function Previa({ bio, lojas, hoje }: { bio: Bio; lojas: Location[]; hoje
             e.stopPropagation();
           }}
         >
-          <CorpoDaBio bio={bio} hoje={dia} dados={dados} altura="min-h-full" />
+          <CorpoDaBio cabecalho={cabecalho} versao={versao} dados={dados} altura="min-h-full" />
         </div>
       </div>
       <p className="mt-2 text-center text-[0.68rem] text-muted">

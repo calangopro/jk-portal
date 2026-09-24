@@ -47,18 +47,29 @@ function CamposDaCampanha({ bloco, aoMudar }: Props<"campanha">) {
         />
       </Grupo>
       <Grupo titulo="Contador">
-        <Data
-          rotulo="Conta até o fim do dia"
-          ajuda="Vazio, o contador não aparece."
-          valor={bloco.contadorAte}
-          aoMudar={(contadorAte) => m({ contadorAte })}
-        />
-        <Texto
-          rotulo="Frase em cima do contador"
-          valor={bloco.rotuloContador}
-          maximo={40}
-          aoMudar={(rotuloContador) => m({ rotuloContador })}
-        />
+        <div className="sm:col-span-2">
+          <Caixa
+            rotulo="Mostrar contador"
+            marcado={bloco.contador}
+            aoMudar={(contador) => m({ contador })}
+          />
+        </div>
+        {bloco.contador ? (
+          <>
+            <Data
+              rotulo="Conta até"
+              ajuda="Vazio, conta até o último dia da campanha."
+              valor={bloco.contadorAte}
+              aoMudar={(contadorAte) => m({ contadorAte })}
+            />
+            <Texto
+              rotulo="Frase em cima do contador"
+              valor={bloco.rotuloContador}
+              maximo={40}
+              aoMudar={(rotuloContador) => m({ rotuloContador })}
+            />
+          </>
+        ) : null}
       </Grupo>
       <Grupo titulo="Botão">
         <div className="sm:col-span-2">
@@ -423,6 +434,11 @@ const NOMES_DOS_ICONES: Record<ItemDeLink["icone"], string> = {
 };
 const ICONES = ICONES_DE_LINK.map((i) => [i, NOMES_DOS_ICONES[i]] as const);
 
+/**
+ * Links em lista compacta, sempre aberta: é a parte da bio que mais muda, e
+ * adicionar, apagar e reordenar precisam estar à vista, e não dentro de mais um
+ * cartão fechado.
+ */
 function CamposDosLinks({ bloco, aoMudar }: Props<"links">) {
   const m = (parcial: Partial<BlocoDe<"links">>) => aoMudar({ ...bloco, ...parcial });
   const mudarItem = (i: number, parcial: Partial<ItemDeLink>) =>
@@ -436,73 +452,78 @@ function CamposDosLinks({ bloco, aoMudar }: Props<"links">) {
   }
 
   return (
-    <>
-      <Grupo titulo="Bloco">
-        <Texto
-          rotulo="Título em cima dos links"
-          ajuda="Opcional. Vazio, os links aparecem sem título."
-          valor={bloco.titulo}
-          maximo={32}
-          aoMudar={(titulo) => m({ titulo })}
-        />
-      </Grupo>
-
-      <ol className="space-y-3">
-        {bloco.itens.map((it, i) => (
-          <li key={it.id} className="rounded-[14px] border border-border bg-white/60 p-4">
-            <div className="mb-3 flex items-center gap-2">
-              <span className="text-xs font-semibold text-ink">Link {i + 1}</span>
-              <span className="flex-1" />
-              <button type="button" onClick={() => mover(i, -1)} disabled={i === 0} aria-label="Subir link" className="rounded p-1 text-muted hover:text-brand-nav disabled:opacity-30">
-                <ArrowUp size={14} />
-              </button>
-              <button type="button" onClick={() => mover(i, 1)} disabled={i === bloco.itens.length - 1} aria-label="Descer link" className="rounded p-1 text-muted hover:text-brand-nav disabled:opacity-30">
-                <ArrowDown size={14} />
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  if (window.confirm(`Tirar o link "${it.rotulo}"?`)) m({ itens: bloco.itens.filter((_, j) => j !== i) });
-                }}
-                aria-label={`Tirar o link ${it.rotulo}`}
-                className="rounded p-1 text-muted hover:text-wine"
-              >
-                <Trash2 size={14} />
-              </button>
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <Texto rotulo="Texto" valor={it.rotulo} maximo={40} aoMudar={(rotulo) => mudarItem(i, { rotulo })} />
-              <Texto rotulo="Linha de baixo" valor={it.detalhe} maximo={56} aoMudar={(detalhe) => mudarItem(i, { detalhe })} />
-              <Endereco
-                rotulo="Leva para"
-                ajuda="Página do site pode ser só o caminho, como /medidor-de-aliancas."
-                valor={it.href}
-                aoMudar={(href) => mudarItem(i, { href })}
-              />
-              <Selecao rotulo="Ícone" valor={it.icone} opcoes={ICONES} aoMudar={(icone) => mudarItem(i, { icone })} />
-              <Data rotulo="Aparece a partir de" valor={it.inicio} aoMudar={(inicio) => mudarItem(i, { inicio })} />
-              <Data rotulo="Some depois de" valor={it.fim} aoMudar={(fim) => mudarItem(i, { fim })} />
-              <div className="sm:col-span-2">
-                <Caixa
-                  rotulo="Destacar este link"
-                  ajuda="Pinta o link com a cor do botão principal. Use em um só, senão nenhum se destaca."
-                  marcado={it.destaque}
-                  aoMudar={(destaque) => mudarItem(i, { destaque })}
+    <div className="space-y-3">
+      {bloco.itens.length === 0 ? (
+        <p className="text-xs text-muted">Nenhum link ainda.</p>
+      ) : (
+        <ol className="space-y-2">
+          {bloco.itens.map((it, i) => (
+            <li key={it.id} className="rounded-[12px] border border-border bg-white/70 p-3">
+              <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
+                <Texto rotulo={`Link ${i + 1}`} valor={it.rotulo} maximo={40} aoMudar={(rotulo) => mudarItem(i, { rotulo })} />
+                <Endereco rotulo="Leva para" valor={it.href} aoMudar={(href) => mudarItem(i, { href })} />
+                <Texto
+                  rotulo="Linha de baixo (opcional)"
+                  valor={it.detalhe}
+                  maximo={56}
+                  aoMudar={(detalhe) => mudarItem(i, { detalhe })}
                 />
+                <div className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-3">
+                  <Selecao rotulo="Ícone" valor={it.icone} opcoes={ICONES} aoMudar={(icone) => mudarItem(i, { icone })} />
+                  <div className="flex items-center gap-0.5 pb-1">
+                    <button
+                      type="button"
+                      onClick={() => mudarItem(i, { destaque: !it.destaque })}
+                      aria-pressed={it.destaque}
+                      title="Destacar com a cor do botão principal. Use em um só."
+                      className={`rounded-full px-2.5 py-1 text-[0.68rem] font-semibold transition-colors ${
+                        it.destaque ? "bg-ink text-white" : "border border-ink/15 text-muted hover:text-ink"
+                      }`}
+                    >
+                      Destaque
+                    </button>
+                    <button type="button" onClick={() => mover(i, -1)} disabled={i === 0} aria-label={`Subir ${it.rotulo}`} className="rounded p-1.5 text-muted hover:text-brand-nav disabled:opacity-30">
+                      <ArrowUp size={14} />
+                    </button>
+                    <button type="button" onClick={() => mover(i, 1)} disabled={i === bloco.itens.length - 1} aria-label={`Descer ${it.rotulo}`} className="rounded p-1.5 text-muted hover:text-brand-nav disabled:opacity-30">
+                      <ArrowDown size={14} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (window.confirm(`Apagar o link "${it.rotulo}"?`)) m({ itens: bloco.itens.filter((_, j) => j !== i) });
+                      }}
+                      aria-label={`Apagar ${it.rotulo}`}
+                      className="rounded p-1.5 text-muted hover:text-wine"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                </div>
               </div>
-            </div>
-          </li>
-        ))}
-      </ol>
+            </li>
+          ))}
+        </ol>
+      )}
 
-      <button
-        type="button"
-        onClick={() => m({ itens: [...bloco.itens, linkNovo(idNovo("link"))] })}
-        className="inline-flex items-center gap-1.5 rounded-full border border-ink/15 px-4 py-2 text-xs font-semibold text-ink hover:border-brand/50 hover:text-brand-nav"
-      >
-        <Plus size={13} /> Adicionar link
-      </button>
-    </>
+      <div className="flex flex-wrap items-end gap-3">
+        <button
+          type="button"
+          onClick={() => m({ itens: [...bloco.itens, linkNovo(idNovo("link"))] })}
+          className="inline-flex items-center gap-1.5 rounded-full bg-ink px-4 py-2 text-xs font-semibold text-white hover:bg-charcoal"
+        >
+          <Plus size={13} /> Adicionar link
+        </button>
+        <div className="min-w-[14rem] flex-1">
+          <Texto
+            rotulo="Título em cima dos links (opcional)"
+            valor={bloco.titulo}
+            maximo={32}
+            aoMudar={(titulo) => m({ titulo })}
+          />
+        </div>
+      </div>
+    </div>
   );
 }
 

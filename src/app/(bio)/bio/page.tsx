@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { PaginaDaBio } from "@/components/bio/PaginaDaBio";
 import { lerBio } from "@/lib/bio/ler";
-import { temaDoDia } from "@/lib/bio/agenda";
+import { versaoDoDia } from "@/lib/bio/agenda";
 import { corDaBarra } from "@/lib/bio/temas";
 import { hojeEmSaoPaulo } from "@/lib/tray/preco";
 import { buildMetadata } from "@/lib/seo/metadata";
@@ -47,7 +47,7 @@ export async function generateViewport(): Promise<Viewport> {
     width: "device-width",
     initialScale: 1,
     // No navegador do Instagram, a barra de cima vira a moldura da página.
-    themeColor: corDaBarra(temaDoDia(bio, hojeEmSaoPaulo())),
+    themeColor: corDaBarra(versaoDoDia(bio, hojeEmSaoPaulo()).tema),
   };
 }
 
