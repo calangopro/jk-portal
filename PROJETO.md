@@ -158,7 +158,7 @@ Painel lateral no editor que pontua o conteúdo **em tempo real** e sugere melho
 
 ### 7.5 Métricas & integrações
 - Dashboard mensal: conteúdos publicados, páginas indexadas, impressões, cliques orgânicos, novas buscas em que a JK aparece, páginas em maior crescimento, posições conquistadas, conteúdos perto da 1ª página.
-- **Integrações:** Google **Search Console** (dados de busca), **GA4** (comportamento), **GTM** (tags/eventos). Rastreio de cliques para produto, WhatsApp, telefone, rota e loja; UTMs por unidade/origem; comparação com baseline.
+- **Integrações:** Google **Search Console** (dados de busca), **GA4** (comportamento), **GTM** (tags/eventos). Rastreio de cliques para produto, WhatsApp, telefone, rota e loja, por evento e sem UTM nos links para a loja (mesmo domínio e mesmo GA4, ver `docs/acesso-e-medicao.md`); comparação com baseline.
 
 ### 7.6 O que desta seção ainda não existe
 

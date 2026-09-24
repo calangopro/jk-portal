@@ -40,7 +40,7 @@ Configure separadamente em Development, Preview e Production.
 
 | Variável | Onde usar | Observação |
 |---|---|---|
-| `NEXT_PUBLIC_SITE_URL` | todos | **Só a origem, sem `/guias` e sem barra no fim.** Hoje é `https://jk-portal.vercel.app`, e vira `https://www.jkaliancas.com.br` no dia da virada. O prefixo é somado por `absoluteUrl()`. Sem esta variável, canonical e sitemap saem apontando para localhost. |
+| `NEXT_PUBLIC_SITE_URL` | todos | **Só a origem, sem `/guias` e sem barra no fim.** Em produção é `https://www.jkaliancas.com.br` desde a virada de 17/09. O prefixo é somado por `absoluteUrl()`. Sem esta variável, canonical e sitemap saem apontando para localhost. |
 | `NEXT_PUBLIC_SUPABASE_URL` | todos | Pública. |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | todos | Pública, protegida por RLS. |
 | `SUPABASE_SERVICE_ROLE_KEY` | servidor | **Secreta.** Convite de editores e sincronização. |
@@ -90,7 +90,8 @@ remover o prefixo**.
 3. Search Console: crie a propriedade de PREFIXO
    `https://www.jkaliancas.com.br/guias/` e envie o sitemap na mão, já que o
    robots do domínio não anuncia ele.
-4. Conecte GTM e GA4 em `/guias/admin/integracoes`. As tags só carregam em
+4. Conecte GTM **e** GA4 em `/guias/admin/integracoes` (os dois juntos, ver
+   `docs/acesso-e-medicao.md`). As tags só carregam em
    produção e só quando a integração está conectada.
 5. **Desligue o cadastro público** no Supabase (Authentication > Sign In /
    Providers), troque a senha do usuário master e rotacione a chave da OpenAI.
