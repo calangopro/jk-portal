@@ -39,6 +39,9 @@ type Paleta = {
   foto: string;
   brilho: string;
   erro: string;
+  /** Bolinha do carrinho no cartão de produto, que fica sobre o escurecido da foto. */
+  carrinho: string;
+  carrinhoIcone: string;
 };
 
 const PALETAS: Record<TemaDaBio, Paleta> = {
@@ -62,6 +65,8 @@ const PALETAS: Record<TemaDaBio, Paleta> = {
     foto: "#FFFFFF",
     brilho: "rgba(216, 184, 119, 0.28)",
     erro: "#9B1C1C",
+    carrinho: "#FFFFFF",
+    carrinhoIcone: "#171512",
   },
   esquenta: {
     fundo: "#171512",
@@ -83,6 +88,8 @@ const PALETAS: Record<TemaDaBio, Paleta> = {
     foto: "#FFFFFF",
     brilho: "rgba(207, 165, 94, 0.18)",
     erro: "#F2A7A7",
+    carrinho: "#BE9B60",
+    carrinhoIcone: "#171512",
   },
   black: {
     fundo: "#171512",
@@ -102,6 +109,8 @@ const PALETAS: Record<TemaDaBio, Paleta> = {
     foto: "#FFFFFF",
     brilho: "rgba(207, 165, 94, 0.26)",
     erro: "#F2A7A7",
+    carrinho: "#E3CB9C",
+    carrinhoIcone: "#171512",
   },
 };
 
@@ -125,6 +134,8 @@ export function variaveisDoTema(tema: TemaDaBio): CSSProperties {
     "--bio-foto": p.foto,
     "--bio-brilho": p.brilho,
     "--bio-erro": p.erro,
+    "--bio-carrinho": p.carrinho,
+    "--bio-carrinho-icone": p.carrinhoIcone,
   } as CSSProperties;
 }
 

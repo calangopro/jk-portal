@@ -192,7 +192,6 @@ function CamposDaVitrine({
           aoMudar={(v) => m({ limite: Number(v) })}
         />
         <Selecao rotulo="De onde vêm os produtos" valor={bloco.fonte.tipo} opcoes={FONTES} aoMudar={trocarFonte} />
-        <Texto rotulo="Botão no cartão" valor={bloco.rotuloComprar} maximo={16} aoMudar={(rotuloComprar) => m({ rotuloComprar })} />
       </Grupo>
 
       {bloco.fonte.tipo === "categoria" ? (
