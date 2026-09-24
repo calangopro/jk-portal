@@ -14,12 +14,17 @@ três rotas mandam só estes caminhos para a Vercel:
 |---|---|
 | `www.jkaliancas.com.br/` e o resto | Tray, sem passar por aqui |
 | `www.jkaliancas.com.br/guias*` | este Worker, que busca em `jk-portal.vercel.app` |
-| `www.jkaliancas.com.br/bio` e `/bio/*` | este Worker, que busca `/guias/bio` e mantém `/bio` na barra |
+| `www.jkaliancas.com.br/bio*` | este Worker, que busca `/guias/bio` e mantém `/bio` na barra |
 
-**As rotas são essas três e só.** Nenhuma edição neste arquivo alcança a loja.
-A bio tem duas rotas exatas, e não `/bio*`, de propósito: `/bio*` também casaria
-com qualquer página da loja que comece com essas letras, e cada uma passaria a
-atravessar o Worker sem motivo. Para conferir antes de mexer:
+**As rotas são essas duas e só.** Nenhuma edição neste arquivo alcança a loja.
+
+A da bio precisa terminar em asterisco. Rota sem asterisco no fim casa com o
+caminho exato e **não casa com parâmetro**: com `www.jkaliancas.com.br/bio`,
+o endereço `/bio?utm_source=instagram` ia direto para a Tray e caía em "sem
+resultados", e o Instagram põe `?fbclid=...` em todo clique que sai do app.
+Aconteceu em 24/09, logo depois de publicar. O preço de `/bio*` é casar também
+com caminho da loja que comece com "bio" (nenhum, no sitemap da loja), e o
+Worker devolve esses para a Tray sem mexer. Para conferir antes de mexer:
 
 ```bash
 curl -s "https://api.cloudflare.com/client/v4/zones/$ZONE/workers/routes" -H "Authorization: Bearer $CF_TOKEN"
@@ -88,7 +93,7 @@ curl -s -o /dev/null -w "%{http_code}\n" https://www.jkaliancas.com.br/guias    
 curl -s -o /dev/null -w "%{http_code} %{redirect_url}\n" http://www.jkaliancas.com.br/guias  # 301 https
 curl -sI https://www.jkaliancas.com.br/guias | grep -i x-robots                  # vazio
 curl -sI https://jk-portal.vercel.app/guias  | grep -i x-robots                  # noindex
-curl -s -o /dev/null -w "%{http_code} %{url_effective}\n" https://www.jkaliancas.com.br/bio   # 200, sem sair de /bio
+curl -s -o /dev/null -w "%{http_code} %{url_effective}\n" "https://www.jkaliancas.com.br/bio?fbclid=x"   # 200, sem sair de /bio
 curl -s -o /dev/null -w "%{http_code} %{redirect_url}\n" https://www.jkaliancas.com.br/bio/   # 301 /bio
 ```
 

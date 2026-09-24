@@ -3,7 +3,7 @@ import { unstable_cache } from "next/cache";
 import { createReadClient } from "@/lib/supabase/read";
 import { buscarNaLoja, categoriasDaLoja, type ProdutoPublico } from "@/lib/tray/publico";
 import { hojeEmSaoPaulo, precoVigente } from "@/lib/tray/preco";
-import type { FonteDaVitrine } from "./tipos";
+import type { FonteDaVitrine, ProdutoDaBio } from "./tipos";
 
 /**
  * Produtos da vitrine da bio, com preço AO VIVO da loja.
@@ -20,16 +20,7 @@ import type { FonteDaVitrine } from "./tipos";
  * venda na loja.
  */
 
-export type ProdutoDaBio = {
-  id: string;
-  nome: string;
-  imagem: string;
-  href: string;
-  categoria: string | null;
-  atual: number;
-  anterior: number | null;
-  desconto: number | null;
-};
+export type { ProdutoDaBio } from "./tipos";
 
 /** Segundos que um preço pode ter de idade na bio. */
 const TEMPO_DO_PRECO = 300;
