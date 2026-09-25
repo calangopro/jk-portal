@@ -19,6 +19,13 @@ import type { TemaDaBio } from "./tipos";
  *
  * O Black sobe um degrau sobre o Esquenta, como na loja: linha mais forte,
  * dourado mais claro e o percentual em selo dourado sólido.
+ *
+ * Os três temas de data (aniversário, Natal e ano novo) são claros, porque a
+ * festa pede luz, e cada um põe a cor no detalhe: vinho no aniversário, vinho
+ * e verde sobre o areia da JK no Natal, dourado sobre branco no ano novo. O
+ * enfeite que se mexe (confete, bolinha, chapéu) mora em `Enfeites.tsx`.
+ * Contraste de cada par conferido em 24/09: o mais apertado é o texto de apoio
+ * sobre o areia do Natal, 5,92:1.
  */
 
 type Paleta = {
@@ -112,6 +119,74 @@ const PALETAS: Record<TemaDaBio, Paleta> = {
     carrinho: "#E3CB9C",
     carrinhoIcone: "#171512",
   },
+  aniversario: {
+    fundo: "#F9F3F0",
+    superficie: "#FFFFFF",
+    superficieAlta: "#FCF7F5",
+    texto: "#171512",
+    apoio: "#5F594F",
+    acento: "#7A2230",
+    linha: "#EEDFDA",
+    linhaForte: "rgba(122, 34, 48, 0.32)",
+    acao: "#7A2230",
+    acaoTexto: "#FFFFFF",
+    acaoRealce: "#5C1922",
+    selo: "#7A2230",
+    seloTexto: "#FFFFFF",
+    digito: "#7A2230",
+    foto: "#FFFFFF",
+    brilho: "rgba(122, 34, 48, 0.10)",
+    erro: "#9B1C1C",
+    carrinho: "#7A2230",
+    carrinhoIcone: "#FFFFFF",
+  },
+  natal: {
+    // O areia da JK (`--color-sand`) no fundo, vinho na ação e verde no
+    // detalhe. Verde e vinho juntos em área grande viram enfeite de loja de
+    // departamento; em ponto pequeno, viram Natal com cara de joalheria.
+    fundo: "#F4ECE0",
+    superficie: "#FFFDF9",
+    superficieAlta: "#FAF5EC",
+    texto: "#171512",
+    apoio: "#5F594F",
+    acento: "#1F4D36",
+    linha: "#E4D6C1",
+    linhaForte: "rgba(31, 77, 54, 0.32)",
+    acao: "#7A2230",
+    acaoTexto: "#FFFFFF",
+    acaoRealce: "#5C1922",
+    selo: "#1F4D36",
+    seloTexto: "#FFFFFF",
+    digito: "#7A2230",
+    foto: "#FFFFFF",
+    brilho: "rgba(31, 77, 54, 0.10)",
+    erro: "#9B1C1C",
+    carrinho: "#1F4D36",
+    carrinhoIcone: "#FFFFFF",
+  },
+  anonovo: {
+    // Branco quente e dourado. A ação fica em carvão pelo mesmo motivo do tema
+    // padrão: dourado cheio sobre fundo claro some como botão.
+    fundo: "#FBF8F2",
+    superficie: "#FFFFFF",
+    superficieAlta: "#FDFBF7",
+    texto: "#171512",
+    apoio: "#5F594F",
+    acento: "#76582B",
+    linha: "#EFE6D6",
+    linhaForte: "rgba(190, 155, 96, 0.45)",
+    acao: "#1A1815",
+    acaoTexto: "#F7EFDF",
+    acaoRealce: "#2A2620",
+    selo: "#171512",
+    seloTexto: "#E3CB9C",
+    digito: "#76582B",
+    foto: "#FFFFFF",
+    brilho: "rgba(216, 184, 119, 0.25)",
+    erro: "#9B1C1C",
+    carrinho: "#BE9B60",
+    carrinhoIcone: "#171512",
+  },
 };
 
 export function variaveisDoTema(tema: TemaDaBio): CSSProperties {
@@ -145,5 +220,5 @@ export function corDaBarra(tema: TemaDaBio): string {
 }
 
 export function temaEscuro(tema: TemaDaBio): boolean {
-  return tema !== "padrao";
+  return tema === "esquenta" || tema === "black";
 }
