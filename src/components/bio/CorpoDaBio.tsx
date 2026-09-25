@@ -4,6 +4,7 @@ import type { Location } from "@/lib/content/types";
 import { BlocoCampanha, BlocoLinks, BlocoLojas, Cabecalho, Rodape, TituloDaVitrine } from "./Blocos";
 import { Captura } from "./Captura";
 import { Carrossel } from "./Carrossel";
+import { Enfeites } from "./Enfeites";
 
 /** Produtos de cada vitrine, pelo id do bloco. */
 export type DadosDaBio = {
@@ -49,9 +50,10 @@ export function CorpoDaBio({
     <div
       data-tema={tema}
       style={variaveisDoTema(tema)}
-      className={`bio-pagina ${altura} overflow-x-clip bg-[var(--bio-fundo)] text-[var(--bio-texto)]`}
+      className={`bio-pagina relative ${altura} overflow-x-clip bg-[var(--bio-fundo)] text-[var(--bio-texto)]`}
     >
-      <main className="mx-auto max-w-[30rem] px-4 pb-12 pt-8">
+      <Enfeites tema={tema} />
+      <main className="relative z-10 mx-auto max-w-[30rem] px-4 pb-12 pt-8">
         <Cabecalho nome={cabecalho.nome} frase={cabecalho.frase} />
 
         <div className="mt-7 space-y-7">
@@ -78,6 +80,7 @@ export function CorpoDaBio({
                       produtos={produtos}
                       rotuloComprar={bloco.rotuloComprar}
                       prioridade={bloco.id === primeiraVitrine}
+                      chapeu={tema === "natal"}
                     />
                   </section>
                 );

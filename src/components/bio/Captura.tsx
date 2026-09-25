@@ -120,9 +120,12 @@ export function Captura({ bloco, campanha }: Props) {
     }
 
     const busca = new URLSearchParams(window.location.search);
-    const utm = Object.fromEntries(
-      UTM.map((k) => [k, busca.get(k)?.slice(0, 120) ?? ""]).filter(([, v]) => v),
-    );
+    // A origem já descoberta por `OrigemDaBio` (Instagram, TikTok, anúncio com
+    // `utm_term=bio`) vale mais que a URL, que na bio divulgada não tem etiqueta.
+    const origem = window.jkOrigemDaBio;
+    const utm =
+      origem?.utm ??
+      Object.fromEntries(UTM.map((k) => [k, busca.get(k)?.slice(0, 120) ?? ""]).filter(([, v]) => v));
 
     setPasso("enviando");
     try {
@@ -137,6 +140,7 @@ export function Captura({ bloco, campanha }: Props) {
           campanha,
           pagina: window.location.pathname,
           referencia: document.referrer || "",
+          rede: origem?.rede ?? "",
           // Os dois cliques de anúncio. O `fbclid` sozinho NÃO quer dizer
           // anúncio (o Instagram põe em todo clique para fora), então quem
           // decide pago ou orgânico é o servidor, olhando o conjunto.

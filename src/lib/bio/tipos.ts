@@ -23,13 +23,16 @@ import { z } from "zod";
 const dia = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 
 /** Paleta de cores. Mais de uma campanha pode usar a mesma. */
-export const TEMAS_DA_BIO = ["padrao", "esquenta", "black"] as const;
+export const TEMAS_DA_BIO = ["padrao", "esquenta", "black", "aniversario", "natal", "anonovo"] as const;
 export type TemaDaBio = (typeof TEMAS_DA_BIO)[number];
 
 export const NOMES_DOS_TEMAS: Record<TemaDaBio, string> = {
   padrao: "Claro (off white)",
   esquenta: "Carvão e dourado",
   black: "Carvão e dourado forte",
+  aniversario: "Aniversário (vinho, com confete)",
+  natal: "Natal (areia, vinho e verde)",
+  anonovo: "Ano novo (branco, areia e dourado)",
 };
 
 const botao = z.object({ rotulo: z.string().min(1), href: z.string().min(1) });
@@ -410,8 +413,134 @@ export function bioDeFabrica(): Bio {
           lojas(),
         ],
       },
+      ...campanhasDeData(),
     ],
   };
+}
+
+/**
+ * As campanhas de data do fim do ano, prontas: aniversário, Natal e ano novo.
+ *
+ * O grupo de ofertas nasce OCULTO nas três, porque o envio do formulário ainda
+ * não existe (é a próxima etapa). Quando existir, basta mostrar o bloco.
+ *
+ * - Aniversário, 01 a 08/11: os 23 anos da JK em 08/11 (`PLANO-BLACK.md` do
+ *   tema da loja). A semana cai DENTRO da Black, e a campanha mais curta vence,
+ *   então a bio do aniversário carrega as peças da Black junto: sem isso, a
+ *   oferta sumiria da bio na primeira semana de novembro.
+ * - Natal, 01 a 25/12: dezembro é mês de pedido de casamento (mesmo plano,
+ *   seção 12), então a porta é o anel de noivado, com o aviso de prazo de
+ *   entrega e a retirada na loja para quem compra em cima da hora.
+ * - Ano novo, 26/12 a 06/01: quem noivou na virada compra aliança de casamento
+ *   em janeiro (idem), e o contador conta até a meia-noite do dia 31.
+ *
+ * As categorias de campanha que ainda não existem na loja (`aniversario`)
+ * deixam a vitrine escondida até serem criadas.
+ */
+export function campanhasDeData(): CampanhaDaBio[] {
+  const capturaOculta = { ...captura(), visivel: false };
+  const vitrine = (
+    id: string,
+    titulo: string,
+    slug: string,
+    limite = 8,
+  ): BlocoDe<"vitrine"> => ({
+    id,
+    tipo: "vitrine",
+    visivel: true,
+    titulo,
+    fonte: { tipo: "categoria", slug },
+    limite,
+    rotuloComprar: "Comprar",
+    verTudo: { rotulo: "Ver todas", href: `https://www.jkaliancas.com.br/${slug}` },
+  });
+
+  return [
+    {
+      id: "aniversario",
+      nome: "Aniversário JK",
+      tema: "aniversario",
+      inicio: "2026-11-01",
+      fim: "2026-11-08",
+      ativa: true,
+      blocos: [
+        {
+          id: "oferta",
+          tipo: "campanha",
+          visivel: true,
+          eyebrow: "Aniversário JK",
+          titulo: "23 anos de JK Alianças",
+          texto:
+            "Para comemorar, a Black já está no ar: até 30% OFF em peças selecionadas e brinco de semijoia de brinde em todo pedido com oferta.",
+          contador: true,
+          contadorAte: null,
+          rotuloContador: "A semana do aniversário acaba em",
+          botao: { rotulo: "Ver as peças da Black", href: "https://www.jkaliancas.com.br/black" },
+        },
+        capturaOculta,
+        vitrine("vitrine-aniversario", "Modelos do aniversário", "aniversario", 6),
+        vitrine("vitrine-black", "Peças da Black", "black", 10),
+        maisVendidas(),
+        links(),
+        lojas(),
+      ],
+    },
+    {
+      id: "natal",
+      nome: "Natal",
+      tema: "natal",
+      inicio: "2026-12-01",
+      fim: "2026-12-25",
+      ativa: true,
+      blocos: [
+        {
+          id: "oferta",
+          tipo: "campanha",
+          visivel: true,
+          eyebrow: "Natal JK",
+          titulo: "Anel de noivado para o pedido de Natal",
+          texto: "Confira o prazo de entrega de cada peça. Se não der tempo de chegar, retire na loja mais perto.",
+          contador: true,
+          contadorAte: "2026-12-24",
+          rotuloContador: "Faltam para o Natal",
+          botao: { rotulo: "Ver anéis de noivado", href: "https://www.jkaliancas.com.br/aneis-de-noivado" },
+        },
+        capturaOculta,
+        vitrine("vitrine-noivado", "Anéis de noivado", "aneis-de-noivado"),
+        vitrine("vitrine-joias", "Joias para presentear", "joias"),
+        links(),
+        lojas(),
+      ],
+    },
+    {
+      id: "ano-novo",
+      nome: "Ano novo",
+      tema: "anonovo",
+      inicio: "2026-12-26",
+      fim: "2027-01-06",
+      ativa: true,
+      blocos: [
+        {
+          id: "oferta",
+          tipo: "campanha",
+          visivel: true,
+          eyebrow: "Ano novo JK",
+          titulo: "Noivou na virada do ano?",
+          texto:
+            "Escolha a aliança de casamento com calma: descubra o tamanho no medidor e compare modelo, largura e material.",
+          contador: true,
+          contadorAte: "2026-12-31",
+          rotuloContador: "2027 chega em",
+          botao: { rotulo: "Ver alianças de casamento", href: "https://www.jkaliancas.com.br/noivado-e-casamento" },
+        },
+        capturaOculta,
+        vitrine("vitrine-casamento", "Alianças de casamento", "noivado-e-casamento"),
+        vitrine("vitrine-noivado", "Anéis de noivado", "aneis-de-noivado"),
+        links(),
+        lojas(),
+      ],
+    },
+  ];
 }
 
 /**

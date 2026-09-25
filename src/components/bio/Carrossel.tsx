@@ -5,6 +5,7 @@ import Image from "next/image";
 import { ChevronLeft, ChevronRight, ShoppingCart } from "lucide-react";
 import { precoLegivel } from "@/lib/data/vitrine";
 import { medirItemEscolhido, medirListaVista, type ItemDaLista } from "@/lib/bio/medicao";
+import { ChapeuDeNatal } from "./Enfeites";
 
 export type ProdutoDoCarrossel = ItemDaLista & {
   imagem: string;
@@ -18,6 +19,8 @@ type Props = {
   rotuloComprar: string;
   /** Primeira vitrine da página: as duas fotos de cima são o maior elemento da tela. */
   prioridade?: boolean;
+  /** Natal: chapéu de Papai Noel no canto de cada cartão. */
+  chapeu?: boolean;
 };
 
 /**
@@ -33,7 +36,7 @@ type Props = {
  * aba. No navegador do Instagram, aba nova vira uma janela solta e o "voltar"
  * deixa de trazer a pessoa para a bio.
  */
-export function Carrossel({ lista, produtos, rotuloComprar, prioridade = false }: Props) {
+export function Carrossel({ lista, produtos, rotuloComprar, prioridade = false, chapeu = false }: Props) {
   const idDaLista = useId();
   const raiz = useRef<HTMLDivElement>(null);
   const trilho = useRef<HTMLUListElement>(null);
@@ -97,13 +100,16 @@ export function Carrossel({ lista, produtos, rotuloComprar, prioridade = false }
           ref={trilho}
           id={idDaLista}
           aria-label={lista.nome}
-          className="rolagem-discreta flex snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain"
+          // Com chapéu, a fileira ganha folga em cima: a lista rola de lado e
+          // corta o que passa da borda, e o chapéu fica pendurado para fora.
+          className={`rolagem-discreta flex snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain ${chapeu ? "pr-2 pt-3" : ""}`}
         >
           {produtos.map((p, i) => {
             const atual = precoLegivel(p.atual);
             const anterior = precoLegivel(p.anterior);
             return (
-              <li key={p.id} className="w-[calc((100%-0.75rem)/2)] shrink-0 snap-start">
+              <li key={p.id} className="relative w-[calc((100%-0.75rem)/2)] shrink-0 snap-start">
+                {chapeu ? <ChapeuDeNatal /> : null}
                 <a
                   href={p.href}
                   data-evento="clique_produto"
@@ -189,7 +195,7 @@ export function Carrossel({ lista, produtos, rotuloComprar, prioridade = false }
         {produtos.length > 2 ? (
           // Setas no meio da FOTO: a faixa tem a altura da linha de fotos
           // (dois quadrados lado a lado dão 2:1), e não do cartão inteiro.
-          <div className="pointer-events-none absolute inset-x-0 top-0 flex aspect-[2/1] items-center justify-between">
+          <div className={`pointer-events-none absolute inset-x-0 flex aspect-[2/1] items-center justify-between ${chapeu ? "top-3" : "top-0"}`}>
             <BotaoDeSeta lado="antes" visivel={temAntes} controla={idDaLista} aoClicar={() => andar(-1)} />
             <BotaoDeSeta lado="depois" visivel={temDepois} controla={idDaLista} aoClicar={() => andar(1)} />
           </div>

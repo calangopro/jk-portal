@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { ChevronDown, ChevronRight, MapPin, Phone } from "lucide-react";
 import { comBasePath } from "@/lib/seo/base-path";
 import { SITE } from "@/lib/seo/site";
@@ -39,9 +38,14 @@ export function eventoDoLink(href: string): "clique_produto" | "clique_whatsapp"
 }
 
 /**
- * Link que sabe se é do portal ou de fora. Caminho interno vai pelo
- * `next/link` (o prefixo /guias entra sozinho e a troca de página é
- * instantânea); o resto é `<a>` comum, na mesma aba.
+ * Link da bio, sempre `<a>` comum, na mesma aba.
+ *
+ * Página do portal ("/medidor-de-aliancas") recebe o /guias na mão. Não vai
+ * pelo `next/link` de propósito: na bio, o GA4 é configurado com o endereço
+ * etiquetado pela origem (ver `OrigemDaBio`), e numa troca de página sem
+ * recarregar ele continuaria reportando esse endereço, contando o medidor como
+ * se fosse a bio. Com o carregamento completo, a página seguinte se mede com o
+ * próprio endereço, e a origem da sessão já está gravada.
  */
 function LinkDaBio({
   href,
@@ -54,16 +58,14 @@ function LinkDaBio({
   children: React.ReactNode;
   destino: string;
 }) {
-  const comum = { className, "data-evento": eventoDoLink(href), "data-destino": destino };
-  if (href.startsWith("/") && !href.startsWith("//")) {
-    return (
-      <Link href={href} {...comum}>
-        {children}
-      </Link>
-    );
-  }
+  const interno = href.startsWith("/") && !href.startsWith("//");
   return (
-    <a href={href} {...comum}>
+    <a
+      href={interno ? comBasePath(href) : href}
+      className={className}
+      data-evento={eventoDoLink(href)}
+      data-destino={destino}
+    >
       {children}
     </a>
   );
@@ -101,9 +103,11 @@ export function BlocoCampanha({
   return (
     <section
       data-regiao={`bio-${bloco.id}`}
-      className="relative overflow-hidden rounded-[24px] border border-[var(--bio-linha-forte)] bg-[var(--bio-superficie)] px-5 py-6 text-center"
+      className="relative overflow-hidden rounded-[24px] border border-[var(--bio-linha-forte)] bg-[color-mix(in_srgb,var(--bio-superficie)_80%,transparent)] px-5 py-6 text-center backdrop-blur-md"
     >
-      {/* Luz, não fogo: o brilho é um degradê suave atrás do título. */}
+      {/* Vidro: nas campanhas de data, o enfeite que passa por trás aparece
+          desfocado, sem cortar o texto. Luz, não fogo: o brilho é um degradê
+          suave atrás do título. */}
       <span
         aria-hidden
         className="pointer-events-none absolute inset-x-0 -top-24 mx-auto h-48 w-72 rounded-full bg-[var(--bio-brilho)] blur-3xl"
@@ -288,15 +292,15 @@ export function BlocoLojas({ bloco, lojas }: { bloco: BlocoDe<"lojas">; lojas: L
           })}
         </ul>
 
-        <Link
-          href="/lojas"
+        <a
+          href={comBasePath("/lojas")}
           data-evento="clique_link"
           data-destino="Endereços e horários das lojas"
           className="flex items-center justify-center gap-1 border-t border-[var(--bio-linha)] px-3.5 py-3 text-[0.8rem] font-semibold text-[var(--bio-acento)] hover:underline"
         >
           Ver endereços e horários
           <ChevronRight size={15} aria-hidden />
-        </Link>
+        </a>
       </details>
     </section>
   );

@@ -54,9 +54,14 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
             src={`https://www.googletagmanager.com/gtag/js?id=${ga4MeasurementId}&l=dataLayerGa4`}
             strategy="afterInteractive"
           />
+          {/* `jkPaginaComOrigem` só existe na bio: é o endereço com a origem
+              descoberta (Instagram, TikTok...) em forma de UTM, montado por
+              `OrigemDaBio`. O GA4 lê a origem da sessão do `page_location`,
+              então a bio consegue atribuir a visita sem link etiquetado. No
+              resto do site a variável não existe e nada muda. */}
           <Script id="ga4" strategy="afterInteractive">
             {`window.dataLayerGa4=window.dataLayerGa4||[];function gtag(){dataLayerGa4.push(arguments);}
-window.gtag=gtag;gtag('js', new Date());gtag('config','${ga4MeasurementId}',{cookie_flags:'secure;samesite=none'});`}
+window.gtag=gtag;gtag('js', new Date());var jkCfg={cookie_flags:'secure;samesite=none'};if(window.jkPaginaComOrigem)jkCfg.page_location=window.jkPaginaComOrigem;gtag('config','${ga4MeasurementId}',jkCfg);`}
           </Script>
         </>
       ) : null}
