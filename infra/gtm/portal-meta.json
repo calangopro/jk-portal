@@ -320,12 +320,12 @@
         "accountId": "6221062229",
         "containerId": "217728559",
         "triggerId": "410",
-        "name": "JK Portal - Páginas /guias",
+        "name": "JK Portal - Páginas /guias e /bio",
         "type": "PAGEVIEW",
         "parentFolderId": "400",
         "filter": [
           {
-            "type": "STARTS_WITH",
+            "type": "MATCH_REGEX",
             "parameter": [
               {
                 "type": "TEMPLATE",
@@ -335,7 +335,7 @@
               {
                 "type": "TEMPLATE",
                 "key": "arg1",
-                "value": "/guias"
+                "value": "^/(guias|bio)(/|$)"
               }
             ]
           }
