@@ -4,16 +4,17 @@ O contêiner é o **mesmo da loja Tray**. Tudo que mudar aqui vale para a loja e
 para o portal ao mesmo tempo. Conta do GTM: **JK ALIANÇAS (6221062229)**,
 contêiner "WEB - ECOMMERCE - OFICIAL" (217728559).
 
-Levantado em 24/09/2026 a partir da exportação do espaço de trabalho 27 (versão 24 no ar).
+Levantado em 24/09/2026 a partir da exportação do espaço de trabalho 27 (versão 24).
+Versão no ar desde 25/09/2026: **25** (pixel do Meta no portal e na bio).
 
 ## Como a medição está dividida
 
-| Ferramenta | Loja | Portal (`/guias`) |
+| Ferramenta | Loja | Portal (`/guias` e `/bio`) |
 |---|---|---|
 | GA4 (G-9V89YVR635) | integração nativa da Tray, fila `dataLayerGa4` | carregado pelo código (`Medicao.tsx`), fila `dataLayerGa4` |
 | Google Ads (AW-16750399342) | GTM | GTM |
 | Pinterest (2612456931453) | GTM | GTM |
-| Meta Pixel | GTM, tudo pausado e sem ID (`0000`) | nada |
+| Meta Pixel (364357034958645) | integração nativa da Tray (navegador e API de Conversões); as tags do GTM estão pausadas e sem ID (`0000`) | GTM, pasta "🟡 JK Portal /guias", só em `/guias` e `/bio` |
 
 **Nunca despausar as tags da pasta "🟠GA4 V4COMPANY".** O GA4 já chega pelos
 dois lados sem o GTM. Ligar aquelas tags contaria cada visita duas vezes.
@@ -27,9 +28,15 @@ dois lados sem o GTM. Ligar aquelas tags contaria cada visita duas vezes.
 
 | Evento | Quando |
 |---|---|
-| `clique_whatsapp`, `clique_telefone`, `clique_rota`, `clique_waze` | Contato com uma loja física. `destino` é o slug da unidade |
+| `clique_whatsapp`, `clique_telefone`, `clique_rota`, `clique_waze` | Contato com uma loja física, no site ou na bio. `destino` é o slug da unidade |
 | `clique_produto` | Qualquer link para a loja online. `destino` é o produto ou o lugar do link |
 | `clique_loja`, `clique_guia` | Chamada para ação no corpo do guia |
+| `clique_link` | Link da bio que não vai para a loja nem para o WhatsApp. `destino` é o rótulo |
+| `jk_captura_aberta`, `jk_captura_enviada`, `jk_grupo_clique` | Formulário de captura da bio. MESMOS nomes do tema da loja, então uma tag de Lead montada para a loja vale para a bio sem nada a mais. Vêm com `jk_origem: "bio"` e `jk_campanha`, nunca com nome, telefone ou e-mail |
+
+Os eventos de e-commerce da bio (`view_item_list`, `select_item`) vão só para
+o GA4, **de propósito fora do `dataLayer`**: o contêiner é o da loja, e uma tag
+de loja escutando nome de e-commerce contaria a mesma conversão duas vezes.
 
 `posicao` é `cabecalho`, `rodape` ou `conteudo`. Nenhum desses nomes colide com
 as 80 variáveis de camada de dados que o contêiner já tinha (conferido).
@@ -73,45 +80,120 @@ carrega no portal e já faz sozinho:
 Foi testado e descartado um evento `lead` do Pinterest: o anúncio do Pinterest
 leva para a loja, não para o portal, e o evento não servia às campanhas.
 
-## Meta Pixel no portal: preparado, NÃO publicado
+## Meta Pixel no portal e na bio
 
-O pixel do Meta só existe na loja, porque quem instala é a Tray. Sem ele no
-portal, quem lê as dicas não entra nos públicos do Instagram e do Facebook, e
-o Meta não vê os contatos com as lojas físicas.
+O pixel do Meta só existia na loja, porque quem instala é a Tray. Sem ele no
+portal, quem lê as dicas ou abre a bio e não segue para a loja não entrava nos
+públicos do Instagram e do Facebook, e o Meta não via os contatos com as lojas
+físicas.
 
-Está pronto no espaço de trabalho **"Portal /guias - Meta Pixel (aguardando OK
-da Marcela)"** (espaço 28), a partir de `portal-meta.json`:
+**Estado:** publicado em 25/09/2026, 0h12, como versão **25** ("25 - Portal /guias e
+/bio: Meta Pixel (PageView, Contact, FindLocation) (Filipe)"). A conferência
+no ar ainda não foi feita.
+
+Fica na pasta **"🟡 JK Portal /guias"** do contêiner, a partir de
+`portal-meta.json`:
 
 | Tipo | Nome | O que faz |
 |---|---|---|
 | Variável | JK Portal - Pixel Meta | `364357034958645`, o pixel da JK (o mesmo da Tray) |
 | Variável | JK Portal - destino | Slug da loja, do `dataLayer` |
-| Acionador | JK Portal - Páginas /guias | Visualização de página com caminho começando em `/guias` |
+| Acionador | JK Portal - Páginas /guias e /bio | Visualização de página com `Page Path` casando `^/(guias\|bio)(/\|$)` |
 | Acionador | JK Portal - Contato com loja | `clique_whatsapp` ou `clique_telefone` |
 | Acionador | JK Portal - Rota para loja | `clique_rota` ou `clique_waze` |
-| Tag | JK Portal - Meta PageView | PageView só no portal. As trocas de página sem recarregar o próprio pixel registra |
-| Tag | JK Portal - Meta Contact (WhatsApp e telefone) | Evento padrão Contact, com `content_name` = loja |
-| Tag | JK Portal - Meta FindLocation (como chegar) | Evento padrão FindLocation, com `content_name` = loja |
+| Tag | JK Portal - Meta PageView | PageView só no portal e na bio. As trocas de página sem recarregar o próprio pixel registra |
+| Tag | JK Portal - Meta Contact (WhatsApp e telefone) | Evento padrão Contact, com `content_name` = slug da loja |
+| Tag | JK Portal - Meta FindLocation (como chegar) | Evento padrão FindLocation, com `content_name` = slug da loja |
+
+**Por que a bio está no acionador:** o link divulgado é
+`jkaliancas.com.br/bio`, servido pelo Worker sem o endereço mudar, então o
+caminho que o GTM enxerga é `/bio`, não `/guias/bio`. Com "começa com /guias"
+justamente quem chega do Instagram ficava fora do pixel. A Tray não serve nada
+em `/bio*` (a rota inteira é do Worker) nem em `/guias`, e o `(/|$)` impede que
+um `/biografia` qualquer case.
 
 Sem correspondência avançada e sem dado pessoal. O modelo "Facebook Pixel"
 aparece como "Modificado" na importação, mas o comparador do GTM confirma "As
 duas versões são idênticas".
 
-Testado no Visualizar em 24/09: PageView no carregamento de `/guias/lojas`,
-Contact e FindLocation com `content_name: santana-parque-shopping`, um PageView
-a cada troca de página sem recarregar, e na home da LOJA a tag de PageView do
-portal não disparou (o Tag Assistant mostra "disparou 1 vez", só no portal).
-Os testes geraram alguns eventos reais no pixel.
+### Por que o MESMO pixel da loja
 
-**Para publicar** (depois do OK da Marcela): abrir esse espaço de trabalho,
-**Enviar**, nome da versão "Portal /guias: Meta Pixel (PageView, Contact,
-FindLocation)". Se o Default Workspace tiver sido publicado nesse meio tempo, o
-GTM pede para **Atualizar** o espaço antes; é só aceitar. Para voltar: Versões,
-versão anterior, Publicar.
+Decisão do Filipe em 24/09. Um pixel só quer dizer um público só: a pessoa que
+lê um guia e depois visita a loja é a mesma pessoa para o Meta, e qualquer
+recorte ("leu o portal", "leu e não comprou") sai por regra de URL, sem juntar
+dois conjuntos de dados.
+
+A consequência, que precisa ser conhecida: quem visita o portal ou a bio entra
+em todo público "todos os visitantes do site" deste pixel. Em 24/09 isso
+alcançava o `[BB] Page View 90d`, que estava na campanha ativa **[KCM] Direct
+Sales$100**, nos dois conjuntos de remarketing ("Qualquer Interação IG | SITE
+[EXCL. Purchase30d]"). Na data o efeito era nulo: o portal tinha 16 cliques
+orgânicos em 28 dias, contra mais de 336 mil PageViews da loja no pixel no
+mesmo período, e quem sai do portal para a loja já entrava pelo pixel da Tray.
+Público que ganha gente não reinicia aprendizado; só edição do conjunto
+reinicia.
+
+**Não duplica:** conferido no ar em 24/09, a loja tem o pixel da Tray e o
+portal e a bio tinham o GTM sem pixel nenhum; as 9 tags antigas de Facebook do
+contêiner estão pausadas e com ID `0000`; Contact e FindLocation só nascem dos
+`clique_*`, que só o portal e a bio enviam. Nenhuma tag do portal manda
+evento de e-commerce. No Gerenciador de Eventos, em 24/09, o único evento usado
+por conjunto de anúncios era a Compra, e não havia conversão personalizada.
 
 A regra "não ligar Meta pelo GTM" do Trello foi escrita para a loja, onde a Tray
-já instala o pixel e o GTM duplicaria. No portal não há pixel da Tray, então
-não há duplicidade; o acionador trava a tag em `/guias`.
+já instala o pixel e o GTM duplicaria. No portal não há pixel da Tray.
+
+### Para o gestor de tráfego
+
+**Públicos que já dá para criar** (Públicos, Criar público, Site, conjunto de
+dados "Pixel Ecommerce JK Alianças"). Público de site olha até 180 dias para
+trás, então pode ser criado a qualquer momento e já nasce com quem visitou
+desde que o pixel entrou no portal. Antes disso não existe dado.
+
+| Público | Regra |
+|---|---|
+| Leitores do portal | Pessoas que visitaram páginas específicas, URL contém `/guias` |
+| Visitantes da bio | URL contém `jkaliancas.com.br/bio` |
+| Falou com uma loja física pelo portal | Evento `Contact` (dá para refinar por `content_name` = loja) |
+| Pediu rota para uma loja | Evento `FindLocation` |
+
+Cuidados:
+
+- **Para tirar o portal de um público "todos os visitantes"**, use "URL não
+  contém `/guias`" DENTRO da regra de inclusão. Nunca como exclusão: excluir
+  quem visitou `/guias` tira do remarketing quem visitou a loja e também leu o
+  portal.
+- **Leitor do portal não é todo comprador.** Quem lê "como escolher" ou "anel
+  de namoro" está antes da compra; quem lê "como limpar aliança" em geral já
+  comprou. Com volume, vale separar por URL de guia.
+- **`Contact` do portal é clique no WhatsApp ou no telefone de loja física**,
+  não é venda nem lead de formulário. Não use como evento de otimização de
+  campanha de venda. Se virar objetivo, que seja em campanha de loja física.
+- **Não despausar as tags da pasta "🔵FACEBOOK V4 COMPANY"** nem trocar o
+  `0000` pelo pixel da JK: na loja isso duplicaria PageView, ViewContent e
+  Compra, que a Tray já manda.
+- **Lead da captura (`jk_captura_enviada`)**: ainda NÃO existe tag. Está no
+  Trello para o Esquenta (Filipe e Marcela). Na loja o pixel já foi iniciado
+  pela Tray, então a tag deve mandar só o evento `Lead` e precisa passar pelo
+  Visualizar conferindo que não sai um segundo PageView. Na bio, a mesma tag
+  vale sem mudança.
+
+### Conferir e voltar
+
+Conferência no ar: em `/guias/lojas` e em `/bio`, o `fbq` existe e sai um
+PageView para `facebook.com/tr`; na home da loja continua só o pixel da Tray,
+com um PageView. Dá para ver também no Gerenciador de Eventos, em PageView,
+filtrando a URL por `/guias`.
+
+Para voltar: Versões, versão 24, Publicar. Ou pausar as três tags da pasta
+"🟡 JK Portal /guias" e publicar. A exportação da versão 24 é
+`GTM-WWT3T789_workspace27.json`, de 24/09.
+
+## Espaços de trabalho
+
+O GTM gratuito dá **3** espaços. O "Default Workspace" não some: apagado, o GTM
+cria outro na hora, e ele também é recriado a cada publicação. O "Recuperaçao"
+(vazio, de abril, da época das versões "Restored") foi apagado em 24/09.
 
 ## Opcional, depois: contato pelo portal como conversão no Google Ads
 
