@@ -25,7 +25,7 @@ import type { TemaDaBio } from "./tipos";
  * e verde sobre o areia da JK no Natal, dourado sobre branco no ano novo. O
  * enfeite que se mexe (confete, bolinha, chapéu) mora em `Enfeites.tsx`.
  * Contraste de cada par conferido em 24/09: o mais apertado é o texto de apoio
- * sobre o areia do Natal, 5,92:1.
+ * sobre o cartão areia do Natal, 5,18:1.
  */
 
 type Paleta = {
@@ -42,13 +42,29 @@ type Paleta = {
   acaoRealce: string;
   selo: string;
   seloTexto: string;
-  digito: string;
   foto: string;
+  /** Brilho atrás do título da oferta. Só nos temas escuros: no claro, a JK achou sujo. */
   brilho: string;
   erro: string;
-  /** Bolinha do carrinho no cartão de produto, que fica sobre o escurecido da foto. */
+  /** Bolinha do carrinho no cartão de produto, que fica sobre o rodapé desfocado da foto. */
   carrinho: string;
   carrinhoIcone: string;
+  /** O cartão da oferta com contador: fundo, botão e caixas do relógio. */
+  oferta: Oferta;
+};
+
+type Oferta = {
+  fundo: string;
+  borda: string;
+  botao: string;
+  botaoTexto: string;
+  botaoBorda: string;
+  botaoRealce: string;
+  botaoTextoRealce: string;
+  contador: string;
+  contadorBorda: string;
+  contadorDigito: string;
+  contadorApoio: string;
 };
 
 const PALETAS: Record<TemaDaBio, Paleta> = {
@@ -68,12 +84,24 @@ const PALETAS: Record<TemaDaBio, Paleta> = {
     // Bordô para o desconto, que é o acento de destaque da marca no claro.
     selo: "#7A2230",
     seloTexto: "#FFFFFF",
-    digito: "#171512",
     foto: "#FFFFFF",
-    brilho: "rgba(216, 184, 119, 0.28)",
+    brilho: "transparent",
     erro: "#9B1C1C",
     carrinho: "#FFFFFF",
     carrinhoIcone: "#171512",
+    oferta: {
+      fundo: "#FFFFFF",
+      borda: "rgba(118, 88, 43, 0.35)",
+      botao: "transparent",
+      botaoTexto: "#171512",
+      botaoBorda: "#76582B",
+      botaoRealce: "#76582B",
+      botaoTextoRealce: "#F7F3EC",
+      contador: "#FBFAF8",
+      contadorBorda: "#E8E2D8",
+      contadorDigito: "#171512",
+      contadorApoio: "#5F594F",
+    },
   },
   esquenta: {
     fundo: "#171512",
@@ -91,12 +119,24 @@ const PALETAS: Record<TemaDaBio, Paleta> = {
     // translúcido sobre branco some.
     selo: "#171512",
     seloTexto: "#E3CB9C",
-    digito: "#E3CB9C",
     foto: "#FFFFFF",
     brilho: "rgba(207, 165, 94, 0.18)",
     erro: "#F2A7A7",
     carrinho: "#BE9B60",
     carrinhoIcone: "#171512",
+    oferta: {
+      fundo: "#1D1B18",
+      borda: "rgba(190, 155, 96, 0.52)",
+      botao: "transparent",
+      botaoTexto: "#F7EFDF",
+      botaoBorda: "#CFA55E",
+      botaoRealce: "#CFA55E",
+      botaoTextoRealce: "#171512",
+      contador: "#24211C",
+      contadorBorda: "rgba(190, 155, 96, 0.28)",
+      contadorDigito: "#E3CB9C",
+      contadorApoio: "#A79E92",
+    },
   },
   black: {
     fundo: "#171512",
@@ -112,12 +152,24 @@ const PALETAS: Record<TemaDaBio, Paleta> = {
     acaoRealce: "#E3CB9C",
     selo: "#BE9B60",
     seloTexto: "#171512",
-    digito: "#E3CB9C",
     foto: "#FFFFFF",
     brilho: "rgba(207, 165, 94, 0.26)",
     erro: "#F2A7A7",
     carrinho: "#E3CB9C",
     carrinhoIcone: "#171512",
+    oferta: {
+      fundo: "#1D1B18",
+      borda: "rgba(190, 155, 96, 0.7)",
+      botao: "transparent",
+      botaoTexto: "#F7EFDF",
+      botaoBorda: "#E3CB9C",
+      botaoRealce: "#E3CB9C",
+      botaoTextoRealce: "#171512",
+      contador: "#2A2620",
+      contadorBorda: "rgba(190, 155, 96, 0.4)",
+      contadorDigito: "#E3CB9C",
+      contadorApoio: "#A79E92",
+    },
   },
   aniversario: {
     fundo: "#F9F3F0",
@@ -133,12 +185,26 @@ const PALETAS: Record<TemaDaBio, Paleta> = {
     acaoRealce: "#5C1922",
     selo: "#7A2230",
     seloTexto: "#FFFFFF",
-    digito: "#7A2230",
     foto: "#FFFFFF",
-    brilho: "rgba(122, 34, 48, 0.10)",
+    brilho: "transparent",
     erro: "#9B1C1C",
     carrinho: "#7A2230",
     carrinhoIcone: "#FFFFFF",
+    // Cartão rosado com fita de presente (`Enfeites.tsx`), botão vinho cheio e
+    // o relógio em caixas vinho: o aniversário é a campanha do vinho.
+    oferta: {
+      fundo: "#F5E6E2",
+      borda: "rgba(122, 34, 48, 0.25)",
+      botao: "#7A2230",
+      botaoTexto: "#FFFFFF",
+      botaoBorda: "#7A2230",
+      botaoRealce: "#5C1922",
+      botaoTextoRealce: "#FFFFFF",
+      contador: "#7A2230",
+      contadorBorda: "#7A2230",
+      contadorDigito: "#FFFFFF",
+      contadorApoio: "rgba(255, 255, 255, 0.85)",
+    },
   },
   natal: {
     // O areia da JK (`--color-sand`) no fundo, vinho na ação e verde no
@@ -157,12 +223,28 @@ const PALETAS: Record<TemaDaBio, Paleta> = {
     acaoRealce: "#5C1922",
     selo: "#1F4D36",
     seloTexto: "#FFFFFF",
-    digito: "#7A2230",
     foto: "#FFFFFF",
-    brilho: "rgba(31, 77, 54, 0.10)",
+    brilho: "transparent",
     erro: "#9B1C1C",
     carrinho: "#1F4D36",
     carrinhoIcone: "#FFFFFF",
+    // Cartão em areia sólido, um tom mais quente que a página para se
+    // destacar. Pedido da JK em 24/09: o cartão de vidro saía esbranquiçado,
+    // com um brilho verde no topo, e ficou "feio pra porra". Botão verde cheio
+    // e relógio em caixas vinho.
+    oferta: {
+      fundo: "#EBDDC6",
+      borda: "rgba(31, 77, 54, 0.25)",
+      botao: "#1F4D36",
+      botaoTexto: "#FFFFFF",
+      botaoBorda: "#1F4D36",
+      botaoRealce: "#173B29",
+      botaoTextoRealce: "#FFFFFF",
+      contador: "#7A2230",
+      contadorBorda: "#7A2230",
+      contadorDigito: "#FFFFFF",
+      contadorApoio: "rgba(255, 255, 255, 0.85)",
+    },
   },
   anonovo: {
     // Branco quente e dourado. A ação fica em carvão pelo mesmo motivo do tema
@@ -180,12 +262,27 @@ const PALETAS: Record<TemaDaBio, Paleta> = {
     acaoRealce: "#2A2620",
     selo: "#171512",
     seloTexto: "#E3CB9C",
-    digito: "#76582B",
     foto: "#FFFFFF",
-    brilho: "rgba(216, 184, 119, 0.25)",
+    brilho: "transparent",
     erro: "#9B1C1C",
     carrinho: "#BE9B60",
     carrinhoIcone: "#171512",
+    // A mesma ideia do Natal, no dourado: cartão areia dourado, botão dourado
+    // com borda escura (sem ela o botão some no cartão, 2,11:1) e relógio em
+    // carvão com o número dourado, como convite de réveillon.
+    oferta: {
+      fundo: "#F2E6CC",
+      borda: "rgba(190, 155, 96, 0.55)",
+      botao: "#BE9B60",
+      botaoTexto: "#171512",
+      botaoBorda: "#84663C",
+      botaoRealce: "#D8B877",
+      botaoTextoRealce: "#171512",
+      contador: "#1A1815",
+      contadorBorda: "#1A1815",
+      contadorDigito: "#E3CB9C",
+      contadorApoio: "#CBBFAE",
+    },
   },
 };
 
@@ -205,12 +302,22 @@ export function variaveisDoTema(tema: TemaDaBio): CSSProperties {
     "--bio-acao-realce": p.acaoRealce,
     "--bio-selo": p.selo,
     "--bio-selo-texto": p.seloTexto,
-    "--bio-digito": p.digito,
     "--bio-foto": p.foto,
     "--bio-brilho": p.brilho,
     "--bio-erro": p.erro,
     "--bio-carrinho": p.carrinho,
     "--bio-carrinho-icone": p.carrinhoIcone,
+    "--bio-oferta-fundo": p.oferta.fundo,
+    "--bio-oferta-borda": p.oferta.borda,
+    "--bio-oferta-botao": p.oferta.botao,
+    "--bio-oferta-botao-texto": p.oferta.botaoTexto,
+    "--bio-oferta-botao-borda": p.oferta.botaoBorda,
+    "--bio-oferta-botao-realce": p.oferta.botaoRealce,
+    "--bio-oferta-botao-texto-realce": p.oferta.botaoTextoRealce,
+    "--bio-contador-fundo": p.oferta.contador,
+    "--bio-contador-borda": p.oferta.contadorBorda,
+    "--bio-digito": p.oferta.contadorDigito,
+    "--bio-contador-apoio": p.oferta.contadorApoio,
   } as CSSProperties;
 }
 

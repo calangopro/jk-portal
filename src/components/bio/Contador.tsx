@@ -60,12 +60,12 @@ export function Contador({ ate, rotulo }: { ate: string; rotulo: string }) {
         {caixas.map(([valor, unidade]) => (
           <span
             key={unidade}
-            className="flex min-w-[3.4rem] items-baseline justify-center gap-0.5 rounded-xl border border-[var(--bio-linha)] bg-[var(--bio-superficie-alta)] px-2 py-1.5"
+            className="flex min-w-[3.4rem] items-baseline justify-center gap-0.5 rounded-xl border border-[var(--bio-contador-borda)] bg-[var(--bio-contador-fundo)] px-2 py-1.5"
           >
             <span suppressHydrationWarning className="text-[1.15rem] font-semibold leading-none text-[var(--bio-digito)]">
               {valor}
             </span>
-            <span className="text-[0.68rem] text-[var(--bio-apoio)]">{unidade}</span>
+            <span className="text-[0.68rem] text-[var(--bio-contador-apoio)]">{unidade}</span>
           </span>
         ))}
       </div>
