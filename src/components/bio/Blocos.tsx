@@ -6,6 +6,7 @@ import { fimDoDiaEmSaoPaulo } from "@/lib/bio/agenda";
 import type { BlocoDe, ItemDeLink } from "@/lib/bio/tipos";
 import type { Location } from "@/lib/content/types";
 import { Contador } from "./Contador";
+import { FitaDePresente } from "./Enfeites";
 import { IconeDaRede, IconeDoLink, IconeWhatsapp, nomeDaRede } from "./Icones";
 
 /**
@@ -94,20 +95,24 @@ export function Cabecalho({ nome, frase }: { nome: string; frase: string }) {
 export function BlocoCampanha({
   bloco,
   fimDaCampanha,
+  fita = false,
 }: {
   bloco: BlocoDe<"campanha">;
   /** Último dia da campanha em que o bloco está, para o contador sem data própria. */
   fimDaCampanha: string | null;
+  /** Aniversário: o cartão vira presente, com fita e laço no topo. */
+  fita?: boolean;
 }) {
   const contaAte = bloco.contador ? (bloco.contadorAte ?? fimDaCampanha) : null;
   return (
     <section
       data-regiao={`bio-${bloco.id}`}
-      className="relative overflow-hidden rounded-[24px] border border-[var(--bio-linha-forte)] bg-[color-mix(in_srgb,var(--bio-superficie)_80%,transparent)] px-5 py-6 text-center backdrop-blur-md"
+      className={`relative overflow-hidden rounded-[24px] border border-[var(--bio-oferta-borda)] bg-[var(--bio-oferta-fundo)] px-5 pb-6 text-center ${fita ? "pt-12" : "pt-6"}`}
     >
-      {/* Vidro: nas campanhas de data, o enfeite que passa por trás aparece
-          desfocado, sem cortar o texto. Luz, não fogo: o brilho é um degradê
-          suave atrás do título. */}
+      {/* Cada tema pinta o cartão, o botão e o relógio (`--bio-oferta-*`,
+          `--bio-contador-*` em `temas.ts`). O brilho atrás do título só existe
+          nos temas escuros: luz, não fogo. */}
+      {fita ? <FitaDePresente /> : null}
       <span
         aria-hidden
         className="pointer-events-none absolute inset-x-0 -top-24 mx-auto h-48 w-72 rounded-full bg-[var(--bio-brilho)] blur-3xl"
@@ -129,7 +134,7 @@ export function BlocoCampanha({
           <LinkDaBio
             href={bloco.botao.href}
             destino={bloco.botao.rotulo}
-            className="mt-5 inline-flex min-h-11 items-center justify-center gap-1.5 rounded-full border border-[var(--bio-acento)] px-6 text-[0.85rem] font-semibold text-[var(--bio-texto)] transition-colors hover:bg-[var(--bio-acento)] hover:text-[var(--bio-fundo)]"
+            className="mt-5 inline-flex min-h-11 items-center justify-center gap-1.5 rounded-full border border-[var(--bio-oferta-botao-borda)] bg-[var(--bio-oferta-botao)] px-6 text-[0.85rem] font-semibold text-[var(--bio-oferta-botao-texto)] transition-colors hover:bg-[var(--bio-oferta-botao-realce)] hover:text-[var(--bio-oferta-botao-texto-realce)]"
           >
             {bloco.botao.rotulo}
             <ChevronRight size={16} aria-hidden />

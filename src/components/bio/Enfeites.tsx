@@ -247,26 +247,88 @@ export function Enfeites({ tema }: { tema: TemaDaBio }) {
   );
 }
 
+export type EnfeiteDoCarrinho = "chapeu" | "laco" | "brilho";
+
+/** O enfeite da bolinha do carrinho em cada tema de data. */
+export function enfeiteDoCarrinhoDoTema(tema: TemaDaBio): EnfeiteDoCarrinho | null {
+  if (tema === "natal") return "chapeu";
+  if (tema === "aniversario") return "laco";
+  if (tema === "anonovo") return "brilho";
+  return null;
+}
+
 /**
- * Chapéu de Papai Noel, pequeno, no canto de cima do cartão de produto.
+ * Enfeite em cima da bolinha do carrinho do cartão de produto.
  *
- * Vinho, e não o vermelho de fantasia, para ficar na paleta da marca. Mora
- * FORA do link do cartão, porque o cartão recorta o que sai da borda, e o
- * charme do chapéu é justamente estar pendurado no canto.
+ * Na primeira versão o chapéu de Papai Noel ficava pendurado no canto do
+ * cartão, e a JK pediu no ícone: "ícone branco, com touquinha certinho por
+ * cima". Fica melhor mesmo, porque o enfeite marca justamente o botão de
+ * comprar. O laço (aniversário) e os brilhos (ano novo) seguem a mesma ideia.
+ *
+ * Posição relativa à bolinha, que tem 36 px.
  */
-export function ChapeuDeNatal() {
+export function EnfeiteDoCarrinho({ tipo }: { tipo: EnfeiteDoCarrinho }) {
+  if (tipo === "chapeu") {
+    return (
+      <svg
+        aria-hidden
+        viewBox="0 0 48 40"
+        width={30}
+        height={25}
+        className="pointer-events-none absolute -top-[15px] left-[5px] rotate-[14deg] drop-shadow-[0_2px_2px_rgb(0_0_0/0.3)]"
+      >
+        <path d="M8 31C9 18 18 6 31 5c6-.5 10 3 11 8-4-2-7-2-9 1-3 4-3 10-1 17Z" fill="#9C2A3B" />
+        <path d="M31 5c6-.5 10 3 11 8-4-2-7-2-9 1" fill="none" stroke="#5C1922" strokeWidth={1.2} opacity={0.55} />
+        <rect x="4" y="28" width="32" height="9" rx="4.5" fill="#FFFDF9" />
+        <circle cx="42" cy="14" r="4.5" fill="#FFFDF9" />
+      </svg>
+    );
+  }
+  if (tipo === "laco") {
+    return (
+      <svg
+        aria-hidden
+        viewBox="0 0 32 20"
+        width={26}
+        height={16}
+        className="pointer-events-none absolute -top-[10px] left-1/2 -translate-x-1/2 drop-shadow-[0_2px_2px_rgb(0_0_0/0.3)]"
+      >
+        <path d="M16 10C12 3 4 1 3 5s5 8 13 5Z" fill="#D8B877" stroke="#9B7846" strokeWidth={1} />
+        <path d="M16 10c4-7 12-9 13-5s-5 8-13 5Z" fill="#D8B877" stroke="#9B7846" strokeWidth={1} />
+        <path d="M15 10l-4 9M17 10l4 9" stroke="#BE9B60" strokeWidth={2.2} strokeLinecap="round" />
+        <circle cx="16" cy="10" r="2.6" fill="#BE9B60" stroke="#9B7846" strokeWidth={1} />
+      </svg>
+    );
+  }
   return (
     <svg
       aria-hidden
-      viewBox="0 0 48 40"
-      width={34}
-      height={28}
-      className="pointer-events-none absolute -right-1.5 -top-3 z-10 rotate-[18deg] drop-shadow-[0_3px_3px_rgb(0_0_0/0.25)]"
+      viewBox="0 0 24 24"
+      width={30}
+      height={30}
+      className="pointer-events-none absolute -right-[9px] -top-[11px] drop-shadow-[0_1px_2px_rgb(0_0_0/0.3)]"
     >
-      <path d="M8 31C9 18 18 6 31 5c6-.5 10 3 11 8-4-2-7-2-9 1-3 4-3 10-1 17Z" fill="#7A2230" />
-      <path d="M31 5c6-.5 10 3 11 8-4-2-7-2-9 1" fill="none" stroke="#5C1922" strokeWidth={1.2} opacity={0.5} />
-      <rect x="4" y="28" width="32" height="9" rx="4.5" fill="#FFFDF9" />
-      <circle cx="42" cy="14" r="4.5" fill="#FFFDF9" />
+      <path d="M15 1c.5 4 2 6 7 7-5 1-6.5 3-7 7-.5-4-2-6-7-7 5-1 6.5-3 7-7Z" fill="#FFFDF4" stroke="#9B7846" strokeWidth={0.8} />
+      <path d="M5 1c.3 2.2 1.1 3.3 3.8 3.8-2.7.5-3.5 1.6-3.8 3.8-.3-2.2-1.1-3.3-3.8-3.8 2.7-.5 3.5-1.6 3.8-3.8Z" fill="#E3CB9C" stroke="#9B7846" strokeWidth={0.6} />
     </svg>
+  );
+}
+
+/**
+ * Fita de presente no cartão da oferta do aniversário: faixa vinho no topo e
+ * laço dourado no meio. É o "ícone de presente" que a JK sentiu falta, sem
+ * cortar o texto, que começa abaixo do laço.
+ */
+export function FitaDePresente() {
+  return (
+    <span aria-hidden className="pointer-events-none absolute inset-x-0 top-0 block">
+      <span className="absolute inset-x-0 top-3 block h-2.5 bg-[#7A2230]" />
+      <svg viewBox="0 0 64 40" width={64} height={40} className="absolute left-1/2 top-0 -translate-x-1/2 drop-shadow-[0_2px_3px_rgb(0_0_0/0.25)]">
+        <path d="M32 18C24 5 8 2 7 10s10 14 25 8Z" fill="#D8B877" stroke="#9B7846" strokeWidth={1.2} />
+        <path d="M32 18c8-13 24-16 25-8s-10 14-25 8Z" fill="#D8B877" stroke="#9B7846" strokeWidth={1.2} />
+        <path d="M30 19l-8 18M34 19l8 18" stroke="#BE9B60" strokeWidth={4} strokeLinecap="round" />
+        <circle cx="32" cy="18" r="5" fill="#BE9B60" stroke="#9B7846" strokeWidth={1.2} />
+      </svg>
+    </span>
   );
 }

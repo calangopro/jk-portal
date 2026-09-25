@@ -4,7 +4,7 @@ import type { Location } from "@/lib/content/types";
 import { BlocoCampanha, BlocoLinks, BlocoLojas, Cabecalho, Rodape, TituloDaVitrine } from "./Blocos";
 import { Captura } from "./Captura";
 import { Carrossel } from "./Carrossel";
-import { Enfeites } from "./Enfeites";
+import { Enfeites, enfeiteDoCarrinhoDoTema } from "./Enfeites";
 
 /** Produtos de cada vitrine, pelo id do bloco. */
 export type DadosDaBio = {
@@ -60,7 +60,14 @@ export function CorpoDaBio({
           {blocos.map((bloco) => {
             switch (bloco.tipo) {
               case "campanha":
-                return <BlocoCampanha key={bloco.id} bloco={bloco} fimDaCampanha={versao.fim} />;
+                return (
+                  <BlocoCampanha
+                    key={bloco.id}
+                    bloco={bloco}
+                    fimDaCampanha={versao.fim}
+                    fita={tema === "aniversario"}
+                  />
+                );
               case "captura":
                 return (
                   <section key={bloco.id} data-regiao={`bio-${bloco.id}`}>
@@ -80,7 +87,7 @@ export function CorpoDaBio({
                       produtos={produtos}
                       rotuloComprar={bloco.rotuloComprar}
                       prioridade={bloco.id === primeiraVitrine}
-                      chapeu={tema === "natal"}
+                      enfeite={enfeiteDoCarrinhoDoTema(tema)}
                     />
                   </section>
                 );
