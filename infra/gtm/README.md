@@ -88,8 +88,17 @@ públicos do Instagram e do Facebook, e o Meta não via os contatos com as lojas
 físicas.
 
 **Estado:** publicado em 25/09/2026, 0h12, como versão **25** ("25 - Portal /guias e
-/bio: Meta Pixel (PageView, Contact, FindLocation) (Filipe)"). A conferência
-no ar ainda não foi feita.
+/bio: Meta Pixel (PageView, Contact, FindLocation) (Filipe)"). Conferido no ar
+em 25/09: PageView na bio e no site de dicas, inclusive na troca de página sem
+recarregar; Contact e FindLocation com `content_name` da loja; na loja, nenhum
+evento do Meta saindo pelo GTM.
+
+**Pendente, e é da bio, não do pixel:** a bio nova manda ao GA4
+`instagram / social / link_na_bio`, e o link antigo da página do RD mandava
+`Link da Bio do RD Station / social / CTA no Link da Bio`. A série antiga para
+em 24/09. E os links da bio para a loja vão sem etiqueta, então o pedido na
+Tray chega sem origem. Decisão em aberto no Trello (card "Bio nova sem a UTM
+antiga").
 
 Fica na pasta **"🟡 JK Portal /guias"** do contêiner, a partir de
 `portal-meta.json`:
