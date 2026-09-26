@@ -77,6 +77,8 @@ export function ObjetoReferencia({
 
   const largura = r.medidaMm * pxPorMm;
   const altura = REFERENCIAS.cartao.alturaMm * pxPorMm;
+  // Filete de 2 px na tela, em unidades do viewBox (856 unidades = 85,6 mm).
+  const filete = 20 / pxPorMm;
 
   return (
     <svg
@@ -99,15 +101,20 @@ export function ObjetoReferencia({
       </defs>
 
       <rect width="856" height="540" rx="46" fill="url(#jk-cartao)" />
+      {/* A borda é a medida, então ela precisa aparecer. Era um fio branco de
+          16% num cartão escuro sobre o palco escuro: com o cartão de verdade
+          por cima, a sobra do desenho que passava da borda dele não se via, e
+          era essa sobra que dizia "grande demais". O filete dourado fica todo
+          POR DENTRO da borda, para não somar nada ao tamanho. */}
       <rect
-        x="0.75"
-        y="0.75"
-        width="854.5"
-        height="538.5"
-        rx="45"
+        x={filete / 2}
+        y={filete / 2}
+        width={856 - filete}
+        height={540 - filete}
+        rx={46 - filete / 2}
         fill="none"
-        stroke="rgb(255 255 255 / 0.16)"
-        strokeWidth="1.5"
+        stroke="#e2c894"
+        strokeWidth={filete}
       />
 
       {/* Chip */}

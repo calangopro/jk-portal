@@ -200,8 +200,29 @@ docs/                identidade-visual-jk.md (marca)
 - **Área que rola enquanto o desenho cresce anda sozinha debaixo da mão.** Na
   calibração, cada toque no controle recalculava a rolagem e a tela fugia com o
   objeto real encostado nela. Desenho que a pessoa vai medir se prende por
-  âncora absoluta, e o que não couber muda de orientação, em vez de ganhar
-  barra de rolagem.
+  âncora absoluta, centrado, e o que não couber é cortado igual dos dois
+  lados, em vez de ganhar barra de rolagem.
+- **Cartão de calibração é SEMPRE deitado.** O código escolhia a orientação
+  pelo palco e no celular dava sempre em pé, com os 85,6 mm na altura. Pela
+  conta com o layout antigo, num iPhone de 393×660 (Safari com a barra aberta)
+  o controle parava em 4,4 px/mm, abaixo dos cerca de 6 reais: não dava para
+  calibrar com cartão no iPhone, e segurar cartão em pé em cima do celular
+  ainda é estranho. Deitado, ele passa das laterais e a pessoa alinha as bordas
+  de cima e de baixo (53,98 mm). Medido na tela depois da troca: 393×660 chega a
+  7,97 px/mm e 375×553 (iPhone SE) a 6,58, contra 6,42 que ele pede. Para o SE
+  caber foi preciso folga de 6 px no desenho e controles mais baixos em tela de
+  até 600 px de altura. No computador o par que vale continua sendo o dos lados.
+- **Zoom no medidor se trava em quatro camadas, e só com o modal aberto.** Os
+  dedos que seguram o cartão em cima do celular viravam pinça e toque duplo, e
+  o navegador ampliava a tela no meio da calibração. Nenhuma trava sozinha vale
+  para iPhone e Android, então `useTelaSemZoom` (`components/medidor/`) junta
+  `touch-action: none` no modal, meta viewport com `maximum-scale=1` (o Chrome
+  do Android obedece e ainda desfaz zoom anterior, o Safari ignora),
+  `gesturestart` cancelado (é a pinça do Safari) e um vigia do
+  `visualViewport`. Se a tela estiver ampliada mesmo assim, o modal avisa,
+  trava os botões de confirmar e LIBERA a pinça, senão quem entrou com zoom
+  ficaria preso nele. As travas foram conferidas por evento sintético no
+  Chrome; o gesto de verdade no iPhone só se confere no aparelho.
 - **Desenho que a pessoa ajusta não pode dividir altura com painel de texto.**
   No modo de medição, o painel de resultado ficava no fluxo e crescia quando o
   aviso de "entre dois tamanhos" aparecia. O palco era `flex-1`, então encolhia,
@@ -532,8 +553,8 @@ tem duas bordas, então ninguém sabia qual encostar. Virou **disco cheio**
 o escuro em volta sumir. A instrução (`ComoApoiar.tsx`) mostra os três estados
 desenhados e **flutua sobre o palco**, aberta na primeira vez e recolhida
 sozinha no primeiro arrasto. A calibração não rola mais: o objeto é posicionado
-por absoluto, preso ao mesmo eixo do título, e o cartão entra **em pé** (medido
-pelos 53,98 mm do padrão ID-1) quando os 85,6 mm não cabem na tela.
+por absoluto, centrado no palco. Desde 25/09 o cartão entra **sempre deitado**,
+e no celular a pessoa alinha as bordas de cima e de baixo (ver Armadilhas).
 
 ✅ **Simulador de largura em ilustração de traço (14/08):** o desenho passou por
 quatro versões descartadas (faixa sobre retângulo, dedo sozinho, três dedos com
