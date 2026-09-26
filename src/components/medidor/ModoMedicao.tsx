@@ -15,6 +15,7 @@ import {
 import { Disco } from "./Disco";
 import { ComoApoiar } from "./ComoApoiar";
 import { ObjetoReferencia } from "./ObjetoReferencia";
+import { useTelaSemZoom, type Visor } from "./useTelaSemZoom";
 import {
   REFERENCIAS,
   type ReferenciaId,
@@ -83,6 +84,11 @@ export function ModoMedicao({
   const painel = useRef<HTMLDivElement>(null);
   const palco = useRef<HTMLDivElement>(null);
   const fechar = useRef<HTMLButtonElement>(null);
+
+  // Com zoom, o desenho deixa de ter o tamanho que a conta acha que ele tem.
+  // Enquanto a tela estiver ampliada, nada de calibrar nem de guardar medida.
+  const zoom = useTelaSemZoom();
+  const ampliado = zoom != null;
 
   const aro = aroRecomendado(diametroMm);
   const exato = aroExatoPorDiametro(diametroMm);
@@ -157,7 +163,8 @@ export function ModoMedicao({
   );
 
   const aoDescer = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (!pxPorMm) return;
+    // Com a tela ampliada a pinça é do navegador, para a pessoa sair do zoom.
+    if (!pxPorMm || ampliado) return;
     try {
       e.currentTarget.setPointerCapture(e.pointerId);
     } catch {
@@ -216,53 +223,66 @@ export function ModoMedicao({
   /* --------------------------------------------- orientação do cartão */
 
   /**
-   * A orientação sai do TAMANHO DO PALCO, e só dele.
+   * O cartão fica SEMPRE deitado, na horizontal, como se entra com ele na
+   * maquininha.
    *
-   * Antes ela saía da escala atual: o cartão era preso pela borda esquerda,
-   * crescia só para a direita e, quando não cabia mais, GIRAVA 90 graus no meio
-   * do ajuste e trocava a referência de 85,6 mm para os 53,98 mm. Quem estava
-   * com o cartão de verdade encostado na tela via o desenho fugir para fora e
-   * depois virar de lado sozinho. Eram dois defeitos no mesmo gesto.
+   * Antes a orientação era escolhida pelo tamanho do palco, e no celular ela
+   * saía sempre em pé, para os 85,6 mm caberem na altura. Parecia a escolha
+   * precisa e não era a que funciona: em pé o desenho precisa de 85,6 mm de
+   * altura LIVRE, e num iPhone com a barra do Safari aberta, descontados o
+   * cabeçalho e os controles, sobram uns 400 px para os cerca de 520 que o
+   * cartão ocupa ali. O controle acabava antes do tamanho real, e ainda por
+   * cima segurar o cartão em pé sobre o celular é estranho.
    *
-   * Agora escolhemos de uma vez a orientação que permite o desenho CHEGAR MAIOR
-   * dentro deste palco, comparando as duas possibilidades:
+   * Deitado, o cartão passa das laterais do celular, e tudo bem: quem calibra
+   * alinha as bordas de cima e de baixo, que são os 53,98 mm do padrão ID-1 e
+   * cabem com folga. Perde-se um pouco de precisão em relação à borda longa,
+   * mas pouco: um pixel de erro em 53,98 mm, a uns 6 px por mm, dá 0,3%, que no
+   * aro vira menos de 0,2 mm de circunferência, e um aro tem 1 mm.
    *
-   *   deitado: precisa de 85,6 mm na largura e 53,98 mm na altura
-   *   em pé:   precisa de 53,98 mm na largura e 85,6 mm na altura
+   * Qual PAR de bordas vale sai do tamanho do palco, e só dele:
    *
-   * Em tela de computador, larga, ganha o deitado. Em celular, alto e estreito,
-   * ganha o em pé. É o que a intuição já dizia, mas derivado da medida em vez
-   * de um ponto de corte arbitrário de largura.
+   *   pelos lados:     a escala máxima é largura / 85,6
+   *   por cima e baixo: a escala máxima é altura / 53,98
    *
-   * Duas consequências boas. A referência passa a ser SEMPRE a borda de
-   * 85,6 mm, nos dois casos, que é a medida longa e portanto a mais precisa:
-   * errar um pixel numa borda de 85,6 mm custa menos que na de 53,98 mm. E como
-   * isto não depende de `rascunho`, nada gira enquanto a pessoa ajusta.
+   * Fica o par que deixa o desenho chegar maior. No celular em pé ganha a
+   * altura; no computador, largo, ganham os lados. Como não depende de
+   * `rascunho`, nada troca enquanto a pessoa ajusta.
    */
   const areaCalibragem = useRef<HTMLDivElement>(null);
+  const instrucao = useRef<HTMLDivElement>(null);
   const [areaPalco, setAreaPalco] = useState({ largura: 0, altura: 0 });
+  const [alturaInstrucao, setAlturaInstrucao] = useState(0);
+  // Depois do primeiro ajuste a instrução já foi lida, e ela sai da frente
+  // sempre que o desenho crescer até embaixo dela.
+  const [ajustou, setAjustou] = useState(false);
 
   useEffect(() => {
     const el = areaCalibragem.current;
     if (!el) return;
-    const medir = (w: number, h: number) => setAreaPalco({ largura: w, altura: h });
-    medir(el.clientWidth, el.clientHeight);
-    const observador = new ResizeObserver(([entrada]) =>
-      medir(entrada.contentRect.width, entrada.contentRect.height),
-    );
+    const texto = instrucao.current;
+    const medir = () => {
+      setAreaPalco({ largura: el.clientWidth, altura: el.clientHeight });
+      setAlturaInstrucao(texto?.offsetHeight ?? 0);
+    };
+    medir();
+    const observador = new ResizeObserver(medir);
     observador.observe(el);
+    if (texto) observador.observe(texto);
     return () => observador.disconnect();
   }, [etapa]);
 
   /** Folga para o desenho não morder a borda do palco. Pequena de propósito:
       cada pixel aqui é pixel a menos de escala máxima, e é a escala máxima que
-      decide se a pessoa CONSEGUE calibrar nesta tela. */
-  const FOLGA = 12;
+      decide se a pessoa CONSEGUE calibrar nesta tela. Com 12 px, o iPhone SE
+      (553 px de altura livre no Safari) parava em 5,98 px/mm, e o cartão dele
+      pede 6,42. */
+  const FOLGA = 6;
 
-  const { deitado, escalaMax } = useMemo(() => {
+  const { pelaAltura, escalaMax } = useMemo(() => {
     const larg = Math.max(0, areaPalco.largura - FOLGA * 2);
     const alt = Math.max(0, areaPalco.altura - FOLGA * 2);
-    if (!larg || !alt) return { deitado: true, escalaMax: PX_POR_MM_MAX };
+    if (!larg || !alt) return { pelaAltura: false, escalaMax: PX_POR_MM_MAX };
 
     /**
      * O teto sai da BORDA QUE SE ALINHA, e só dela.
@@ -273,10 +293,10 @@ export function ModoMedicao({
      * cerca de 5,0 de um MacBook: a pessoa chegava ao fim do controle com o
      * desenho ainda menor que o cartão de verdade, e não tinha o que fazer.
      *
-     * O erro era exigir que a dimensão que NINGUÉM usa também coubesse. Para
-     * calibrar você encosta o cartão e alinha as duas bordas de 85,6 mm. Se o
-     * topo e a base saírem cortados, não muda nada: as bordas que importam
-     * continuam na tela, porque é exatamente a largura que estamos limitando.
+     * O erro era exigir que a dimensão que NINGUÉM usa também coubesse. Basta
+     * um par de bordas opostas na tela. Se o outro par sair cortado, não muda
+     * nada, e é exatamente o que acontece no celular, onde o cartão deitado
+     * passa das laterais.
      *
      * Cortar ficou barato depois que o desenho passou a ser CENTRADO: ele apara
      * igual dos dois lados, em vez de fugir para um canto, que era o defeito
@@ -286,22 +306,28 @@ export function ModoMedicao({
     if (refEscolhida === "moeda") {
       // Na moeda a medida é o diâmetro, alinhado na horizontal.
       return {
-        deitado: true,
+        pelaAltura: false,
         escalaMax: Math.min(PX_POR_MM_MAX, larg / REFERENCIAS.moeda.medidaMm),
       };
     }
 
-    // Deitado alinha os 85,6 mm na largura; em pé, na altura. Fica o que
-    // permite o desenho chegar maior, e a decisão continua saindo só do
-    // tamanho do palco, então nada gira no meio do ajuste.
-    const sDeitado = larg / c.medidaMm;
-    const sEmPe = alt / c.medidaMm;
-    const escolhido = sDeitado >= sEmPe;
+    const sLados = larg / c.medidaMm;
+    const sTopo = alt / c.alturaMm;
     return {
-      deitado: escolhido,
-      escalaMax: Math.min(PX_POR_MM_MAX, escolhido ? sDeitado : sEmPe),
+      pelaAltura: sTopo > sLados,
+      escalaMax: Math.min(PX_POR_MM_MAX, Math.max(sLados, sTopo)),
     };
   }, [areaPalco, refEscolhida]);
+
+  // A instrução flutua sobre o palco, para ele ficar com a altura inteira. Ela
+  // aparece enquanto a pessoa não mexeu em nada e depois só quando a borda de
+  // cima do desenho fica abaixo dela: é a borda que se compara, e texto em
+  // cima dela esconderia justamente a medida.
+  const alturaDesenho =
+    rascunho *
+    (refEscolhida === "moeda" ? REFERENCIAS.moeda.medidaMm : REFERENCIAS.cartao.alturaMm);
+  const bordaDeCima = (areaPalco.altura - alturaDesenho) / 2;
+  const mostrarInstrucao = !ajustou || bordaDeCima >= alturaInstrucao;
 
   /**
    * O limite superior do controle acompanha o que CABE no palco.
@@ -318,6 +344,11 @@ export function ModoMedicao({
     setRascunho((v) => (v > escalaTeto ? escalaTeto : v));
   }, [escalaTeto]);
 
+  const ajustarEscala = (valor: number) => {
+    setAjustou(true);
+    setRascunho(limitar(+valor.toFixed(3), PX_POR_MM_MIN, escalaTeto));
+  };
+
   /* ------------------------------------------------------------ etapas */
 
   const passo = etapa === "escolha" ? 1 : etapa === "calibrar" ? 2 : 3;
@@ -329,11 +360,21 @@ export function ModoMedicao({
       aria-label="Modo de medição do aro"
       // h-dvh em vez de inset-0: em celular a barra do navegador entra e sai, e
       // com bottom:0 o painel de controle fica escondido atrás dela.
-      className="palco-noite fixed inset-x-0 top-0 z-[100] flex h-dvh flex-col overflow-hidden overscroll-contain"
+      //
+      // `touch-none` é a primeira trava do zoom (ver `useTelaSemZoom`): dedo
+      // segurando cartão ou aliança não vira pinça nem toque duplo. Botão e
+      // controle deslizante continuam respondendo, porque isso só corta o que
+      // o NAVEGADOR faz com o toque. Sem seleção de texto e sem o menu do
+      // toque longo pelo mesmo motivo: o dedo fica parado na tela.
+      className={`palco-noite fixed inset-x-0 top-0 z-[100] flex h-dvh select-none flex-col overflow-hidden overscroll-contain [-webkit-touch-callout:none] ${
+        ampliado ? "touch-pinch-zoom" : "touch-none"
+      }`}
     >
+      {zoom ? <AvisoDeZoom visor={zoom} /> : null}
+
       <div ref={painel} className="flex h-full flex-col">
         {/* Barra superior */}
-        <div className="flex shrink-0 items-center justify-between gap-4 border-b border-white/10 px-4 py-3 sm:px-6">
+        <div className="flex shrink-0 items-center justify-between gap-4 border-b border-white/10 px-4 py-2 sm:px-6 sm:py-3">
           <div className="flex items-center gap-3">
             {etapa !== "escolha" ? (
               <button
@@ -361,7 +402,14 @@ export function ModoMedicao({
 
         {/* ------------------------------------------------ 1. escolha */}
         {etapa === "escolha" ? (
-          <div key="escolha" className="etapa flex flex-1 flex-col justify-center overflow-y-auto px-5 py-8 sm:px-8">
+          <div
+            key="escolha"
+            // A única etapa que rola. `pan-y` libera só o arrasto vertical, e
+            // a pinça continua travada.
+            className={`etapa flex flex-1 flex-col justify-center overflow-y-auto px-5 py-8 touch-pan-y sm:px-8 ${
+              ampliado ? "touch-pinch-zoom" : ""
+            }`}
+          >
             <div className="mx-auto w-full max-w-2xl">
               <h2 className="font-display text-titulo-secao text-[#f6efe4]">
                 Escolha um objeto para calibrar a tela
@@ -383,6 +431,7 @@ export function ModoMedicao({
                       onClick={() => {
                         setRefEscolhida(id);
                         setRascunho(pxPorMm ?? 3.8);
+                        setAjustou(false);
                         setEtapa("calibrar");
                       }}
                       className="glass-escuro group rounded-lg p-5 text-left transition-colors hover:border-brand/60 hover:bg-white/[0.09]"
@@ -407,24 +456,27 @@ export function ModoMedicao({
         {/* ---------------------------------------------- 2. calibrar */}
         {etapa === "calibrar" ? (
           <div key="calibrar" className="etapa relative flex flex-1 flex-col overflow-hidden">
-            {/* Véu atrás do texto. Ele flutua sobre o desenho para o palco
-                ficar com a altura inteira, e sem o véu a frase some quando cai
-                em cima do cartão claro. O gradiente morre antes do meio da
-                tela, então a BORDA do desenho, que é o que se compara, nunca
-                fica escurecida. */}
+            {/* Instrução com véu atrás, flutuando sobre o desenho para o palco
+                ficar com a altura inteira: no celular é essa altura que decide
+                se o cartão deitado chega ao tamanho real. O véu é o fundo do
+                PRÓPRIO bloco, então ele acaba junto com o texto, e o bloco sai
+                da frente quando a borda de cima do desenho sobe até ele. */}
             <div
-              aria-hidden
-              className="pointer-events-none absolute inset-x-0 top-0 z-[9] h-40 bg-gradient-to-b from-[#12100e] via-[#12100e]/85 to-transparent"
-            />
-            <div className="pointer-events-none absolute inset-x-0 top-0 z-10 mx-auto w-full max-w-3xl px-5 pt-5 text-center sm:px-8">
+              ref={instrucao}
+              className={`pointer-events-none absolute inset-x-0 top-0 z-10 bg-gradient-to-b from-[#12100e] via-[#12100e]/90 to-transparent px-5 pb-6 pt-4 text-center transition-opacity duration-300 sm:px-8 sm:pt-5 ${
+                mostrarInstrucao ? "opacity-100" : "opacity-0"
+              }`}
+            >
               <h2 className="font-display text-titulo-bloco text-[#f6efe4]">
                 Deixe o desenho do tamanho{" "}
                 {refEscolhida === "moeda" ? "da moeda" : "do cartão"}
               </h2>
-              <p className="mx-auto mt-2 max-w-md text-apoio leading-relaxed text-[#f3ece1]/65">
+              <p className="mx-auto mt-1.5 max-w-md text-apoio leading-relaxed text-[#f3ece1]/70">
                 {refEscolhida === "moeda"
                   ? "Ponha a moeda em cima do desenho e ajuste até ela cobrir o dourado."
-                  : "Ponha o cartão em cima do desenho e ajuste até as bordas baterem."}
+                  : pelaAltura
+                    ? "Ponha o cartão na horizontal em cima do desenho e ajuste até as bordas de cima e de baixo baterem. Ele pode passar dos lados da tela."
+                    : "Ponha o cartão na horizontal em cima do desenho e ajuste até as bordas baterem."}
               </p>
             </div>
 
@@ -440,26 +492,23 @@ export function ModoMedicao({
                 andar sozinha debaixo da mão com o objeto encostado nela. */}
             <div className="relative flex-1 overflow-hidden">
               <div ref={areaCalibragem} className="relative h-full w-full">
-                <div
-                  className="absolute left-1/2 top-1/2"
-                  style={{
-                    // O giro é em torno do CENTRO, então virar o cartão em pé
-                    // não tira ele do meio da tela.
-                    transform: `translate(-50%, -50%) rotate(${deitado ? 0 : 90}deg)`,
-                  }}
-                >
+                <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
                   <ObjetoReferencia id={refEscolhida} pxPorMm={rascunho} />
                 </div>
               </div>
             </div>
 
-            <div className="shrink-0 border-t border-white/10 px-5 py-5 sm:px-8">
+            {/* Controles enxutos no celular: cada pixel de altura que eles
+                ocupam é pixel a menos para o cartão deitado. A linha "Escala
+                atual: 5,12 px por mm" saiu por isso, e porque ninguém fora do
+                código sabe o que fazer com esse número. Ele continua no
+                `aria-valuetext` do controle. Em tela baixa (iPhone SE e
+                parecidos) aperta mais um pouco, e é o que faz o cartão caber. */}
+            <div className="shrink-0 border-t border-white/10 px-5 py-4 sm:px-8 sm:py-5 [@media(max-height:600px)]:py-3">
               <div className="mx-auto max-w-md">
                 <div className="flex items-center gap-3">
                   <BotaoFino
-                    aoClicar={() =>
-                      setRascunho((v) => limitar(+(v - 0.02).toFixed(3), PX_POR_MM_MIN, escalaTeto))
-                    }
+                    aoClicar={() => ajustarEscala(rascunho - 0.02)}
                     rotulo="Diminuir o desenho"
                   >
                     <Minus size={16} />
@@ -471,33 +520,28 @@ export function ModoMedicao({
                     max={escalaTeto}
                     step={0.01}
                     value={rascunho}
-                    onChange={(e) => setRascunho(Number(e.target.value))}
+                    onChange={(e) => ajustarEscala(Number(e.target.value))}
                     aria-label="Tamanho do desenho na tela"
                     aria-valuetext={`${mm(rascunho)} pixels por milímetro`}
                     className="jk-slider flex-1"
                   />
 
                   <BotaoFino
-                    aoClicar={() =>
-                      setRascunho((v) => limitar(+(v + 0.02).toFixed(3), PX_POR_MM_MIN, escalaTeto))
-                    }
+                    aoClicar={() => ajustarEscala(rascunho + 0.02)}
                     rotulo="Aumentar o desenho"
                   >
                     <Plus size={16} />
                   </BotaoFino>
                 </div>
 
-                <p className="numeros mt-3 text-center text-nota text-[#f3ece1]/60">
-                  Escala atual: {mm(rascunho)} px por mm
-                </p>
-
                 <button
                   type="button"
+                  disabled={ampliado}
                   onClick={() => {
                     aoDefinirCalibragem(rascunho, refEscolhida);
                     setEtapa("medir");
                   }}
-                  className="mt-4 flex min-h-13 w-full items-center justify-center gap-2 rounded-full bg-brand px-7 text-apoio font-semibold text-ink transition-colors hover:bg-brand-light"
+                  className="mt-3 flex min-h-13 w-full items-center justify-center gap-2 rounded-full bg-brand px-7 text-apoio font-semibold text-ink transition-colors hover:bg-brand-light disabled:cursor-not-allowed disabled:opacity-50 sm:mt-4 [@media(max-height:600px)]:mt-2 [@media(max-height:600px)]:min-h-12"
                 >
                   <Check size={16} aria-hidden /> Está do tamanho certo
                 </button>
@@ -525,7 +569,7 @@ export function ModoMedicao({
               onPointerMove={aoMover}
               onPointerUp={aoSubir}
               onPointerCancel={aoSubir}
-              className={`absolute inset-0 touch-none ${
+              className={`absolute inset-0 ${ampliado ? "touch-pinch-zoom" : "touch-none"} ${
                 arrastando ? "cursor-grabbing" : "cursor-grab"
               }`}
             >
@@ -642,8 +686,9 @@ export function ModoMedicao({
 
                 <button
                   type="button"
+                  disabled={ampliado}
                   onClick={aoFechar}
-                  className="mt-4 flex min-h-13 w-full items-center justify-center gap-2 rounded-full bg-brand px-7 text-apoio font-semibold text-ink transition-colors hover:bg-brand-light"
+                  className="mt-4 flex min-h-13 w-full items-center justify-center gap-2 rounded-full bg-brand px-7 text-apoio font-semibold text-ink transition-colors hover:bg-brand-light disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <Check size={16} aria-hidden /> Guardar aro {aro}
                 </button>
@@ -651,6 +696,36 @@ export function ModoMedicao({
             </div>
           </div>
         ) : null}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Aviso de tela ampliada, preso ao pedaço da página que está NA TELA.
+ *
+ * Com zoom, o modal continua do tamanho da página e a pessoa só enxerga uma
+ * parte dele, então um aviso preso ao topo do modal podia cair fora da vista.
+ * Este segue o `visualViewport`: vai para o canto do que está visível e é
+ * reduzido na mesma proporção do zoom, para a letra sair do tamanho normal.
+ */
+function AvisoDeZoom({ visor }: { visor: Visor }) {
+  return (
+    <div
+      role="alert"
+      className="fixed left-0 top-0 z-30 p-3"
+      style={{
+        width: visor.largura * visor.escala,
+        transform: `translate(${visor.x}px, ${visor.y}px) scale(${1 / visor.escala})`,
+        transformOrigin: "0 0",
+      }}
+    >
+      <div className="mx-auto max-w-md rounded-md border border-brand/40 bg-[#1d1813] p-4 shadow-[var(--jk-sombra-modal)]">
+        <p className="text-apoio font-semibold text-[#f6efe4]">A tela está com zoom</p>
+        <p className="mt-1 text-apoio leading-relaxed text-[#f3ece1]/80">
+          Junte dois dedos na tela até ela voltar ao tamanho normal. Com zoom, o
+          desenho não mostra o tamanho real e a medida sai errada.
+        </p>
       </div>
     </div>
   );
@@ -670,7 +745,7 @@ function BotaoFino({
       type="button"
       onClick={aoClicar}
       aria-label={rotulo}
-      className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-white/20 bg-white/5 text-[#f3ece1] transition-all hover:border-brand hover:bg-brand/20 active:scale-95"
+      className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-white/20 bg-white/5 text-[#f3ece1] transition-all hover:border-brand hover:bg-brand/20 active:scale-95 [@media(max-height:600px)]:h-11 [@media(max-height:600px)]:w-11"
     >
       {children}
     </button>
