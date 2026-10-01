@@ -9,7 +9,7 @@ import { paginaDoGrupoNoDia } from "@/lib/grupo/montar";
 import { normalizarGrupo } from "@/lib/grupo/tipos";
 import { lerChaves } from "@/lib/leads/chaves";
 import { legivel } from "@/lib/leads/telefone";
-import { DESTINOS, NOMES_DOS_DESTINOS, type Destino, type Lead } from "@/lib/leads/tipos";
+import { DESTINOS, NOMES_DAS_PORTAS, NOMES_DOS_DESTINOS, type Destino, type Lead } from "@/lib/leads/tipos";
 import { quandoLegivel } from "@/lib/content/agenda";
 import { hojeEmSaoPaulo } from "@/lib/tray/preco";
 import { SITE } from "@/lib/seo/site";
@@ -101,8 +101,8 @@ export default async function GrupoPage({ searchParams }: { searchParams: Promis
         <p className="eyebrow">Site</p>
         <h1 className="font-display mt-2 text-4xl text-ink">Grupo de ofertas</h1>
         <p className="mt-3 max-w-2xl text-muted">
-          A página do anúncio (jkaliancas.com.br/grupo), o link fixo do grupo e todo mundo que deixou o contato, pela
-          página ou pelo link da bio.
+          A página do anúncio (jkaliancas.com.br/grupo), o link fixo do grupo e todo mundo que deixou o contato: pela
+          página, pelo link da bio ou pelo pop-up da loja.
         </p>
       </header>
 
@@ -203,7 +203,8 @@ export default async function GrupoPage({ searchParams }: { searchParams: Promis
                       <td className="whitespace-nowrap px-4 py-3 text-xs text-muted">
                         {quandoLegivel(l.criado_em)}
                         <span className="mt-0.5 block">
-                          {l.origem === "grupo" ? "página /grupo" : "link da bio"}
+                          {NOMES_DAS_PORTAS[l.origem] ?? l.origem}
+                          {l.posicao ? ` (${l.posicao})` : ""}
                           {l.campanha ? `, ${l.campanha}` : ""}
                         </span>
                       </td>

@@ -5,7 +5,8 @@ import { EMAIL_VALIDO, comPais, soDigitos, telefoneValido } from "@/lib/leads/te
 import { esquemaDoEnvio, type Lead } from "@/lib/leads/tipos";
 
 /**
- * Recebe o formulário do grupo de ofertas (folha da bio e página /grupo).
+ * Recebe o formulário do grupo de ofertas: a folha da bio, a página /grupo e o
+ * pop-up do tema Esquenta da loja (que chama este endereço pelo mesmo domínio).
  *
  * Grava primeiro e repassa depois. A pessoa recebe a resposta assim que o
  * contato está no banco, e só então o portal fala com Kommo, RD, webhook e
@@ -75,6 +76,7 @@ export async function POST(request: Request) {
   const linha = {
     origem: e.origem,
     campanha: e.campanha,
+    posicao: e.posicao || null,
     nome: e.nome,
     whatsapp: comPais(local),
     email: e.email ? e.email.toLowerCase() : null,
