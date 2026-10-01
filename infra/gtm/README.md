@@ -217,3 +217,67 @@ Duas formas, e a primeira é mais simples:
 
 Nos dois casos, marcar a ação como **secundária**. Como principal, ela passaria
 a orientar os lances das campanhas de venda com clique de WhatsApp.
+
+## Grupo de ofertas: página /grupo e Lead do Meta
+
+**Estado em 01/10/2026: preparado, NÃO publicado.** O portal já manda tudo que
+o GTM precisa; faltam as duas mudanças abaixo no contêiner, que seguem as
+regras da casa (uma por versão, Visualizar, cartão no RELATÓRIO DE MUDANÇAS).
+
+O que o portal já faz, sem GTM:
+
+- `jkaliancas.com.br/grupo` é a página do anúncio, servida pelo Worker como a
+  bio. O formulário manda ao `dataLayer` os mesmos eventos da bio, com
+  `jk_origem: "grupo"`: `jk_captura_aberta` (visita à página),
+  `jk_captura_enviada` (cadastro, com `jk_event_id`) e `jk_grupo_clique`.
+- O GA4 recebe `generate_lead` com `lead_source` = `bio` ou `grupo`.
+- O servidor manda o MESMO Lead para a API de Conversões do Meta, com o mesmo
+  `event_id`, assim que o token for colado em Integrações. O Meta junta o do
+  navegador e o do servidor e conta um.
+
+### Mudança 1: PageView do Meta na página do grupo
+
+Sem ela, **o pixel não carrega em /grupo**, que é justamente a página do
+anúncio: o acionador hoje só aceita `/guias` e `/bio`.
+
+Acionador **JK Portal - Páginas /guias e /bio**: trocar a regex de
+`^/(guias|bio)(/|$)` para `^/(guias|bio|grupo)(/|$)` e renomear para
+"JK Portal - Páginas /guias, /bio e /grupo". A Tray não serve nada em
+`/grupo*` (a rota inteira é do Worker, conferido em 01/10).
+
+### Mudança 2: Lead do Meta pelo navegador
+
+Importar `portal-grupo.json` com **Combinar** (nunca Substituir). Entram só
+itens novos, na pasta "🟡 JK Portal /guias":
+
+| Tipo | Nome | O que faz |
+|---|---|---|
+| Variável | JK Portal - event_id | `jk_event_id` do `dataLayer`, o id que o servidor também manda |
+| Variável | JK Portal - origem do lead | `jk_origem` (`bio` ou `grupo`) |
+| Acionador | JK Portal - Lead do grupo de ofertas | `jk_captura_enviada`, só com `Page Path` em `/guias`, `/bio` ou `/grupo` |
+| Tag | JK Portal - Meta Lead (grupo de ofertas) | Evento padrão **Lead**, ID do evento = `{{JK Portal - event_id}}` |
+
+**O ID do evento é o que impede Lead em dobro.** Sem ele, o Lead do navegador
+e o do servidor contam como dois.
+
+O acionador fica fora das páginas da loja de propósito: o pop-up do tema da
+loja manda o MESMO `jk_captura_enviada`, mas lá não há Lead pelo servidor nem
+`jk_event_id`, e a tag de Lead da loja segue como decisão própria (seção do
+Meta Pixel, "Lead da captura").
+
+### Para o gestor de tráfego
+
+- **Link do anúncio:** `https://www.jkaliancas.com.br/grupo`, com os
+  parâmetros de URL de sempre
+  (`utm_source=instagram&utm_medium=paid_social&utm_campaign={{campaign.name}}&utm_content={{ad.name}}`).
+  O link não muda quando o grupo enche: troca-se o destino em `/admin/grupo`.
+- **Evento de otimização:** Lead (Cadastro). Ele só aparece no Gerenciador de
+  Eventos depois do primeiro cadastro com a mudança 2 publicada, ou com o
+  token da API de Conversões salvo.
+- **Públicos:** "visitou /grupo e não fez Lead" (URL contém `/grupo`, excluindo
+  o evento Lead) é quem teve interesse e não se cadastrou. Quem se cadastrou e
+  não foi ao grupo sai da planilha em `/admin/grupo` (filtro "Não foi ao
+  grupo"), para subir como público de clientes.
+- **Para conferir o servidor:** salve um código de teste no cartão do Meta em
+  Integrações, faça um cadastro e veja em Eventos de teste. Apague o código
+  depois, senão o Meta não usa o evento na campanha.

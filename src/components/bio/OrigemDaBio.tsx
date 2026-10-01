@@ -30,6 +30,10 @@
  * o anúncio continua precisando dos parâmetros do gerenciador. É a única
  * etiqueta que sobra, e ela mora no anúncio, não na bio.
  *
+ * Na página /grupo vale o mesmo, com duas diferenças: o anúncio leva direto
+ * para lá (não "passou pela bio"), então o `utm_term` do anúncio fica intacto;
+ * e a visita sem etiqueta vira `utm_campaign=grupo_de_ofertas`.
+ *
  * Roda como script comum no HTML, antes de qualquer coisa do React, para o
  * resultado já existir quando o GA4 carregar. Guarda em `window.jkOrigemDaBio`,
  * que a captura do grupo usa para gravar a origem junto do contato.
@@ -46,9 +50,10 @@ else if(/FBAN|FBAV|FB_IAB|FB4A|FBIOS/.test(ua)||/(^|\\.)(facebook\\.com|fb\\.com
 else if(/Pinterest/i.test(ua)||/(^|\\.)pinterest\\./.test(h)||h==="pin.it")r="pinterest";
 else if(/(^|\\.)(youtube\\.com|youtu\\.be)$/.test(h))r="youtube";
 var o=(q.get("o")||"").toLowerCase().replace(/[^a-z0-9_-]/g,"").slice(0,30);
+var g=/^\\/(guias\\/)?grupo(\\/|$)/.test(location.pathname);
 var mudou=false;
-if(u.utm_source){if(!u.utm_term){u.utm_term="bio";mudou=true}}
-else if(o||r){u.utm_source=o||r;u.utm_medium="social";u.utm_campaign="link_na_bio";mudou=true}
+if(u.utm_source){if(!u.utm_term&&!g){u.utm_term="bio";mudou=true}}
+else if(o||r){u.utm_source=o||r;u.utm_medium="social";u.utm_campaign=g?"grupo_de_ofertas":"link_na_bio";mudou=true}
 var m=u.utm_medium||"";
 window.jkOrigemDaBio={rede:o||r,utm:u,pago:!!q.get("gclid")||/(cpc|ppc|paid|ads)/i.test(m)};
 if(mudou){var l=new URL(location.href);l.searchParams.delete("o");Object.keys(u).forEach(function(k){l.searchParams.set(k,u[k])});window.jkPaginaComOrigem=l.toString()}

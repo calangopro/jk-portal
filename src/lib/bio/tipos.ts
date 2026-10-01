@@ -75,7 +75,12 @@ const blocoCaptura = z.object({
   nota: z.string().default(""),
   sucessoTitulo: z.string().min(1),
   sucessoTexto: z.string().default(""),
-  /** Convite do grupo no WhatsApp. Vazio, o sucesso não mostra botão. */
+  /**
+   * Para onde o botão do grupo leva. O normal é o link fixo do portal
+   * (jkaliancas.com.br/grupo/entrar), que leva ao convite salvo em "Grupo de
+   * ofertas" no painel e grava o clique no contato. Vazio, o sucesso não
+   * mostra botão.
+   */
   grupoLink: z.string().default(""),
   grupoRotulo: z.string().default("Entrar no grupo do WhatsApp"),
   /** "nao" esconde, "opcional" pede sem obrigar, "obrigatorio" exige. */
@@ -246,7 +251,9 @@ function captura(): BlocoDe<"captura"> {
     nota: "Para sair, é só responder SAIR. Seu contato fica só com a JK Alianças.",
     sucessoTitulo: "Pronto! Falta um toque.",
     sucessoTexto: "Entre no grupo para receber a primeira oferta.",
-    grupoLink: "",
+    // O link fixo, e não o convite: quando o grupo enche, troca-se o destino
+    // em um lugar só (`lib/grupo/tipos.ts`, LINK_DO_GRUPO).
+    grupoLink: "https://www.jkaliancas.com.br/grupo/entrar",
     grupoRotulo: "Entrar no grupo do WhatsApp",
     email: "opcional",
     momento: true,
@@ -421,8 +428,9 @@ export function bioDeFabrica(): Bio {
 /**
  * As campanhas de data do fim do ano, prontas: aniversário, Natal e ano novo.
  *
- * O grupo de ofertas nasce OCULTO nas três, porque o envio do formulário ainda
- * não existe (é a próxima etapa). Quando existir, basta mostrar o bloco.
+ * O grupo de ofertas nasceu OCULTO nas três, quando o envio do formulário
+ * ainda não existia. Desde 01/10 ele existe (`/api/leads`), e mostrar o bloco
+ * é decisão de campanha, no painel.
  *
  * - Aniversário, 01 a 08/11: os 23 anos da JK em 08/11 (`PLANO-BLACK.md` do
  *   tema da loja). A semana cai DENTRO da Black, e a campanha mais curta vence,

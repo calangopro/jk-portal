@@ -18,6 +18,11 @@
  *    recomendado, que é o que dá para marcar como evento-chave e importar no
  *    Google Ads.
  *
+ * `jk_origem` diz qual porta: `bio` (a folha que abre no link da bio) ou
+ * `grupo` (a página /grupo do anúncio). O envio leva `jk_event_id`, o MESMO id
+ * que o servidor manda à API de Conversões do Meta: a tag de Lead do GTM usa
+ * esse valor como ID do evento, e o Meta conta o Lead uma vez só.
+ *
  * Nunca vai nome, telefone ou e-mail para nenhum dos dois.
  */
 
@@ -68,8 +73,10 @@ export function medirItemEscolhido(lista: Lista, item: ItemDaLista, indice: numb
 
 type Captura = {
   campanha: string;
+  origem: "bio" | "grupo";
   momento?: string;
   comEmail?: boolean;
+  eventId?: string;
 };
 
 function empurrar(evento: string, dados: Record<string, unknown>) {
@@ -83,20 +90,21 @@ function empurrar(evento: string, dados: Record<string, unknown>) {
 
 export function medirCapturaAberta(c: Captura) {
   if (typeof window === "undefined") return;
-  empurrar("jk_captura_aberta", { jk_origem: "bio", jk_campanha: c.campanha });
-  window.gtag?.("event", "jk_captura_aberta", { lead_source: "bio", campanha: c.campanha });
+  empurrar("jk_captura_aberta", { jk_origem: c.origem, jk_campanha: c.campanha });
+  window.gtag?.("event", "jk_captura_aberta", { lead_source: c.origem, campanha: c.campanha });
 }
 
 export function medirCapturaEnviada(c: Captura) {
   if (typeof window === "undefined") return;
   empurrar("jk_captura_enviada", {
-    jk_origem: "bio",
+    jk_origem: c.origem,
     jk_campanha: c.campanha,
     jk_momento: c.momento ?? "",
     jk_com_email: c.comEmail ? "sim" : "nao",
+    jk_event_id: c.eventId ?? "",
   });
   window.gtag?.("event", "generate_lead", {
-    lead_source: "bio",
+    lead_source: c.origem,
     campanha: c.campanha,
     momento: c.momento || undefined,
   });
@@ -104,6 +112,6 @@ export function medirCapturaEnviada(c: Captura) {
 
 export function medirGrupoClique(c: Captura) {
   if (typeof window === "undefined") return;
-  empurrar("jk_grupo_clique", { jk_origem: "bio", jk_campanha: c.campanha });
-  window.gtag?.("event", "jk_grupo_clique", { lead_source: "bio", campanha: c.campanha });
+  empurrar("jk_grupo_clique", { jk_origem: c.origem, jk_campanha: c.campanha });
+  window.gtag?.("event", "jk_grupo_clique", { lead_source: c.origem, campanha: c.campanha });
 }

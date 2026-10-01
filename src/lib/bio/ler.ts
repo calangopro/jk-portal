@@ -32,7 +32,9 @@ const lerValorCacheado = unstable_cache(
   // A versão na chave derruba a entrada antiga no deploy. A v2 veio com as
   // campanhas de aniversário, Natal e ano novo gravadas direto no banco: sem
   // trocar a chave, a Vercel serviria a bio de antes até alguém publicar.
-  ["bio-gravada", "v2"],
+  // v3: o botão do grupo de todas as versões passou para o link fixo
+  // (/grupo/entrar), gravado direto no banco em 01/10.
+  ["bio-gravada", "v3"],
   { tags: [TAG_BIO], revalidate: false },
 );
 
