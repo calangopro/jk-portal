@@ -23,7 +23,7 @@ const BIO_CURTO = BIO.replace(/^https:\/\/www\./, "");
 const PARAMETROS_DO_ANUNCIO =
   "utm_source=instagram&utm_medium=paid_social&utm_campaign={{campaign.name}}&utm_content={{ad.name}}";
 
-function BotaoCopiar({ valor }: { valor: string }) {
+export function BotaoCopiar({ valor }: { valor: string }) {
   const [copiado, setCopiado] = useState(false);
   return (
     <button

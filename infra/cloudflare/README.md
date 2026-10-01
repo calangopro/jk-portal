@@ -15,8 +15,13 @@ três rotas mandam só estes caminhos para a Vercel:
 | `www.jkaliancas.com.br/` e o resto | Tray, sem passar por aqui |
 | `www.jkaliancas.com.br/guias*` | este Worker, que busca em `jk-portal.vercel.app` |
 | `www.jkaliancas.com.br/bio*` | este Worker, que busca `/guias/bio` e mantém `/bio` na barra |
+| `www.jkaliancas.com.br/grupo*` | este Worker, que busca `/guias/grupo` e mantém `/grupo` na barra (01/10) |
 
-**As rotas são essas duas e só.** Nenhuma edição neste arquivo alcança a loja.
+**As rotas são essas três e só.** Nenhuma edição neste arquivo alcança a loja.
+
+O Worker também manda o IP de quem está no navegador em `x-jk-ip-cliente`
+(lido de `cf-connecting-ip`). A Vercel só enxerga o IP da Cloudflare, e o
+formulário do grupo precisa do IP real para a API de Conversões do Meta.
 
 A da bio precisa terminar em asterisco. Rota sem asterisco no fim casa com o
 caminho exato e **não casa com parâmetro**: com `www.jkaliancas.com.br/bio`,
@@ -95,6 +100,8 @@ curl -sI https://www.jkaliancas.com.br/guias | grep -i x-robots                 
 curl -sI https://jk-portal.vercel.app/guias  | grep -i x-robots                  # noindex
 curl -s -o /dev/null -w "%{http_code} %{url_effective}\n" "https://www.jkaliancas.com.br/bio?fbclid=x"   # 200, sem sair de /bio
 curl -s -o /dev/null -w "%{http_code} %{redirect_url}\n" https://www.jkaliancas.com.br/bio/   # 301 /bio
+curl -s -o /dev/null -w "%{http_code} %{url_effective}\n" "https://www.jkaliancas.com.br/grupo?fbclid=x" # 200, sem sair de /grupo
+curl -s -o /dev/null -w "%{http_code} %{redirect_url}\n" https://www.jkaliancas.com.br/grupo/entrar     # 302 para o convite
 ```
 
 A quarta linha é a que importa. Se ela devolver `noindex`, o site está saindo do

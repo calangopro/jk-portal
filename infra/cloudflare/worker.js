@@ -1,10 +1,11 @@
 // worker.js
 //
 // Proxy do portal editorial. As rotas registradas na zona são
-// `www.jkaliancas.com.br/guias*` e `www.jkaliancas.com.br/bio*`. A segunda
-// também casa com qualquer caminho da loja que comece com "bio" (nenhum, no
-// sitemap de 24/09), e por isso tudo que não é /guias nem /bio segue intacto
-// para a origem original, que é a Tray.
+// `www.jkaliancas.com.br/guias*`, `www.jkaliancas.com.br/bio*` e
+// `www.jkaliancas.com.br/grupo*`. As duas últimas também casam com qualquer
+// caminho da loja que comece com "bio" ou "grupo" (nenhum, no sitemap de 24/09
+// e no de 01/10), e por isso tudo que não é /guias, /bio nem /grupo segue
+// intacto para a origem original, que é a Tray.
 var worker_default = {
   async fetch(request) {
     const url = new URL(request.url);
@@ -17,7 +18,11 @@ var worker_default = {
     // endereço mudar. Testado: a página hidrata sem erro e a navegação para o
     // resto do portal funciona, porque tudo que ela carrega já sai em /guias.
     const ehBio = p === "/bio" || p.startsWith("/bio/");
-    if (!ehGuias && !ehBio) {
+    // A página do anúncio do grupo de ofertas, mesma máscara da bio: o
+    // navegador pede /grupo e recebe /guias/grupo. /grupo/entrar é o link fixo
+    // que leva ao convite do grupo salvo no painel.
+    const ehGrupo = p === "/grupo" || p.startsWith("/grupo/");
+    if (!ehGuias && !ehBio && !ehGrupo) {
       if (url.hostname.endsWith(".workers.dev")) {
         return new Response("Fora do /guias. No dominio real, quem responde aqui e a Tray.", { status: 200 });
       }
@@ -39,17 +44,21 @@ var worker_default = {
       return Response.redirect(seguro.toString(), permanente ? 301 : 308);
     }
 
-    // Um endereço só para a bio. Com barra no fim, o Next responderia 308 para
-    // /guias/bio e a máscara cairia na frente da pessoa.
-    if (p === "/bio/") {
-      return Response.redirect(`${url.origin}/bio${url.search}`, 301);
+    // Um endereço só para a bio e para o grupo. Com barra no fim, o Next
+    // responderia 308 para /guias/bio e a máscara cairia na frente da pessoa.
+    if (p === "/bio/" || p === "/grupo/") {
+      return Response.redirect(`${url.origin}${p.slice(0, -1)}${url.search}`, 301);
     }
 
-    const caminho = ehBio ? `/guias${p}` : p;
+    const caminho = ehBio || ehGrupo ? `/guias${p}` : p;
     const destino = new URL(caminho + url.search, "https://jk-portal.vercel.app");
     const pedido = new Request(destino, request);
     pedido.headers.set("x-forwarded-host", url.host);
     pedido.headers.set("x-forwarded-proto", "https");
+    // O IP de quem está no navegador. A Vercel só enxerga a Cloudflare, e o
+    // portal precisa do IP real para a API de Conversões do Meta casar o Lead
+    // com a pessoa (`app/api/leads/route.ts`).
+    pedido.headers.set("x-jk-ip-cliente", request.headers.get("cf-connecting-ip") || "");
 
     const resposta = await fetch(pedido, { redirect: "manual" });
     const headers = new Headers(resposta.headers);

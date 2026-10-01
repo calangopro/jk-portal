@@ -6,7 +6,7 @@ import type { LucideIcon } from "lucide-react";
 import {
   LayoutDashboard, FileText, ImageIcon, MessageCircle, Package,
   TrendingUp, Plug, Users, MapPin, PenLine, Palette, LayoutTemplate, BookCheck, ListChecks, CalendarDays, Milestone,
-  Smartphone,
+  Smartphone, UsersRound,
   Loader2,
 } from "lucide-react";
 
@@ -49,6 +49,7 @@ const GRUPOS = [
     itens: [
       { href: "/admin/home", label: "Home", Icone: LayoutTemplate, desc: "Seções da página inicial" },
       { href: "/admin/bio", label: "Link da bio", Icone: Smartphone, desc: "A página do Instagram" },
+      { href: "/admin/grupo", label: "Grupo de ofertas", Icone: UsersRound, desc: "Página do anúncio e contatos" },
       { href: "/admin/aparencia", label: "Aparência", Icone: Palette, desc: "Cores e cantos" },
       { href: "/admin/redirects", label: "Redirects", Icone: Milestone, desc: "Endereços que mudaram" },
     ],

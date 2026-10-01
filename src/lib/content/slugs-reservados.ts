@@ -32,6 +32,7 @@ const RESERVADOS = new Set([
   // Pastas de src/app/(bio)/. O link da bio mora em outro grupo de rotas, mas
   // no MESMO nível de endereço que o post.
   "bio",
+  "grupo",
 
   // Fora do grupo (site), mas no mesmo nível de endereço.
   "admin",
