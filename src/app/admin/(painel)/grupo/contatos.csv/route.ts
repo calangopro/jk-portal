@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getSessionProfile } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { quandoLegivel } from "@/lib/content/agenda";
-import type { Lead } from "@/lib/leads/tipos";
+import { NOMES_DAS_PORTAS, type Lead } from "@/lib/leads/tipos";
 
 /**
  * Os contatos do grupo em planilha, para subir num público do Meta, numa
@@ -20,7 +20,8 @@ const COLUNAS: [string, (l: Lead) => string][] = [
   ["whatsapp", (l) => `+${l.whatsapp}`],
   ["email", (l) => l.email ?? ""],
   ["momento", (l) => l.momento ?? ""],
-  ["porta", (l) => (l.origem === "grupo" ? "pagina /grupo" : "link da bio")],
+  ["porta", (l) => NOMES_DAS_PORTAS[l.origem] ?? l.origem],
+  ["posicao", (l) => l.posicao ?? ""],
   ["campanha", (l) => l.campanha],
   ["utm_source", (l) => l.utm_source || l.rede || ""],
   ["utm_medium", (l) => l.utm_medium ?? ""],

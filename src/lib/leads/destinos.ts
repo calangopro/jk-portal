@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import { SITE } from "@/lib/seo/site";
 import { legivel } from "./telefone";
 import { PIXEL_DA_JK, SUBDOMINIO_KOMMO, type Chave } from "./chaves";
-import type { Lead } from "./tipos";
+import { NOMES_DAS_PORTAS, type Lead } from "./tipos";
 
 /**
  * Os quatro lugares para onde um contato vai depois de gravado.
@@ -106,7 +106,7 @@ async function receberOfertas(pedir: ReturnType<typeof kommo>): Promise<CampoKom
 
 function nota(lead: Lead): string {
   const linhas = [
-    `Grupo de ofertas no WhatsApp, pelo formulário ${lead.origem === "grupo" ? "da página /grupo" : "do link da bio"}.`,
+    `Grupo de ofertas no WhatsApp, pelo ${NOMES_DAS_PORTAS[lead.origem]}${lead.posicao ? ` (${lead.posicao})` : ""}.`,
     lead.campanha ? `Campanha: ${lead.campanha}` : "",
     lead.momento ? `Momento do casal: ${lead.momento}` : "",
     lead.utm_source || lead.rede ? `Origem: ${[lead.utm_source || lead.rede, lead.utm_medium].filter(Boolean).join(" / ")}` : "",
@@ -255,6 +255,7 @@ export async function enviarParaWebhook(lead: Lead, chave: Chave): Promise<strin
     email: lead.email ?? "",
     momento: lead.momento ?? "",
     origem: lead.origem,
+    posicao: lead.posicao ?? "",
     campanha: lead.campanha,
     pagina: lead.pagina ?? "",
     utm_source: lead.utm_source ?? "",

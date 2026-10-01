@@ -3,12 +3,21 @@ import { z } from "zod";
 /**
  * O contato do grupo de ofertas, como chega do formulário e como fica gravado.
  *
- * O mesmo formulário existe em dois lugares (a folha da bio e a página /grupo)
- * e manda o mesmo corpo. `origem` diz qual dos dois foi.
+ * São três portas com o mesmo corpo: a folha da bio, a página /grupo e o pop-up
+ * do tema Esquenta da loja. `origem` diz qual foi; `posicao`, de onde dentro
+ * dela a pessoa abriu o formulário (na loja: pop-up por tempo, de saída, botão
+ * do palco).
  */
 
-export const ORIGENS_DO_LEAD = ["bio", "grupo"] as const;
+export const ORIGENS_DO_LEAD = ["bio", "grupo", "loja"] as const;
 export type OrigemDoLead = (typeof ORIGENS_DO_LEAD)[number];
+
+/** Nome da porta, como o painel e a planilha mostram. */
+export const NOMES_DAS_PORTAS: Record<OrigemDoLead, string> = {
+  bio: "link da bio",
+  grupo: "página /grupo",
+  loja: "pop-up da loja",
+};
 
 export const MOMENTOS = ["namoro", "noivado", "casamento", "presente"] as const;
 
@@ -30,6 +39,7 @@ export const esquemaDoEnvio = z.object({
   email: curto(120),
   momento: z.enum(MOMENTOS).or(z.literal("")).optional().default(""),
   campanha: curto(40),
+  posicao: curto(40),
   pagina: curto(200),
   referencia: curto(500),
   rede: curto(30),
@@ -90,6 +100,7 @@ export type Lead = {
   criado_em: string;
   origem: OrigemDoLead;
   campanha: string;
+  posicao: string | null;
   nome: string;
   whatsapp: string;
   email: string | null;
