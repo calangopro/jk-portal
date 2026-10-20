@@ -33,6 +33,7 @@ const RESERVADOS = new Set([
   // no MESMO nível de endereço que o post.
   "bio",
   "grupo",
+  "qrcode",
 
   // Fora do grupo (site), mas no mesmo nível de endereço.
   "admin",

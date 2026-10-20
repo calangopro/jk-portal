@@ -8,7 +8,7 @@ rodava com o que se pretendia.
 ## O que ele faz
 
 O domínio não é do portal. `www.jkaliancas.com.br` responde pela loja na Tray, e
-três rotas mandam só estes caminhos para a Vercel:
+quatro rotas mandam só estes caminhos para a Vercel:
 
 | Onde | Quem responde |
 |---|---|
@@ -16,8 +16,9 @@ três rotas mandam só estes caminhos para a Vercel:
 | `www.jkaliancas.com.br/guias*` | este Worker, que busca em `jk-portal.vercel.app` |
 | `www.jkaliancas.com.br/bio*` | este Worker, que busca `/guias/bio` e mantém `/bio` na barra |
 | `www.jkaliancas.com.br/grupo*` | este Worker, que busca `/guias/grupo` e mantém `/grupo` na barra (01/10) |
+| `www.jkaliancas.com.br/qrcode*` | este Worker, que busca `/guias/qrcode`, um 302 para o destino do QR impresso (20/10) |
 
-**As rotas são essas três e só.** Nenhuma edição neste arquivo alcança a loja.
+**As rotas são essas quatro e só.** Nenhuma edição neste arquivo alcança a loja.
 
 O Worker também manda o IP de quem está no navegador em `x-jk-ip-cliente`
 (lido de `cf-connecting-ip`). A Vercel só enxerga o IP da Cloudflare, e o
@@ -102,6 +103,7 @@ curl -s -o /dev/null -w "%{http_code} %{url_effective}\n" "https://www.jkalianca
 curl -s -o /dev/null -w "%{http_code} %{redirect_url}\n" https://www.jkaliancas.com.br/bio/   # 301 /bio
 curl -s -o /dev/null -w "%{http_code} %{url_effective}\n" "https://www.jkaliancas.com.br/grupo?fbclid=x" # 200, sem sair de /grupo
 curl -s -o /dev/null -w "%{http_code} %{redirect_url}\n" https://www.jkaliancas.com.br/grupo/entrar     # 302 para o convite
+curl -s -o /dev/null -w "%{http_code} %{redirect_url}\n" https://www.jkaliancas.com.br/qrcode           # 302 para o WhatsApp
 ```
 
 A quarta linha é a que importa. Se ela devolver `noindex`, o site está saindo do
@@ -118,3 +120,13 @@ portal já tem página de erro própria, com marca, cabeçalho, rodapé, saídas
 fora justamente o que foi construído, e ainda esconderia link quebrado do
 registro de `not_found_hits`, que é a fila usada para criar redirect de verdade
 em `/admin/redirects`.
+
+## O QR dos impressos
+
+`/qrcode` é o endereço que está dentro do QR dos adesivos do Shopping Tamboré
+(18 espelhos e 18 portas, outubro de 2026), escrito por extenso:
+`https://www.jkaliancas.com.br/qrcode`. **Esse caminho não pode mudar**, nem
+ganhar barra no fim, nem passar a exigir parâmetro: está impresso. O destino
+(WhatsApp ou outro link) se troca em `/admin/qrcode`, e o portal conta cada
+leitura em `qrcode_leituras`. A rota `www.jkaliancas.com.br/qrcode*` leva
+asterisco pelo mesmo motivo da bio: `?o=` serve para separar impresso novo.
