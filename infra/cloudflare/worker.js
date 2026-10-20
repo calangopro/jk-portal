@@ -1,11 +1,12 @@
 // worker.js
 //
 // Proxy do portal editorial. As rotas registradas na zona são
-// `www.jkaliancas.com.br/guias*`, `www.jkaliancas.com.br/bio*` e
-// `www.jkaliancas.com.br/grupo*`. As duas últimas também casam com qualquer
-// caminho da loja que comece com "bio" ou "grupo" (nenhum, no sitemap de 24/09
-// e no de 01/10), e por isso tudo que não é /guias, /bio nem /grupo segue
-// intacto para a origem original, que é a Tray.
+// `www.jkaliancas.com.br/guias*`, `www.jkaliancas.com.br/bio*`,
+// `www.jkaliancas.com.br/grupo*` e `www.jkaliancas.com.br/qrcode*`. As três
+// últimas também casam com qualquer caminho da loja que comece com "bio",
+// "grupo" ou "qrcode" (nenhum, nos sitemaps de 24/09, 01/10 e 20/10), e por
+// isso tudo que não é /guias, /bio, /grupo nem /qrcode segue intacto para a
+// origem original, que é a Tray.
 var worker_default = {
   async fetch(request) {
     const url = new URL(request.url);
@@ -22,7 +23,11 @@ var worker_default = {
     // navegador pede /grupo e recebe /guias/grupo. /grupo/entrar é o link fixo
     // que leva ao convite do grupo salvo no painel.
     const ehGrupo = p === "/grupo" || p.startsWith("/grupo/");
-    if (!ehGuias && !ehBio && !ehGrupo) {
+    // O endereço do QR impresso nos adesivos. O portal responde com um 302
+    // para o destino salvo no painel (o WhatsApp do quiosque, hoje) e conta a
+    // leitura. O endereço está na arte: mudar este caminho quebra 36 adesivos.
+    const ehQrcode = p === "/qrcode" || p.startsWith("/qrcode/");
+    if (!ehGuias && !ehBio && !ehGrupo && !ehQrcode) {
       if (url.hostname.endsWith(".workers.dev")) {
         return new Response("Fora do /guias. No dominio real, quem responde aqui e a Tray.", { status: 200 });
       }
@@ -44,13 +49,13 @@ var worker_default = {
       return Response.redirect(seguro.toString(), permanente ? 301 : 308);
     }
 
-    // Um endereço só para a bio e para o grupo. Com barra no fim, o Next
+    // Um endereço só para a bio, o grupo e o QR. Com barra no fim, o Next
     // responderia 308 para /guias/bio e a máscara cairia na frente da pessoa.
-    if (p === "/bio/" || p === "/grupo/") {
+    if (p === "/bio/" || p === "/grupo/" || p === "/qrcode/") {
       return Response.redirect(`${url.origin}${p.slice(0, -1)}${url.search}`, 301);
     }
 
-    const caminho = ehBio || ehGrupo ? `/guias${p}` : p;
+    const caminho = ehBio || ehGrupo || ehQrcode ? `/guias${p}` : p;
     const destino = new URL(caminho + url.search, "https://jk-portal.vercel.app");
     const pedido = new Request(destino, request);
     pedido.headers.set("x-forwarded-host", url.host);
