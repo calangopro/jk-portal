@@ -1,37 +1,44 @@
 import "server-only";
 import { unstable_cache } from "next/cache";
-import { createReadClient } from "@/lib/supabase/read";
-import { normalizarQrcode, type ConfigDoQrcode } from "./tipos";
+import { createAdminClient } from "@/lib/supabase/admin";
+import type { DestinoDoQrcode } from "./tipos";
 
 export const TAG_QRCODE = "qrcode";
 
 /**
- * A configuração gravada em `site_settings`, chave `pagina:qrcode`.
+ * O destino de um QR pelo slug, como está em `qrcodes`.
  *
- * Mesma regra de `lerGrupo`: no cache entra só a resposta crua do banco, e o
- * padrão do código é aplicado fora, em `normalizarQrcode`. Quem derruba o cache
- * é o salvar do painel, com `revalidateTag(TAG_QRCODE)`.
+ * Lê com a service_role porque a tabela não abre nada para a chave anônima:
+ * a lista de QRs é a lista de lugares onde há adesivo, e isso não é público.
+ *
+ * Mesma regra de `lerGrupo`: no cache entra só a resposta crua do banco
+ * (`null` de slug inexistente incluído), e quem decide o que fazer sem
+ * resposta é quem chama. O argumento `slug` entra na chave do cache sozinho.
+ * Quem derruba é o salvar do painel, com `revalidateTag(TAG_QRCODE)`.
+ *
+ * ERRO não entra no cache: ele sobe de dentro da função, e o `unstable_cache`
+ * não guarda o que lançou. Com `revalidate: false`, um soluço do Supabase
+ * guardado como `null` deixaria o QR preso no destino de fábrica até alguém
+ * salvar no painel, sem ninguém saber por quê.
  */
-const lerValorCacheado = unstable_cache(
-  async (): Promise<unknown> => {
-    const supabase = createReadClient();
-    if (!supabase) return null;
-    try {
-      const { data, error } = await supabase
-        .from("site_settings")
-        .select("value")
-        .eq("key", "pagina:qrcode")
-        .maybeSingle();
-      if (error || !data) return null;
-      return data.value;
-    } catch {
-      return null;
-    }
+const lerCacheado = unstable_cache(
+  async (slug: string): Promise<DestinoDoQrcode | null> => {
+    const { data, error } = await createAdminClient()
+      .from("qrcodes")
+      .select("modo, whatsapp, mensagem, link")
+      .eq("slug", slug)
+      .maybeSingle();
+    if (error) throw error;
+    return (data as DestinoDoQrcode | null) ?? null;
   },
-  ["qrcode-gravado", "v1"],
+  ["qrcode-por-slug", "v2"],
   { tags: [TAG_QRCODE], revalidate: false },
 );
 
-export async function lerQrcode(): Promise<ConfigDoQrcode> {
-  return normalizarQrcode(await lerValorCacheado());
+export async function lerQrcode(slug: string): Promise<DestinoDoQrcode | null> {
+  try {
+    return await lerCacheado(slug);
+  } catch {
+    return null;
+  }
 }
