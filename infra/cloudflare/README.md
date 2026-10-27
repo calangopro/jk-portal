@@ -16,7 +16,7 @@ quatro rotas mandam só estes caminhos para a Vercel:
 | `www.jkaliancas.com.br/guias*` | este Worker, que busca em `jk-portal.vercel.app` |
 | `www.jkaliancas.com.br/bio*` | este Worker, que busca `/guias/bio` e mantém `/bio` na barra |
 | `www.jkaliancas.com.br/grupo*` | este Worker, que busca `/guias/grupo` e mantém `/grupo` na barra (01/10) |
-| `www.jkaliancas.com.br/qrcode*` | este Worker, que busca `/guias/qrcode`, um 302 para o destino do QR impresso (20/10) |
+| `www.jkaliancas.com.br/qrcode*` | este Worker, que busca `/guias/qrcode` e `/guias/qrcode/<slug>`, um 302 para o destino de cada QR impresso (20/10) |
 
 **As rotas são essas quatro e só.** Nenhuma edição neste arquivo alcança a loja.
 
@@ -121,12 +121,15 @@ fora justamente o que foi construído, e ainda esconderia link quebrado do
 registro de `not_found_hits`, que é a fila usada para criar redirect de verdade
 em `/admin/redirects`.
 
-## O QR dos impressos
+## Os QRs dos impressos
 
 `/qrcode` é o endereço que está dentro do QR dos adesivos do Shopping Tamboré
 (18 espelhos e 18 portas, outubro de 2026), escrito por extenso:
 `https://www.jkaliancas.com.br/qrcode`. **Esse caminho não pode mudar**, nem
-ganhar barra no fim, nem passar a exigir parâmetro: está impresso. O destino
-(WhatsApp ou outro link) se troca em `/admin/qrcode`, e o portal conta cada
-leitura em `qrcode_leituras`. A rota `www.jkaliancas.com.br/qrcode*` leva
-asterisco pelo mesmo motivo da bio: `?o=` serve para separar impresso novo.
+ganhar barra no fim, nem passar a exigir parâmetro: está impresso.
+
+Os outros lugares ganham QR próprio em `/admin/qrcode`, no endereço
+`/qrcode/<slug>`. A rota `www.jkaliancas.com.br/qrcode*` já cobre esses
+caminhos e o Worker já manda `/qrcode/...` para `/guias/qrcode/...`, então QR
+novo **não pede nada na Cloudflare**. O destino de cada um (WhatsApp ou outro
+link) se troca no painel, e o portal conta cada leitura em `qrcode_leituras`.

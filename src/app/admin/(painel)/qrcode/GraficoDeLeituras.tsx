@@ -15,16 +15,18 @@ export function GraficoDeLeituras({
   dias,
   noDia,
   hoje,
+  titulo = "Leituras por dia, últimos 30 dias",
 }: {
   dias: string[];
   noDia: Map<string, number>;
   hoje: string;
+  titulo?: string;
 }) {
   const maior = Math.max(1, ...noDia.values());
 
   return (
     <figure className="glass mt-5 rounded-[18px] p-5">
-      <figcaption className="text-sm font-medium text-ink">Leituras por dia, últimos 30 dias</figcaption>
+      <figcaption className="text-sm font-medium text-ink">{titulo}</figcaption>
       <div aria-hidden className="mt-5 flex h-36 items-end gap-[2px] border-b border-ink/15">
         {dias.map((d) => {
           const n = noDia.get(d) ?? 0;

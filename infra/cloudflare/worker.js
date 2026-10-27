@@ -23,9 +23,9 @@ var worker_default = {
     // navegador pede /grupo e recebe /guias/grupo. /grupo/entrar é o link fixo
     // que leva ao convite do grupo salvo no painel.
     const ehGrupo = p === "/grupo" || p.startsWith("/grupo/");
-    // O endereço do QR impresso nos adesivos. O portal responde com um 302
-    // para o destino salvo no painel (o WhatsApp do quiosque, hoje) e conta a
-    // leitura. O endereço está na arte: mudar este caminho quebra 36 adesivos.
+    // Os QRs impressos. O portal responde com um 302 para o destino salvo no
+    // painel e conta a leitura. /qrcode está em 36 adesivos do Tamboré, e cada
+    // lugar novo ganha /qrcode/<slug>: mudar este caminho quebra adesivo colado.
     const ehQrcode = p === "/qrcode" || p.startsWith("/qrcode/");
     if (!ehGuias && !ehBio && !ehGrupo && !ehQrcode) {
       if (url.hostname.endsWith(".workers.dev")) {

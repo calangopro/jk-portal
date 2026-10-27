@@ -50,7 +50,7 @@ const GRUPOS = [
       { href: "/admin/home", label: "Home", Icone: LayoutTemplate, desc: "Seções da página inicial" },
       { href: "/admin/bio", label: "Link da bio", Icone: Smartphone, desc: "A página do Instagram" },
       { href: "/admin/grupo", label: "Grupo de ofertas", Icone: UsersRound, desc: "Página do anúncio e contatos" },
-      { href: "/admin/qrcode", label: "QR code", Icone: QrCode, desc: "Destino e leituras dos impressos" },
+      { href: "/admin/qrcode", label: "QR codes", Icone: QrCode, desc: "Um por lugar, com as leituras" },
       { href: "/admin/aparencia", label: "Aparência", Icone: Palette, desc: "Cores e cantos" },
       { href: "/admin/redirects", label: "Redirects", Icone: Milestone, desc: "Endereços que mudaram" },
     ],
