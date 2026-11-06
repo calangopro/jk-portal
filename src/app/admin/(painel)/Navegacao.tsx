@@ -6,7 +6,7 @@ import type { LucideIcon } from "lucide-react";
 import {
   LayoutDashboard, FileText, ImageIcon, MessageCircle, Package,
   TrendingUp, Plug, Users, MapPin, PenLine, Palette, LayoutTemplate, BookCheck, ListChecks, CalendarDays, Milestone,
-  Smartphone, UsersRound, QrCode,
+  Smartphone, UsersRound, QrCode, Bot,
   Loader2,
 } from "lucide-react";
 
@@ -59,6 +59,7 @@ const GRUPOS = [
     nome: "Equipe",
     itens: [
       { href: "/admin/usuarios", label: "Usuários", Icone: Users, desc: "Acesso e papéis" },
+      { href: "/admin/conector", label: "Conector do Claude", Icone: Bot, desc: "Claude lendo e escrevendo aqui" },
     ],
   },
 ];

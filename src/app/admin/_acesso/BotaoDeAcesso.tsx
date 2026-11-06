@@ -7,15 +7,22 @@ export function BotaoDeAcesso({
   texto,
   esperando,
   desligado = false,
+  nome,
+  valor,
 }: {
   texto: string;
   esperando: string;
   desligado?: boolean;
+  /** Para formulário com mais de um botão (Permitir e Recusar), o nome e o valor deste. */
+  nome?: string;
+  valor?: string;
 }) {
   const { pending } = useFormStatus();
   return (
     <button
       type="submit"
+      name={nome}
+      value={valor}
       disabled={pending || desligado}
       className="mt-2 inline-flex min-h-12 w-full items-center justify-center rounded-full bg-brand px-6 text-sm font-semibold text-ink transition-colors hover:bg-brand-light disabled:opacity-60"
     >

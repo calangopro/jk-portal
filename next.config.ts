@@ -117,6 +117,15 @@ const nextConfig: NextConfig = {
   // O cabeçalho X-Powered-By: Next.js não serve para nada além de anunciar a
   // stack para quem procura alvo.
   poweredByHeader: false,
+  /**
+   * O sandbox do conector do Claude (`lib/conector/sandbox.ts`) roda num
+   * QuickJS em WebAssembly, embutido no próprio JS do pacote. Empacotado pelo
+   * webpack, ele quebra em produção ("Octal escape sequences are not allowed
+   * in template strings"), e só em produção: no `next dev` funciona. Fora do
+   * pacote, o Node carrega direto do node_modules e o rastreio da Vercel leva
+   * o arquivo junto. Conferido com `next start` sobre o `build:seguro`.
+   */
+  serverExternalPackages: ["quickjs-emscripten-core", "@jitl/quickjs-singlefile-cjs-release-sync"],
   async headers() {
     return [
       {
