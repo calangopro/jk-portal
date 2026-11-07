@@ -24,7 +24,7 @@ export const AREAS: { nome: string; descricao: string }[] = [
   { nome: "autores", descricao: "quem assina e revisa" },
   { nome: "produtos", descricao: "catálogo espelhado da Tray (só leitura) e sincronização" },
   { nome: "lojas", descricao: "lojas físicas: endereço, horário, fotos, publicação" },
-  { nome: "metricas", descricao: "Search Console: buscas, páginas, números de um post, importação" },
+  { nome: "metricas", descricao: "Search Console (buscas, páginas, números de um post, importação) e visitas do GA4" },
   { nome: "home", descricao: "layout da página inicial" },
   { nome: "bio", descricao: "link da bio do Instagram, com campanhas por data" },
   { nome: "grupo", descricao: "grupo de ofertas do WhatsApp" },

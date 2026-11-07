@@ -534,6 +534,54 @@ export const OPERACOES_LOJA = [
   }),
 
   operacao({
+    nome: "metricas.visitas",
+    resumo:
+      "Visitas do site no GA4 (todas as origens, não só o Google): pessoas, visualizações, tempo de leitura, origem das visitas (busca, IA, redes...), cliques para a loja e contato, e as páginas mais lidas. Lido na hora, guardado por uma hora.",
+    entrada: z.object({
+      dias: z.union([z.literal(7), z.literal(28), z.literal(90)]).default(28),
+      top: z.number().int().min(1).max(200).default(30).describe("Quantas páginas devolver, das mais vistas para as menos."),
+      contem: z.string().max(100).optional().describe("Só as páginas cujo caminho ou título contém este texto."),
+    }),
+    retorno:
+      "{ dias, totais: {pessoas, visualizacoes, sessoes, tempo_medio_s, cliques_para_loja, cliques_de_contato}, periodo_anterior: {pessoas, visualizacoes}, origens: Array<{origem, visitas}>, ias: Array<{nome, visitas}>, paginas: Array<{caminho, titulo, pessoas, visualizacoes, tempo_medio_s, para_loja, contato}> }",
+    risco: "leitura",
+    async executar(a, ctx) {
+      const { lerVisitas, NOME_DA_ORIGEM } = await import("@/lib/ga4/visitas");
+      const leitura = await lerVisitas(a.dias);
+      if (!leitura.ok) return falhar(leitura.problema.mensagem);
+      const d = leitura.dados;
+      const filtro = a.contem?.toLowerCase();
+      return {
+        dias: d.dias,
+        totais: {
+          pessoas: d.totais.pessoas,
+          visualizacoes: d.totais.visualizacoes,
+          sessoes: d.totais.sessoes,
+          tempo_medio_s: Math.round(d.totais.tempoMedio),
+          cliques_para_loja: d.totais.paraLoja,
+          cliques_de_contato: d.totais.contato,
+        },
+        periodo_anterior: d.anterior,
+        origens: d.origens.map((o) => ({ origem: NOME_DA_ORIGEM[o.origem], visitas: o.sessoes })),
+        ias: d.ias.map((i) => ({ nome: i.nome, visitas: i.sessoes })),
+        paginas: d.paginas
+          .filter((p) => !filtro || p.caminho.toLowerCase().includes(filtro) || p.titulo.toLowerCase().includes(filtro))
+          .slice(0, a.top)
+          .map((p) => ({
+            caminho: p.caminho,
+            titulo: p.titulo,
+            pessoas: p.pessoas,
+            visualizacoes: p.visualizacoes,
+            tempo_medio_s: Math.round(p.tempoMedio),
+            para_loja: p.paraLoja,
+            contato: p.contato,
+          })),
+        painel: painel(ctx, "/metricas"),
+      };
+    },
+  }),
+
+  operacao({
     nome: "metricas.periodos",
     resumo: "Os períodos do Search Console já importados.",
     entrada: z.object({}),
