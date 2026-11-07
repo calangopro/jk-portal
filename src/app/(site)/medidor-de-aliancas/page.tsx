@@ -19,10 +19,18 @@ import { Destaque } from "@/components/ui/Destaque";
 // mês e ganhava a busca "tamanho de aliança", e por isso o título abre com
 // essa expressão e a seção de fita e barbante existe: o 301 só leva a força
 // junto se o destino responder as mesmas perguntas que a origem respondia.
+//
+// O cluster "tamanho da aliança" já tem dono para cada busca vizinha, e esta
+// página NÃO disputa com eles: "como medir o dedo para aliança" é do post
+// /como-medir-o-dedo-para-alianca (9 mil impressões por mês), "tabela de
+// tamanho de aliança" é de /tabela-de-tamanho-de-alianca e "como saber o
+// tamanho da aliança" é de /como-saber-o-tamanho-da-alianca. Por isso o
+// título não fala em tabela, a seção do barbante é um resumo que leva ao post,
+// e o HowTo do barbante mora lá, não aqui.
 export const metadata: Metadata = buildMetadata({
-  title: "Tamanho de aliança: medidor online e tabela | JK Alianças",
+  title: "Tamanho de aliança: medidor online pela tela | JK Alianças",
   description:
-    "Descubra o tamanho da sua aliança na tela do celular, com uma moeda ou um cartão, ou meça o dedo com barbante. Tabela de aros com diâmetro e circunferência.",
+    "Descubra o tamanho da sua aliança na tela do celular: calibre com uma moeda ou um cartão, apoie a aliança e veja o número do aro e os milímetros na hora.",
   path: "/medidor-de-aliancas",
   type: "website",
 });
@@ -36,9 +44,9 @@ const FAQS = [
       "Sim, desde que a calibração seja feita com cuidado. A tela de cada aparelho mostra o mesmo desenho num tamanho diferente, então o site usa um objeto de medida conhecida, a moeda de R$ 1 ou um cartão, para descobrir a escala real. Feita a calibração, a medida sai em milímetros de verdade.",
   },
   {
-    question: "Como medir o dedo para aliança?",
+    question: "Dá para descobrir o aro sem ter uma aliança?",
     answer:
-      "Passe uma tira de papel ou um barbante em volta da base do dedo, marque onde a ponta encontra o resto e meça em milímetros na régua. Tire 40 dessa medida e você tem o aro brasileiro: 56 mm é aro 16, 58 mm é aro 18.",
+      "Dá. Passe uma tira de papel ou um barbante em volta da base do dedo, marque onde a ponta encontra o resto e meça em milímetros na régua. Tire 40 dessa medida e você tem o aro brasileiro: 56 mm é aro 16, 58 mm é aro 18.",
   },
   {
     question: "Por que preciso calibrar a tela antes de medir?",
@@ -83,10 +91,9 @@ const PASSOS = [
   },
 ];
 
-// Os dois jeitos de medir sem a tela, herdados da página antiga da loja. O do
-// dedo é o que responde "como medir o dedo para aliança", a busca com mais
-// impressão desse grupo, e o medidor sozinho não atende: ele mede uma aliança
-// que a pessoa já tem.
+// Os dois jeitos de medir sem a tela, herdados da página antiga da loja, em
+// resumo. O passo a passo inteiro é do post /como-medir-o-dedo-para-alianca,
+// e a seção leva até ele.
 const PELO_DEDO = [
   {
     nome: "Contorne o dedo",
@@ -153,16 +160,6 @@ export default function MedidorPage() {
             "Moeda de R$ 1 ou cartão de banco",
           ],
           passos: PASSOS.map((p) => ({ nome: p.nome, texto: p.texto })),
-        })}
-      />
-      <JsonLd
-        data={howToSchema({
-          nome: "Como medir o dedo para aliança com barbante ou fita",
-          descricao:
-            "Passo a passo para descobrir o aro da aliança medindo a volta do dedo em casa, com tira de papel, barbante ou fita métrica.",
-          tempoTotal: "PT3M",
-          materiais: ["Tira de papel, barbante ou fita métrica", "Caneta", "Régua"],
-          passos: PELO_DEDO,
         })}
       />
       <JsonLd data={faqPageSchema(FAQS)} />
@@ -260,12 +257,12 @@ export default function MedidorPage() {
               id="medir-em-casa"
               className="font-display text-titulo-secao text-ink"
             >
-              Como medir o dedo para aliança em casa
+              Sem aliança para apoiar na tela?
             </h2>
             <p className="mt-3 max-w-2xl text-muted">
-              Sem uma aliança para apoiar na tela, dá para descobrir o aro com o
-              que tem em casa. A conta é a do padrão brasileiro: a volta do dedo
-              em milímetros, menos 40, é o número do aro.
+              Dá para descobrir o aro com o que tem em casa. A conta é a do
+              padrão brasileiro: a volta do dedo em milímetros, menos 40, é o
+              número do aro.
             </p>
             <div className="mt-7 grid gap-6 sm:grid-cols-2">
               {[
@@ -293,7 +290,16 @@ export default function MedidorPage() {
             <p className="mt-5 max-w-2xl text-apoio leading-relaxed text-muted">
               Barbante estica e papel não, então a tira de papel erra menos. Meça
               também na junta do dedo, porque a aliança precisa passar por ela, e
-              se a medida ficar entre dois números, fique com o maior.
+              se a medida ficar entre dois números, fique com o maior. O passo a
+              passo completo, com o que muda o resultado sem você perceber, está
+              em{" "}
+              <Link
+                href="/como-medir-o-dedo-para-alianca"
+                className="font-semibold text-brand-nav hover:underline"
+              >
+                como medir o dedo para aliança em casa
+              </Link>
+              .
             </p>
           </section>
 
