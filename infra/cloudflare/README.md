@@ -8,7 +8,7 @@ rodava com o que se pretendia.
 ## O que ele faz
 
 O domínio não é do portal. `www.jkaliancas.com.br` responde pela loja na Tray, e
-quatro rotas mandam só estes caminhos para a Vercel:
+cinco rotas passam por este Worker:
 
 | Onde | Quem responde |
 |---|---|
@@ -17,8 +17,9 @@ quatro rotas mandam só estes caminhos para a Vercel:
 | `www.jkaliancas.com.br/bio*` | este Worker, que busca `/guias/bio` e mantém `/bio` na barra |
 | `www.jkaliancas.com.br/grupo*` | este Worker, que busca `/guias/grupo` e mantém `/grupo` na barra (01/10) |
 | `www.jkaliancas.com.br/qrcode*` | este Worker, que busca `/guias/qrcode` e `/guias/qrcode/<slug>`, um 302 para o destino de cada QR impresso (20/10) |
+| `www.jkaliancas.com.br/descubra-o-tamanho*` | este Worker, que responde sozinho um 301 para `/guias/medidor-de-aliancas` (novembro de 2026) |
 
-**As rotas são essas quatro e só.** Nenhuma edição neste arquivo alcança a loja.
+**As rotas são essas cinco e só.** Nenhuma edição neste arquivo alcança a loja.
 
 O Worker também manda o IP de quem está no navegador em `x-jk-ip-cliente`
 (lido de `cf-connecting-ip`). A Vercel só enxerga o IP da Cloudflare, e o
@@ -71,6 +72,40 @@ noindex` em toda resposta e este Worker apaga. Está explicado por extenso no
 jk-portal.vercel.app` mesmo no tráfego real, então a aplicação não tem como
 saber por qual endereço está sendo servida, e a decisão passa a ser do proxy.
 
+## Página da loja que virou página do portal
+
+`/descubra-o-tamanho-da-sua-alianca` era a página institucional da loja que
+ensinava a medir o aro. Em outubro de 2026 ela tinha 26 mil impressões e 340 a
+510 cliques por mês no Google, posição 5,5, e disputava as mesmas buscas com o
+medidor do portal (958 impressões, posição 6,4). O 301 junta as duas no
+medidor, que antes ganhou a seção de fita e barbante e a pergunta "Como medir
+o dedo para aliança?", para responder tudo o que a página antiga respondia.
+
+O desvio é a lista `MUDARAM` no `worker.js`. A chave é o começo do caminho, e
+por isso cobre as variações com erro de digitação que o Search Console
+registrou. Ele responde sem consultar ninguém: nem a Vercel nem a Tray recebem
+esses pedidos.
+
+**A ordem importa**, e é esta:
+
+1. Publicar o `worker.js` (comando abaixo).
+2. Criar a rota `www.jkaliancas.com.br/descubra-o-tamanho*` apontando para o
+   Worker `jk-guias`, com o asterisco, senão `?gclid=` cai na Tray:
+   ```bash
+   curl -X POST "https://api.cloudflare.com/client/v4/zones/$ZONE/workers/routes" \
+     -H "Authorization: Bearer $CF_TOKEN" -H "Content-Type: application/json" \
+     --data '{"pattern":"www.jkaliancas.com.br/descubra-o-tamanho*","script":"jk-guias"}'
+   ```
+3. Conferir que o endereço antigo responde 301 (linha no fim de "Conferir").
+4. Só então desativar a página no painel da Tray. Ela sai do sitemap da loja e
+   do rodapé, que a Tray monta pela lista de páginas institucionais. Desativar
+   antes do passo 2 deixaria quem chega pelo Google num erro.
+5. No Search Console, inspecionar o endereço antigo (deve mostrar o
+   redirecionamento) e pedir a indexação de `/guias/medidor-de-aliancas`.
+
+O 301 fica para sempre. Tirar a rota devolve o endereço para a Tray, que já
+não tem a página.
+
 ## Publicar
 
 O Worker foi publicado por `wrangler` e depois pela API. Para publicar este
@@ -104,6 +139,7 @@ curl -s -o /dev/null -w "%{http_code} %{redirect_url}\n" https://www.jkaliancas.
 curl -s -o /dev/null -w "%{http_code} %{url_effective}\n" "https://www.jkaliancas.com.br/grupo?fbclid=x" # 200, sem sair de /grupo
 curl -s -o /dev/null -w "%{http_code} %{redirect_url}\n" https://www.jkaliancas.com.br/grupo/entrar     # 302 para o convite
 curl -s -o /dev/null -w "%{http_code} %{redirect_url}\n" https://www.jkaliancas.com.br/qrcode           # 302 para o WhatsApp
+curl -s -o /dev/null -w "%{http_code} %{redirect_url}\n" "https://www.jkaliancas.com.br/descubra-o-tamanho-da-sua-alianca?gclid=x"  # 301 /guias/medidor-de-aliancas?gclid=x
 ```
 
 A quarta linha é a que importa. Se ela devolver `noindex`, o site está saindo do

@@ -28,7 +28,7 @@ export async function GET() {
     `> ${SITE.description}`,
     "",
     "## Ferramentas",
-    `- [Medidor de aliança online](${absoluteUrl("/medidor-de-aliancas")}): descubra o tamanho da aliança pela tela, calibrando com uma moeda de R$ 1 (27 mm) ou cartão (85,60 mm). No padrão brasileiro, a circunferência interna em milímetros é o número do aro mais 40.`,
+    `- [Medidor de aliança online](${absoluteUrl("/medidor-de-aliancas")}): descubra o tamanho da aliança pela tela, calibrando com uma moeda de R$ 1 (27 mm) ou cartão (85,60 mm), ou medindo o dedo com barbante. No padrão brasileiro, a circunferência interna em milímetros é o número do aro mais 40.`,
     ...FERRAMENTAS.map(
       (f) => `- [${f.nome}](${absoluteUrl(`/ferramentas/${f.slug}`)}): ${f.resposta}`,
     ),

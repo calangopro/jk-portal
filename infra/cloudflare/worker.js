@@ -7,10 +7,36 @@
 // "grupo" ou "qrcode" (nenhum, nos sitemaps de 24/09, 01/10 e 20/10), e por
 // isso tudo que não é /guias, /bio, /grupo nem /qrcode segue intacto para a
 // origem original, que é a Tray.
+//
+// Mais uma rota, `www.jkaliancas.com.br/descubra-o-tamanho*` (novembro de
+// 2026), que não leva a pedido nenhum para a Vercel: só responde o 301 de
+// MUDARAM, logo abaixo.
+
+// Páginas da loja que viraram páginas do portal. A chave é o COMEÇO do
+// caminho, porque o Google registrou o endereço antigo também com erro de
+// digitação (`-da-alianca`, `-sua-alianca`, `-do-seu-anel`, `-da-sa-alianca`)
+// e todos levam ao mesmo lugar. No sitemap da loja de 07/11 só existia um
+// caminho começando assim, a própria página, então o prefixo não engole nada.
+//
+// O destino é o endereço final, em https, sem barra no fim: um salto só, que é
+// o que passa a força da página antiga inteira. Os parâmetros vão junto, para
+// clique de anúncio não perder o gclid.
+//
+// Página nova aqui precisa de rota nova na zona, com asterisco no fim.
+const MUDARAM = [
+  { de: "/descubra-o-tamanho", para: "/guias/medidor-de-aliancas" },
+];
+
 var worker_default = {
   async fetch(request) {
     const url = new URL(request.url);
     const p = url.pathname;
+
+    const mudou = MUDARAM.find((m) => p.startsWith(m.de));
+    if (mudou) {
+      return Response.redirect(`https://${url.host}${mudou.para}${url.search}`, 301);
+    }
+
     const ehGuias = p === "/guias" || p.startsWith("/guias/");
     // O link da bio mora no portal em /guias/bio, mas a pessoa vê /bio. O
     // Next não aceita reescrever para dentro do basePath um caminho que está

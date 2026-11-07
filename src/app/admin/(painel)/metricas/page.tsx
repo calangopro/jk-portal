@@ -1,10 +1,14 @@
+import { Suspense } from "react";
 import Link from "next/link";
 import { TrendingUp, Target, MousePointerClick, Eye, ArrowUpRight } from "lucide-react";
 import { requireStaff } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { snapshotsDoPeriodo, ultimoPeriodo } from "@/lib/data/snapshots";
+import { lerDias } from "@/lib/ga4/visitas";
 import { Importar } from "./Importar";
 import { Automatico } from "./Automatico";
+import { Cartao, numero } from "./Cartao";
+import { Visitas, VisitasCarregando } from "./Visitas";
 
 export const metadata = { title: "Métricas" };
 
@@ -33,34 +37,13 @@ async function situacaoDoAutomatico() {
   };
 }
 
-function numero(n: number) {
-  return n.toLocaleString("pt-BR", { maximumFractionDigits: n < 10 ? 1 : 0 });
-}
-
-function Cartao({
-  Icone, rotulo, valor, apoio,
+export default async function MetricasPage({
+  searchParams,
 }: {
-  Icone: typeof Eye;
-  rotulo: string;
-  valor: string;
-  apoio: string;
+  searchParams: Promise<{ dias?: string }>;
 }) {
-  return (
-    <div className="glass rounded-[18px] p-5">
-      <div className="flex items-center gap-2">
-        <span className="flex h-7 w-7 items-center justify-center rounded-[8px] border border-brand/30 bg-brand/10 text-brand-nav">
-          <Icone size={14} />
-        </span>
-        <p className="eyebrow text-[0.62rem]">{rotulo}</p>
-      </div>
-      <p className="font-display mt-3 text-4xl text-ink">{valor}</p>
-      <p className="mt-1 text-xs text-muted">{apoio}</p>
-    </div>
-  );
-}
-
-export default async function MetricasPage() {
   await requireStaff();
+  const dias = lerDias((await searchParams).dias);
   const supabase = await createClient();
 
   const [periodo, { count: publicados }, { count: total }, automatico] = await Promise.all([
@@ -121,8 +104,23 @@ export default async function MetricasPage() {
         <p className="eyebrow">Resultado</p>
         <h1 className="font-display mt-2 text-4xl text-ink">Métricas</h1>
         <p className="mt-3 max-w-2xl text-muted">
-          O que importa não é só posição, e sim impressão, clique e as buscas em
-          que a JK passou a aparecer.{" "}
+          Quantas pessoas leem o site, de onde vêm e quais páginas levam à loja.
+          Mais abaixo, o que o Google mostra: impressão, clique e as buscas em
+          que a JK aparece.
+        </p>
+      </header>
+
+      {/* Lido do GA4 na hora, então fica em Suspense: o Search Console, que
+          vem do banco, aparece sem esperar o Google responder. */}
+      <Suspense key={dias} fallback={<VisitasCarregando dias={dias} />}>
+        <Visitas dias={dias} />
+      </Suspense>
+
+      <header className="mt-12 border-t border-border pt-8">
+        <p className="eyebrow">No Google</p>
+        <h2 className="font-display mt-1 text-2xl text-ink">Search Console</h2>
+        <p className="mt-1 max-w-2xl text-sm text-muted">
+          Só a busca do Google: quantas vezes a JK apareceu e quantas vezes clicaram.{" "}
           {periodo ? (
             <span className="text-ink">
               Período carregado: {new Date(periodo.inicio + "T12:00:00").toLocaleDateString("pt-BR")} a{" "}

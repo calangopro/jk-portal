@@ -77,19 +77,31 @@ export function contaDeServico(): ContaDeServico | null {
   return lerContaDeServico().conta;
 }
 
-const ESCOPO = "https://www.googleapis.com/auth/webmasters.readonly";
+/** Leitura do Search Console. */
+export const ESCOPO_SEARCH_CONSOLE = "https://www.googleapis.com/auth/webmasters.readonly";
+/** Leitura do GA4 (Data API). A mesma conta serve aos dois, cada um com o próprio acesso. */
+export const ESCOPO_ANALYTICS = "https://www.googleapis.com/auth/analytics.readonly";
 const TOKEN_URL = "https://oauth2.googleapis.com/token";
 
 function base64url(texto: string): string {
   return Buffer.from(texto).toString("base64url");
 }
 
-/** Troca a assinatura da conta por um token de acesso de uma hora, só leitura. */
-export async function tokenDeAcesso(conta: ContaDeServico): Promise<string> {
+/**
+ * Troca a assinatura da conta por um token de acesso de uma hora, só leitura.
+ *
+ * O escopo diz o que o token alcança. Ele é pedido sem que a conta tenha
+ * acesso nenhum ainda: quem recusa, se for o caso, é a API na chamada
+ * seguinte, e por isso a mensagem de "sem permissão" mora em quem chama.
+ */
+export async function tokenDeAcesso(
+  conta: ContaDeServico,
+  escopo: string = ESCOPO_SEARCH_CONSOLE,
+): Promise<string> {
   const agora = Math.floor(Date.now() / 1000);
   const cabecalho = base64url(JSON.stringify({ alg: "RS256", typ: "JWT" }));
   const corpo = base64url(
-    JSON.stringify({ iss: conta.email, scope: ESCOPO, aud: TOKEN_URL, iat: agora, exp: agora + 3600 }),
+    JSON.stringify({ iss: conta.email, scope: escopo, aud: TOKEN_URL, iat: agora, exp: agora + 3600 }),
   );
   const assinatura = createSign("RSA-SHA256")
     .update(`${cabecalho}.${corpo}`)
@@ -113,7 +125,7 @@ export async function tokenDeAcesso(conta: ContaDeServico): Promise<string> {
   if (!resposta.ok || !dados.access_token) {
     throw new Error(
       `O Google recusou a conta de serviço (${dados.error_description ?? dados.error ?? resposta.status}). ` +
-        "Confira se a chave colada na Vercel é a do arquivo JSON inteiro e se a API do Search Console está ativada no projeto.",
+        "Confira se a chave colada na Vercel é a do arquivo JSON inteiro.",
     );
   }
   return dados.access_token;
