@@ -78,8 +78,10 @@ saber por qual endereço está sendo servida, e a decisão passa a ser do proxy.
 ensinava a medir o aro. Em outubro de 2026 ela tinha 26 mil impressões e 340 a
 510 cliques por mês no Google, posição 5,5, e disputava as mesmas buscas com o
 medidor do portal (958 impressões, posição 6,4). O 301 junta as duas no
-medidor, que antes ganhou a seção de fita e barbante e a pergunta "Como medir
-o dedo para aliança?", para responder tudo o que a página antiga respondia.
+medidor, que antes ganhou um resumo dos dois métodos da página antiga (fita ou
+barbante, e régua num anel que já serve). O resumo leva ao post
+`/como-medir-o-dedo-para-alianca`, que é o dono da busca "como medir o dedo
+para aliança" no cluster e não pode ganhar concorrente dentro de casa.
 
 O desvio é a lista `MUDARAM` no `worker.js`. A chave é o começo do caminho, e
 por isso cobre as variações com erro de digitação que o Search Console

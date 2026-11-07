@@ -85,8 +85,11 @@ sob `basePath: "/guias"` (mecanismo oficial do Next), e não por rewrite.
   na Tray.** `/descubra-o-tamanho*` responde 301 para `/guias/medidor-de-aliancas`
   pela lista `MUDARAM` do `worker.js` (novembro de 2026; a página da loja tinha
   26 mil impressões por mês). Antes do 301 o destino ganhou o conteúdo que só a
-  origem tinha (medir o dedo com barbante), senão a força não vem junto. A
-  página na Tray só se desativa DEPOIS da rota no ar.
+  origem tinha (medir o dedo com barbante), senão a força não vem junto, mas
+  em RESUMO e com link para o post do cluster que é dono dessa busca: a
+  primeira versão copiou o título do post como H2 e passou a disputar com ele.
+  Antes de dar título a seção nova, confira `jk.conteudos.listar({ cluster })`.
+  A página na Tray só se desativa DEPOIS da rota no ar.
 - **URL de post é plana:** `/guias/<slug>`, de `(site)/[slug]`. O índice é
   `/guias/dicas`. Isso faz o post dividir espaço de nome com as páginas fixas, e
   no Next o segmento estático ganha do dinâmico EM SILÊNCIO. A trava é
