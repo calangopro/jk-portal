@@ -101,9 +101,10 @@ async function ler(loja: string, limite: number): Promise<AvaliacoesPublicas> {
       .not("comentario", "is", null)
       .gte("sincronizado_em", desde)
       .order("criada_em", { ascending: false })
-      // Folga para alternar as lojas abaixo: sem isso, a loja com mais
-      // avaliações recentes ocupava a vitrine inteira.
-      .limit(Math.min(limite * 6, 300));
+      // Todas as candidatas (o cache guarda no máximo 100 por loja), para a
+      // alternância abaixo achar avaliação de TODA loja, e não só das que
+      // receberam avaliação mais recentemente.
+      .limit(1000);
     if (daLoja) consulta = consulta.in("local", daLoja);
     return consulta;
   };
@@ -159,7 +160,7 @@ async function ler(loja: string, limite: number): Promise<AvaliacoesPublicas> {
   };
 }
 
-const lerGuardado = unstable_cache(ler, ["avaliacoes-google-v3"], {
+const lerGuardado = unstable_cache(ler, ["avaliacoes-google-v4"], {
   revalidate: 3600,
   tags: [TAG_AVALIACOES],
 });
