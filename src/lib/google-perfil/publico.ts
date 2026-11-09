@@ -28,6 +28,8 @@ export type AvaliacaoPublica = {
   loja: string;
   nota: number;
   autor: string;
+  /** Foto do perfil no Google (endereço do próprio Google), ou null. */
+  foto: string | null;
   texto: string;
   data: string | null;
 };
@@ -58,6 +60,7 @@ type LinhaDeAvaliacao = {
   nota: number;
   autor: string | null;
   autor_anonimo: boolean;
+  autor_foto: string | null;
   comentario: string | null;
   criada_em: string | null;
 };
@@ -92,7 +95,7 @@ async function ler(loja: string, limite: number): Promise<AvaliacoesPublicas> {
 
   let consulta = supabase
     .from("google_avaliacoes")
-    .select("local, nota, autor, autor_anonimo, comentario, criada_em")
+    .select("local, nota, autor, autor_anonimo, autor_foto, comentario, criada_em")
     .gte("nota", 4)
     .not("comentario", "is", null)
     .gte("sincronizado_em", desde)
@@ -109,6 +112,7 @@ async function ler(loja: string, limite: number): Promise<AvaliacoesPublicas> {
       loja: a.local,
       nota: a.nota,
       autor: a.autor_anonimo || !a.autor ? "Cliente no Google" : a.autor,
+      foto: !a.autor_anonimo && a.autor_foto && /^https:\/\/[a-z0-9.-]+\.(googleusercontent|ggpht)\.com\//.test(a.autor_foto) ? a.autor_foto : null,
       texto: a.comentario as string,
       data: a.criada_em,
     }));
@@ -129,7 +133,7 @@ async function ler(loja: string, limite: number): Promise<AvaliacoesPublicas> {
   };
 }
 
-const lerGuardado = unstable_cache(ler, ["avaliacoes-google-v1"], {
+const lerGuardado = unstable_cache(ler, ["avaliacoes-google-v2"], {
   revalidate: 3600,
   tags: [TAG_AVALIACOES],
 });

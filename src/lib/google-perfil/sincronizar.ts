@@ -47,7 +47,7 @@ type Local = {
 };
 type Avaliacao = {
   name: string;
-  reviewer?: { displayName?: string; isAnonymous?: boolean };
+  reviewer?: { displayName?: string; isAnonymous?: boolean; profilePhotoUrl?: string };
   starRating?: string;
   comment?: string;
   createTime?: string;
@@ -170,6 +170,7 @@ export async function sincronizarAvaliacoes(): Promise<UltimaSincronizacao> {
               local: local.name,
               autor: a.reviewer?.displayName ?? null,
               autor_anonimo: Boolean(a.reviewer?.isAnonymous),
+              autor_foto: a.reviewer?.isAnonymous ? null : (a.reviewer?.profilePhotoUrl ?? null),
               nota: estrelas,
               comentario: a.comment?.trim() ? a.comment : null,
               resposta: a.reviewReply?.comment ?? null,
