@@ -62,7 +62,7 @@ function ipPrivado(ip: string): boolean {
 }
 
 /** Baixa uma imagem de fora sem deixar o servidor virar ponte para a rede interna. */
-async function baixar(url: string): Promise<{ bytes: Buffer; tipo: string; final: string }> {
+export async function baixar(url: string): Promise<{ bytes: Buffer; tipo: string; final: string }> {
   let atual = url;
   for (let salto = 0; salto < 4; salto++) {
     const u = new URL(atual);

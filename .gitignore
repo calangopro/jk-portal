@@ -40,3 +40,7 @@ next-env.d.ts
 
 # configuração pessoal do Claude Code
 .claude/settings.local.json
+
+# arquivos para mandar a alguém (planilha de custo da JK, por exemplo): têm
+# dado da empresa e não entram no git
+/entregas/

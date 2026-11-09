@@ -70,7 +70,7 @@ const FERRAMENTAS_CODIGO = {
     name: "buscar",
     title: "Buscar operações do painel",
     description:
-      'Acha operações do painel da JK e devolve a assinatura TypeScript de cada uma (jk.area.acao). Sem nada: as áreas e o que cada uma tem. area: a área inteira. consulta: procura por palavra (ex.: "publicar", "comentário"). guia: "escrita" (regras de texto), "blocos" (HTML do editor), "seo" (checklist) ou "site" (o que existe e onde).',
+      'Acha operações do painel da JK e devolve a assinatura TypeScript de cada uma (jk.area.acao). Sem nada: as áreas e o que cada uma tem. area: a área inteira. consulta: procura por palavra (ex.: "publicar", "comentário"). guia: "escrita" (regras de texto), "blocos" (HTML do editor), "seo" (checklist), "site" (o que existe e onde) ou "fotos" (fotos novas do catálogo com o Magnific).',
     inputSchema: {
       type: "object",
       properties: {
@@ -188,7 +188,7 @@ function listaClassica(ctx: Contexto) {
     {
       name: "ler_guia",
       title: "Ler guia",
-      description: 'Guias do site: "escrita" (regras de texto, leia antes de escrever), "blocos" (HTML do editor), "seo" (checklist) e "site" (o que existe e onde).',
+      description: 'Guias do site: "escrita" (regras de texto, leia antes de escrever), "blocos" (HTML do editor), "seo" (checklist), "site" (o que existe e onde) e "fotos" (fotos novas do catálogo com o Magnific).',
       inputSchema: { type: "object", properties: { guia: { type: "string", enum: Object.keys(GUIAS) } }, required: ["guia"] },
       annotations: MARCAS.leitura,
     },
