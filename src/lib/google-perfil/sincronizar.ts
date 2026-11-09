@@ -29,8 +29,19 @@ const V4 = "https://mybusiness.googleapis.com/v4";
 
 const ESTRELAS: Record<string, number> = { ONE: 1, TWO: 2, THREE: 3, FOUR: 4, FIVE: 5 };
 
-/** Teto de páginas por loja (50 avaliações cada): segura um laço infinito sem cortar loja real. */
-const PAGINAS_POR_LOJA = 60;
+/**
+ * Só as 100 avaliações mais recentes de cada loja (2 páginas de 50).
+ *
+ * A primeira versão lia TODAS, uma página por vez, e a função da Vercel
+ * morria no meio (60 s): Guarulhos sozinha tem 3,5 mil avaliações. A vitrine
+ * só mostra as recentes, e a política da API pede guardar "quantidade
+ * limitada" do conteúdo. A nota e o total continuam sendo os do Google, de
+ * todas as avaliações, porque vêm na primeira página.
+ */
+const PAGINAS_POR_LOJA = 2;
+
+/** Lojas lidas ao mesmo tempo. Oito lojas, quatro por vez, longe da cota de 300 por minuto. */
+const LOJAS_EM_PARALELO = 4;
 
 type Conta = { name: string };
 type Endereco = {
@@ -130,87 +141,102 @@ export async function sincronizarAvaliacoes(): Promise<UltimaSincronizacao> {
     }
 
     const contas = await listarTudo<Conta>(`${CONTAS}?pageSize=20`, "accounts", token);
-    const vistos = new Set<string>();
-    let lojas = 0;
-    let avaliacoes = 0;
 
+    // Todas as lojas de todas as contas, cada uma uma vez só: a mesma loja
+    // aparece na conta pessoal e no grupo de locais.
+    const fila: { conta: string; local: Local }[] = [];
+    const vistos = new Set<string>();
     for (const conta of contas) {
       const locais = await listarTudo<Local>(
         `${INFORMACOES}/${conta.name}/locations?readMask=name,title,storefrontAddress,metadata&pageSize=100`,
         "locations",
         token,
       );
-
       for (const local of locais) {
-        // A mesma loja aparece na conta pessoal e no grupo de locais: uma vez basta.
         if (vistos.has(local.name)) continue;
         vistos.add(local.name);
-
-        const linhas: Record<string, unknown>[] = [];
-        let nota: number | null = null;
-        let total: number | null = null;
-        let pagina: string | undefined;
-
-        for (let i = 0; i < PAGINAS_POR_LOJA; i++) {
-          const u = new URL(`${V4}/${conta.name}/${local.name}/reviews`);
-          u.searchParams.set("pageSize", "50");
-          u.searchParams.set("orderBy", "updateTime desc");
-          if (pagina) u.searchParams.set("pageToken", pagina);
-          const r = await pedir<PaginaDeAvaliacoes>(u.toString(), token);
-
-          if (i === 0) {
-            nota = typeof r.averageRating === "number" ? r.averageRating : null;
-            total = typeof r.totalReviewCount === "number" ? r.totalReviewCount : null;
-          }
-          for (const a of r.reviews ?? []) {
-            const estrelas = ESTRELAS[a.starRating ?? ""];
-            if (!estrelas) continue;
-            linhas.push({
-              name: a.name,
-              local: local.name,
-              autor: a.reviewer?.displayName ?? null,
-              autor_anonimo: Boolean(a.reviewer?.isAnonymous),
-              autor_foto: a.reviewer?.isAnonymous ? null : (a.reviewer?.profilePhotoUrl ?? null),
-              nota: estrelas,
-              comentario: a.comment?.trim() ? a.comment : null,
-              resposta: a.reviewReply?.comment ?? null,
-              criada_em: a.createTime ?? null,
-              atualizada_em: a.updateTime ?? null,
-              sincronizado_em: marca,
-            });
-          }
-          pagina = r.nextPageToken;
-          if (!pagina) break;
-        }
-
-        const { error: erroLocal } = await supabase.from("google_locais").upsert(
-          {
-            name: local.name,
-            conta: conta.name,
-            titulo: local.title ?? local.name,
-            endereco: enderecoEmTexto(local.storefrontAddress),
-            maps_uri: local.metadata?.mapsUri ?? null,
-            avaliar_uri: local.metadata?.newReviewUri ?? null,
-            place_id: local.metadata?.placeId ?? null,
-            location_id: lojaPorCid.get(cidDoMaps(local.metadata?.mapsUri) ?? "") ?? null,
-            nota_media: nota,
-            total_avaliacoes: total,
-            sincronizado_em: marca,
-          },
-          { onConflict: "name" },
-        );
-        if (erroLocal) throw new Error(`Não deu para gravar a loja ${local.title}: ${erroLocal.message}`);
-
-        for (let i = 0; i < linhas.length; i += 500) {
-          const { error } = await supabase
-            .from("google_avaliacoes")
-            .upsert(linhas.slice(i, i + 500), { onConflict: "name" });
-          if (error) throw new Error(`Não deu para gravar as avaliações de ${local.title}: ${error.message}`);
-        }
-
-        lojas += 1;
-        avaliacoes += linhas.length;
+        fila.push({ conta: conta.name, local });
       }
+    }
+
+    async function lerLoja({ conta, local }: { conta: string; local: Local }) {
+      const linhas: Record<string, unknown>[] = [];
+      let nota: number | null = null;
+      let total: number | null = null;
+      let pagina: string | undefined;
+
+      for (let i = 0; i < PAGINAS_POR_LOJA; i++) {
+        const u = new URL(`${V4}/${conta}/${local.name}/reviews`);
+        u.searchParams.set("pageSize", "50");
+        u.searchParams.set("orderBy", "updateTime desc");
+        if (pagina) u.searchParams.set("pageToken", pagina);
+        const r = await pedir<PaginaDeAvaliacoes>(u.toString(), token);
+
+        if (i === 0) {
+          nota = typeof r.averageRating === "number" ? r.averageRating : null;
+          total = typeof r.totalReviewCount === "number" ? r.totalReviewCount : null;
+        }
+        for (const a of r.reviews ?? []) {
+          const estrelas = ESTRELAS[a.starRating ?? ""];
+          if (!estrelas) continue;
+          linhas.push({
+            name: a.name,
+            local: local.name,
+            autor: a.reviewer?.displayName ?? null,
+            autor_anonimo: Boolean(a.reviewer?.isAnonymous),
+            autor_foto: a.reviewer?.isAnonymous ? null : (a.reviewer?.profilePhotoUrl ?? null),
+            nota: estrelas,
+            comentario: a.comment?.trim() ? a.comment : null,
+            resposta: a.reviewReply?.comment ?? null,
+            criada_em: a.createTime ?? null,
+            atualizada_em: a.updateTime ?? null,
+            sincronizado_em: marca,
+          });
+        }
+        pagina = r.nextPageToken;
+        if (!pagina) break;
+      }
+
+      const loja = {
+        name: local.name,
+        conta,
+        titulo: local.title ?? local.name,
+        endereco: enderecoEmTexto(local.storefrontAddress),
+        maps_uri: local.metadata?.mapsUri ?? null,
+        avaliar_uri: local.metadata?.newReviewUri ?? null,
+        place_id: local.metadata?.placeId ?? null,
+        location_id: lojaPorCid.get(cidDoMaps(local.metadata?.mapsUri) ?? "") ?? null,
+        nota_media: nota,
+        total_avaliacoes: total,
+        sincronizado_em: marca,
+      };
+      return { loja, linhas };
+    }
+
+    // Lê do Google em lotes paralelos; grava no banco em seguida.
+    const lidas: Awaited<ReturnType<typeof lerLoja>>[] = [];
+    for (let i = 0; i < fila.length; i += LOJAS_EM_PARALELO) {
+      lidas.push(...(await Promise.all(fila.slice(i, i + LOJAS_EM_PARALELO).map(lerLoja))));
+    }
+
+    let lojas = 0;
+    let avaliacoes = 0;
+    for (const { loja, linhas } of lidas) {
+      const { error: erroLocal } = await supabase.from("google_locais").upsert(loja, { onConflict: "name" });
+      if (erroLocal) throw new Error(`Não deu para gravar a loja ${loja.titulo}: ${erroLocal.message}`);
+
+      if (linhas.length) {
+        let { error } = await supabase.from("google_avaliacoes").upsert(linhas, { onConflict: "name" });
+        // Banco sem a 0051 ainda: grava sem a foto em vez de perder a leitura.
+        if (error && /autor_foto/.test(error.message)) {
+          const semFoto = linhas.map(({ autor_foto: _foto, ...resto }) => resto);
+          ({ error } = await supabase.from("google_avaliacoes").upsert(semFoto, { onConflict: "name" }));
+        }
+        if (error) throw new Error(`Não deu para gravar as avaliações de ${loja.titulo}: ${error.message}`);
+      }
+
+      lojas += 1;
+      avaliacoes += linhas.length;
     }
 
     // Só depois da rodada inteira: sai o que o Google não devolveu mais.
