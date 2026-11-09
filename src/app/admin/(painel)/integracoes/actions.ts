@@ -1,14 +1,96 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { requireAdmin } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { PIXEL_DA_JK, SUBDOMINIO_KOMMO, type ProvedorDeChave } from "@/lib/leads/chaves";
 import { repassarGuardados } from "@/lib/leads/repassar";
 import { DESTINOS, type Destino } from "@/lib/leads/tipos";
+import { PROVEDOR_CLIENTE, PROVEDOR_CONTA } from "@/lib/google-perfil/oauth";
+import { sincronizarAvaliacoes } from "@/lib/google-perfil/sincronizar";
+import { TAG_AVALIACOES } from "@/lib/google-perfil/publico";
 
 export type IntegracaoState = { erro?: string; ok?: string };
+
+// ---------------------------------------------------------------------------
+// Google, Perfil da Empresa (avaliações das lojas). Ver lib/google-perfil.
+// ---------------------------------------------------------------------------
+
+/**
+ * Salva o cliente OAuth do projeto jk-portal-509621. O segredo vai para
+ * `integration_tokens` e nunca volta para a tela; em branco, mantém o que já
+ * está (dá para corrigir o id sem colar o segredo de novo).
+ */
+export async function salvarClienteGoogle(_prev: IntegracaoState, formData: FormData): Promise<IntegracaoState> {
+  await requireAdmin();
+
+  const id = String(formData.get("client_id") ?? "").trim();
+  if (!/^\d+-[a-z0-9]+\.apps\.googleusercontent\.com$/.test(id)) {
+    return { erro: "O ID do cliente termina em .apps.googleusercontent.com. Copie do Google Cloud, em Clientes." };
+  }
+
+  const supabase = createAdminClient();
+  const { data: atual } = await supabase
+    .from("integration_tokens")
+    .select("access_token")
+    .eq("provider", PROVEDOR_CLIENTE)
+    .maybeSingle();
+
+  const digitado = String(formData.get("client_secret") ?? "").trim();
+  const segredo = digitado || (atual?.access_token as string | undefined) || "";
+  if (!segredo) return { erro: "Cole a chave secreta do cliente." };
+  if (digitado && digitado.length < 20) return { erro: "Essa chave secreta parece curta demais. Ela começa com GOCSPX-." };
+
+  const { error } = await supabase
+    .from("integration_tokens")
+    .upsert({ provider: PROVEDOR_CLIENTE, access_token: segredo, meta: { client_id: id } }, { onConflict: "provider" });
+  if (error) return { erro: error.message };
+
+  revalidatePath("/admin/integracoes");
+  return { ok: "Cliente salvo. Agora é só Conectar com o Google." };
+}
+
+/** Lê o Google agora, sem esperar a rodada da manhã. */
+export async function sincronizarGoogleAgora(_prev: IntegracaoState, _formData: FormData): Promise<IntegracaoState> {
+  await requireAdmin();
+  const r = await sincronizarAvaliacoes();
+  revalidatePath("/admin/integracoes");
+  if (!r.ok) return { erro: r.erro ?? "A leitura falhou." };
+  revalidateTag(TAG_AVALIACOES);
+  return { ok: `${r.lojas} lojas e ${r.avaliacoes} avaliações lidas.` };
+}
+
+/**
+ * Desliga o portal da conta do Google: retira a autorização no próprio Google
+ * e apaga o token daqui. O cache das avaliações sai também, porque sem
+ * conexão ele não seria mais renovado.
+ */
+export async function desconectarGoogle(_prev: IntegracaoState, _formData: FormData): Promise<IntegracaoState> {
+  await requireAdmin();
+  const supabase = createAdminClient();
+
+  const { data: conta } = await supabase
+    .from("integration_tokens")
+    .select("refresh_token")
+    .eq("provider", PROVEDOR_CONTA)
+    .maybeSingle();
+  if (conta?.refresh_token) {
+    await fetch("https://oauth2.googleapis.com/revoke", {
+      method: "POST",
+      headers: { "content-type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ token: conta.refresh_token as string }).toString(),
+      signal: AbortSignal.timeout(8000),
+    }).catch(() => null);
+  }
+
+  await supabase.from("integration_tokens").delete().eq("provider", PROVEDOR_CONTA);
+  await supabase.from("google_locais").delete().neq("name", "");
+
+  revalidatePath("/admin/integracoes");
+  revalidateTag(TAG_AVALIACOES);
+  return { ok: "Desconectado. As avaliações saíram da loja." };
+}
 
 /** Salva a configuração pública e liga ou desliga a integração. */
 export async function salvarIntegracao(

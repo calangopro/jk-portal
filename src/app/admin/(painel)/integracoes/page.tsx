@@ -5,15 +5,26 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { lerChaves, PIXEL_DA_JK } from "@/lib/leads/chaves";
 import { funisDaKommo } from "@/lib/leads/kommo-funis";
 import { DESTINOS, type Destino } from "@/lib/leads/tipos";
+import { lerEstadoDoGoogle } from "@/lib/google-perfil/oauth";
+import { absoluteUrl } from "@/lib/seo/site";
 import { Cartao } from "./Cartao";
 import { CartaoDeChave } from "./CartaoDeChave";
+import { CartaoGoogle } from "./CartaoGoogle";
 
 export const metadata = { title: "Integrações" };
 
+// "Ler o Google agora" roda aqui: contas, locais e as avaliações das oito lojas.
+export const maxDuration = 60;
+
 type Linha = { provider: string; status: string; config: Record<string, string> };
 
-export default async function IntegracoesPage() {
+export default async function IntegracoesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ google?: string }>;
+}) {
   await requireAdmin();
+  const { google: avisoDoGoogle } = await searchParams;
   const supabase = await createClient();
   const { data } = await supabase.from("integrations").select("provider, status, config");
 
@@ -23,7 +34,7 @@ export default async function IntegracoesPage() {
   // Chaves e contagens com a service_role: `integration_tokens` não tem policy,
   // e a página já exige administrador.
   const admin = createAdminClient();
-  const chaves = await lerChaves(admin);
+  const [chaves, estadoDoGoogle] = await Promise.all([lerChaves(admin), lerEstadoDoGoogle(admin)]);
   const [guardados, funis] = await Promise.all([
     Promise.all(
       DESTINOS.map(async (d) => {
@@ -90,14 +101,10 @@ export default async function IntegracoesPage() {
           aviso="A leitura automática usa uma conta de serviço do Google (variável GSC_SERVICE_ACCOUNT_JSON na Vercel) e roda toda segunda. A situação e o botão Importar agora ficam na tela de Métricas."
         />
 
-        <Cartao
-          provider="gmb"
-          nome="Google Meu Negócio"
-          descricao="Avaliações, rotas e ligações das 10 unidades. Base do SEO local."
-          status={achar("gmb")?.status ?? "disconnected"}
-          config={achar("gmb")?.config ?? {}}
-          campos={[{ nome: "account", rotulo: "Conta ou grupo de locais", exemplo: "JK Alianças" }]}
-          aviso="Requer autorização no Google e verificação das unidades. Os dados de NAP das lojas continuam sendo editados na tela de Lojas."
+        <CartaoGoogle
+          estado={estadoDoGoogle}
+          retorno={absoluteUrl("/api/google/retorno")}
+          aviso={avisoDoGoogle ? avisoDoGoogle.slice(0, 300) : null}
         />
       </div>
 
