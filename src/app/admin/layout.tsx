@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { MoverCookieDeSessao } from "./MoverCookieDeSessao";
 
 /**
  * Layout raiz do /admin: apenas metadata. NÃO exige sessão, porque a página de
@@ -14,5 +15,10 @@ export default function AdminRootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  return <>{children}</>;
+  return (
+    <>
+      <MoverCookieDeSessao />
+      {children}
+    </>
+  );
 }
