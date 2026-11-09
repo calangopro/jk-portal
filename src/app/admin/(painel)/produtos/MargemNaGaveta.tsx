@@ -71,6 +71,26 @@ export function MargemNaGaveta({ productId, margem }: { productId: string; marge
       )}
       {margem?.detalhe ? <p className="mt-2 text-xs text-muted">{margem.detalhe}</p> : null}
 
+      {margem?.cpaMaximo !== null && margem?.cpaMaximo !== undefined ? (
+        <div className={`mt-3 rounded-[10px] px-3 py-2 text-sm ${margem.cpaMaximo > 0 ? "bg-emerald-50 text-emerald-900" : "bg-wine/10 text-wine"}`}>
+          {margem.cpaMaximo > 0 ? (
+            <>
+              <span className="font-semibold">Anúncio: pode pagar até {reais(margem.cpaMaximo)} por venda</span>{" "}
+              (ROAS mínimo de {margem.roasMinimo!.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}x). Empata em{" "}
+              {reais(margem.cpaEmpate ?? 0)}.
+            </>
+          ) : (
+            <span className="font-semibold">
+              Neste preço não aguenta anúncio: qualquer real tira a peça da margem mínima
+              {margem.cpaEmpate && margem.cpaEmpate > 0 ? ` (empata em ${reais(margem.cpaEmpate)})` : ""}.
+            </span>
+          )}
+          <Link href="/admin/anuncios" className="ml-1 text-xs font-semibold underline">
+            Ver todos
+          </Link>
+        </div>
+      ) : null}
+
       {margem?.descontoHoje ? (
         <p className={`mt-2 flex items-center gap-1.5 text-xs ${margem.hojePassa ? "text-wine" : "text-muted"}`}>
           {margem.hojePassa ? <AlertTriangle size={12} /> : null}

@@ -5,6 +5,7 @@ import {
   abaixoDoMinimo,
   custoDoProduto,
   descontoMaximo,
+  limiteDeAnuncio,
   margemNoPreco,
   precoComDesconto,
   terminadoEm90ParaCima,
@@ -67,6 +68,8 @@ export type Avaliacao = {
   margemReais?: number;
   descontoMaximo?: number;
   precoMinimo?: number;
+  /** Quanto a venda no preço da campanha aguenta de anúncio. */
+  cpaMaximo?: number;
 };
 
 const um = <T,>(v: T | T[] | null | undefined): T | null => (Array.isArray(v) ? (v[0] ?? null) : (v ?? null));
@@ -224,6 +227,7 @@ export async function avaliarItens(
           margemReais: m.reais,
           descontoMaximo: max,
           precoMinimo: terminadoEm90ParaCima(i.precoCheio * (1 - max)),
+          cpaMaximo: limiteDeAnuncio(i.precoCampanha, c.valor, parametros).cpaMaximo,
         }
       : { situacao };
   }

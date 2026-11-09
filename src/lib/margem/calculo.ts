@@ -8,6 +8,12 @@
  *   margem (%)   = margem / preço
  *   desconto máx = 1 - (custo + frete + embalagem) / (preço cheio x (1 - taxa - imposto - margem mínima))
  *
+ * E o limite de anúncio, que é a mesma margem vista pelo lado de quem compra
+ * mídia: quanto a venda aguenta pagar de anúncio.
+ *   CPA de empate = margem (R$) no preço de venda: pagou isso, lucro zero
+ *   CPA máximo    = CPA de empate - margem mínima x preço: pagou isso, sobra a mínima
+ *   ROAS mínimo   = preço / CPA máximo: o retorno sobre o anúncio que mantém a mínima
+ *
  * Parâmetro vazio conta como zero, como o N() da planilha: dá para ver margem
  * antes de saber o imposto, e ela só melhora de precisão.
  *
@@ -71,6 +77,21 @@ export type Margem = {
   fracaoHoje: number | null;
   /** A promoção de hoje passa do desconto máximo. */
   hojePassa: boolean;
+  /** Quanto a venda aguenta de anúncio, no preço de HOJE (com a promoção, se houver). */
+  anuncio: LimiteDeAnuncio;
+};
+
+export type LimiteDeAnuncio = {
+  /** O preço em que a conta foi feita. */
+  preco: number;
+  /** O máximo por venda que ainda deixa a margem mínima. Zero ou negativo: não aguenta anúncio. */
+  cpaMaximo: number;
+  /** O máximo por venda para empatar (lucro zero). */
+  cpaEmpate: number;
+  /** Retorno mínimo sobre o anúncio para manter a margem mínima (5 = R$ 5 vendidos por R$ 1 de anúncio). */
+  roasMinimo: number | null;
+  /** Retorno mínimo para não ter prejuízo. */
+  roasEmpate: number | null;
 };
 
 const n = (v: number | null | undefined) => (typeof v === "number" && Number.isFinite(v) ? v : 0);
@@ -125,6 +146,19 @@ export function descontoMaximo(precoCheio: number, custo: number, p: Parametros)
   return Math.max(0, 1 - (custo + n(p.frete) + n(p.embalagem)) / base);
 }
 
+/** Quanto uma venda a este preço aguenta pagar de anúncio. */
+export function limiteDeAnuncio(preco: number, custo: number, p: Parametros): LimiteDeAnuncio {
+  const empate = margemNoPreco(preco, custo, p).reais;
+  const maximo = Math.round((empate - n(p.margemMinima) * preco) * 100) / 100;
+  return {
+    preco,
+    cpaMaximo: maximo,
+    cpaEmpate: empate,
+    roasMinimo: maximo > 0 ? preco / maximo : null,
+    roasEmpate: empate > 0 ? preco / empate : null,
+  };
+}
+
 export function abaixoDoMinimo(fracao: number, p: Parametros): boolean {
   return fracao < n(p.margemMinima);
 }
@@ -149,6 +183,7 @@ export function calcularMargem(
     descontoHoje,
     fracaoHoje: hoje?.fracao ?? null,
     hojePassa: hoje !== null && abaixoDoMinimo(hoje.fracao, p),
+    anuncio: limiteDeAnuncio(temPromo ? precoHoje! : precoCheio, custo, p),
   };
 }
 

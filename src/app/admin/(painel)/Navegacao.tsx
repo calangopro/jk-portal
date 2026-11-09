@@ -6,7 +6,7 @@ import type { LucideIcon } from "lucide-react";
 import {
   LayoutDashboard, FileText, ImageIcon, MessageCircle, Package,
   TrendingUp, Plug, Users, MapPin, PenLine, Palette, LayoutTemplate, BookCheck, ListChecks, CalendarDays, Milestone,
-  Smartphone, UsersRound, QrCode, Bot, Percent, Tags,
+  Smartphone, UsersRound, QrCode, Bot, Percent, Tags, Megaphone,
   Loader2,
 } from "lucide-react";
 
@@ -36,6 +36,7 @@ const GRUPOS = [
       { href: "/admin/produtos", label: "Produtos", Icone: Package, desc: "Fotos, preço e link de cada peça" },
       { href: "/admin/campanhas", label: "Campanhas", Icone: Tags, desc: "Descontos com aprovação" },
       { href: "/admin/margem", label: "Margem", Icone: Percent, desc: "Custo, ouro e margem mínima", soAdmin: true },
+      { href: "/admin/anuncios", label: "Anúncios", Icone: Megaphone, desc: "Quanto pagar por venda", soAdmin: true },
       { href: "/admin/lojas", label: "Lojas", Icone: MapPin, desc: "Endereço e horário" },
     ],
   },
