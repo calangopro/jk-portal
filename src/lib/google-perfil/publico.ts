@@ -65,6 +65,25 @@ type LinhaDeAvaliacao = {
   criada_em: string | null;
 };
 
+/**
+ * Só o que a pessoa escreveu. A API devolve o comentário com a tradução
+ * automática junto, porque a conta está em inglês: "texto (Translated by
+ * Google) tradução", ou, em avaliação noutra língua, "(Translated by Google)
+ * tradução (Original) texto". A tradução é acréscimo do Google, não a
+ * avaliação; o texto original sai intacto.
+ */
+const MARCA_TRADUCAO = /\((?:Translated by Google|Traduzido pelo Google)\)/i;
+const MARCA_ORIGINAL = /\(Original\)/i;
+
+function textoOriginal(comentario: string): string {
+  if (MARCA_ORIGINAL.test(comentario)) return (comentario.split(MARCA_ORIGINAL).pop() ?? "").trim();
+  if (MARCA_TRADUCAO.test(comentario)) return (comentario.split(MARCA_TRADUCAO)[0] ?? "").trim();
+  return comentario.trim();
+}
+
+/** Texto com conteúdo de verdade vai na frente; "ótimo atendimento" só entra se faltar. */
+const TEXTO_COMPLETO = 60;
+
 async function ler(loja: string, limite: number): Promise<AvaliacoesPublicas> {
   const supabase = createAdminClient();
   const desde = new Date(Date.now() - VALIDADE_MS).toISOString();
@@ -120,11 +139,20 @@ async function ler(loja: string, limite: number): Promise<AvaliacoesPublicas> {
   // Uma de cada loja por vez, mantendo a mais recente de cada uma primeiro.
   const porLoja = new Map<string, LinhaDeAvaliacao[]>();
   // O select com colunas em variável perde o tipo no supabase-js; a forma é a de LinhaDeAvaliacao.
-  for (const a of (linhas ?? []) as unknown as LinhaDeAvaliacao[]) {
-    if (!(a.comentario ?? "").trim()) continue;
+  for (const bruta of (linhas ?? []) as unknown as LinhaDeAvaliacao[]) {
+    const texto = textoOriginal(bruta.comentario ?? "");
+    if (!texto) continue;
+    const a = { ...bruta, comentario: texto };
     const fila = porLoja.get(a.local) ?? [];
     fila.push(a);
     porLoja.set(a.local, fila);
+  }
+  // Em cada loja, as completas primeiro, sem perder a ordem de data dentro de cada grupo.
+  for (const fila of porLoja.values()) {
+    fila.sort(
+      (x, y) =>
+        Number((y.comentario ?? "").length >= TEXTO_COMPLETO) - Number((x.comentario ?? "").length >= TEXTO_COMPLETO),
+    );
   }
   const alternadas: LinhaDeAvaliacao[] = [];
   while (alternadas.length < limite && [...porLoja.values()].some((f) => f.length)) {
@@ -163,7 +191,7 @@ async function ler(loja: string, limite: number): Promise<AvaliacoesPublicas> {
   };
 }
 
-const lerGuardado = unstable_cache(ler, ["avaliacoes-google-v5"], {
+const lerGuardado = unstable_cache(ler, ["avaliacoes-google-v6"], {
   revalidate: 3600,
   tags: [TAG_AVALIACOES],
 });
