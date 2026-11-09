@@ -80,7 +80,8 @@ async function ler(loja: string, limite: number): Promise<AvaliacoesPublicas> {
     const portal = Array.isArray(l.locations) ? l.locations[0] : l.locations;
     return {
       id: l.name,
-      nome: portal?.name ?? l.titulo,
+      // Loja sem par no portal leva o título do Google, sem o "JK Alianças - " da frente.
+      nome: portal?.name ?? l.titulo.replace(/^\s*jk\s+alian\S*\s*[-\u2013]\s*/i, ""),
       slug: portal?.slug ?? null,
       nota: l.nota_media == null ? null : Number(l.nota_media),
       total: l.total_avaliacoes,
@@ -144,7 +145,9 @@ async function ler(loja: string, limite: number): Promise<AvaliacoesPublicas> {
       data: a.criada_em,
     }));
 
-  const usadas = new Set(avaliacoes.map((a) => a.loja));
+  // Loja com pelo menos uma avaliação na vitrine (Center Norte, por exemplo,
+  // tem nota no Google mas nenhuma avaliação com texto que chegue até aqui).
+  const comAvaliacao = new Set(porLoja.keys());
   const atualizadoEm = ((locais ?? []) as LinhaDeLocal[])
     .map((l) => l.sincronizado_em)
     .sort()
@@ -155,12 +158,12 @@ async function ler(loja: string, limite: number): Promise<AvaliacoesPublicas> {
     atualizadoEm,
     // Toda loja com nota fica na lista (a vitrine mostra a de cada avaliação),
     // e a filtrada por slug só leva a dela.
-    lojas: daLoja ? lojas.filter((l) => daLoja.includes(l.id)) : lojas.filter((l) => l.nota != null || usadas.has(l.id)),
+    lojas: daLoja ? lojas.filter((l) => daLoja.includes(l.id)) : lojas.filter((l) => comAvaliacao.has(l.id)),
     avaliacoes,
   };
 }
 
-const lerGuardado = unstable_cache(ler, ["avaliacoes-google-v4"], {
+const lerGuardado = unstable_cache(ler, ["avaliacoes-google-v5"], {
   revalidate: 3600,
   tags: [TAG_AVALIACOES],
 });
