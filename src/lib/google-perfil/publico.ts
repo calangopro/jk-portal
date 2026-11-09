@@ -93,21 +93,47 @@ async function ler(loja: string, limite: number): Promise<AvaliacoesPublicas> {
     return { fonte: "Avaliações do Google", atualizadoEm: null, lojas: [], avaliacoes: [] };
   }
 
-  let consulta = supabase
-    .from("google_avaliacoes")
-    .select("local, nota, autor, autor_anonimo, autor_foto, comentario, criada_em")
-    .gte("nota", 4)
-    .not("comentario", "is", null)
-    .gte("sincronizado_em", desde)
-    .order("criada_em", { ascending: false })
-    .limit(limite);
-  if (daLoja) consulta = consulta.in("local", daLoja);
+  const consultar = (colunas: string) => {
+    let consulta = supabase
+      .from("google_avaliacoes")
+      .select(colunas)
+      .gte("nota", 4)
+      .not("comentario", "is", null)
+      .gte("sincronizado_em", desde)
+      .order("criada_em", { ascending: false })
+      // Folga para alternar as lojas abaixo: sem isso, a loja com mais
+      // avaliações recentes ocupava a vitrine inteira.
+      .limit(Math.min(limite * 6, 300));
+    if (daLoja) consulta = consulta.in("local", daLoja);
+    return consulta;
+  };
 
-  const { data: linhas, error } = await consulta;
+  let { data: linhas, error } = await consultar("local, nota, autor, autor_anonimo, autor_foto, comentario, criada_em");
+  // Banco sem a 0051 ainda: a vitrine sai sem foto, com a inicial.
+  if (error && /autor_foto/.test(error.message)) {
+    ({ data: linhas, error } = await consultar("local, nota, autor, autor_anonimo, comentario, criada_em"));
+  }
   if (error) throw new Error(error.message);
 
-  const avaliacoes: AvaliacaoPublica[] = ((linhas ?? []) as LinhaDeAvaliacao[])
-    .filter((a) => (a.comentario ?? "").trim().length > 0)
+  // Uma de cada loja por vez, mantendo a mais recente de cada uma primeiro.
+  const porLoja = new Map<string, LinhaDeAvaliacao[]>();
+  // O select com colunas em variável perde o tipo no supabase-js; a forma é a de LinhaDeAvaliacao.
+  for (const a of (linhas ?? []) as unknown as LinhaDeAvaliacao[]) {
+    if (!(a.comentario ?? "").trim()) continue;
+    const fila = porLoja.get(a.local) ?? [];
+    fila.push(a);
+    porLoja.set(a.local, fila);
+  }
+  const alternadas: LinhaDeAvaliacao[] = [];
+  while (alternadas.length < limite && [...porLoja.values()].some((f) => f.length)) {
+    for (const fila of porLoja.values()) {
+      const a = fila.shift();
+      if (a) alternadas.push(a);
+      if (alternadas.length >= limite) break;
+    }
+  }
+
+  const avaliacoes: AvaliacaoPublica[] = alternadas
     .map((a) => ({
       loja: a.local,
       nota: a.nota,
@@ -133,7 +159,7 @@ async function ler(loja: string, limite: number): Promise<AvaliacoesPublicas> {
   };
 }
 
-const lerGuardado = unstable_cache(ler, ["avaliacoes-google-v2"], {
+const lerGuardado = unstable_cache(ler, ["avaliacoes-google-v3"], {
   revalidate: 3600,
   tags: [TAG_AVALIACOES],
 });
