@@ -17,7 +17,8 @@ import {
 } from "@/lib/catalogo/estados";
 import { nomeDeArquivo, paraJpeg } from "@/lib/catalogo/jpeg-no-navegador";
 import { decidir, devolver, dispensar, lerProduto, registrarFoto } from "./actions";
-import { digitando, reais } from "./util";
+import { digitando, reais, type MargemNaLista } from "./util";
+import { MargemNaGaveta } from "./MargemNaGaveta";
 
 /** Motivos que mais aparecem, para quem revisa não precisar digitar. */
 const MOTIVOS = [
@@ -56,8 +57,11 @@ export function Gaveta({
   onFechar,
   onAndar,
   onEstado,
+  margem,
 }: {
   produto: ItemDoCatalogo;
+  /** Só para administrador; undefined esconde a seção. */
+  margem?: MargemNaLista | null;
   posicao: { i: number; de: number };
   onFechar: () => void;
   onAndar: (passo: 1 | -1) => void;
@@ -381,6 +385,8 @@ export function Gaveta({
             </ul>
           </details>
         ) : null}
+
+        {margem !== undefined ? <MargemNaGaveta key={produto.id} productId={produto.id} margem={margem} /> : null}
 
         {/* Envio feito fora do Claude */}
         <section className="mt-6 rounded-[14px] border border-dashed border-border bg-white/60 p-4">

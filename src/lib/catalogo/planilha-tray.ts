@@ -66,6 +66,8 @@ export const COLUNA_ADICIONAIS = "Imagens adicionais";
 const COLUNA_CODIGO = "Código produto";
 const COLUNA_PRECO = "Preço venda";
 const COLUNA_PROMO = "Preço promoção";
+const COLUNA_INICIO = "Inicio promoção";
+const COLUNA_FIM = "Fim promoção";
 
 // ------------------------------------------------------------------ ler
 
@@ -269,6 +271,76 @@ export function montarPlanilhaDeFotos(
 
     const imagens = novaOrdemDeImagens(imagensDaLinha(linha, cabecalho), p);
     saida.push(comImagens(linha, cabecalho, imagens));
+    incluidos.push(p.codigo);
+  }
+
+  return { arquivo: escreverCsv(saida, fimDeLinha), incluidos, naoAchados, precoDiferente };
+}
+
+// ------------------------------------------------------------------ promoção
+
+export type PedidoDePromocao = {
+  codigo: string;
+  nome: string;
+  /** Preço CHEIO que o espelho do portal tem agora (trava de exportação velha). */
+  preco: number | null;
+  precoPromocional: number;
+  /** "AAAA-MM-DD", o dia inteiro conta, como a loja faz. */
+  inicio: string;
+  fim: string;
+};
+
+/** 2633.4 vira "2.633,40", o formato da própria exportação. */
+export function precoNoFormatoDaTray(n: number): string {
+  return n.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+/** "2026-11-27" vira "27/11/2026". */
+export function dataNoFormatoDaTray(iso: string): string {
+  const [a, m, d] = iso.slice(0, 10).split("-");
+  return `${d}/${m}/${a}`;
+}
+
+/**
+ * A planilha de uma campanha aprovada: a mesma exportação, só com "Preço
+ * promoção", "Inicio promoção" e "Fim promoção" trocados nas linhas da
+ * campanha. Aqui a trava de exportação velha olha só o preço CHEIO, porque a
+ * promoção é justamente o que vai mudar.
+ */
+export function montarPlanilhaDePromocao(exportacao: Uint8Array, pedidos: PedidoDePromocao[]): ResultadoDaPlanilha {
+  const { linhas, fimDeLinha } = lerCsv(decodificar(exportacao));
+  const [cabecalho, ...corpo] = linhas;
+  if (!cabecalho) throw new PlanilhaInvalida("O arquivo está vazio.");
+  const faltam = [COLUNA_CODIGO, COLUNA_PRECO, COLUNA_PROMO, COLUNA_INICIO, COLUNA_FIM].filter((c) => !cabecalho.includes(c));
+  if (faltam.length) {
+    throw new PlanilhaInvalida(
+      `Este arquivo não parece a exportação de produtos da Tray. Faltam as colunas: ${faltam.join(", ")}.`,
+    );
+  }
+  const k = (n: string) => cabecalho.indexOf(n);
+  const porCodigo = new Map(corpo.filter((l) => l.length === cabecalho.length).map((l) => [l[k(COLUNA_CODIGO)], l]));
+
+  const saida: string[][] = [cabecalho];
+  const incluidos: string[] = [];
+  const naoAchados: string[] = [];
+  const precoDiferente: PrecoQueDiscorda[] = [];
+
+  for (const p of pedidos) {
+    const linha = porCodigo.get(p.codigo);
+    if (!linha) {
+      naoAchados.push(p.codigo);
+      continue;
+    }
+    const naPlanilha = centavosDoTexto(linha[k(COLUNA_PRECO)]);
+    if (naPlanilha !== centavos(p.preco)) {
+      precoDiferente.push({ codigo: p.codigo, nome: p.nome, naPlanilha: reais(naPlanilha), noPortal: reais(centavos(p.preco)) });
+      continue;
+    }
+    const nova = [...linha];
+    nova[k(COLUNA_PROMO)] = precoNoFormatoDaTray(p.precoPromocional);
+    nova[k(COLUNA_INICIO)] = dataNoFormatoDaTray(p.inicio);
+    nova[k(COLUNA_FIM)] = dataNoFormatoDaTray(p.fim);
+    saida.push(nova);
     incluidos.push(p.codigo);
   }
 

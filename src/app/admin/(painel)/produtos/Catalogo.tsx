@@ -7,9 +7,10 @@ import { COR, ESTADOS, PONTO, RESOLVIDO, ROTULO, type EstadoDoProduto } from "@/
 import { Gaveta } from "./Gaveta";
 import { LevarParaLoja } from "./LevarParaLoja";
 import { ComoGerar } from "./ComoGerar";
-import { digitando, reais } from "./util";
+import { digitando, reais, pct, type MargemNaLista } from "./util";
 
-type Ordem = "vendidos" | "nome" | "preco-maior" | "preco-menor";
+type Ordem = "vendidos" | "nome" | "preco-maior" | "preco-menor" | "menor-margem";
+type FiltroDeMargem = "todas" | "sem_custo" | "abaixo" | "hoje_passa";
 type Filtro = "todos" | EstadoDoProduto;
 
 const ORDENS: { valor: Ordem; rotulo: string }[] = [
@@ -17,12 +18,15 @@ const ORDENS: { valor: Ordem; rotulo: string }[] = [
   { valor: "nome", rotulo: "Nome" },
   { valor: "preco-maior", rotulo: "Maior preço" },
   { valor: "preco-menor", rotulo: "Menor preço" },
+  { valor: "menor-margem", rotulo: "Menor margem" },
 ];
 
 const semAcento = (s: string) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
 
-function ordenar(a: ItemDoCatalogo, b: ItemDoCatalogo, ordem: Ordem) {
+function ordenar(a: ItemDoCatalogo, b: ItemDoCatalogo, ordem: Ordem, margens: Record<string, MargemNaLista> | null) {
   switch (ordem) {
+    case "menor-margem":
+      return (margens?.[a.id]?.fracao ?? Infinity) - (margens?.[b.id]?.fracao ?? Infinity);
     case "nome":
       return a.nome.localeCompare(b.nome, "pt-BR");
     case "preco-maior":
@@ -34,7 +38,17 @@ function ordenar(a: ItemDoCatalogo, b: ItemDoCatalogo, ordem: Ordem) {
   }
 }
 
-export function Catalogo({ itens, padroes }: { itens: ItemDoCatalogo[]; padroes: Padroes }) {
+export function Catalogo({
+  itens,
+  padroes,
+  margens = null,
+}: {
+  itens: ItemDoCatalogo[];
+  padroes: Padroes;
+  /** Só para administrador. Nulo: a coluna e o filtro de margem nem aparecem. */
+  margens?: Record<string, MargemNaLista> | null;
+}) {
+  const [filtroDeMargem, setFiltroDeMargem] = useState<FiltroDeMargem>("todas");
   const [busca, setBusca] = useState("");
   const [filtro, setFiltro] = useState<Filtro>("todos");
   const [soDisponiveis, setSoDisponiveis] = useState(true);
@@ -57,12 +71,20 @@ export function Catalogo({ itens, padroes }: { itens: ItemDoCatalogo[]; padroes:
   // Escopo das contagens: disponibilidade e busca, mas não o filtro de estado.
   const noEscopo = useMemo(() => {
     const termo = semAcento(busca.trim());
+    const casaMargem = (p: ItemDoCatalogo) => {
+      if (!margens || filtroDeMargem === "todas") return true;
+      const m = margens[p.id];
+      if (filtroDeMargem === "sem_custo") return !m || m.custo === null;
+      if (filtroDeMargem === "abaixo") return Boolean(m?.abaixo);
+      return Boolean(m?.hojePassa);
+    };
     return comAjustes.filter(
       (p) =>
         (!soDisponiveis || p.disponivel) &&
+        casaMargem(p) &&
         (!termo || semAcento(p.nome).includes(termo) || p.trayId === termo || semAcento(p.categoria).includes(termo)),
     );
-  }, [comAjustes, busca, soDisponiveis]);
+  }, [comAjustes, busca, soDisponiveis, margens, filtroDeMargem]);
 
   const contagem = useMemo(() => {
     const c = Object.fromEntries(ESTADOS.map((e) => [e, 0])) as Record<EstadoDoProduto, number>;
@@ -89,11 +111,11 @@ export function Catalogo({ itens, padroes }: { itens: ItemDoCatalogo[]; padroes:
     return Array.from(mapa.values())
       .filter((g) => g.itens.length > 0)
       .sort((a, b) => b.vendidos - a.vendidos || a.nome.localeCompare(b.nome, "pt-BR"))
-      .map((g) => ({ ...g, itens: [...g.itens].sort((a, b) => ordenar(a, b, ordem)) }));
-  }, [noEscopo, filtro, ordem]);
+      .map((g) => ({ ...g, itens: [...g.itens].sort((a, b) => ordenar(a, b, ordem, margens)) }));
+  }, [noEscopo, filtro, ordem, margens]);
 
   // Busca ou filtro ligado abre tudo que casou; sem eles, a pessoa decide.
-  const procurando = busca.trim() !== "" || filtro !== "todos";
+  const procurando = busca.trim() !== "" || filtro !== "todos" || filtroDeMargem !== "todas";
   const primeira = grupos[0]?.nome ?? null;
   const estaAberta = (nome: string) => procurando || (abertas ? abertas.has(nome) : primeira === nome);
   const todasAbertas = grupos.every((g) => estaAberta(g.nome));
@@ -223,13 +245,28 @@ export function Catalogo({ itens, padroes }: { itens: ItemDoCatalogo[]; padroes:
         <label className="flex h-11 items-center gap-2 rounded-full border border-border bg-white/70 px-4 text-sm text-ink">
           <span className="text-muted">Ordem</span>
           <select value={ordem} onChange={(e) => setOrdem(e.target.value as Ordem)} className="bg-transparent outline-none">
-            {ORDENS.map((o) => (
+            {ORDENS.filter((o) => margens || o.valor !== "menor-margem").map((o) => (
               <option key={o.valor} value={o.valor}>
                 {o.rotulo}
               </option>
             ))}
           </select>
         </label>
+        {margens ? (
+          <label className="flex h-11 items-center gap-2 rounded-full border border-border bg-white/70 px-4 text-sm text-ink">
+            <span className="text-muted">Margem</span>
+            <select
+              value={filtroDeMargem}
+              onChange={(e) => setFiltroDeMargem(e.target.value as FiltroDeMargem)}
+              className="bg-transparent outline-none"
+            >
+              <option value="todas">Todas</option>
+              <option value="sem_custo">Sem custo</option>
+              <option value="abaixo">Abaixo do mínimo</option>
+              <option value="hoje_passa">Promoção de hoje passa do limite</option>
+            </select>
+          </label>
+        ) : null}
         {!procurando ? (
           <button
             type="button"
@@ -278,7 +315,7 @@ export function Catalogo({ itens, padroes }: { itens: ItemDoCatalogo[]; padroes:
                 {aberta ? (
                   <ul className="border-t border-border/60">
                     {g.itens.map((p) => (
-                      <Linha key={p.id} p={p} ativo={p.id === selecionado} onAbrir={abrir} />
+                      <Linha key={p.id} p={p} ativo={p.id === selecionado} onAbrir={abrir} margem={margens ? (margens[p.id] ?? null) : undefined} />
                     ))}
                   </ul>
                 ) : null}
@@ -296,6 +333,7 @@ export function Catalogo({ itens, padroes }: { itens: ItemDoCatalogo[]; padroes:
           onFechar={() => abrir(null)}
           onAndar={andar}
           onEstado={(e) => setAjustes((a) => ({ ...a, [atual.id]: e }))}
+          margem={margens ? (margens[atual.id] ?? null) : undefined}
         />
       ) : null}
     </>
@@ -306,10 +344,13 @@ const Linha = memo(function Linha({
   p,
   ativo,
   onAbrir,
+  margem,
 }: {
   p: ItemDoCatalogo;
   ativo: boolean;
   onAbrir: (p: ItemDoCatalogo) => void;
+  /** undefined = quem olha não é administrador. */
+  margem?: MargemNaLista | null;
 }) {
   return (
     <li
@@ -353,6 +394,20 @@ const Linha = memo(function Linha({
             {p.precoAntes ? <span className="block text-xs text-muted line-through">{reais(p.precoAntes)}</span> : null}
             <span className="text-ink">{reais(p.preco)}</span>
           </span>
+          {margem !== undefined ? (
+            <span
+              className="hidden w-16 shrink-0 text-right text-xs lg:block"
+              title={margem?.custo !== null && margem ? `Margem no preço cheio. Desconto máximo ${pct(margem.descontoMaximo)}` : (margem?.falta ?? "Sem custo")}
+            >
+              {margem && margem.fracao !== null ? (
+                <span className={`font-semibold ${margem.abaixo || margem.hojePassa ? "text-wine" : "text-emerald-800"}`}>
+                  {pct(margem.fracao)}
+                </span>
+              ) : (
+                <span className="text-muted">sem custo</span>
+              )}
+            </span>
+          ) : null}
           <span className={`w-28 shrink-0 rounded-full px-2.5 py-1 text-center text-xs font-semibold ${COR[p.estado]}`}>
             {ROTULO[p.estado]}
           </span>

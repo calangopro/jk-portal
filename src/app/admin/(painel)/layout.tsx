@@ -43,7 +43,7 @@ export default async function PainelLayout({
         </div>
 
         <div className="px-3 pb-6">
-          <Navegacao pendentes={count ?? 0} />
+          <Navegacao pendentes={count ?? 0} admin={profile.role === "admin"} />
         </div>
       </aside>
 
