@@ -5,12 +5,13 @@
   "scripts": {
     "dev": "next dev",
     "dev:turbo": "next dev --turbopack",
-    "build": "next build && npm run verificar:tokens && npm run verificar:precos",
+    "build": "next build && npm run verificar:tokens && npm run verificar:precos && npm run verificar:planilha",
     "start": "next start",
     "lint": "next lint",
-    "build:seguro": "BUILD_DIR=.next-build next build && BUILD_DIR=.next-build npm run verificar:tokens && npm run verificar:precos",
+    "build:seguro": "BUILD_DIR=.next-build next build && BUILD_DIR=.next-build npm run verificar:tokens && npm run verificar:precos && npm run verificar:planilha",
     "verificar:tokens": "node scripts/verificar-tokens.mjs",
-    "verificar:precos": "node --experimental-strip-types --disable-warning=ExperimentalWarning scripts/teste-precos.mts"
+    "verificar:precos": "node --experimental-strip-types --disable-warning=ExperimentalWarning scripts/teste-precos.mts",
+    "verificar:planilha": "node --experimental-strip-types --disable-warning=ExperimentalWarning --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/teste-planilha-tray.mts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

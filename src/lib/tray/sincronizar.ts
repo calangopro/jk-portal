@@ -55,6 +55,8 @@ export type ResultadoSync = {
    * promoção começa e acaba na virada do dia sem nada mudar no banco.
    */
   revalidar: boolean;
+  /** Fotos novas do catálogo que a loja passou a mostrar nesta rodada (0047). */
+  fotosNaLoja?: number;
   duracaoMs: number;
 };
 
@@ -428,8 +430,15 @@ export async function sincronizarCatalogo(): Promise<ResultadoSync> {
           ? `Variação ${String(falhasDeVariacao[0].linha.tray_variant_id)}: ${falhasDeVariacao[0].erro}`
           : null;
 
+    /* ------------------------------- fotos novas que entraram na loja */
+    // A planilha de fotos guarda a imagem que a loja mostrava ao exportar. Se a
+    // principal mudou desde então, a importação aconteceu. Falha aqui não
+    // derruba a sincronização: a baixa fica para a próxima rodada.
+    const { data: fotosNaLoja } = await supabase.rpc("conferir_fotos_na_loja");
+
     const resultado: ResultadoSync = {
       ok: true,
+      fotosNaLoja: typeof fotosNaLoja === "number" ? fotosNaLoja : 0,
       categorias: categorias.length,
       produtos: produtos.length - falhas,
       alterados: gravadas.length,

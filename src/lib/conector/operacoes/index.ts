@@ -6,6 +6,7 @@ import { OPERACOES_MIDIA } from "./midia";
 import { OPERACOES_EDITORIAL } from "./editorial";
 import { OPERACOES_LOJA } from "./loja";
 import { OPERACOES_SITE } from "./site";
+import { OPERACOES_CATALOGO } from "./catalogo";
 
 /**
  * O catálogo inteiro do conector. Operação nova entra no arquivo da área e
@@ -23,6 +24,7 @@ export const AREAS: { nome: string; descricao: string }[] = [
   { nome: "comentarios", descricao: "moderação e resposta da JK" },
   { nome: "autores", descricao: "quem assina e revisa" },
   { nome: "produtos", descricao: "catálogo espelhado da Tray (só leitura) e sincronização" },
+  { nome: "catalogo", descricao: "fotos novas dos produtos: fila do que falta, enviar foto do Magnific, padrão de foto" },
   { nome: "lojas", descricao: "lojas físicas: endereço, horário, fotos, publicação" },
   { nome: "metricas", descricao: "Search Console (buscas, páginas, números de um post, importação) e visitas do GA4" },
   { nome: "home", descricao: "layout da página inicial" },
@@ -44,6 +46,7 @@ export const OPERACOES: Operacao[] = [
   ...OPERACOES_EDITORIAL,
   ...OPERACOES_LOJA,
   ...OPERACOES_SITE,
+  ...OPERACOES_CATALOGO,
 ] as unknown as Operacao[];
 
 // Nome repetido ou área sem linha em AREAS quebraria o `jk` do modo código em silêncio.
