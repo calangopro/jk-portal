@@ -2,6 +2,8 @@ import { requireStaff } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { trayConfigurada } from "@/lib/tray/cliente";
 import { listarCatalogo, lerPadroes } from "@/lib/catalogo/fotos";
+import { margensDoCatalogo } from "@/lib/margem/dados";
+import type { MargemNaLista } from "./util";
 import { Sincronizar } from "./Sincronizar";
 import { Catalogo } from "./Catalogo";
 
@@ -36,7 +38,7 @@ function quando(iso: string | null) {
  * navegador, para buscar e trocar de filtro sem esperar o servidor.
  */
 export default async function ProdutosPage() {
-  await requireStaff();
+  const perfil = await requireStaff();
   const supabase = await createClient();
 
   const [itens, padroes, { data: logs }] = await Promise.all([
@@ -49,6 +51,34 @@ export default async function ProdutosPage() {
       .order("created_at", { ascending: false })
       .limit(5),
   ]);
+
+  // Custo é da empresa: só o administrador recebe a margem no navegador.
+  let margens: Record<string, MargemNaLista> | null = null;
+  if (perfil.role === "admin") {
+    const { porProduto } = await margensDoCatalogo(supabase, itens);
+    margens = Object.fromEntries(
+      Object.entries(porProduto).map(([id, c]) => [
+        id,
+        {
+          custo: c.custo,
+          detalhe: c.detalhe,
+          falta: c.falta,
+          reais: c.margem?.reais ?? null,
+          fracao: c.margem?.fracao ?? null,
+          descontoMaximo: c.margem?.descontoMaximo ?? null,
+          abaixo: c.margem?.abaixoDoMinimo ?? false,
+          descontoHoje: c.margem?.descontoHoje ?? null,
+          fracaoHoje: c.margem?.fracaoHoje ?? null,
+          hojePassa: c.margem?.hojePassa ?? false,
+          material: c.gravado?.material ?? null,
+          familia: c.gravado?.familia ?? null,
+          gramas: c.gravado?.gramas ?? null,
+          resto: c.gravado?.resto ?? null,
+          custoFixo: c.gravado?.custoFixo ?? null,
+        } satisfies MargemNaLista,
+      ]),
+    );
+  }
 
   const historico = (logs ?? []) as Log[];
   const ultima = historico.find((l) => l.status === "success");
@@ -69,7 +99,7 @@ export default async function ProdutosPage() {
         </p>
       </header>
 
-      <Catalogo itens={itens} padroes={padroes} />
+      <Catalogo itens={itens} padroes={padroes} margens={margens} />
 
       <details className="glass mt-10 rounded-[18px] p-5">
         <summary className="cursor-pointer text-sm font-semibold text-ink">

@@ -6,7 +6,7 @@ import type { LucideIcon } from "lucide-react";
 import {
   LayoutDashboard, FileText, ImageIcon, MessageCircle, Package,
   TrendingUp, Plug, Users, MapPin, PenLine, Palette, LayoutTemplate, BookCheck, ListChecks, CalendarDays, Milestone,
-  Smartphone, UsersRound, QrCode, Bot,
+  Smartphone, UsersRound, QrCode, Bot, Percent, Tags,
   Loader2,
 } from "lucide-react";
 
@@ -33,7 +33,9 @@ const GRUPOS = [
   {
     nome: "Loja",
     itens: [
-      { href: "/admin/produtos", label: "Produtos", Icone: Package, desc: "Catálogo da Tray" },
+      { href: "/admin/produtos", label: "Produtos", Icone: Package, desc: "Fotos, preço e link de cada peça" },
+      { href: "/admin/campanhas", label: "Campanhas", Icone: Tags, desc: "Descontos com aprovação" },
+      { href: "/admin/margem", label: "Margem", Icone: Percent, desc: "Custo, ouro e margem mínima", soAdmin: true },
       { href: "/admin/lojas", label: "Lojas", Icone: MapPin, desc: "Endereço e horário" },
     ],
   },
@@ -94,7 +96,7 @@ function IconeDoItem({ Icone }: { Icone: LucideIcon }) {
   );
 }
 
-export function Navegacao({ pendentes }: { pendentes: number }) {
+export function Navegacao({ pendentes, admin }: { pendentes: number; admin: boolean }) {
   const caminho = usePathname();
   const ativo = (href: string) =>
     href === "/admin" ? caminho === "/admin" : caminho.startsWith(href);
@@ -124,7 +126,7 @@ export function Navegacao({ pendentes }: { pendentes: number }) {
             {g.nome}
           </p>
           <ul className="space-y-0.5">
-            {g.itens.map(({ href, label, Icone, desc }) => {
+            {g.itens.filter((i) => admin || !("soAdmin" in i && i.soAdmin)).map(({ href, label, Icone, desc }) => {
               const estaAtivo = ativo(href);
               return (
                 <li key={href}>

@@ -18,6 +18,7 @@ import {
   COLUNA_ADICIONAIS,
   centavosDoTexto,
   novaOrdemDeImagens,
+  montarPlanilhaDePromocao,
   escreverCsv,
   lerCsv,
   montarPlanilhaDeFotos,
@@ -125,6 +126,25 @@ confere("vazio e zero viram nulo", centavosDoTexto("") === null && centavosDoTex
     erro = (e as Error).message;
   }
   confere("recusa planilha que não é a exportação", erro.includes("não parece a exportação"));
+}
+
+// 5b. Promoção de campanha: só as três colunas da promoção mudam.
+{
+  const { linhas } = lerCsv(latin1(fixture));
+  const cab = linhas[0];
+  const l77 = linhas.find((l) => l[0] === "77")!;
+  const r = montarPlanilhaDePromocao(fixture, [
+    { codigo: "77", nome: "Ouro", preco: 2772, precoPromocional: 2219.9, inicio: "2026-11-27", fim: "2026-11-30" },
+    { codigo: "217", nome: "Eternal Love", preco: 499.9, precoPromocional: 359.9, inicio: "2026-11-27", fim: "2026-11-30" },
+  ]);
+  const nova = lerCsv(latin1(r.arquivo)).linhas[1];
+  const col = (n: string) => nova[cab.indexOf(n)];
+  confere("promoção sai no formato da Tray (2.219,90)", col("Preço promoção") === "2.219,90", col("Preço promoção"));
+  confere("datas em dd/mm/aaaa", col("Inicio promoção") === "27/11/2026" && col("Fim promoção") === "30/11/2026");
+  const fora = new Set(["Preço promoção", "Inicio promoção", "Fim promoção"]);
+  const mudou = cab.filter((c, i) => !fora.has(c) && nova[i] !== l77[i]);
+  confere("na promoção, nenhuma outra coluna muda", mudou.length === 0, mudou.join(", "));
+  confere("preço cheio diferente do espelho fica de fora", r.precoDiferente.map((p) => p.codigo).join() === "217");
 }
 
 // 6. Exportação inteira, quando vier por argumento.

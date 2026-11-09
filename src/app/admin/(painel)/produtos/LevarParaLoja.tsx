@@ -70,7 +70,10 @@ export function LevarParaLoja({ aprovados }: { aprovados: number }) {
       <ol className="mt-3 list-decimal space-y-1 pl-4 text-xs leading-relaxed text-muted">
         <li>Na Tray, exporte os produtos agora (a mesma planilha de sempre).</li>
         <li>Escolha o arquivo aqui. Volta uma planilha só com as fotos novas.</li>
-        <li>Importe essa planilha na Tray. Na primeira vez, teste com um produto só.</li>
+        <li>
+          Importe essa planilha na Tray logo em seguida: ela regrava a linha inteira de cada produto, inclusive o estoque
+          daquele momento. Na primeira vez, teste com um produto só.
+        </li>
       </ol>
 
       <label
