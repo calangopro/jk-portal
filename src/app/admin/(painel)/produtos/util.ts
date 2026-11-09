@@ -26,6 +26,10 @@ export type MargemNaLista = {
   descontoHoje: number | null;
   fracaoHoje: number | null;
   hojePassa: boolean;
+  /** Limite de anúncio no preço de hoje (ver lib/margem/calculo.ts). */
+  cpaMaximo: number | null;
+  cpaEmpate: number | null;
+  roasMinimo: number | null;
   material: Material | null;
   familia: string | null;
   gramas: number | null;

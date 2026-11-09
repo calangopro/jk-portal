@@ -17,6 +17,7 @@ import {
   chaveDaFamilia,
   custoDoProduto,
   descontoMaximo,
+  limiteDeAnuncio,
   margemNoPreco,
   terminadoEm90,
   terminadoEm90ParaCima,
@@ -68,6 +69,20 @@ console.log("Margem");
 
   const apertada = calcularMargem(449.9, 199.9, 150, P);
   confere("promoção de 199,90 com custo 150 passa do limite", apertada.hojePassa === true);
+}
+
+// 1b. Limite de anúncio: a mesma margem, vista por quem compra mídia.
+{
+  // 449,90 com custo 100: líquido 400,41; empate 400,41 - 100 - 25 - 10 = 265,41; máximo 265,41 - 30% x 449,90 = 130,44.
+  const l = limiteDeAnuncio(449.9, 100, P);
+  confere("CPA de empate = 265,41", perto(l.cpaEmpate, 265.41, 0.01), String(l.cpaEmpate));
+  confere("CPA máximo = 130,44 (mantém 30%)", l.cpaMaximo === 130.44, String(l.cpaMaximo));
+  confere("ROAS mínimo = 3,45", perto(l.roasMinimo!, 3.449, 0.001), String(l.roasMinimo));
+  confere("ROAS de empate = 1,70", perto(l.roasEmpate!, 1.695, 0.001), String(l.roasEmpate));
+  const sem = limiteDeAnuncio(199.9, 150, P);
+  confere("produto sem folga: CPA máximo negativo e sem ROAS", sem.cpaMaximo < 0 && sem.roasMinimo === null, String(sem.cpaMaximo));
+  const m = calcularMargem(449.9, 399.9, 100, P);
+  confere("a margem traz o limite no preço de HOJE (399,90)", m.anuncio.preco === 399.9);
 }
 
 // 2. Exceção do produto vence a família; custo fixo vence tudo.

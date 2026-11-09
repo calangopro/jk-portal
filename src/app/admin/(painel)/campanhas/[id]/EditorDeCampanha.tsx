@@ -480,6 +480,11 @@ function LinhaDoItem({
                 máx. {pct(avaliacao.descontoMaximo ?? 0)}
                 {situacao === "passa" && avaliacao.precoMinimo ? `, mín. ${reais(avaliacao.precoMinimo)}` : ""}
               </span>
+              {avaliacao.cpaMaximo !== undefined ? (
+                <span className={`block ${avaliacao.cpaMaximo > 0 ? "text-muted" : "text-wine"}`}>
+                  {avaliacao.cpaMaximo > 0 ? `anúncio até ${reais(avaliacao.cpaMaximo)}` : "sem espaço para anúncio"}
+                </span>
+              ) : null}
             </>
           ) : (
             <span className="text-muted">sem custo</span>
