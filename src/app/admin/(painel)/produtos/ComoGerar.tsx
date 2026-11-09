@@ -11,11 +11,12 @@ import { salvarPadraoDeFoto } from "./actions";
  * antes de gerar. O padrão mora no banco (`foto_padroes`) para ser ajustado
  * aqui, sem deploy, depois de testar nas primeiras peças.
  */
-const PEDIDO = `Use o conector da JK Alianças e o Magnific.
+const PEDIDO = `Use o conector da JK Alianças e o Magnific. Leia antes o guia "fotos" do conector.
 1. Pegue os próximos 5 produtos da fila de fotos (catalogo.fila_de_fotos) e leia o padrão que vem junto.
-2. Para cada um, gere a foto principal a partir da foto atual da loja, trocando fundo e luz, sem mudar a peça.
-3. Me mostre cada foto ao lado da original antes de enviar.
-4. Envie as que eu aprovar com catalogo.enviar_foto, dizendo como foi feita.`;
+2. Antes de gerar, leia a peça na foto do site (aumente a luz se precisar): a largura pela medida do nome (2, 3, 4, 5 mm), quantas pedras e onde, o formato e se é liso, fosco ou diamantado. Me escreva essa leitura.
+3. Gere as três fotos de cada um a partir da foto do site: 1 produto, 2 face e 3 uso (a cena vem em foto_de_uso).
+4. Revise cada foto ao lado da original. Se qualquer detalhe estiver diferente, corrija e gere de novo antes de me mostrar.
+5. Me mostre a original e as três novas. Envie as que eu aprovar com catalogo.enviar_foto, com o tipo certo e a leitura da peça em como_foi_feita.`;
 
 export function ComoGerar({
   padroes,

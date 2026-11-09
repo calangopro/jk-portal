@@ -17,6 +17,7 @@ import { readFileSync } from "node:fs";
 import {
   COLUNA_ADICIONAIS,
   centavosDoTexto,
+  novaOrdemDeImagens,
   escreverCsv,
   lerCsv,
   montarPlanilhaDeFotos,
@@ -63,16 +64,16 @@ confere("vazio e zero viram nulo", centavosDoTexto("") === null && centavosDoTex
       nome: "Eternal Love",
       preco: 449.9,
       precoPromocional: 399.9,
-      principal: "https://exemplo.supabase.co/produtos/217/principal.jpg",
-      ambientada: "https://exemplo.supabase.co/produtos/217/ambientada.jpg",
+      produto: "https://exemplo.supabase.co/produtos/217/produto.jpg",
+      face: "https://exemplo.supabase.co/produtos/217/face.jpg",
     },
   ]);
   const saida = lerCsv(latin1(r.arquivo)).linhas;
   confere("só o cabeçalho e a linha pedida", saida.length === 2 && r.incluidos.join() === "217");
   const nova = saida[1];
   const ni = (n: string) => nova[cab.indexOf(n)];
-  confere("principal nova na posição 1", ni("Imagem principal").endsWith("/principal.jpg"));
-  confere("ambientada na posição 2", ni("Imagem 2").endsWith("/ambientada.jpg"));
+  confere("produto novo na posição 1", ni("Imagem principal").endsWith("/produto.jpg"));
+  confere("face na posição 2", ni("Imagem 2").endsWith("/face.jpg"));
   confere(
     "as antigas seguem depois, sem a principal velha",
     ni("Imagem 3") === antigas[1] && ni("Imagem 4") === antigas[2] && ni(COLUNA_ADICIONAIS) === antigas[3],
@@ -83,12 +84,32 @@ confere("vazio e zero viram nulo", centavosDoTexto("") === null && centavosDoTex
   confere("nenhuma outra coluna mudou", mudouOutra.length === 0, mudouOutra.join(", "));
 }
 
+// 3b. Produto já refeito: trocar uma posição não mexe nas outras.
+{
+  const [P, F, U, V1, V2] = ["https://t/produto.jpg", "https://t/face.jpg", "https://t/uso.jpg", "https://t/velha1.jpg", "https://t/velha2.jpg"];
+  const naLoja = { produto: P, face: F, uso: U };
+  const so = (r: string[]) => r.map((u) => u.split("/").pop()).join(" ");
+  confere(
+    "trocar só a face mantém produto e uso no lugar",
+    so(novaOrdemDeImagens([P, F, U, V1, V2], { face: "https://n/face2.jpg", naLoja })) === "produto.jpg face2.jpg uso.jpg velha1.jpg velha2.jpg",
+    so(novaOrdemDeImagens([P, F, U, V1, V2], { face: "https://n/face2.jpg", naLoja })),
+  );
+  confere(
+    "trio novo num produto do fornecedor: velha principal sai, as outras ficam atrás",
+    so(novaOrdemDeImagens([V1, V2], { produto: "https://n/p.jpg", face: "https://n/f.jpg", uso: "https://n/u.jpg" })) === "p.jpg f.jpg u.jpg velha2.jpg",
+  );
+  confere(
+    "só o uso num produto do fornecedor: a principal antiga fica na 1",
+    so(novaOrdemDeImagens([V1, V2], { uso: "https://n/u.jpg" })) === "velha1.jpg u.jpg velha2.jpg",
+  );
+}
+
 // 4. Exportação velha: preço diferente fica de fora.
 {
   const r = montarPlanilhaDeFotos(fixture, [
-    { codigo: "217", nome: "Eternal Love", preco: 449.9, precoPromocional: 349.9, principal: "https://x.co/a.jpg" },
-    { codigo: "77", nome: "Ouro", preco: 2772, precoPromocional: 2633.4, principal: "https://x.co/b.jpg" },
-    { codigo: "999999", nome: "Sumiu", preco: 10, precoPromocional: null, principal: "https://x.co/c.jpg" },
+    { codigo: "217", nome: "Eternal Love", preco: 449.9, precoPromocional: 349.9, produto: "https://x.co/a.jpg" },
+    { codigo: "77", nome: "Ouro", preco: 2772, precoPromocional: 2633.4, produto: "https://x.co/b.jpg" },
+    { codigo: "999999", nome: "Sumiu", preco: 10, precoPromocional: null, produto: "https://x.co/c.jpg" },
   ]);
   confere("linha com promoção diferente fica de fora", r.precoDiferente.map((p) => p.codigo).join() === "217");
   confere("preço com milhar que bate entra", r.incluidos.join() === "77");

@@ -387,10 +387,10 @@ export async function decidirFoto(
     .eq("id", f.id);
   if (r.error) throw new ErroDeFoto(r.error.message);
 
-  // Aprovou uma principal: as outras principais que ainda não foram para a loja
-  // saem de cena (é comum gerar duas versões e escolher uma). Detalhe pode ter
-  // várias, então não substitui ninguém.
-  if (a.aprovar && f.tipo !== "detalhe") {
+  // Aprovou uma foto: as outras do mesmo tipo que ainda não foram para a loja
+  // saem de cena (é comum gerar duas versões e escolher uma). Cada posição da
+  // loja (produto, face, uso) tem uma foto só.
+  if (a.aprovar) {
     const s = await db
       .from("produto_fotos")
       .update({ status: "substituida" })
@@ -511,15 +511,30 @@ export async function pedidosDaPlanilha(db: SupabaseClient): Promise<{ pedidos: 
     if (!p) continue;
     let pedido = porProduto.get(f.product_id);
     if (!pedido) {
-      pedido = { codigo: p.tray_id, nome: p.name, preco: p.price, precoPromocional: p.promotional_price, detalhe: [], fotoIds: [] };
+      pedido = { codigo: p.tray_id, nome: p.name, preco: p.price, precoPromocional: p.promotional_price, naLoja: {}, fotoIds: [] };
       porProduto.set(f.product_id, pedido);
     }
     // A lista vem da mais nova para a mais velha: fica a primeira de cada tipo.
-    if (f.tipo === "principal" && !pedido.principal) pedido.principal = f.url;
-    else if (f.tipo === "ambientada" && !pedido.ambientada) pedido.ambientada = f.url;
-    else if (f.tipo === "detalhe") pedido.detalhe!.push(f.url);
-    else continue;
+    const tipo = f.tipo as "produto" | "face" | "uso";
+    if (pedido[tipo]) continue;
+    pedido[tipo] = f.url;
     pedido.fotoIds.push(f.id);
+  }
+
+  // As fotos novas que a loja já mostra, por posição: trocar só a face de um
+  // produto refeito mantém o produto e o uso onde estão.
+  if (porProduto.size) {
+    const { data: naLoja } = await db
+      .from("produto_fotos")
+      .select("product_id, tipo, url")
+      .eq("status", "na_loja")
+      .in("product_id", Array.from(porProduto.keys()))
+      .order("na_loja_em", { ascending: false });
+    for (const f of naLoja ?? []) {
+      const ja = porProduto.get(f.product_id)?.naLoja;
+      const tipo = f.tipo as "produto" | "face" | "uso";
+      if (ja && !ja[tipo]) ja[tipo] = f.url;
+    }
   }
 
   return { pedidos: Array.from(porProduto.values()) };
