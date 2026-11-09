@@ -69,7 +69,7 @@ export function Gaveta({
   const [erro, setErro] = useState<string | null>(null);
   const [recusando, setRecusando] = useState<string | null>(null);
   const [nota, setNota] = useState("");
-  const [tipo, setTipo] = useState<TipoDeFoto>("principal");
+  const [tipo, setTipo] = useState<TipoDeFoto>("produto");
   const [enviando, setEnviando] = useState(false);
   const [dispensando, setDispensando] = useState(false);
   const [motivo, setMotivo] = useState("");

@@ -9,7 +9,8 @@
 export const ESTADOS = ["falta", "refazer", "aguardando", "aprovada", "na_loja", "dispensada"] as const;
 export type EstadoDoProduto = (typeof ESTADOS)[number];
 
-export const TIPOS_DE_FOTO = ["principal", "ambientada", "detalhe"] as const;
+/** A sequência da loja: 1 produto, 2 face, 3 uso (mãos, busto ou orelha). */
+export const TIPOS_DE_FOTO = ["produto", "face", "uso"] as const;
 export type TipoDeFoto = (typeof TIPOS_DE_FOTO)[number];
 
 export const ESTADOS_DA_FOTO = ["aguardando", "aprovada", "recusada", "na_loja", "substituida"] as const;
@@ -54,9 +55,9 @@ export const PONTO: Record<EstadoDoProduto, string> = {
 };
 
 export const ROTULO_DO_TIPO: Record<TipoDeFoto, string> = {
-  principal: "Principal",
-  ambientada: "Ambientada",
-  detalhe: "Detalhe",
+  produto: "1 Produto",
+  face: "2 Face",
+  uso: "3 Em uso",
 };
 
 export const ROTULO_DA_FOTO: Record<EstadoDaFoto, string> = {
@@ -66,6 +67,27 @@ export const ROTULO_DA_FOTO: Record<EstadoDaFoto, string> = {
   na_loja: "Na loja",
   substituida: "Substituída",
 };
+
+/**
+ * Onde a peça aparece na foto 3 (uso), pela categoria e pelo nome. Namoro e
+ * compromisso vão na mão direita no Brasil; casamento, na esquerda.
+ */
+export function cenaDeUso(nome: string, categoria: string): string {
+  const t = `${nome} ${categoria}`.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+  if (t.includes("caixinha") || t.includes("porta joia")) return "Sem foto de uso: só produto e face.";
+  if (t.includes("brinco")) return "Orelha de perfil, cabelo preso, pele natural.";
+  if (t.includes("colar") || t.includes("gargantilha") || t.includes("corrente") || t.includes("pingente") || t.includes("conjunto")) {
+    return "Busto: pescoço e colo, roupa clara e lisa, sem o rosto inteiro.";
+  }
+  if (t.includes("tornozeleira")) return "Tornozelo, pele natural, fundo claro.";
+  if (t.includes("pulseira")) return "Pulso feminino apoiado em superfície clara.";
+  if (t.includes("alianca")) {
+    const lado = t.includes("casamento") && !t.includes("namoro") ? "esquerdas" : "direitas";
+    return `Mãos ${lado} do casal sobre mármore branco ou linho branco. Kit com solitário: o solitário no mesmo dedo dela.`;
+  }
+  if (t.includes("anel") || t.includes("aneis") || t.includes("solitario")) return "Mão feminina sobre mármore branco ou linho branco.";
+  return "A peça em uso, em cena limpa e clara, com luz natural.";
+}
 
 /** Conta para a barra de progresso: o que já tem foto nova resolvida. */
 export const RESOLVIDO: ReadonlySet<EstadoDoProduto> = new Set(["aprovada", "na_loja", "dispensada"]);

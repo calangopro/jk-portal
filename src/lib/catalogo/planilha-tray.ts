@@ -36,9 +36,12 @@ export type PedidoDeFoto = {
   /** Preço de tabela e promocional como o espelho do portal tem agora. */
   preco: number | null;
   precoPromocional: number | null;
-  principal?: string | null;
-  ambientada?: string | null;
-  detalhe?: string[];
+  /** As três posições da loja: 1 produto, 2 face, 3 uso. */
+  produto?: string | null;
+  face?: string | null;
+  uso?: string | null;
+  /** As fotos novas que a loja já mostra, por posição (para trocar só uma). */
+  naLoja?: { produto?: string; face?: string; uso?: string };
 };
 
 export type PrecoQueDiscorda = {
@@ -158,21 +161,28 @@ export function imagensDaLinha(linha: string[], cabecalho: string[]): string[] {
 }
 
 /**
- * A nova ordem: principal nova no lugar da antiga (que é a foto de onde ela
- * saiu), ambientada logo depois, detalhes em seguida, e o resto das fotos que
- * a loja já tinha, sem repetir.
+ * A nova ordem, como a JK já monta na loja: produto, face e uso nas posições
+ * 1, 2 e 3, e depois as outras fotos que a loja já tinha, sem repetir.
+ *
+ * Cada posição é decidida sozinha: a foto aprovada agora, senão a foto nova
+ * que a loja já mostra naquela posição (`naLoja`), senão (só na 1) a foto
+ * principal de antes. Trocar só a face de um produto já refeito mantém o
+ * produto e o uso onde estão. A principal antiga do fornecedor sai quando
+ * chega produto novo, porque a nova é feita a partir dela; as outras fotos do
+ * fornecedor ficam atrás, como nos 18 modelos refeitos em 08 e 09/11/2026.
  */
 export function novaOrdemDeImagens(
   atuais: string[],
-  novas: { principal?: string | null; ambientada?: string | null; detalhe?: string[] },
+  novas: { produto?: string | null; face?: string | null; uso?: string | null; naLoja?: PedidoDeFoto["naLoja"] },
 ): string[] {
-  const [principalAtual, ...resto] = atuais;
-  const ordem = [
-    novas.principal || principalAtual,
-    novas.ambientada,
-    ...(novas.detalhe ?? []),
-    ...resto,
-  ].filter((u): u is string => Boolean(u));
+  const [principalAtual] = atuais;
+  const ja = novas.naLoja ?? {};
+  const produto = novas.produto || ja.produto || principalAtual;
+  const face = novas.face || ja.face;
+  const uso = novas.uso || ja.uso;
+  const tiradas = new Set([ja.produto, ja.face, ja.uso, novas.produto ? principalAtual : undefined].filter(Boolean));
+  const antigas = atuais.filter((u) => !tiradas.has(u));
+  const ordem = [produto, face, uso, ...antigas].filter((u): u is string => Boolean(u));
   return Array.from(new Set(ordem));
 }
 
