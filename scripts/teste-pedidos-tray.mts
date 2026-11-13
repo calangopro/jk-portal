@@ -670,10 +670,14 @@ console.log("\nVenda da loja por anúncio");
   confere("sem dado, nenhum passo aparece como feito", semNada.length === 4 && semNada.every((p) => !p.feito));
   const cobertura: Cobertura = { criados: 20, com_sessao: 0, ligados: 0, com_origem: 0, pagos: 12, pagos_com_origem: 0, pagos_com_anuncio: 0, valor_pago: 9000, valor_pago_com_origem: 0, valor_pago_com_anuncio: 0 };
   const soPortal = passosDoColetor({ ...saudeVazia, chegadas_7d: 340, visitantes_7d: 300 }, cobertura);
-  confere("só o portal anotando: primeiro passo feito, e o último explica que falta a API", soPortal[0].feito && !soPortal[1].feito && !soPortal[3].feito && soPortal[3].texto.includes("API de pedidos"));
+  confere("só o portal anotando: primeiro passo feito, e o último diz que depende do script na loja", soPortal[0].feito && !soPortal[1].feito && !soPortal[3].feito && soPortal[3].texto.includes("script na loja"));
+  const naLoja = passosDoColetor({ ...saudeVazia, chegadas_7d: 340, visitantes_7d: 300, sessoes_7d: 15 }, cobertura);
+  confere("script na loja e nenhum pedido ainda: explica os dois caminhos", !naLoja[3].feito && naLoja[3].texto.includes("página de compra") && naLoja[3].texto.includes("API de pedidos"));
+  const visto = passosDoColetor({ ...saudeVazia, chegadas_7d: 340, visitantes_7d: 300, sessoes_7d: 15, pedidos_vistos_7d: 1 }, cobertura);
+  confere("pedido visto na compra e ainda não importado: diz que liga na próxima importação", !visto[3].feito && visto[3].texto.startsWith("1 pedido foi visto") && visto[3].texto.includes("próxima importação"));
   const tudo = passosDoColetor({ ...saudeVazia, chegadas_7d: 900, visitantes_7d: 700, sessoes_7d: 650, com_codigo_de_anuncio_7d: 120 }, { ...cobertura, com_sessao: 18, ligados: 11 });
   confere("tudo ligado: os quatro passos feitos", tudo.every((p) => p.feito));
-  confere("nenhuma frase dos passos com travessão", [...semNada, ...soPortal, ...tudo].every((p) => !/[—–]/.test(p.titulo + p.texto)));
+  confere("nenhuma frase dos passos com travessão", [...semNada, ...soPortal, ...naLoja, ...visto, ...tudo].every((p) => !/[—–]/.test(p.titulo + p.texto)));
 }
 
 console.log("\nTudo certo.");
