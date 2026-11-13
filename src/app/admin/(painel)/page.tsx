@@ -2,7 +2,8 @@ import Link from "next/link";
 import { requireSessao, ROLE_LABEL, type Profile } from "@/lib/auth/session";
 import { ehAdmin } from "@/lib/auth/acessos";
 import { createClient } from "@/lib/supabase/server";
-import { lerDespesas, somarDespesas } from "@/lib/custos/dados";
+import { contaDoMes } from "@/lib/custos/conta";
+import { lerDespesas } from "@/lib/custos/dados";
 import { andamentoDaMeta, diasDoMes, type Andamento } from "@/lib/painel/meta";
 import { calcularSinais, type EntradaDosSinais } from "@/lib/painel/sinais";
 import { lerResumoDeGasto } from "@/lib/trafego/dados";
@@ -37,7 +38,7 @@ async function lerPainel(profile: Profile) {
   const hoje = hojeEmSaoPaulo();
   const de = somarDias(hoje, -(DIAS - 1));
 
-  const [atual, anterior, ultima, fila, despesas, doMes, metaDoMes, porFora, gasto] = await Promise.all([
+  const [atual, anterior, ultima, fila, despesas, doMes, metaDoMes, porFora, gasto, gastoDoMes] = await Promise.all([
     pode("vendas") ? lerResumoDeVendas(db, de, hoje) : null,
     pode("vendas") ? lerResumoDeVendas(db, somarDias(de, -DIAS), somarDias(de, -1)) : null,
     pode("vendas") ? ultimaImportacao(db) : null,
@@ -47,6 +48,7 @@ async function lerPainel(profile: Profile) {
     pode("vendas") ? db.from("metas").select("valor").eq("mes", primeiroDoMes(hoje)).maybeSingle() : null,
     pode("vendas") ? lerResumoPorFora(db, primeiroDoMes(hoje), hoje) : null,
     pode("trafego") ? lerResumoDeGasto(db, de, hoje) : null,
+    ehAdmin(profile.role) ? lerResumoDeGasto(db, primeiroDoMes(hoje), hoje) : null,
   ]);
 
   // O faturamento do mês é a loja mais o que foi registrado por fora dela.
@@ -61,12 +63,15 @@ async function lerPainel(profile: Profile) {
 
   let custos: EntradaDosSinais["custos"] = null;
   if (despesas && doMes) {
-    const t = somarDespesas(despesas);
-    const diasNoMes = diasDoMes(hoje);
-    custos = {
-      custoAteHoje: (t.mensal * Number(hoje.slice(8, 10))) / diasNoMes + t.porPedido * doMes.totais.pagos,
-      faturamento: faturamentoDoMes,
-    };
+    // A mesma conta da tela de custos: com gasto de anúncio lançado, ele entra no lugar da estimativa.
+    const conta = contaDoMes({
+      despesas,
+      hoje,
+      diasNoMes: diasDoMes(hoje),
+      pedidosPagos: doMes.totais.pagos,
+      anuncioReal: gastoDoMes ? { gasto: gastoDoMes.gasto, dias: gastoDoMes.dias_com_gasto } : null,
+    });
+    custos = { custoAteHoje: conta.total, faturamento: faturamentoDoMes };
   }
 
   const aRecuperar = fila?.resumo.a_recuperar;

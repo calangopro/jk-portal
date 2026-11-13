@@ -6,6 +6,7 @@ import {
   type Categoria,
   type Despesa,
 } from "@/lib/custos/dados";
+import { contaDoMes } from "@/lib/custos/conta";
 import { nomeDoMes } from "@/lib/vendas/periodo";
 import { Cartao, Dinheiro, reais } from "../vendas/PainelDeVendas";
 import { BotaoDeAcao } from "../recuperacao/BotaoDeAcao";
@@ -15,16 +16,26 @@ import { AnexarComprovante } from "./AnexarComprovante";
  * A parte da tela de custos que só desenha. Sem `acoes` (na prévia de
  * desenvolvimento) não aparecem formulário nem botão de anexar.
  *
- * O custo do mês até hoje é uma conta simples e dita na tela: os custos
- * mensais na proporção dos dias que já passaram, mais o custo por pedido vezes
- * os pedidos pagos. Ela NÃO inclui o custo das peças nem o Pix recebido por
- * fora da loja, e a tela repete isso ao lado do número, para ninguém ler
- * "sobra" onde só existe uma parte da conta.
+ * O custo do mês até hoje é uma conta simples e dita na tela (`contaDoMes`):
+ * os custos mensais na proporção dos dias que já passaram, mais o custo por
+ * pedido vezes os pedidos pagos, mais o anúncio. O anúncio entra pelo gasto de
+ * verdade lançado em Tráfego quando ele existe, no lugar da estimativa da
+ * lista, e a tela mostra os dois lado a lado. A conta NÃO inclui o custo das
+ * peças, e a tela repete isso ao lado do número, para ninguém ler "sobra" onde
+ * só existe uma parte da conta.
  */
 
 type Acao = (formData: FormData) => Promise<void>;
 export type AcoesDeCustos = { salvar: Acao; ligar: Acao };
-export type MesDaLoja = { hoje: string; diasNoMes: number; pedidosPagos: number; faturamento: number; porFora: number };
+export type MesDaLoja = {
+  hoje: string;
+  diasNoMes: number;
+  pedidosPagos: number;
+  faturamento: number;
+  porFora: number;
+  /** Gasto de anúncio lançado em Tráfego do dia 1 até hoje, e em quantos dias. */
+  anuncio?: { gasto: number; dias: number } | null;
+};
 
 const campo = "w-full rounded-[8px] border border-border bg-white px-2.5 py-1.5 text-sm text-ink";
 const rotulo = "block text-[0.68rem] font-semibold uppercase tracking-wider text-muted";
@@ -164,9 +175,12 @@ export function PainelDeCustos({
     .sort((a, b) => b.total - a.total);
 
   const dia = mes ? Number(mes.hoje.slice(8, 10)) : 0;
-  const fixoAteHoje = mes ? (t.mensal * dia) / mes.diasNoMes : 0;
-  const embalagemAteHoje = mes ? t.porPedido * mes.pedidosPagos : 0;
-  const custoAteHoje = fixoAteHoje + embalagemAteHoje;
+  const conta = mes
+    ? contaDoMes({ despesas: todas, hoje: mes.hoje, diasNoMes: mes.diasNoMes, pedidosPagos: mes.pedidosPagos, anuncioReal: mes.anuncio })
+    : null;
+  const embalagemAteHoje = conta?.porPedidoAteHoje ?? 0;
+  const custoAteHoje = conta?.total ?? 0;
+  const comGastoReal = !!conta && conta.diasComGastoReal > 0;
   const vendido = mes ? mes.faturamento + mes.porFora : 0;
   const fatia = mes && vendido > 0 ? Math.round((custoAteHoje / vendido) * 100) : null;
   const sobra = vendido - custoAteHoje;
@@ -201,7 +215,7 @@ export function PainelDeCustos({
                 <Cartao
                   Icone={CalendarDays}
                   rotulo={`${nomeDoMes(mes.hoje)} até hoje`}
-                  apoio={`${dia} de ${mes.diasNoMes} dias dos custos mensais, mais a embalagem de ${mes.pedidosPagos} pedidos`}
+                  apoio={`${dia} de ${mes.diasNoMes} dias dos custos mensais, a embalagem de ${mes.pedidosPagos} pedidos e ${comGastoReal ? "o anúncio de verdade" : "a estimativa de anúncio"}`}
                 >
                   <Dinheiro valor={custoAteHoje} />
                 </Cartao>
@@ -225,6 +239,24 @@ export function PainelDeCustos({
             Ainda falta nesta conta o custo das peças vendidas. Venda por fora só entra se foi registrada.{" "}
             {t.confirmados} de {t.itens} custos têm valor exato, os outros são estimativa.
           </p>
+
+          {conta && comGastoReal ? (
+            <p className="glass mt-4 max-w-3xl rounded-[14px] p-4 text-xs leading-relaxed text-muted">
+              <span className="font-semibold text-ink">Anúncio no mês: {reais(conta.anuncioAteHoje)}.</span> São{" "}
+              {reais(conta.anuncioReal)} de gasto lançado em Tráfego, em {conta.diasComGastoReal}{" "}
+              {conta.diasComGastoReal === 1 ? "dia" : "dias"}
+              {conta.diasSoNaEstimativa > 0
+                ? `, mais a estimativa para ${conta.diasSoNaEstimativa} ${conta.diasSoNaEstimativa === 1 ? "dia que ainda não foi lançado" : "dias que ainda não foram lançados"}`
+                : ""}
+              . Pela estimativa da lista abaixo seriam {reais(conta.anuncioEstimado)} no mesmo período
+              {conta.anuncioEstimado > 0
+                ? conta.anuncioAteHoje > conta.anuncioEstimado
+                  ? `: o gasto de verdade está ${Math.round((conta.anuncioAteHoje / conta.anuncioEstimado - 1) * 100)}% acima dela.`
+                  : `: o gasto de verdade está ${Math.round((1 - conta.anuncioAteHoje / conta.anuncioEstimado) * 100)}% abaixo dela.`
+                : "."}{" "}
+              A conta usa o gasto de verdade, e a estimativa não é somada junto.
+            </p>
+          ) : null}
 
           {acoes ? (
             <details className="glass mt-6 rounded-[16px] p-4 sm:p-5">

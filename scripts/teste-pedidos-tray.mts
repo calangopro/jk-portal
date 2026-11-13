@@ -21,6 +21,7 @@ import { calcularSinais, porDiaDaSemana, taxaDeCancelamento, variacao } from "..
 import { ehAdmin, ehEquipeDeConteudo, NIVEIS, ROLE_LABEL } from "../src/lib/auth/acessos.ts";
 import { andamentoDaMeta } from "../src/lib/painel/meta.ts";
 import { dividirPorDia, retornoPorPlataforma } from "../src/lib/trafego/retorno.ts";
+import { contaDoMes } from "../src/lib/custos/conta.ts";
 
 let falhas = 0;
 function confere(nome: string, ok: boolean, detalhe = "") {
@@ -308,6 +309,28 @@ console.log("\nTráfego");
   const pequeno = calcularSinais({ ...base, anuncios: { gasto: 80, linhas: retornoPorPlataforma([{ plataforma: "meta", gasto: 80 }], []) } });
   confere("gasto abaixo de 100 não vira sinal", pequeno.length === 0, pequeno.map((s) => s.chave).join());
   confere("nenhum sinal de anúncio com travessão", !comAnuncio.some((s) => /[\u2013\u2014]/.test(s.titulo + s.texto)));
+}
+
+console.log("\nConta de custos do mês");
+
+{
+  const despesas = [
+    { tipo: "mensal" as const, categoria: "pessoal", valor: 30000, ativo: true },
+    { tipo: "mensal" as const, categoria: "anuncios", valor: 15000, ativo: true },
+    { tipo: "mensal" as const, categoria: "estrutura", valor: 9000, ativo: false },
+    { tipo: "por_pedido" as const, categoria: "embalagem", valor: 7, ativo: true },
+  ];
+  const base = { despesas, hoje: "2026-11-13", diasNoMes: 30, pedidosPagos: 100 };
+  const sem = contaDoMes(base);
+  confere("sem gasto lançado, vale a estimativa: 13 de 30 dias de 15 mil", sem.anuncioAteHoje === 6500 && sem.anuncioReal === 0 && sem.diasSoNaEstimativa === 13);
+  confere("fixo sem o anúncio e sem custo desativado", sem.fixoAteHoje === 13000 && sem.porPedidoAteHoje === 700 && sem.total === 20200);
+  const com = contaDoMes({ ...base, anuncioReal: { gasto: 8000, dias: 12 } });
+  confere("com gasto lançado, a estimativa não é somada junto", com.anuncioAteHoje === 8500 && com.anuncioReal === 8000 && com.anuncioEstimado === 6500);
+  confere("o dia que falta entra pela estimativa por dia", com.diasComGastoReal === 12 && com.diasSoNaEstimativa === 1 && com.total === 13000 + 700 + 8500);
+  const cheio = contaDoMes({ ...base, anuncioReal: { gasto: 9100, dias: 13 } });
+  confere("todos os dias lançados: só o gasto de verdade", cheio.anuncioAteHoje === 9100 && cheio.diasSoNaEstimativa === 0);
+  confere("leitura com zero dia não derruba a estimativa", contaDoMes({ ...base, anuncioReal: { gasto: 0, dias: 0 } }).anuncioAteHoje === 6500);
+  confere("sem linha de anúncio na lista, o gasto de verdade entra sozinho", contaDoMes({ ...base, despesas: despesas.filter((d) => d.categoria !== "anuncios"), anuncioReal: { gasto: 500, dias: 12 } }).anuncioAteHoje === 500);
 }
 
 if (falhas > 0) {
