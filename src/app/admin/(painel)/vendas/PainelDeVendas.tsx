@@ -29,12 +29,12 @@ import { Barras, type Barra } from "./Barras";
  * servir a outra fonte quando a API da Tray chegar.
  */
 
-const reais = (n: number) => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+export const reais = (n: number) => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 const inteiro = (n: number) => n.toLocaleString("pt-BR");
 const DIAS_DA_SEMANA = ["domingo", "segunda", "terça", "quarta", "quinta", "sexta", "sábado"];
 const diaDaSemana = (dia: string) => DIAS_DA_SEMANA[new Date(`${dia}T12:00:00Z`).getUTCDay()];
 
-function haQuantoTempo(iso: string): string {
+export function haQuantoTempo(iso: string): string {
   const min = Math.max(0, Math.round((Date.now() - Date.parse(iso)) / 60_000));
   if (min < 2) return "agora há pouco";
   if (min < 60) return `há ${min} minutos`;
@@ -51,7 +51,7 @@ function variacao(agora: number, antes: number, comparacao: string): string {
 }
 
 /** Número de dinheiro com os centavos menores, para o valor caber no cartão. */
-function Dinheiro({ valor }: { valor: number }) {
+export function Dinheiro({ valor }: { valor: number }) {
   const [inteiros, centavos] = reais(valor).split(",");
   return (
     <span className="numeros">
@@ -61,7 +61,7 @@ function Dinheiro({ valor }: { valor: number }) {
   );
 }
 
-function Cartao({
+export function Cartao({
   Icone, rotulo, children, apoio,
 }: {
   Icone: LucideIcon;
