@@ -22,6 +22,7 @@ import { ehAdmin, ehEquipeDeConteudo, NIVEIS, ROLE_LABEL } from "../src/lib/auth
 import { andamentoDaMeta } from "../src/lib/painel/meta.ts";
 import { dividirPorDia, retornoPorPlataforma } from "../src/lib/trafego/retorno.ts";
 import { contaDoMes } from "../src/lib/custos/conta.ts";
+import { completarDias, lerInsightsDoMeta, lerLotesDoGoogle } from "../src/lib/trafego/leitura.ts";
 
 let falhas = 0;
 function confere(nome: string, ok: boolean, detalhe = "") {
@@ -331,6 +332,39 @@ console.log("\nConta de custos do mês");
   confere("todos os dias lançados: só o gasto de verdade", cheio.anuncioAteHoje === 9100 && cheio.diasSoNaEstimativa === 0);
   confere("leitura com zero dia não derruba a estimativa", contaDoMes({ ...base, anuncioReal: { gasto: 0, dias: 0 } }).anuncioAteHoje === 6500);
   confere("sem linha de anúncio na lista, o gasto de verdade entra sozinho", contaDoMes({ ...base, despesas: despesas.filter((d) => d.categoria !== "anuncios"), anuncioReal: { gasto: 500, dias: 12 } }).anuncioAteHoje === 500);
+}
+
+console.log("\nLeitura das APIs de anúncio");
+
+{
+  const meta = lerInsightsDoMeta([
+    { date_start: "2026-11-12", date_stop: "2026-11-12", spend: "553.71", impressions: "32431", clicks: "812" },
+    { date_start: "2026-11-11", date_stop: "2026-11-11", spend: "571.55", impressions: "30110" },
+    { date_start: "2026-11-10", spend: "abc" },
+    { spend: "10" },
+    null,
+  ]);
+  confere("Meta: gasto em texto vira número, em ordem de dia", meta.length === 2 && meta[0].dia === "2026-11-11" && meta[0].gasto === 571.55 && meta[1].gasto === 553.71);
+  confere("Meta: clique que não veio fica nulo, não zero", meta[0].cliques === null && meta[1].cliques === 812 && meta[1].impressoes === 32431);
+  confere("Meta: linha sem data ou com gasto inválido é descartada", !meta.some((d) => d.dia === "2026-11-10"));
+
+  const google = lerLotesDoGoogle([
+    { results: [
+      { segments: { date: "2026-11-12" }, metrics: { costMicros: "44470000", clicks: "250", impressions: "11386" } },
+      { segments: { date: "2026-11-11" }, metrics: { costMicros: "62320000", clicks: "320", impressions: "12976" } },
+    ] },
+    { results: [{ segments: { date: "2026-11-12" }, metrics: { costMicros: "1000000", clicks: "1", impressions: "10" } }] },
+    { fieldMask: "segments.date" },
+  ]);
+  confere("Google: micros viram reais", google.find((d) => d.dia === "2026-11-11")?.gasto === 62.32);
+  confere("Google: o mesmo dia em dois lotes é somado", google.find((d) => d.dia === "2026-11-12")?.gasto === 45.47 && google.find((d) => d.dia === "2026-11-12")?.cliques === 251);
+  confere("Google: lote sem resultado não quebra", google.length === 2 && lerLotesDoGoogle([]).length === 0 && lerLotesDoGoogle({}).length === 0);
+
+  const cheio = completarDias(meta, "2026-11-09", "2026-11-13", "2026-11-13");
+  confere("dia fechado sem linha vira zero", cheio.map((d) => `${d.dia.slice(8)}=${d.gasto}`).join() === "09=0,10=0,11=571.55,12=553.71");
+  confere("hoje sem linha não é gravado como zero", !cheio.some((d) => d.dia === "2026-11-13"));
+  const comHoje = completarDias([{ dia: "2026-11-13", gasto: 34.35, impressoes: 100, cliques: 2 }], "2026-11-13", "2026-11-13", "2026-11-13");
+  confere("hoje com linha entra com o parcial", comHoje.length === 1 && comHoje[0].gasto === 34.35);
 }
 
 if (falhas > 0) {

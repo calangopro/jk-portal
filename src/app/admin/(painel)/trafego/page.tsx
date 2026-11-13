@@ -1,6 +1,8 @@
 import { requireArea } from "@/lib/auth/session";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { lerTrafegoDaTela } from "@/lib/trafego/dados";
+import { lerConexoes } from "@/lib/trafego/plataformas";
 import { hojeEmSaoPaulo, lerPeriodo } from "@/lib/vendas/periodo";
 import { lancarGasto } from "./actions";
 import { TelaDeTrafego } from "./Tela";
@@ -19,6 +21,8 @@ export default async function TrafegoPage({ searchParams }: { searchParams: Prom
   await requireArea("trafego");
   const chave = lerPeriodo((await searchParams).periodo);
   const hoje = hojeEmSaoPaulo();
-  const dados = await lerTrafegoDaTela(await createClient(), chave, hoje);
-  return <TelaDeTrafego chave={chave} hoje={hoje} acao={lancarGasto} {...dados} />;
+  // O estado das ligações sai do registro de leituras, que só o cliente de
+  // serviço enxerga. Quem chega aqui já passou pela conferência da área.
+  const [dados, conexoes] = await Promise.all([lerTrafegoDaTela(await createClient(), chave, hoje), lerConexoes(createAdminClient())]);
+  return <TelaDeTrafego chave={chave} hoje={hoje} acao={lancarGasto} conexoes={conexoes} {...dados} />;
 }
