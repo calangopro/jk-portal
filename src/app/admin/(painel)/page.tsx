@@ -2,7 +2,8 @@ import Link from "next/link";
 import { requireSessao, ROLE_LABEL, type Profile } from "@/lib/auth/session";
 import { ehAdmin } from "@/lib/auth/acessos";
 import { createClient } from "@/lib/supabase/server";
-import { lerDespesas, somarDespesas } from "@/lib/custos/dados";
+import { contaDoMes } from "@/lib/custos/conta";
+import { lerDespesas } from "@/lib/custos/dados";
 import { andamentoDaMeta, diasDoMes, type Andamento } from "@/lib/painel/meta";
 import { calcularSinais, type EntradaDosSinais } from "@/lib/painel/sinais";
 import { lerResumoDeGasto } from "@/lib/trafego/dados";
@@ -15,6 +16,7 @@ import { lerFilaDeRecuperacao } from "@/lib/vendas/recuperacao";
 import { definirMeta } from "./meta-actions";
 import { MetaDoMes } from "./MetaDoMes";
 import { PainelGeral, type DadosDeVendas } from "./PainelGeral";
+import { ResultadoDoMes, type Resultado } from "./ResultadoDoMes";
 
 /** Quantos dias o painel compara: os últimos 30 contra os 30 anteriores. */
 const DIAS = 30;
@@ -37,7 +39,7 @@ async function lerPainel(profile: Profile) {
   const hoje = hojeEmSaoPaulo();
   const de = somarDias(hoje, -(DIAS - 1));
 
-  const [atual, anterior, ultima, fila, despesas, doMes, metaDoMes, porFora, gasto] = await Promise.all([
+  const [atual, anterior, ultima, fila, despesas, doMes, metaDoMes, porFora, gasto, gastoDoMes] = await Promise.all([
     pode("vendas") ? lerResumoDeVendas(db, de, hoje) : null,
     pode("vendas") ? lerResumoDeVendas(db, somarDias(de, -DIAS), somarDias(de, -1)) : null,
     pode("vendas") ? ultimaImportacao(db) : null,
@@ -47,6 +49,7 @@ async function lerPainel(profile: Profile) {
     pode("vendas") ? db.from("metas").select("valor").eq("mes", primeiroDoMes(hoje)).maybeSingle() : null,
     pode("vendas") ? lerResumoPorFora(db, primeiroDoMes(hoje), hoje) : null,
     pode("trafego") ? lerResumoDeGasto(db, de, hoje) : null,
+    ehAdmin(profile.role) ? lerResumoDeGasto(db, primeiroDoMes(hoje), hoje) : null,
   ]);
 
   // O faturamento do mês é a loja mais o que foi registrado por fora dela.
@@ -60,12 +63,27 @@ async function lerPainel(profile: Profile) {
   const vendas: DadosDeVendas | null = atual ? { atual, anterior, dias: DIAS, de, ate: hoje } : null;
 
   let custos: EntradaDosSinais["custos"] = null;
+  let resultado: Resultado | null = null;
   if (despesas && doMes) {
-    const t = somarDespesas(despesas);
-    const diasNoMes = diasDoMes(hoje);
-    custos = {
-      custoAteHoje: (t.mensal * Number(hoje.slice(8, 10))) / diasNoMes + t.porPedido * doMes.totais.pagos,
-      faturamento: faturamentoDoMes,
+    // A mesma conta da tela de custos: com gasto de anúncio lançado, ele entra no lugar da estimativa.
+    const conta = contaDoMes({
+      despesas,
+      hoje,
+      diasNoMes: diasDoMes(hoje),
+      pedidosPagos: doMes.totais.pagos,
+      anuncioReal: gastoDoMes ? { gasto: gastoDoMes.gasto, dias: gastoDoMes.dias_com_gasto } : null,
+    });
+    custos = { custoAteHoje: conta.total, faturamento: faturamentoDoMes };
+    const ativos = despesas.filter((d) => d.ativo);
+    resultado = {
+      hoje,
+      diasNoMes: diasDoMes(hoje),
+      loja: Number(doMes.totais.valor_pago),
+      porFora: porForaNoMes,
+      pedidosPagos: doMes.totais.pagos,
+      conta,
+      estimativas: ativos.filter((d) => !d.confirmado).length,
+      itens: ativos.length,
     };
   }
 
@@ -95,7 +113,7 @@ async function lerPainel(profile: Profile) {
         ]
       : [];
 
-  return { vendas, sinais, andamento, hoje, porForaNoMes, podeVerMeta: pode("vendas") };
+  return { vendas, sinais, andamento, hoje, porForaNoMes, resultado, podeVerMeta: pode("vendas") };
 }
 
 async function lerConteudo() {
@@ -117,7 +135,7 @@ async function lerConteudo() {
 
 export default async function AdminDashboard() {
   const profile = await requireSessao();
-  const [{ vendas, sinais, andamento, hoje, porForaNoMes, podeVerMeta }, conteudo] = await Promise.all([
+  const [{ vendas, sinais, andamento, hoje, porForaNoMes, resultado, podeVerMeta }, conteudo] = await Promise.all([
     lerPainel(profile),
     profile.areas.includes("conteudo") ? lerConteudo() : null,
   ]);
@@ -136,6 +154,8 @@ export default async function AdminDashboard() {
       {podeVerMeta ? (
         <MetaDoMes andamento={andamento} hoje={hoje} porFora={porForaNoMes} acao={ehAdmin(profile.role) ? definirMeta : undefined} />
       ) : null}
+
+      {resultado ? <ResultadoDoMes r={resultado} /> : null}
 
       <PainelGeral vendas={vendas} sinais={sinais} />
 
