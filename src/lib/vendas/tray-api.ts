@@ -131,6 +131,8 @@ export function pedidoDaApi(o: Cru, situacaoDoStatus: (status: string) => Situac
     uf: texto(cliente.state, 2)?.toUpperCase() ?? null,
     envio_em: diaValido(o.shipment_date),
     envio_codigo: texto(o.sending_code, 80),
+    // Pedido criado fora da vitrine (pela API, por marketplace) vem sem sessão.
+    sessao: /^[a-z0-9]{20,40}$/i.test(String(o.session_id ?? "")) ? String(o.session_id) : null,
     itens: itensDaApi(o),
   };
 }

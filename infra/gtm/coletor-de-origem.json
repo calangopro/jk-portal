@@ -1,0 +1,61 @@
+{
+  "exportFormatVersion": 2,
+  "exportTime": "2026-11-13 15:00:00",
+  "containerVersion": {
+    "path": "accounts/6221062229/containers/217728559/versions/0",
+    "accountId": "6221062229",
+    "containerId": "217728559",
+    "containerVersionId": "0",
+    "container": {
+      "path": "accounts/6221062229/containers/217728559",
+      "accountId": "6221062229",
+      "containerId": "217728559",
+      "name": "WEB - ECOMMERCE - OFICIAL",
+      "publicId": "GTM-WWT3T789",
+      "usageContext": [
+        "WEB"
+      ]
+    },
+    "tag": [
+      {
+        "accountId": "6221062229",
+        "containerId": "217728559",
+        "tagId": "460",
+        "name": "JK Portal - Coletor de origem",
+        "type": "html",
+        "parentFolderId": "400",
+        "notes": "Carrega /guias/o.js (fonte: public/o.js no repositório do portal). Anota de onde a visita chegou e manda para /guias/api/origem, no mesmo domínio. Não lê formulário nem dado pessoal e não manda evento para plataforma nenhuma. Para desligar: pausar esta etiqueta.",
+        "parameter": [
+          {
+            "type": "TEMPLATE",
+            "key": "html",
+            "value": "<script async src=\"/guias/o.js\"></script>"
+          },
+          {
+            "type": "BOOLEAN",
+            "key": "supportDocumentWrite",
+            "value": "false"
+          }
+        ],
+        "firingTriggerId": [
+          "2147479553"
+        ],
+        "tagFiringOption": "ONCE_PER_LOAD",
+        "monitoringMetadata": {
+          "type": "MAP"
+        },
+        "consentSettings": {
+          "consentStatus": "NOT_SET"
+        }
+      }
+    ],
+    "folder": [
+      {
+        "accountId": "6221062229",
+        "containerId": "217728559",
+        "folderId": "400",
+        "name": "🟡 JK Portal /guias"
+      }
+    ]
+  }
+}

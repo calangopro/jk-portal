@@ -3,6 +3,7 @@ import { organizationSchema, webSiteSchema } from "@/lib/schema/builders";
 import { SiteHeader } from "@/components/layout/SiteHeader";
 import { SiteFooter } from "@/components/layout/SiteFooter";
 import { Medicao } from "@/components/analytics/Medicao";
+import { Coletor } from "@/components/analytics/Coletor";
 import { RastreioCliques } from "@/components/analytics/RastreioCliques";
 
 /**
@@ -33,6 +34,7 @@ export default async function SiteLayout({
       {/* Medição: só em produção e só se conectada no painel. */}
       <Medicao />
       <RastreioCliques />
+      <Coletor />
     </>
   );
 }

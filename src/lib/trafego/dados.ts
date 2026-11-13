@@ -1,5 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { vendasPorItem, type Cobertura, type VendaDoItem } from "../origem/anotado";
+import { lerOrigemDosPedidos } from "../origem/dados";
 import { lerResumoDeVendas } from "../vendas/dados";
 import { agruparPorCanal } from "../vendas/origem";
 import { diasEntre, intervaloDoPeriodo, type ChaveDePeriodo } from "../vendas/periodo";
@@ -101,6 +103,11 @@ export type CampanhasDaTela = {
   diagnostico: Diagnostico | null;
   /** O que a LOJA recebeu com a etiqueta da plataforma: pedidos criados, pagos e o valor pago. */
   loja: { criados: number; pagos: number; valor: number };
+  /**
+   * A venda da loja ligada a cada item pelo coletor de origem, por `nivel:id`,
+   * e a cobertura do período. `null` quando a leitura falhou.
+   */
+  anotado: { itens: Record<string, VendaDoItem>; cobertura: Cobertura } | null;
 };
 
 /** Os itens de uma plataforma somados no intervalo. `null` quando a leitura falhou. */
@@ -141,7 +148,11 @@ export async function lerItensDoPeriodo(db: SupabaseClient, plataforma: "meta" |
  */
 export async function lerCampanhasDaTela(db: SupabaseClient, plataforma: "meta" | "google", chave: ChaveDePeriodo, hoje: string): Promise<CampanhasDaTela> {
   const { de, ate } = intervaloDoPeriodo(chave, hoje);
-  const [lista, vendas] = await Promise.all([lerItensDoPeriodo(db, plataforma, de, ate), lerResumoDeVendas(db, de, ate)]);
+  const [lista, vendas, origem] = await Promise.all([
+    lerItensDoPeriodo(db, plataforma, de, ate),
+    lerResumoDeVendas(db, de, ate),
+    lerOrigemDosPedidos(db, de, ate),
+  ]);
   const canal = agruparPorCanal(vendas?.por_origem ?? []).find((c) => c.canal === (plataforma === "meta" ? "meta" : "google_ads"));
   return {
     plataforma,
@@ -149,5 +160,6 @@ export async function lerCampanhasDaTela(db: SupabaseClient, plataforma: "meta" 
     ate,
     diagnostico: lista ? diagnosticar(lista, plataforma) : null,
     loja: { criados: canal?.criados ?? 0, pagos: canal?.pagos ?? 0, valor: canal?.valor ?? 0 },
+    anotado: origem ? { itens: vendasPorItem(origem.por_item, plataforma), cobertura: origem.cobertura } : null,
   };
 }

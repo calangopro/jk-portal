@@ -8,7 +8,9 @@ import { diaCurto, type ChaveDePeriodo } from "@/lib/vendas/periodo";
 import { BotaoDeAcao } from "../recuperacao/BotaoDeAcao";
 import { SeletorDePeriodo } from "../SeletorDePeriodo";
 import { Cartao, Dinheiro, haQuantoTempo, reais } from "../vendas/PainelDeVendas";
+import type { OrigemDosPedidos, SaudeDoColetor } from "@/lib/origem/anotado";
 import { LerAgora } from "./LerAgora";
+import { OrigemAnotada } from "./OrigemAnotada";
 
 /**
  * A parte da tela de tráfego que só desenha.
@@ -108,8 +110,11 @@ const campo = "w-full rounded-[10px] border border-border bg-white px-3 py-2 tex
 const rotulo = "block text-[0.68rem] font-semibold uppercase tracking-wider text-muted";
 
 export function TelaDeTrafego({
-  chave, hoje, acao, conexoes, de, ate, comparacao, gasto, gastoAnterior, linhas, vendaDaLoja, porFora, semEtiqueta, porDia,
+  chave, hoje, acao, conexoes, origem, saude, de, ate, comparacao, gasto, gastoAnterior, linhas, vendaDaLoja, porFora, semEtiqueta, porDia,
 }: TrafegoDaTela & {
+  /** A origem anotada pelo coletor no período, e como o coletor está. Sem `saude` (prévia), o bloco não aparece. */
+  origem?: OrigemDosPedidos | null;
+  saude?: SaudeDoColetor | null;
   chave: ChaveDePeriodo;
   hoje: string;
   acao: (f: FormData) => Promise<void>;
@@ -281,6 +286,8 @@ export function TelaDeTrafego({
           ) : null}
         </>
       )}
+
+      <OrigemAnotada origem={origem ?? null} saude={saude ?? null} />
 
       {conexoes ? (
         <section className="glass mt-6 rounded-[18px] p-5" aria-label="Leitura automática">

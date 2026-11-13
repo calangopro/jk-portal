@@ -1,4 +1,5 @@
 import { Medicao } from "@/components/analytics/Medicao";
+import { Coletor } from "@/components/analytics/Coletor";
 import { RastreioCliques } from "@/components/analytics/RastreioCliques";
 import { OrigemDaBio } from "@/components/bio/OrigemDaBio";
 
@@ -21,6 +22,7 @@ export default function BioLayout({ children }: { children: React.ReactNode }) {
       {children}
       <Medicao />
       <RastreioCliques />
+      <Coletor />
     </>
   );
 }

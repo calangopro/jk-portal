@@ -63,6 +63,6 @@ export const config = {
    * Arquivos estáticos e rotas de imagem também ficam de fora.
    */
   matcher: [
-    "/((?!admin|api|_next/static|_next/image|favicon.ico|icon|opengraph-image|robots.txt|sitemap.xml|llms.txt|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|txt)$).*)",
+    "/((?!admin|api|_next/static|_next/image|favicon.ico|icon|opengraph-image|robots.txt|sitemap.xml|llms.txt|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|txt|js)$).*)",
   ],
 };

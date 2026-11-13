@@ -28,6 +28,8 @@ import { diagnosticar, objetivoDe, type Item } from "../src/lib/trafego/diagnost
 import { juntarMeios, mapearGargalos, meioDePagamento } from "../src/lib/painel/gargalos.ts";
 import { voltaParaEmpatar } from "../src/lib/painel/premissas.ts";
 import { compararComOBanco, pedidoDaApi, ultimaAlteracao } from "../src/lib/vendas/tray-api.ts";
+import { ehRobo, lerChegada, pedidoValido, repeteAAnterior, sessaoValida } from "../src/lib/origem/chegada.ts";
+import { itensQueVenderam, passosDoColetor, vendasPorItem, type Cobertura, type SaudeDoColetor } from "../src/lib/origem/anotado.ts";
 
 let falhas = 0;
 function confere(nome: string, ok: boolean, detalhe = "") {
@@ -559,6 +561,7 @@ console.log("\nPedido lido pela API da Tray");
   confere("itens com o código do produto", p?.itens.length === 1 && p.itens[0].produto_tray_id === "901" && p.itens[0].quantidade === 2 && p.itens[0].preco === 749.95);
   confere("a API não traz a origem, e ela fica nula", p?.utm_source === null);
   confere("cidade e estado do cliente", p?.cidade === "São Paulo" && p.uf === "SP");
+  confere("sessão da Tray só quando tem o formato dela", p?.sessao === null && pedidoDaApi({ ...cru, session_id: "2cs8g43iinqh5c5bmp7ln9nbhn" }, situacaoDoStatus)?.sessao === "2cs8g43iinqh5c5bmp7ln9nbhn");
 
   const cancelado = pedidoDaApi({ ...cru, id: "5013", status: "DEVOLVIDO", OrderStatus: { type: "canceled", status: "DEVOLVIDO" } }, situacaoDoStatus);
   confere("tipo cancelado vale mesmo com outro nome de status", cancelado?.situacao === "cancelado");
@@ -585,6 +588,92 @@ console.log("\nPedido lido pela API da Tray");
     "comparação: separa o status que só muda na escrita",
     c.soDiferemNaEscrita === 1 && c.diferencas.some((d) => d.pedido === 5013 && d.campo === "situacao" && d.api === "cancelado") && c.diferencas.some((d) => d.pedido === 5015 && d.campo === "total"),
   );
+}
+
+console.log("\nChegada anotada pelo coletor");
+{
+  const iphone = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.1 Mobile/15E148 Safari/604.1";
+  const instagram = `${iphone} Instagram 350.0.0.25.108`;
+  const mac = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36";
+  const daCasa = (h: string) => h === "jkaliancas.com.br";
+  const ler = (url: string, referencia: string | null = null, agente = mac) => lerChegada({ url, referencia, agente, daCasa, canalDaEtiqueta: canalDaOrigem });
+  const loja = "https://www.jkaliancas.com.br";
+
+  const meta = ler(`${loja}/aliancas?utm_source=ig_Instagram_Reels&utm_medium=paid&utm_campaign=120214455667788990&utm_term=120214455667788991&utm_content=120214455667788992&fbclid=IwAR0abc`, "https://l.instagram.com/", instagram);
+  confere("anúncio do Meta com os três códigos", meta?.canal === "meta" && meta.ids.join() === "120214455667788990,120214455667788992,120214455667788991" && meta.clique === "fbclid" && meta.nova);
+  confere("página de entrada sem os parâmetros, no celular", meta?.entrada === "/aliancas" && meta.aparelho === "celular" && meta.referencia === "l.instagram.com");
+
+  const nomeComCodigo = ler(`${loja}/?utm_source=FB&utm_campaign=Black%20alian%C3%A7as%7C120214455667788990&utm_content=Video%2003%7C120214455667788992`);
+  confere("código junto do nome, separado por barra", nomeComCodigo?.ids.join() === "120214455667788990,120214455667788992" && nomeComCodigo.canal === "meta");
+
+  const google = ler(`${loja}/alianca-ouro?gad_source=1&gad_campaignid=21987654321&gclid=Cj0KCQabc`);
+  confere("Google Ads sem etiqueta nenhuma: vale o gclid e o código da campanha", google?.canal === "google_ads" && google.ids.join() === "21987654321" && google.clique === "gclid" && google.source === null);
+  confere("o gclid não vira código de anúncio", ler(`${loja}/?gclid=123456789012345`)?.ids.length === 0);
+
+  confere("variável que saiu sem trocar não é etiqueta", ler(`${loja}/?utm_source=ig&utm_campaign=%7B%7Bcampaign.id%7D%7D`)?.campaign === null);
+  confere("busca do Google pelo site anterior", ler(`${loja}/guias/ouro-18k`, "https://www.google.com.br/")?.canal === "google_organico");
+  confere("resposta de IA pelo site anterior", ler(`${loja}/`, "https://chatgpt.com/")?.canal === "ia");
+  confere("etiqueta de IA também", ler(`${loja}/?utm_source=chatgpt.com`)?.canal === "ia");
+  confere("link da bio pela etiqueta curta", ler("https://jkaliancas.com.br/bio?o=bio")?.canal === "bio");
+  confere("outro site qualquer é indicação", ler(`${loja}/`, "https://blogdecasamento.com.br/post")?.canal === "indicacao");
+
+  const interno = ler(`${loja}/carrinho`, `${loja}/alianca-ouro`);
+  confere("vir de página nossa não é chegada", interno?.canal === "direto" && interno.nova === false && interno.referencia === null);
+  const pagamento = ler(`${loja}/checkout/fim`, "https://www.mercadopago.com.br/checkout/v1/redirect");
+  confere("voltar do pagamento não é chegada", pagamento?.canal === "direto" && pagamento.nova === false);
+  const app = ler(`${loja}/`, null, instagram);
+  confere("Instagram sem etiqueta e sem site anterior: reconhecido pelo aplicativo, só na primeira página", app?.canal === "meta" && app.nova === false);
+  confere("endereço que não é endereço", ler("isto não é url") === null);
+
+  confere("mesma campanha em seguida não repete", repeteAAnterior(meta!, { canal: "meta", campaign: meta!.campaign, content: meta!.content, clique_id: meta!.clique_id, haMinutos: 3 }));
+  confere("outra campanha em seguida é chegada nova", !repeteAAnterior(meta!, { canal: "meta", campaign: "outra", content: null, clique_id: null, haMinutos: 3 }));
+  confere("acesso direto logo depois é a mesma visita", repeteAAnterior(interno!, { canal: "meta", campaign: "x", content: null, clique_id: null, haMinutos: 10 }));
+  confere("acesso direto horas depois é visita nova", !repeteAAnterior(interno!, { canal: "meta", campaign: "x", content: null, clique_id: null, haMinutos: 300 }));
+
+  confere("robô e pedido sem navegador ficam de fora", ehRobo("Googlebot/2.1") && ehRobo("") && ehRobo("curl/8.4.0") && !ehRobo(instagram) && !ehRobo(mac));
+  confere("sessão da Tray só no formato dela", sessaoValida("2cs8g43iinqh5c5bmp7ln9nbhn") !== null && sessaoValida("curta") === null && sessaoValida("tem espaço e é comprida demais") === null && sessaoValida(12) === null);
+  confere("número de pedido só inteiro positivo", pedidoValido("1985") === 1985 && pedidoValido(0) === null && pedidoValido("12a") === null && pedidoValido("-3") === null);
+}
+
+console.log("\nVenda da loja por anúncio");
+{
+  const base = { campanha_id: null, conjunto_id: null, tipo: "vendas", ativo: true, impressoes: 1000, cliques: 50, cliques_todos: 60, visitas: 40, carrinhos: 5, checkouts: 3, compras: 2, valor: 3000, conversas: 0 };
+  const arvore = diagnosticar(
+    [
+      { ...base, nivel: "campanha", id: "c1", nome: "Black alianças", gasto: 500 },
+      { ...base, nivel: "conjunto", id: "j1", nome: "Noivos SP", campanha_id: "c1", gasto: 500 },
+      { ...base, nivel: "anuncio", id: "a1", nome: "Vídeo 03", campanha_id: "c1", conjunto_id: "j1", gasto: 300 },
+      { ...base, nivel: "anuncio", id: "a2", nome: "Carrossel 01", campanha_id: "c1", conjunto_id: "j1", gasto: 200, ativo: false },
+    ] as Item[],
+    "meta",
+  );
+  const vendas = vendasPorItem(
+    [
+      { plataforma: "meta", nivel: "anuncio", id: "a1", criados: 3, pagos: 2, valor: 1800 },
+      { plataforma: "meta", nivel: "anuncio", id: "a2", criados: 2, pagos: 0, valor: 0 },
+      { plataforma: "meta", nivel: "anuncio", id: "a9", criados: 1, pagos: 1, valor: 400 },
+      { plataforma: "meta", nivel: "campanha", id: "c1", criados: 5, pagos: 2, valor: 1800 },
+      { plataforma: "google", nivel: "campanha", id: "g1", criados: 4, pagos: 4, valor: 9000 },
+    ],
+    "meta",
+  );
+  confere("só entram os itens da plataforma pedida", Object.keys(vendas).length === 4 && !("campanha:g1" in vendas));
+  const an = itensQueVenderam(arvore.campanhas, vendas, "anuncio");
+  confere("ordem pelo valor pago, com o nome e o caminho", an.map((x) => x.id).join() === "a1,a9,a2" && an[0].nome === "Vídeo 03" && an[0].dentroDe === "Black alianças, Noivos SP");
+  confere("volta é a venda paga da loja sobre o gasto do anúncio", an[0].volta === 6 && an[0].gasto === 300);
+  confere("anúncio que vendeu sem gastar no período fica com o código", an[1].nome === "Código a9" && an[1].gasto === null && an[1].volta === null);
+  confere("anúncio com pedido criado e nenhum pago aparece no fim", an[2].pagos === 0 && an[2].ativo === false);
+  confere("campanha tem a própria lista", itensQueVenderam(arvore.campanhas, vendas, "campanha").map((x) => x.nome).join() === "Black alianças");
+
+  const saudeVazia: SaudeDoColetor = { ultima_chegada: null, ultima_sessao: null, chegadas_24h: 0, chegadas_7d: 0, visitantes_7d: 0, com_codigo_de_anuncio_7d: 0, sessoes_7d: 0, pedidos_vistos_7d: 0, por_canal_7d: [] };
+  const semNada = passosDoColetor(saudeVazia, null);
+  confere("sem dado, nenhum passo aparece como feito", semNada.length === 4 && semNada.every((p) => !p.feito));
+  const cobertura: Cobertura = { criados: 20, com_sessao: 0, ligados: 0, com_origem: 0, pagos: 12, pagos_com_origem: 0, pagos_com_anuncio: 0, valor_pago: 9000, valor_pago_com_origem: 0, valor_pago_com_anuncio: 0 };
+  const soPortal = passosDoColetor({ ...saudeVazia, chegadas_7d: 340, visitantes_7d: 300 }, cobertura);
+  confere("só o portal anotando: primeiro passo feito, e o último explica que falta a API", soPortal[0].feito && !soPortal[1].feito && !soPortal[3].feito && soPortal[3].texto.includes("API de pedidos"));
+  const tudo = passosDoColetor({ ...saudeVazia, chegadas_7d: 900, visitantes_7d: 700, sessoes_7d: 650, com_codigo_de_anuncio_7d: 120 }, { ...cobertura, com_sessao: 18, ligados: 11 });
+  confere("tudo ligado: os quatro passos feitos", tudo.every((p) => p.feito));
+  confere("nenhuma frase dos passos com travessão", [...semNada, ...soPortal, ...tudo].every((p) => !/[—–]/.test(p.titulo + p.texto)));
 }
 
 console.log("\nTudo certo.");
