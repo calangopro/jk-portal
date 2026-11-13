@@ -122,7 +122,7 @@ export default async function IntegracoesPage({
           <Link href="/admin/trafego" className="font-semibold text-brand-nav hover:underline">
             Tráfego
           </Link>
-          . As duas ligações são só de leitura.
+          . O painel só lê nas duas: não cria, não pausa e não edita campanha.
         </p>
         <div className="mt-6 grid gap-5 lg:grid-cols-2">
           <CartaoMetaAds estado={anuncio("meta")} conta={CONTA_DO_META} />
