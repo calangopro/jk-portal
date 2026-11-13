@@ -60,13 +60,33 @@ gravar recusa qualquer loja que não seja a da JK.
 
 A regra da Tray: "Caso o aplicativo consuma menos que 2 POST e 2 PUT em 2
 recursos, será necessário realizar algumas requisições, via POSTMAN ou
-INSOMNIA". O aplicativo só lê, então faltam 2 POST e 2 PUT, em 2 recursos, na
-loja de testes. Depois é abrir o chamado "Homologação Loja 1305187 - Relatórios
-de pedidos e vitrine" pelo formulário de homologação, com URL, JSON e retorno
-de cada requisição.
+INSOMNIA". O aplicativo só lê, então as quatro foram feitas à parte em
+13/11/2026, na loja de testes, em dois recursos sem dado pessoal:
 
-As evidências de leitura já estão prontas em
-`entregas/tray-homologacao/evidencias-de-leitura.md` (fora do git).
+| Requisição | Retorno |
+| --- | --- |
+| `POST /categories` | 201, categoria 3743 |
+| `PUT /categories/3743` | 200 |
+| `POST /products` | 201, produto 93525 |
+| `PUT /products/93525` | 200 |
+
+**Pedidos ficaram de fora de propósito:** cadastrar pedido pela API exige um
+cliente com CPF, e CPF inventado tem chance real de ser o de alguém. Se a Tray
+pedir escrita em pedidos, o caminho é o Filipe indicar um cliente de teste.
+
+As requisições foram feitas por uma rota temporária, só local e só para a loja
+de testes, apagada em seguida. **O cliente de produção continua só de
+leitura.** Detalhes que a API cobrou: `POST /categories` recusa o campo
+`order` ("Não é possível salvar a ordenação manualmente").
+
+As evidências estão em `entregas/tray-homologacao/` (fora do git):
+`evidencias-de-leitura.md` e `evidencias-de-escrita.md`, com URL, JSON e
+retorno de cada requisição e o token mascarado. Falta abrir o chamado
+"Homologação Loja 1305187 - Relatórios de pedidos e vitrine" pelo formulário de
+homologação da Tray, que é do Filipe.
+
+A categoria 3743 e o produto 93525 ficaram na loja de testes com o nome "Teste
+de homologacao JK Aliancas (pode apagar)". Apagar depois da homologação.
 
 ## No dia em que a Tray homologar
 
