@@ -19,6 +19,7 @@ import { agruparPorCanal, canalDaOrigem, nomeLimpo } from "../src/lib/vendas/ori
 import { diasEntre, hojeEmSaoPaulo, intervaloDoPeriodo, lerPeriodo, somarDias } from "../src/lib/vendas/periodo.ts";
 import { calcularSinais, porDiaDaSemana, taxaDeCancelamento, variacao } from "../src/lib/painel/sinais.ts";
 import { ehAdmin, ehEquipeDeConteudo, NIVEIS, ROLE_LABEL } from "../src/lib/auth/acessos.ts";
+import { andamentoDaMeta } from "../src/lib/painel/meta.ts";
 
 let falhas = 0;
 function confere(nome: string, ok: boolean, detalhe = "") {
@@ -235,6 +236,30 @@ console.log("\nSinais do painel e níveis de acesso");
   confere("gerente, tráfego e vendas não são administradores", !ehAdmin("gerente") && !ehAdmin("trafego") && !ehAdmin("vendas") && !ehAdmin(null));
   confere("vendas e fábrica ficam fora da equipe de conteúdo", !ehEquipeDeConteudo("vendas") && !ehEquipeDeConteudo("fabrica") && ehEquipeDeConteudo("gerente") && ehEquipeDeConteudo("trafego"));
   confere("os seis níveis novos têm nome", ["dono", "gm", "gerente", "trafego", "vendas", "fabrica"].every((p) => NIVEIS.some((n) => n.papel === p)) && ROLE_LABEL.gm === "GM" && ROLE_LABEL.trafego === "Tráfego");
+}
+
+console.log("\nMeta do mês");
+
+{
+  const a = andamentoDaMeta(90000, 38000, "2026-11-13");
+  confere("13 de 30 dias com 38 mil de 90 mil: atrás", a.situacao === "atras" && a.dia === 13 && a.diasNoMes === 30 && a.diasQueFaltam === 17);
+  confere("ritmo de 2.923,08 por dia fecha o mês em 87.692,31", a.ritmo === 2923.08 && a.projecao === 87692.31, `${a.ritmo} / ${a.projecao}`);
+  confere("falta 52 mil, 3.058,82 por dia nos 17 dias", a.falta === 52000 && a.precisaPorDia === 3058.82, String(a.precisaPorDia));
+  confere("barra em 42%, e o esperado para hoje em 43%", Math.round(a.fracao * 100) === 42 && Math.round(a.esperado * 100) === 43);
+  const limite = andamentoDaMeta(90000, 39000, "2026-11-13");
+  confere("projeção igual à meta conta como no ritmo", limite.projecao === 90000 && limite.situacao === "no_ritmo");
+  const b = andamentoDaMeta(90000, 45000, "2026-11-13");
+  confere("45 mil no dia 13 fecha em 103,8 mil: no ritmo", b.situacao === "no_ritmo" && Math.round(b.projecao) === 103846, String(b.projecao));
+  const c = andamentoDaMeta(50000, 52000, "2026-11-20");
+  confere("passou da meta: batida, barra cheia e nada faltando", c.situacao === "batida" && c.fracao === 1 && c.falta === 0 && c.precisaPorDia === 0);
+  const d = andamentoDaMeta(50000, 49000, "2026-11-30");
+  confere("último dia: o que falta é para hoje", d.diasQueFaltam === 0 && d.precisaPorDia === 1000);
+  confere("fevereiro tem 28 dias", andamentoDaMeta(1000, 100, "2026-02-10").diasNoMes === 28);
+  const sinal = calcularSinais({
+    atual: { totais: { pagos: 1, valor_pago: 1, aguardando: 0, valor_aguardando: 0, cancelados: 0, valor_cancelado: 0 }, por_dia: [], por_hora: [], canais: [], por_pagamento: [] },
+    anterior: null, dias: 30, horasDesdeALeitura: 1, meta: andamentoDaMeta(90000, 30000, "2026-11-13"),
+  });
+  confere("meta fora do ritmo vira sinal de problema", sinal.length === 1 && sinal[0].chave === "meta-atrasada" && sinal[0].gravidade === "problema");
 }
 
 if (falhas > 0) {

@@ -256,7 +256,7 @@ export function PainelDeRecuperacao({
         <h1 className="font-display mt-2 text-4xl text-ink">Recuperação</h1>
         <p className="mt-3 max-w-3xl text-muted">
           Quem criou pedido na loja, não pagou e não voltou, do maior valor para o menor. A pessoa sai da lista
-          sozinha quando paga um pedido novo. A lista acompanha os pedidos trazidos da Tray, às 9h, 13h, 18h e 22h.
+          sozinha quando paga um pedido novo. A lista acompanha os pedidos trazidos da Tray, de hora em hora, das 8h às 23h.
         </p>
       </header>
 
