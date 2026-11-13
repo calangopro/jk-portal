@@ -132,7 +132,7 @@ export function calcularSinais(e: EntradaDosSinais): Sinal[] {
       s.push({
         chave: "custos-altos", gravidade: "problema", peso: e.custos.custoAteHoje,
         titulo: `Os custos do mês já levam ${pct(fatia)} do faturamento da loja`,
-        texto: `São ${reais(e.custos.custoAteHoje)} de custo contra ${reais(e.custos.faturamento)} de venda paga, antes do custo das peças. O Pix por fora não entra nessa conta.`,
+        texto: `São ${reais(e.custos.custoAteHoje)} de custo contra ${reais(e.custos.faturamento)} de venda paga, antes do custo das peças. A venda conta a loja e o que foi registrado por fora.`,
         link: { href: "/admin/custos", rotulo: "Ver os custos" },
       });
     }

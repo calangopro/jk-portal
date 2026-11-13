@@ -35,7 +35,8 @@ export type Area =
   | "margem"
   | "custos"
   | "equipe"
-  | "fabrica";
+  | "fabrica"
+  | "lancar_venda";
 
 /** Na ordem em que aparecem para quem convida: da empresa para o editorial. */
 export const NIVEIS: { papel: AppRole; nome: string; resumo: string }[] = [
@@ -43,7 +44,7 @@ export const NIVEIS: { papel: AppRole; nome: string; resumo: string }[] = [
   { papel: "gm", nome: "GM", resumo: "Vê e faz tudo" },
   { papel: "gerente", nome: "Gerente", resumo: "Quase tudo, menos custos, margem e acessos" },
   { papel: "trafego", nome: "Tráfego", resumo: "Vendas, origem, métricas e campanhas" },
-  { papel: "vendas", nome: "Vendas", resumo: "Fila de recuperação e consulta de produto" },
+  { papel: "vendas", nome: "Vendas", resumo: "Registrar venda, fila de recuperação e consulta de produto" },
   { papel: "fabrica", nome: "Fábrica", resumo: "Só a área da fábrica" },
   { papel: "editor", nome: "Editor", resumo: "Conteúdo, site, produtos e campanhas" },
   { papel: "reviewer", nome: "Revisor", resumo: "Conteúdo e métricas" },

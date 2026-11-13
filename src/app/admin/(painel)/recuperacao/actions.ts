@@ -34,6 +34,32 @@ export async function marcarCaso(formData: FormData): Promise<void> {
   // Sem valor, "pagou por fora" não serve para nada: é o único registro desse dinheiro.
   if (estado === "pago_por_fora" && valorFora === null) return;
 
+  // Pagou por fora é uma VENDA: entra em vendas_avulsas, em nome de quem marcou,
+  // ligada ao pedido. É dela que a fila, a meta e a tela de vendedores leem.
+  // `p_forcar` vai ligado porque aqui a pessoa está afirmando que recebeu; se
+  // parecer repetida, a venda fica marcada para conferência.
+  if (estado === "pago_por_fora" && valorFora !== null) {
+    const forma = String(formData.get("forma") ?? "pix");
+    const fone = String(formData.get("telefone") ?? "").replace(/\D/g, "");
+    const dbVenda = await createClient();
+    const { data, error: erroDaVenda } = await dbVenda.rpc("registrar_venda_avulsa", {
+      p_valor: valorFora,
+      p_forma: ["pix", "link_de_pagamento", "cartao", "dinheiro", "outro"].includes(forma) ? forma : "pix",
+      p_canal: "recuperacao",
+      p_cliente_nome: String(formData.get("cliente") ?? "").slice(0, 160) || null,
+      p_telefone: /^55\d{10,11}$/.test(fone) ? fone : null,
+      p_produto: String(formData.get("produto") ?? "").slice(0, 300) || null,
+      p_pedido_recuperado: pedido,
+      p_forcar: true,
+    });
+    if (erroDaVenda || !(data as { ok?: boolean } | null)?.ok) {
+      console.error("[recuperacao] venda por fora:", erroDaVenda?.message ?? JSON.stringify(data));
+      return;
+    }
+    revalidatePath("/admin/vendedores");
+    revalidatePath("/admin/vendas");
+  }
+
   const nota = String(formData.get("nota") ?? "").trim().slice(0, 300) || null;
 
   const db = await createClient();

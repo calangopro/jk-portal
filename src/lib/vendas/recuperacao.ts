@@ -42,6 +42,8 @@ export type Caso = {
   nota: string | null;
   valor_fora: number | null;
   estado_em: string | null;
+  /** Primeiro nome de quem marcou o caso ou registrou a venda por fora. */
+  quem: string | null;
   fase: Fase;
 };
 

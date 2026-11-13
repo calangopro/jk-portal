@@ -24,7 +24,7 @@ import { AnexarComprovante } from "./AnexarComprovante";
 
 type Acao = (formData: FormData) => Promise<void>;
 export type AcoesDeCustos = { salvar: Acao; ligar: Acao };
-export type MesDaLoja = { hoje: string; diasNoMes: number; pedidosPagos: number; faturamento: number };
+export type MesDaLoja = { hoje: string; diasNoMes: number; pedidosPagos: number; faturamento: number; porFora: number };
 
 const campo = "w-full rounded-[8px] border border-border bg-white px-2.5 py-1.5 text-sm text-ink";
 const rotulo = "block text-[0.68rem] font-semibold uppercase tracking-wider text-muted";
@@ -167,7 +167,9 @@ export function PainelDeCustos({
   const fixoAteHoje = mes ? (t.mensal * dia) / mes.diasNoMes : 0;
   const embalagemAteHoje = mes ? t.porPedido * mes.pedidosPagos : 0;
   const custoAteHoje = fixoAteHoje + embalagemAteHoje;
-  const fatia = mes && mes.faturamento > 0 ? Math.round((custoAteHoje / mes.faturamento) * 100) : null;
+  const vendido = mes ? mes.faturamento + mes.porFora : 0;
+  const fatia = mes && vendido > 0 ? Math.round((custoAteHoje / vendido) * 100) : null;
+  const sobra = vendido - custoAteHoje;
 
   return (
     <div data-painel-largo>
@@ -203,8 +205,12 @@ export function PainelDeCustos({
                 >
                   <Dinheiro valor={custoAteHoje} />
                 </Cartao>
-                <Cartao Icone={Receipt} rotulo="Faturamento pago da loja" apoio="no mesmo período, sem o Pix por fora">
-                  <Dinheiro valor={mes.faturamento} />
+                <Cartao
+                  Icone={Receipt}
+                  rotulo="Vendido no mesmo período"
+                  apoio={`${reais(mes.faturamento)} na loja e ${reais(mes.porFora)} por fora`}
+                >
+                  <Dinheiro valor={vendido} />
                 </Cartao>
               </>
             ) : null}
@@ -212,9 +218,11 @@ export function PainelDeCustos({
 
           <p className="mt-3 max-w-3xl text-xs text-muted">
             {fatia !== null
-              ? `Até hoje, os custos cadastrados equivalem a ${fatia}% do faturamento pago da loja no mês. `
+              ? `Até hoje, os custos cadastrados equivalem a ${fatia}% do que foi vendido no mês, e ${
+                  sobra >= 0 ? `sobram ${reais(sobra)}` : `faltam ${reais(-sobra)}`
+                } antes do custo das peças. `
               : ""}
-            Ainda falta nesta conta o custo das peças vendidas, e o faturamento não inclui o Pix recebido por fora.{" "}
+            Ainda falta nesta conta o custo das peças vendidas. Venda por fora só entra se foi registrada.{" "}
             {t.confirmados} de {t.itens} custos têm valor exato, os outros são estimativa.
           </p>
 

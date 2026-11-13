@@ -2,6 +2,7 @@ import { requireAdmin } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { lerDespesas } from "@/lib/custos/dados";
 import { lerResumoDeVendas } from "@/lib/vendas/dados";
+import { lerResumoPorFora } from "@/lib/vendas/por-fora";
 import { hojeEmSaoPaulo, primeiroDoMes } from "@/lib/vendas/periodo";
 import { ligarDespesa, salvarDespesa } from "./actions";
 import { PainelDeCustos, type MesDaLoja } from "./PainelDeCustos";
@@ -26,9 +27,10 @@ export default async function CustosPage() {
   await requireAdmin();
   const db = await createClient();
   const hoje = hojeEmSaoPaulo();
-  const [despesas, vendas] = await Promise.all([
+  const [despesas, vendas, porFora] = await Promise.all([
     lerDespesas(db),
     lerResumoDeVendas(db, primeiroDoMes(hoje), hoje),
+    lerResumoPorFora(db, primeiroDoMes(hoje), hoje),
   ]);
 
   const mes: MesDaLoja | null = vendas
@@ -37,6 +39,7 @@ export default async function CustosPage() {
         diasNoMes: new Date(Date.UTC(Number(hoje.slice(0, 4)), Number(hoje.slice(5, 7)), 0)).getUTCDate(),
         pedidosPagos: vendas.totais.pagos,
         faturamento: Number(vendas.totais.valor_pago),
+        porFora: porFora?.valor ?? 0,
       }
     : null;
 

@@ -104,6 +104,16 @@ function Decisoes({ c, acao }: { c: Caso; acao: Acao }) {
         <form action={acao} className="mt-2 flex flex-wrap items-center gap-2">
           <input type="hidden" name="pedido" value={c.pedido} />
           <input type="hidden" name="estado" value="pago_por_fora" />
+          <input type="hidden" name="cliente" value={c.cliente ?? ""} />
+          <input type="hidden" name="telefone" value={c.telefone ?? ""} />
+          <input type="hidden" name="produto" value={c.itens ? c.itens.split(" + ").map(nomeLimpo).join(" + ").slice(0, 300) : ""} />
+          <label className="sr-only" htmlFor={`forma-${c.pedido}`}>Como pagou</label>
+          <select id={`forma-${c.pedido}`} name="forma" defaultValue="pix" className={campo}>
+            <option value="pix">Pix</option>
+            <option value="link_de_pagamento">Link de pagamento</option>
+            <option value="cartao">Cartão</option>
+            <option value="dinheiro">Dinheiro</option>
+          </select>
           <label className="text-xs text-muted" htmlFor={`valor-${c.pedido}`}>Quanto entrou</label>
           <input
             id={`valor-${c.pedido}`}
@@ -136,6 +146,16 @@ function Decisoes({ c, acao }: { c: Caso; acao: Acao }) {
   );
 }
 
+/** Quem está cuidando e há quanto tempo. Passou de um dia sem desfecho, fica vermelho. */
+function EmContato({ c }: { c: Caso }) {
+  const parado = Date.now() - Date.parse(c.estado_em as string) > 24 * 3_600_000;
+  return (
+    <span className="font-semibold" style={{ color: parado ? "#b91c1c" : "#047857" }}>
+      {parado ? "Parado: " : ""}com {c.quem ?? "alguém da equipe"} {haQuantoTempo(c.estado_em as string)}
+    </span>
+  );
+}
+
 function CartaoDoCaso({ c, acao }: { c: Caso; acao?: Acao }) {
   const itens = c.itens ? c.itens.split(" + ").map(nomeLimpo).join(" + ") : null;
   return (
@@ -157,6 +177,7 @@ function CartaoDoCaso({ c, acao }: { c: Caso; acao?: Acao }) {
         <span>{c.tentativas > 1 ? `${c.tentativas} tentativas` : "1 tentativa"}</span>
         <span>última {haQuantoTempo(c.ultima)}</span>
         <span>veio de: {NOME_DO_CANAL[canalDaOrigem(c.origem)]}</span>
+        {c.fase === "em_contato" && c.estado_em ? <EmContato c={c} /> : null}
       </p>
 
       <div className="mt-2">
@@ -192,7 +213,7 @@ function ListaDeCasos({ casos, acao, visiveis = 20 }: { casos: Caso[]; acao?: Ac
 
 const FECHADOS: { fase: Fase; titulo: string; valor: (c: Caso) => string }[] = [
   { fase: "recuperado", titulo: "Voltaram e pagaram na loja", valor: (c) => `pagou ${reais(Number(c.pago_valor ?? 0))} no pedido ${c.pago_pedido}` },
-  { fase: "pago_por_fora", titulo: "Pagaram por fora da loja", valor: (c) => `entrou ${reais(Number(c.valor_fora ?? 0))}` },
+  { fase: "pago_por_fora", titulo: "Pagaram por fora da loja", valor: (c) => `entrou ${reais(Number(c.valor_fora ?? 0))}${c.quem ? `, com ${c.quem}` : ""}` },
   { fase: "descartado", titulo: "Tirados da fila", valor: (c) => c.nota ?? "sem motivo" },
 ];
 
@@ -216,7 +237,7 @@ function Fechados({ casos, acao }: { casos: Caso[]; acao?: Acao }) {
                       tentou {reais(Number(c.maior_valor))}, {valor(c)}
                     </span>
                   </span>
-                  {acao && fase !== "recuperado" ? (
+                  {acao && fase === "descartado" ? (
                     <form action={acao}>
                       <input type="hidden" name="pedido" value={c.pedido} />
                       <input type="hidden" name="estado" value="a_recuperar" />
@@ -285,7 +306,7 @@ export function PainelDeRecuperacao({
             <Cartao Icone={CircleCheck} rotulo="Voltaram e pagaram" apoio={`${pessoas(n("recuperado"))}, em pedido novo na loja`}>
               <Dinheiro valor={v("recuperado")} />
             </Cartao>
-            <Cartao Icone={HandCoins} rotulo="Pagaram por fora" apoio={`${pessoas(n("pago_por_fora"))}, registrado aqui`}>
+            <Cartao Icone={HandCoins} rotulo="Pagaram por fora" apoio={`${pessoas(n("pago_por_fora"))}, com venda registrada`}>
               <Dinheiro valor={v("pago_por_fora")} />
             </Cartao>
           </div>
