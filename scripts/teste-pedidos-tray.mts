@@ -617,6 +617,14 @@ console.log("\nChegada anotada pelo coletor");
   confere("link da bio pela etiqueta curta", ler("https://jkaliancas.com.br/bio?o=bio")?.canal === "bio");
   confere("outro site qualquer é indicação", ler(`${loja}/`, "https://blogdecasamento.com.br/post")?.canal === "indicacao");
 
+  const doCatalogo = ler(`${loja}/loja/produto.php?loja=1305187&IdProd=901&parceiro=1516`);
+  confere("link do catálogo do Instagram, sem etiqueta: vale o código de parceiro da Tray", doCatalogo?.canal === "meta" && doCatalogo.source === "catalogo_meta" && doCatalogo.nova);
+  confere("Google Shopping sem clique pago é listagem gratuita", ler(`${loja}/loja/produto.php?IdProd=901&parceiro=1517`)?.canal === "google_organico");
+  confere("Google Shopping com clique pago é Google Ads", ler(`${loja}/loja/produto.php?IdProd=901&parceiro=1517&gclid=Cj0abc`)?.canal === "google_ads");
+  const comEtiqueta = ler(`${loja}/loja/produto.php?IdProd=901&parceiro=1516&utm_source=whatsapp`);
+  confere("a etiqueta vale mais que o código de parceiro", comEtiqueta?.canal === "whatsapp" && comEtiqueta.source === "whatsapp");
+  confere("parceiro desconhecido não inventa origem", ler(`${loja}/loja/produto.php?IdProd=901&parceiro=77`)?.canal === "direto");
+
   const interno = ler(`${loja}/carrinho`, `${loja}/alianca-ouro`);
   confere("vir de página nossa não é chegada", interno?.canal === "direto" && interno.nova === false && interno.referencia === null);
   const pagamento = ler(`${loja}/checkout/fim`, "https://www.mercadopago.com.br/checkout/v1/redirect");
