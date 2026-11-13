@@ -23,7 +23,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ erro: "segredo inválido" }, { status: 401 });
   }
   const hoje = hojeEmSaoPaulo();
+  // A rotina manda corpo vazio e relê sete dias. Para preencher um período mais
+  // longo de uma vez (plataforma recém-ligada), o corpo pode trazer `dias`.
+  const corpo = (await request.json().catch(() => ({}))) as { dias?: unknown };
+  const dias = Math.min(Math.max(Math.round(Number(corpo.dias) || 7), 1), 90);
   // O total por dia e o detalhe por campanha são leituras independentes: uma não espera nem derruba a outra.
-  const [resultados, itens] = await Promise.all([lerGastoDasPlataformas(supabase, hoje, 7), lerItensDasPlataformas(supabase, hoje, 7)]);
+  const [resultados, itens] = await Promise.all([lerGastoDasPlataformas(supabase, hoje, dias), lerItensDasPlataformas(supabase, hoje, dias)]);
   return NextResponse.json({ resultados, itens });
 }

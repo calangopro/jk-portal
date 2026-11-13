@@ -25,6 +25,8 @@ import { contaDoMes } from "../src/lib/custos/conta.ts";
 import { completarDias, lerInsightsDoMeta, lerLotesDoGoogle } from "../src/lib/trafego/leitura.ts";
 import { lerItensDoGoogle, lerItensDoMeta, tipoDoGoogle, tipoDoMeta } from "../src/lib/trafego/leitura-itens.ts";
 import { diagnosticar, objetivoDe, type Item } from "../src/lib/trafego/diagnostico.ts";
+import { juntarMeios, mapearGargalos, meioDePagamento } from "../src/lib/painel/gargalos.ts";
+import { voltaParaEmpatar } from "../src/lib/painel/premissas.ts";
 
 let falhas = 0;
 function confere(nome: string, ok: boolean, detalhe = "") {
@@ -476,6 +478,55 @@ console.log("\nCampanha, conjunto e anúncio");
   const gg = diagnosticar([item("campanha", "g1", "pesquisa", { gasto: 100, impressoes: 5000, cliques: 200, compras: 4, valor: 900 })], "google");
   confere("Google: funil de três etapas e a palavra conversão", gg.funil.length === 3 && /conversão/.test(gg.campanhas[0].motivo) && gg.maiorPerda === null);
   confere("conta sem nada não quebra", diagnosticar([], "meta").campanhas.length === 0 && diagnosticar([], "meta").achados.length === 0);
+}
+
+console.log("\nMapa de gargalos");
+
+{
+  confere("meio de pagamento: bandeira e intermediador viram um nome só", meioDePagamento("Cartão Master") === "Cartão" && meioDePagamento("Cartão de Crédito - Appmax") === "Cartão" && meioDePagamento("Pix - Appmax") === "Pix" && meioDePagamento("Boleto - Appmax") === "Boleto" && meioDePagamento("") === "Sem informação");
+  const meios = juntarMeios([
+    { tipo: "Cartão Master", pedidos: 182, pagos: 113, cancelados: 69, valor_cancelado: 40000 },
+    { tipo: "Cartão de Crédito - Appmax", pedidos: 214, pagos: 116, cancelados: 98, valor_cancelado: 90000 },
+    { tipo: "Pix - Appmax", pedidos: 310, pagos: 227, cancelados: 83, valor_cancelado: 30000 },
+    { tipo: "Boleto - Appmax", pedidos: 30, pagos: 0, cancelados: 30, valor_cancelado: 12000 },
+  ]);
+  confere("os cartões somam num meio só", meios.find((m) => m.nome === "Cartão")?.pedidos === 396 && meios.find((m) => m.nome === "Cartão")?.cancelados === 167 && meios[0].nome === "Cartão");
+  confere("empate com margem de 30% é 3,33 por real", Math.round(voltaParaEmpatar(0.3) * 100) === 333);
+
+  const g = mapearGargalos({
+    pedidos: { pedidos: 841, pagos: 511, cancelados: 330, valor_pago: 225000, valor_cancelado: 302000 },
+    faixas: [
+      { faixa: 1, pedidos: 225, pagos: 148, cancelados: 77, valor_pago: 30000, valor_cancelado: 15000 },
+      { faixa: 5, pedidos: 65, pagos: 9, cancelados: 56, valor_pago: 20000, valor_cancelado: 179000 },
+    ],
+    meios,
+    repetidos: { pedidos_a_mais: 121, clientes: 93 },
+    site: { entraram: 115638, viramProduto: 70148, carrinho: 1907, pagamento: 1056, pedido: 579 },
+    plataformas: [
+      { plataforma: "meta", nome: "Meta", gasto: 21000, valorInformado: 65000, valorPago: 11700, foraDeVenda: 0.49 },
+      { plataforma: "google", nome: "Google Ads", gasto: 2400, valorInformado: 20000, valorPago: 19000, foraDeVenda: 0 },
+    ],
+    semEtiqueta: 110000,
+    empate: voltaParaEmpatar(0.3),
+  });
+  const de = (chave: string) => g.find((x) => x.chave === chave);
+  confere("39% de pedido não pago é grave, com os dois valores", de("pagamento")?.situacao === "grave" && /330 de 841/.test(de("pagamento")!.texto) && /39%/.test(de("pagamento")!.titulo));
+  confere("pedido acima de R$ 1.500 com 86% cancelado é grave", de("pedido-caro")?.situacao === "grave" && /86%/.test(de("pedido-caro")!.titulo));
+  confere("boleto sem nenhum pago é grave", de("meio-Boleto")?.situacao === "grave" && /30 pedidos e nenhum pago/.test(de("meio-Boleto")!.titulo));
+  confere("cartão com 42% de recusa é grave", de("meio-cartao")?.situacao === "grave" && /42%/.test(de("meio-cartao")!.titulo));
+  confere("Meta informando 5,6 vezes a venda paga é sinal grave", de("sinal-meta")?.situacao === "grave" && /5,6 vezes/.test(de("sinal-meta")!.titulo), de("sinal-meta")?.titulo);
+  confere("Google batendo com a loja não vira gargalo de sinal", !de("sinal-google"));
+  confere("Meta voltando 0,56 por real é grave", de("retorno-meta")?.situacao === "grave" && /R\$\s0,56/.test(de("retorno-meta")!.titulo));
+  confere("Google voltando 7,92 por real aparece como indo bem", de("retorno-google")?.situacao === "ok");
+  confere("49% da verba fora de venda é médio, 50% seria grave", de("objetivo-meta")?.situacao === "medio" && !de("objetivo-google"));
+  confere("2,7% do produto para o carrinho é médio", de("pagina-de-produto")?.situacao === "medio" && /2,7%/.test(de("pagina-de-produto")!.texto));
+  confere("45% desistindo no pagamento é médio", de("checkout")?.situacao === "medio" && /45%/.test(de("checkout")!.titulo));
+  confere("tentativa repetida e venda sem origem são atenção", de("tentativa-repetida")?.situacao === "atencao" && de("sem-etiqueta")?.situacao === "atencao");
+  confere("a ordem é grave, médio, atenção e depois o que vai bem", g.map((x) => x.situacao).join().replace(/(\w+)(,\1)+/g, "$1") === "grave,medio,atencao,ok");
+  confere("dentro do grave, o que mais custa vem primeiro", g[0].chave === "pagamento");
+  confere("nenhuma frase do mapa com travessão", !g.some((x) => /[–—]/.test(x.titulo + x.texto)));
+  const vazio = mapearGargalos({ pedidos: null, faixas: [], meios: [], repetidos: null, site: null, plataformas: [], semEtiqueta: 0, empate: 3.33 });
+  confere("sem dado nenhum, o mapa não inventa gargalo", vazio.length === 0);
 }
 
 if (falhas > 0) {

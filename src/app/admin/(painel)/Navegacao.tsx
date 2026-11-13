@@ -7,7 +7,7 @@ import type { Area } from "@/lib/auth/acessos";
 import {
   LayoutDashboard, FileText, ImageIcon, MessageCircle, Package,
   TrendingUp, Plug, Users, MapPin, PenLine, Palette, LayoutTemplate, BookCheck, ListChecks, CalendarDays, Milestone,
-  Smartphone, UsersRound, QrCode, Bot, Percent, Tags, Megaphone, Banknote, RotateCcw, Wallet, HandCoins, Trophy, Activity,
+  Smartphone, UsersRound, QrCode, Bot, Percent, Tags, Megaphone, Banknote, RotateCcw, Wallet, HandCoins, Trophy, Activity, Filter,
   Loader2,
 } from "lucide-react";
 
@@ -46,6 +46,7 @@ const GRUPOS: { nome: string; itens: Item[] }[] = [
   {
     nome: "Resultado",
     itens: [
+      { href: "/admin/gargalos", area: "vendas", label: "Gargalos", Icone: Filter, desc: "Onde o dinheiro vaza" },
       { href: "/admin/registrar-venda", area: "lancar_venda", label: "Registrar venda", Icone: HandCoins, desc: "O que foi fechado fora da loja" },
       { href: "/admin/vendas", area: "vendas", label: "Vendas", Icone: Banknote, desc: "Pedidos pagos da loja" },
       { href: "/admin/vendedores", area: "vendas", label: "Vendedores", Icone: Trophy, desc: "Quanto cada um vendeu" },
