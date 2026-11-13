@@ -69,6 +69,19 @@ const CLIQUES = ["gclid", "gbraid", "wbraid", "fbclid", "ttclid", "msclkid", "ep
 const ETIQUETAS_COM_CODIGO = ["utm_campaign", "utm_content", "utm_term", "utm_medium", "utm_id", "utm_source"];
 const CODIGOS_DIRETOS = ["gad_campaignid", "campaign_id", "campaignid", "adset_id", "adsetid", "adgroupid", "ad_id", "adid", "creative", "hsa_cam", "hsa_grp", "hsa_ad"];
 
+/**
+ * Os catálogos de produto que a Tray manda para fora. O link de cada produto
+ * sai com `parceiro=<código>` (`/loja/produto.php?...&parceiro=1516`), e esse
+ * código é a única marca quando o link não leva etiqueta nem clique pago.
+ * Sem esta regra, quem vinha do catálogo do Instagram caía em "Acesso direto".
+ * O Google Shopping sem `gclid` é a listagem gratuita; com `gclid`, já entrou
+ * como Google Ads antes de chegar aqui.
+ */
+const CATALOGOS_DA_TRAY: Record<string, { canal: CanalDeChegada; nome: string }> = {
+  "1516": { canal: "meta", nome: "catalogo_meta" },
+  "1517": { canal: "google_organico", nome: "google_shopping" },
+};
+
 /** Sites de pagamento, banco e login: a volta deles para a loja não é uma chegada nova. */
 const DE_PASSAGEM =
   /(^|\.)(mercadopago|mercadolivre|mercadolibre|pagseguro|pagbank|paypal|pagar\.me|cielo|getnet|stone|yapay|vindi|appmax|picpay|nubank|itau|bradesco|santander|caixa|bb\.com|tray\.com|traycheckout|commercesuite\.com|accounts\.google|appleid\.apple|clearsale|3dsecure|redecard|userede)(\.|$)/;
@@ -168,6 +181,7 @@ export function lerChegada(e: {
   let canal: CanalDeChegada = "direto";
   let nova = true;
   const pagoDoGoogle = Boolean(limpar(q.get("gclid"), 9) || limpar(q.get("gbraid"), 9) || limpar(q.get("wbraid"), 9) || limpar(q.get("gad_source"), 9));
+  const catalogo = CATALOGOS_DA_TRAY[limpar(q.get("parceiro"), 12) ?? ""];
   if (pagoDoGoogle) {
     canal = "google_ads";
   } else if (source) {
@@ -183,6 +197,8 @@ export function lerChegada(e: {
     canal = "busca";
   } else if (tipoDoClique === "epik") {
     canal = "pinterest";
+  } else if (catalogo) {
+    canal = catalogo.canal;
   } else if (campaign || medium || content || ids.length > 0) {
     canal = "outro";
   } else if (referencia) {
@@ -194,7 +210,8 @@ export function lerChegada(e: {
 
   return {
     canal,
-    source,
+    // Sem etiqueta, o catálogo da Tray é a única pista de onde o link saiu: fica anotado como origem.
+    source: source ?? (catalogo && canal === catalogo.canal ? catalogo.nome : null),
     medium,
     campaign,
     content,

@@ -66,6 +66,11 @@ Quem prefere o nome na etiqueta põe o código depois de uma barra:
 `utm_campaign={{campaign.name}}|{{campaign.id}}`. Trocar o parâmetro de um
 anúncio que está rodando é decisão de quem cuida do tráfego.
 
+**Catálogos da Tray.** O link de produto que a Tray manda para o catálogo do
+Instagram e do Facebook sai com `parceiro=1516`, e o do Google Shopping com
+`parceiro=1517`. Sem etiqueta e sem clique pago, esse código é a única marca
+de onde o link saiu, e o coletor o usa (`CATALOGOS_DA_TRAY` em `chegada.ts`).
+
 **Google.** O código da campanha já vem sozinho. Para chegar ao grupo e ao
 anúncio, o sufixo do URL final da conta: `adgroupid={adgroupid}&creative={creative}`.
 
@@ -83,6 +88,12 @@ anúncio, o sufixo do URL final da conta: `adgroupid={adgroupid}&creative={creat
 - Na loja de verdade, com o script injetado à mão: a home expõe a sessão, o
   recado respondeu 204, e a sessão da home é a mesma que vai no endereço do
   carrinho (`/checkout/cart?session_id=...`).
+
+- Nas três primeiras horas com o script na loja (13/11, das 15h41 às 18h54):
+  7 pedidos vistos na página de compra, todos com a sessão que o mesmo
+  visitante já tinha antes de comprar. Os sete só tinham chegada direta
+  anotada, o que é esperado no primeiro dia: o coletor não tem passado, e quem
+  compra costuma ter chegado antes.
 
 **Não foi conferido:** que a sessão de um pedido de verdade, fechado na
 vitrine, é a mesma que a página mostrava. Tudo aponta que sim, mas a prova é o
