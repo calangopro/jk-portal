@@ -27,6 +27,7 @@ import { lerItensDoGoogle, lerItensDoMeta, tipoDoGoogle, tipoDoMeta } from "../s
 import { diagnosticar, objetivoDe, type Item } from "../src/lib/trafego/diagnostico.ts";
 import { juntarMeios, mapearGargalos, meioDePagamento } from "../src/lib/painel/gargalos.ts";
 import { voltaParaEmpatar } from "../src/lib/painel/premissas.ts";
+import { compararComOBanco, pedidoDaApi, ultimaAlteracao } from "../src/lib/vendas/tray-api.ts";
 
 let falhas = 0;
 function confere(nome: string, ok: boolean, detalhe = "") {
@@ -533,4 +534,57 @@ if (falhas > 0) {
   console.error(`\n${falhas} falha(s).`);
   process.exit(1);
 }
+console.log("\nPedido lido pela API da Tray");
+{
+  // O formato é o do pedido completo da loja de testes, lido em 13/11/2026. Os dados são inventados.
+  const cru = {
+    id: "5012", date: "2026-11-12", hour: "16:20:50", modified: "2026-11-12 16:33:40", status: "A ENVIAR",
+    customer_id: "77", partial_total: "1499.90", discount: "100.00", total: "1419.90", shipment: "Sedex", shipment_value: "20.00",
+    shipment_date: "0000-00-00", sending_code: "", discount_coupon: "bemvindo10/100.00", payment_method: "Pix", payment_date: "2026-11-12",
+    point_sale: "LOJA VIRTUAL", partner_id: "0", session_id: "abc",
+    OrderStatus: { id: "3", type: "open", status: "A ENVIAR" },
+    Customer: { id: "77", name: "  Maria de Teste ", email: "MARIA@EXEMPLO.COM", cpf: "00000000000", phone: "1133334444", cellphone: "(11) 98888-7777", city: "São Paulo", state: "sp" },
+    Payment: [{ Payment: { method: "Pix", value: "1419.90", date: "2026-11-12" } }],
+    ProductsSold: [
+      { ProductsSold: { product_id: "901", name: "Aliança de teste 4 mm", reference: "AL-4", quantity: "2", price: "749.95", cost_price: "0.00", additional_information: "Aro 18 e 22" } },
+    ],
+  };
+  const p = pedidoDaApi(cru, situacaoDoStatus);
+  confere("converte número, dia e hora de São Paulo", p?.pedido === 5012 && p.dia === "2026-11-12" && p.feito_em === "2026-11-12T16:20:50-03:00");
+  confere("status pago pela mesma regra do CSV", p?.status === "A ENVIAR" && p.situacao === "pago");
+  confere("cliente sem CPF, com celular no formato do portal", p?.cliente_telefone === "5511988887777" && p.cliente_email === "maria@exemplo.com" && !JSON.stringify(p).includes("00000000000"));
+  confere("cupom só com o código, em maiúscula", p?.cupom === "BEMVINDO10");
+  confere("parceiro zero vira nulo e data zerada vira nula", p?.parceiro === null && p.envio_em === null && p.pagamento_em === "2026-11-12");
+  confere("valores em número", p?.total === 1419.9 && p.subtotal === 1499.9 && p.desconto === 100 && p.frete_valor === 20 && p.valor_pago === 1419.9);
+  confere("itens com o código do produto", p?.itens.length === 1 && p.itens[0].produto_tray_id === "901" && p.itens[0].quantidade === 2 && p.itens[0].preco === 749.95);
+  confere("a API não traz a origem, e ela fica nula", p?.utm_source === null);
+  confere("cidade e estado do cliente", p?.cidade === "São Paulo" && p.uf === "SP");
+
+  const cancelado = pedidoDaApi({ ...cru, id: "5013", status: "DEVOLVIDO", OrderStatus: { type: "canceled", status: "DEVOLVIDO" } }, situacaoDoStatus);
+  confere("tipo cancelado vale mesmo com outro nome de status", cancelado?.situacao === "cancelado");
+  const esperando = pedidoDaApi({ ...cru, id: "5014", OrderStatus: { type: "open", status: "AGUARDANDO PAGAMENTO" }, Payment: [] }, situacaoDoStatus);
+  confere("aguardando pagamento continua aguardando", esperando?.situacao === "aguardando" && esperando.valor_pago === null);
+  confere("pedido sem número ou sem data é recusado", pedidoDaApi({ ...cru, id: "" }, situacaoDoStatus) === null && pedidoDaApi({ ...cru, date: "0000-00-00" }, situacaoDoStatus) === null);
+  confere("hora ausente não derruba o pedido", pedidoDaApi({ ...cru, hour: undefined }, situacaoDoStatus)?.feito_em === "2026-11-12T00:00:00-03:00");
+
+  confere(
+    "a última alteração é a maior da lista",
+    ultimaAlteracao([{ modified: "2026-11-12 16:33:40" }, { modified: "2026-11-13 03:18:10" }, { modified: "0000-00-00 00:00:00" }, {}]) === "2026-11-13 03:18:10" && ultimaAlteracao([]) === null,
+  );
+
+  const c = compararComOBanco(
+    [p!, cancelado!, esperando!, { ...p!, pedido: 5015, status: "A enviar" }],
+    [
+      { pedido: 5012, status: "A ENVIAR", situacao: "pago", total: 1419.9, utm_source: "google" },
+      { pedido: 5013, status: "DEVOLVIDO", situacao: "pago", total: 1419.9, utm_source: null },
+      { pedido: 5015, status: "A ENVIAR", situacao: "pago", total: 1400, utm_source: null },
+    ],
+  );
+  confere("comparação: igual, só na API e diferenças por campo", c.iguais === 1 && c.soNaApi.join() === "5014" && c.diferencas.length === 3);
+  confere(
+    "comparação: separa o status que só muda na escrita",
+    c.soDiferemNaEscrita === 1 && c.diferencas.some((d) => d.pedido === 5013 && d.campo === "situacao" && d.api === "cancelado") && c.diferencas.some((d) => d.pedido === 5015 && d.campo === "total"),
+  );
+}
+
 console.log("\nTudo certo.");

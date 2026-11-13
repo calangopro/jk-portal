@@ -68,24 +68,81 @@ function texto(v: unknown): string | null {
   return s.length > 0 ? s : null;
 }
 
+/**
+ * De qual loja e com qual aplicativo o cliente fala. `provedor` é a chave em
+ * `integration_tokens` onde o token dessa loja fica: cada loja tem a sua, para
+ * a loja de testes nunca usar nem sobrescrever o token da loja de verdade.
+ */
+export type ConfigDaTray = { url: string; key: string; secret: string; code: string; provedor: string };
+
+/** `loja` é o número da loja que a própria Tray diz ser a dona do token, quando ela informa. */
+export type TokenDaTray = { access_token: string; refresh_token?: string; expira_em: string; loja: string | null };
+
+function interpretarToken(bruto: Record<string, unknown>): TokenDaTray {
+  const token = bruto.access_token as string | undefined;
+  if (!token) throw new Error("A Tray não devolveu access_token.");
+
+  // A Tray informa a expiração como data, no relógio de São Paulo e sem fuso
+  // ("2026-11-13 15:26:11"). Lida sem o fuso, a Vercel (que roda em UTC)
+  // entendia três horas a menos: o token nascia vencido e cada rodada pedia
+  // outro. Se vier ausente, assume 1 hora.
+  const dataBruta =
+    (bruto.date_expiration_access_token as string | undefined) ??
+    (bruto.expires_at as string | undefined);
+  const iso = dataBruta ? dataBruta.trim().replace(" ", "T") : null;
+  const expira = iso ? new Date(/(?:[zZ]|[+-]\d{2}:?\d{2})$/.test(iso) ? iso : `${iso}-03:00`) : null;
+  const valida = expira && !Number.isNaN(expira.getTime()) ? expira : new Date(Date.now() + 3600_000);
+
+  return {
+    access_token: token,
+    refresh_token: bruto.refresh_token as string | undefined,
+    expira_em: valida.toISOString(),
+    loja: bruto.store_id == null || bruto.store_id === "" ? null : String(bruto.store_id),
+  };
+}
+
+/**
+ * Troca o código da instalação pelo primeiro token. Não lê nem grava nada no
+ * banco: quem chama decide o que fazer com o resultado. É assim que o retorno
+ * da autorização confere se o código vale ANTES de mexer na linha da loja.
+ */
+export async function trocarCodigoDaTray(c: Omit<ConfigDaTray, "provedor">): Promise<TokenDaTray> {
+  // Formulário, como no exemplo da documentação da Tray (`--data-urlencode`).
+  const resp = await fetch(`${c.url.replace(/\/+$/, "")}/auth`, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ consumer_key: c.key, consumer_secret: c.secret, code: c.code }),
+    cache: "no-store",
+  });
+  if (!resp.ok) {
+    throw new Error(
+      `A Tray recusou a autenticação (status ${resp.status}). Confira consumer_key, consumer_secret e code, e se o aplicativo continua instalado na loja.`,
+    );
+  }
+  return interpretarToken((await resp.json()) as Record<string, unknown>);
+}
+
 export class TrayCliente {
   private baseUrl: string;
   private consumerKey: string;
   private consumerSecret: string;
   private code: string;
+  private provedor: string;
   private accessToken: string | null = null;
 
-  constructor() {
-    const url = process.env.TRAY_API_URL;
-    const key = process.env.TRAY_CONSUMER_KEY;
-    const secret = process.env.TRAY_CONSUMER_SECRET;
-    const code = process.env.TRAY_CODE;
+  /** Sem argumento, lê as quatro variáveis do catálogo, como sempre foi. */
+  constructor(config?: ConfigDaTray) {
+    const url = config?.url ?? process.env.TRAY_API_URL;
+    const key = config?.key ?? process.env.TRAY_CONSUMER_KEY;
+    const secret = config?.secret ?? process.env.TRAY_CONSUMER_SECRET;
+    const code = config?.code ?? process.env.TRAY_CODE;
     if (!url || !key || !secret || !code) throw new TraySemCredenciais();
 
     this.baseUrl = url.replace(/\/+$/, "");
     this.consumerKey = key;
     this.consumerSecret = secret;
     this.code = code;
+    this.provedor = config?.provedor ?? "tray";
   }
 
   /**
@@ -104,7 +161,7 @@ export class TrayCliente {
     const { data: guardado } = await supabase
       .from("integration_tokens")
       .select("access_token, refresh_token, expires_at")
-      .eq("provider", "tray")
+      .eq("provider", this.provedor)
       .maybeSingle();
 
     const margemMs = 5 * 60_000; // renova 5 minutos antes de vencer
@@ -124,60 +181,20 @@ export class TrayCliente {
       ? await this.renovar(refresh)
       : await this.trocarCodePorToken();
 
-    await supabase.from("integration_tokens").upsert(
-      {
-        provider: "tray",
-        access_token: dados.access_token,
-        refresh_token: dados.refresh_token ?? refresh ?? null,
-        expires_at: dados.expira_em,
-      },
-      { onConflict: "provider" },
-    );
+    // `update`, e não `upsert` da linha inteira: a linha da loja guarda em `meta`
+    // o endereço da API e o código da instalação, e regravar tudo apagaria os dois.
+    const novo = { access_token: dados.access_token, refresh_token: dados.refresh_token ?? refresh ?? null, expires_at: dados.expira_em };
+    const { data: atualizadas } = await supabase.from("integration_tokens").update(novo).eq("provider", this.provedor).select("provider");
+    if (!atualizadas?.length) {
+      await supabase.from("integration_tokens").upsert({ provider: this.provedor, ...novo }, { onConflict: "provider" });
+    }
 
     this.accessToken = dados.access_token;
     return this.accessToken;
   }
 
-  private interpretar(bruto: Record<string, unknown>): {
-    access_token: string;
-    refresh_token?: string;
-    expira_em: string;
-  } {
-    const token = bruto.access_token as string | undefined;
-    if (!token) throw new Error("A Tray não devolveu access_token.");
-
-    // A Tray informa a expiração como data. Se vier ausente, assume 1 hora.
-    const dataBruta =
-      (bruto.date_expiration_access_token as string | undefined) ??
-      (bruto.expires_at as string | undefined);
-    const expira = dataBruta ? new Date(dataBruta.replace(" ", "T")) : null;
-    const valida = expira && !Number.isNaN(expira.getTime()) ? expira : new Date(Date.now() + 3600_000);
-
-    return {
-      access_token: token,
-      refresh_token: bruto.refresh_token as string | undefined,
-      expira_em: valida.toISOString(),
-    };
-  }
-
-  private async trocarCodePorToken() {
-    const resp = await fetch(`${this.baseUrl}/auth`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        consumer_key: this.consumerKey,
-        consumer_secret: this.consumerSecret,
-        code: this.code,
-      }),
-      cache: "no-store",
-    });
-
-    if (!resp.ok) {
-      throw new Error(
-        `A Tray recusou a autenticação (status ${resp.status}). Confira consumer_key, consumer_secret e code, e se o aplicativo continua instalado na loja.`,
-      );
-    }
-    return this.interpretar((await resp.json()) as Record<string, unknown>);
+  private trocarCodePorToken() {
+    return trocarCodigoDaTray({ url: this.baseUrl, key: this.consumerKey, secret: this.consumerSecret, code: this.code });
   }
 
   private async renovar(refreshToken: string) {
@@ -189,7 +206,7 @@ export class TrayCliente {
     // Refresh vencido ou revogado: volta para a troca pelo code.
     if (!resp.ok) return this.trocarCodePorToken();
 
-    return this.interpretar((await resp.json()) as Record<string, unknown>);
+    return interpretarToken((await resp.json()) as Record<string, unknown>);
   }
 
   private async buscar<T>(caminho: string, params: Record<string, string | number> = {}): Promise<T> {
@@ -228,6 +245,24 @@ export class TrayCliente {
       if (lista.length < porPagina) break;
     }
     return itens;
+  }
+
+  /**
+   * Uma página da lista de pedidos, como a Tray devolve. `params` aceita os
+   * filtros da API (`modified`, `date`, `status`, `sort`, `limit`, `page`).
+   */
+  async paginaDePedidos(params: Record<string, string | number>): Promise<{ pedidos: Record<string, unknown>[]; total: number }> {
+    const dados = await this.buscar<{ paging?: { total?: number }; Orders?: { Order?: Record<string, unknown> }[] }>("/orders", params);
+    return {
+      pedidos: (dados.Orders ?? []).map((l) => l.Order ?? (l as Record<string, unknown>)),
+      total: Number(dados.paging?.total ?? 0),
+    };
+  }
+
+  /** O pedido com cliente, pagamento e itens. A lista não traz hora, nome nem meio de pagamento. */
+  async pedidoCompleto(id: string | number): Promise<Record<string, unknown>> {
+    const dados = await this.buscar<{ Order?: Record<string, unknown> }>(`/orders/${id}/complete`);
+    return dados.Order ?? (dados as Record<string, unknown>);
   }
 
   async listarCategorias(): Promise<TrayCategoria[]> {
