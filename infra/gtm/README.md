@@ -80,6 +80,38 @@ carrega no portal e já faz sozinho:
 Foi testado e descartado um evento `lead` do Pinterest: o anúncio do Pinterest
 leva para a loja, não para o portal, e o evento não servia às campanhas.
 
+## Coletor de origem na loja
+
+**Estado em 13/11/2026: preparado, ainda não importado nem publicado.**
+
+O portal passou a anotar de onde cada visita chega (`docs/origem-do-pedido.md`).
+Nas páginas do portal o script entra pelo código. Na loja, quem carrega é o GTM,
+porque é ele que roda em todas as páginas, carrinho e fechamento incluídos.
+
+`coletor-de-origem.json` traz UMA etiqueta, na pasta "🟡 JK Portal /guias":
+
+| Tipo | Nome | O que faz |
+|---|---|---|
+| Tag (HTML personalizado) | JK Portal - Coletor de origem | `<script async src="/guias/o.js"></script>`, no acionador "All Pages" que já existe |
+
+O que ela faz: carrega um arquivo do próprio domínio, que manda ao portal o
+endereço da página, o site anterior, a sessão da Tray e, na confirmação, o
+número do pedido. **Não manda evento para Meta, Google, Pinterest nem GA4**,
+então não mexe em conversão nenhuma e não conta nada em dobro. Não lê
+formulário, nome, telefone nem e-mail.
+
+Nas páginas do portal a etiqueta também dispara, e não faz nada: o arquivo se
+recusa a rodar duas vezes na mesma página (`window.__jkOrigem`).
+
+Como entra, pelas regras da casa: exportar a versão no ar, importar o arquivo
+com **Combinar**, conferir "Alterações no espaço de trabalho" (só esta
+etiqueta), Visualizar numa página da loja e ver o pedido `POST /guias/api/origem`
+responder 204, publicar com o nome dizendo a mudança, e registrar o cartão no
+RELATÓRIO DE MUDANÇAS.
+
+Para voltar: pausar a etiqueta e publicar. O arquivo `/guias/o.js` continua no
+ar sem ser carregado por ninguém na loja.
+
 ## Meta Pixel no portal e na bio
 
 O pixel do Meta só existia na loja, porque quem instala é a Tray. Sem ele no

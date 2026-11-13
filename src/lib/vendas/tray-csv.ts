@@ -55,6 +55,11 @@ export type PedidoDaTray = {
   uf: string | null;
   envio_em: string | null;
   envio_codigo: string | null;
+  /**
+   * A sessão da Tray em que o pedido foi feito. Só a API traz (a exportação
+   * não tem a coluna), e é ela que liga o pedido à origem anotada pelo coletor.
+   */
+  sessao?: string | null;
 };
 
 export class ArquivoDaTrayInvalido extends Error {}

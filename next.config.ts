@@ -129,6 +129,17 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       {
+        // O coletor de origem (`public/o.js`) é carregado em TODA página da
+        // loja e do portal. Arquivo de `public/` sai da Vercel com
+        // `max-age=0`, o que faria cada página da loja bater aqui para
+        // revalidar. Com um dia de cache no navegador e uma semana na borda,
+        // quase nenhuma dessas visitas chega à Vercel. Mudou o arquivo, a
+        // versão nova chega em até um dia; com pressa, troca-se o `?v=` de
+        // quem carrega.
+        source: "/o.js",
+        headers: [{ key: "Cache-Control", value: "public, max-age=86400, s-maxage=604800, stale-while-revalidate=604800" }],
+      },
+      {
         // `source` do Next já recebe o basePath sozinho: isto cobre
         // /guias/:path*, que é tudo que esta aplicação serve.
         source: "/:path*",

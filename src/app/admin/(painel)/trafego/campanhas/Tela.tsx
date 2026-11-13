@@ -1,6 +1,7 @@
 import Link from "next/link";
-import { ArrowLeft, ChevronDown, Circle, CircleAlert, CircleCheck, Minus, Pause, TrendingUp, TriangleAlert, Wrench } from "lucide-react";
+import { ArrowLeft, ChevronDown, Circle, CircleAlert, CircleCheck, Minus, Pause, Store, TrendingUp, TriangleAlert, Wrench } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import { chaveDoItem, itensQueVenderam, type ItemQueVendeu, type VendaDoItem } from "@/lib/origem/anotado";
 import type { CampanhasDaTela } from "@/lib/trafego/dados";
 import { resultadoEmPalavra, type Achado, type Avaliado, type Veredito } from "@/lib/trafego/diagnostico";
 import { diaCurto, type ChaveDePeriodo } from "@/lib/vendas/periodo";
@@ -62,18 +63,39 @@ function Numero({ rotulo, children }: { rotulo: string; children: React.ReactNod
   );
 }
 
+type Vendas = Record<string, VendaDoItem>;
+
+/** O que a loja recebeu de verdade com este item, pela origem anotada. Só aparece quando há pedido ligado. */
+function NaLoja({ venda, gasto }: { venda: VendaDoItem | undefined; gasto: number }) {
+  if (!venda) return null;
+  return (
+    <p className="numeros mt-2 flex items-start gap-1.5 text-xs leading-relaxed text-ink">
+      <Store size={13} className="mt-0.5 shrink-0 text-brand-nav" aria-hidden />
+      <span>
+        <span className="font-semibold">Na loja, pago:</span> {reais(venda.valor)} em {inteiro(venda.pagos)} de {inteiro(venda.criados)}{" "}
+        {venda.criados === 1 ? "pedido ligado a ele" : "pedidos ligados a ele"}
+        {gasto > 0 && venda.valor > 0 ? `, ${reais(venda.valor / gasto)} por R$ 1 gasto` : ""}.
+      </span>
+    </p>
+  );
+}
+
 /** Os números de um item. O mesmo bloco serve aos três níveis. */
-function Numeros({ i, plataforma }: { i: Avaliado; plataforma: "meta" | "google" }) {
+function Numeros({ i, plataforma, vendas }: { i: Avaliado; plataforma: "meta" | "google"; vendas: Vendas }) {
   const p = resultadoEmPalavra(i.objetivo, plataforma);
+  const naLoja = <NaLoja venda={vendas[chaveDoItem(i.nivel, i.id)]} gasto={i.gasto} />;
   const funilDoSite = plataforma === "meta" && i.objetivo === "venda";
   if (i.objetivo === "engajamento") {
     return (
+      <>
       <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-2 sm:grid-cols-4">
         <Numero rotulo="Gasto">{reais(i.gasto)}</Numero>
         <Numero rotulo="Viram o anúncio">{inteiro(i.impressoes)}</Numero>
         <Numero rotulo="Custo por mil que viram">{i.impressoes > 0 ? reais((i.gasto / i.impressoes) * 1000) : "·"}</Numero>
         <Numero rotulo="Cliques no anúncio">{inteiro(i.cliques_todos ?? i.cliques)}</Numero>
       </dl>
+      {naLoja}
+      </>
     );
   }
   return (
@@ -101,6 +123,7 @@ function Numeros({ i, plataforma }: { i: Avaliado; plataforma: "meta" | "google"
           {i.objetivo !== "venda" && (i.compras ?? 0) > 0 ? `, ${umaCasa(i.compras ?? 0)} compras pelo pixel` : ""}.
         </p>
       )}
+      {naLoja}
       {i.gargalo ? (
         <p className="mt-2 flex items-start gap-1.5 text-xs leading-relaxed text-ink">
           <Wrench size={13} className="mt-0.5 shrink-0 text-brand-nav" aria-hidden />
@@ -131,13 +154,13 @@ function Cabeca({ i, comSeta }: { i: Avaliado; comSeta: boolean }) {
 }
 
 /** Um item da árvore. Com filhos, abre e fecha; sem filhos, é só o bloco. */
-function Bloco({ i, plataforma }: { i: Avaliado; plataforma: "meta" | "google" }) {
+function Bloco({ i, plataforma, vendas }: { i: Avaliado; plataforma: "meta" | "google"; vendas: Vendas }) {
   const borda = i.nivel === "campanha" ? "" : "border-l-2 border-border pl-3 sm:pl-4";
   if (i.filhos.length === 0) {
     return (
       <li className={`py-3 ${borda}`}>
         <Cabeca i={i} comSeta={false} />
-        <Numeros i={i} plataforma={plataforma} />
+        <Numeros i={i} plataforma={plataforma} vendas={vendas} />
       </li>
     );
   }
@@ -147,14 +170,14 @@ function Bloco({ i, plataforma }: { i: Avaliado; plataforma: "meta" | "google" }
       <details className="group">
         <summary className="cursor-pointer list-none [&::-webkit-details-marker]:hidden">
           <Cabeca i={i} comSeta />
-          <Numeros i={i} plataforma={plataforma} />
+          <Numeros i={i} plataforma={plataforma} vendas={vendas} />
           <p className="mt-2 text-xs font-semibold text-brand-nav">
             <span className="group-open:hidden">Ver {i.filhos.length} {i.filhos.length === 1 ? filho : `${filho}s`}</span>
             <span className="hidden group-open:inline">Esconder {i.filhos.length === 1 ? `o ${filho}` : `os ${filho}s`}</span>
           </p>
         </summary>
         <ul className="mt-2 divide-y divide-border/50">
-          {i.filhos.map((f) => <Bloco key={f.id} i={f} plataforma={plataforma} />)}
+          {i.filhos.map((f) => <Bloco key={f.id} i={f} plataforma={plataforma} vendas={vendas} />)}
         </ul>
       </details>
     </li>
@@ -185,11 +208,89 @@ function ListaDeAchados({ titulo, vazio, achados, Icone, cor }: { titulo: string
   );
 }
 
+/** Um item que teve pedido ligado, com o que a loja recebeu e o que ele gastou. */
+function LinhaDeVenda({ v }: { v: ItemQueVendeu }) {
+  return (
+    <li className="py-3">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-0.5">
+        <p className="min-w-0 break-words text-sm font-semibold leading-snug text-ink">{v.nome}</p>
+        <p className="numeros shrink-0 text-sm font-semibold text-ink">{reais(v.valor)}</p>
+      </div>
+      {v.dentroDe ? <p className="break-words text-[0.7rem] text-muted">em {v.dentroDe}</p> : null}
+      <p className="numeros mt-1 text-[0.72rem] leading-relaxed text-muted">
+        {v.pagos === 0 ? "Nenhum pago" : `${inteiro(v.pagos)} ${v.pagos === 1 ? "pago" : "pagos"}`} de {inteiro(v.criados)}{" "}
+        {v.criados === 1 ? "pedido criado" : "pedidos criados"}
+        {v.gasto === null ? ", sem gasto neste período" : `, gastou ${reais(v.gasto)}`}
+        {v.volta !== null && v.valor > 0 ? `, voltou ${reais(v.volta)} por R$ 1` : ""}
+        {v.ativo === false ? ". Pausado" : ""}.
+      </p>
+    </li>
+  );
+}
+
+/**
+ * O que a LOJA recebeu de verdade, por anúncio. Vem antes do "o que fazer"
+ * porque é o número em que dá para confiar: pedido pago, ligado ao anúncio
+ * pela chegada que a própria loja anotou.
+ */
+function VendeuDeFato({ campanhas, anotado, nome }: { campanhas: Avaliado[]; anotado: NonNullable<CampanhasDaTela["anotado"]>; nome: string }) {
+  const anuncios = itensQueVenderam(campanhas, anotado.itens, "anuncio");
+  const dasCampanhas = itensQueVenderam(campanhas, anotado.itens, "campanha");
+  const c = anotado.cobertura;
+
+  if (anuncios.length === 0 && dasCampanhas.length === 0) {
+    return (
+      <section className="glass mt-5 rounded-[18px] p-4 sm:p-5" aria-label="O que vendeu de fato, pela loja">
+        <p className="eyebrow">O que vendeu de fato, pela loja</p>
+        <p className="mt-2 max-w-3xl text-sm leading-relaxed text-ink">
+          Ainda não há pedido ligado a anúncio do {nome} neste período.
+        </p>
+        <p className="mt-1 max-w-3xl text-xs leading-relaxed text-muted">
+          Quando houver, este bloco mostra quanto cada anúncio vendeu em pedido PAGO, ao lado do que ele gastou. O que já
+          funciona e o que falta está em{" "}
+          <Link href="/admin/trafego" className="font-semibold text-brand-nav hover:underline">Tráfego</Link>, no bloco
+          Origem anotada pela loja.
+        </p>
+      </section>
+    );
+  }
+
+  const lista = anuncios.length > 0 ? anuncios : dasCampanhas;
+  return (
+    <section className="glass mt-5 rounded-[18px] p-4 sm:p-5" aria-label="O que vendeu de fato, pela loja">
+      <p className="eyebrow">O que vendeu de fato, pela loja</p>
+      <p className="mt-1 max-w-3xl text-xs leading-relaxed text-muted">
+        Pedidos que a loja ligou a cada {anuncios.length > 0 ? "anúncio" : "campanha"} pela chegada anotada, do que mais
+        vendeu pago para o que menos. Não é o número do {nome}: aqui só conta o que foi pago.
+      </p>
+      <ul className="mt-2 divide-y divide-border/60">
+        {lista.slice(0, 10).map((v) => <LinhaDeVenda key={v.id} v={v} />)}
+      </ul>
+      {anuncios.length > 0 && dasCampanhas.length > 0 ? (
+        <details className="group mt-2">
+          <summary className="cursor-pointer list-none text-xs font-semibold text-brand-nav [&::-webkit-details-marker]:hidden">
+            <span className="group-open:hidden">Ver por campanha</span>
+            <span className="hidden group-open:inline">Esconder as campanhas</span>
+          </summary>
+          <ul className="mt-1 divide-y divide-border/60">
+            {dasCampanhas.slice(0, 10).map((v) => <LinhaDeVenda key={v.id} v={v} />)}
+          </ul>
+        </details>
+      ) : null}
+      <p className="numeros mt-3 max-w-3xl text-[0.7rem] leading-relaxed text-muted">
+        No período, {inteiro(c.pagos_com_anuncio)} de {inteiro(c.pagos)} pedidos pagos da loja têm anúncio reconhecido, somando todas as
+        plataformas. Compra de quem só viu o anúncio, trocou de aparelho ou fechou pelo WhatsApp não entra aqui.
+      </p>
+    </section>
+  );
+}
+
 export function TelaDeCampanhas({
-  plataforma, de, ate, diagnostico, loja, chave, lidaEm,
+  plataforma, de, ate, diagnostico, loja, anotado, chave, lidaEm,
 }: CampanhasDaTela & { chave: ChaveDePeriodo; lidaEm: string | null }) {
   const nome = NOME_DA_PLATAFORMA[plataforma];
   const d = diagnostico;
+  const vendas: Vendas = anotado?.itens ?? {};
   const rever = (d?.achados ?? []).filter((a) => a.tipo === "rever").slice(0, 5);
   const crescer = (d?.achados ?? []).filter((a) => a.tipo === "crescer").slice(0, 5);
   const fator = d && d.totais.valor > 0 ? loja.valor / d.totais.valor : null;
@@ -261,6 +362,8 @@ export function TelaDeCampanhas({
             </section>
           ) : null}
 
+          {anotado ? <VendeuDeFato campanhas={d.campanhas} anotado={anotado} nome={nome} /> : null}
+
           <section className="glass mt-5 rounded-[18px] p-4 sm:p-5" aria-label="O que fazer agora">
             <p className="eyebrow">O que fazer agora</p>
             <div className="mt-3 grid gap-5 md:grid-cols-2">
@@ -330,7 +433,7 @@ export function TelaDeCampanhas({
           <section className="glass mt-5 rounded-[18px] p-4 sm:p-5" aria-label="Todas as campanhas">
             <p className="eyebrow">Todas as campanhas, da que mais gastou para a que menos</p>
             <ul className="mt-1 divide-y divide-border/60">
-              {d.campanhas.map((c) => <Bloco key={c.id} i={c} plataforma={plataforma} />)}
+              {d.campanhas.map((c) => <Bloco key={c.id} i={c} plataforma={plataforma} vendas={vendas} />)}
             </ul>
           </section>
         </>

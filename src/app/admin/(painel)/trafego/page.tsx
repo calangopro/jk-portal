@@ -1,9 +1,10 @@
 import { requireArea } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { lerOrigemDosPedidos, lerSaudeDoColetor } from "@/lib/origem/dados";
 import { lerTrafegoDaTela } from "@/lib/trafego/dados";
 import { lerConexoes } from "@/lib/trafego/plataformas";
-import { hojeEmSaoPaulo, lerPeriodo } from "@/lib/vendas/periodo";
+import { hojeEmSaoPaulo, intervaloDoPeriodo, lerPeriodo } from "@/lib/vendas/periodo";
 import { lancarGasto } from "./actions";
 import { TelaDeTrafego } from "./Tela";
 
@@ -23,6 +24,13 @@ export default async function TrafegoPage({ searchParams }: { searchParams: Prom
   const hoje = hojeEmSaoPaulo();
   // O estado das ligações sai do registro de leituras, que só o cliente de
   // serviço enxerga. Quem chega aqui já passou pela conferência da área.
-  const [dados, conexoes] = await Promise.all([lerTrafegoDaTela(await createClient(), chave, hoje), lerConexoes(createAdminClient())]);
-  return <TelaDeTrafego chave={chave} hoje={hoje} acao={lancarGasto} conexoes={conexoes} {...dados} />;
+  const db = await createClient();
+  const { de, ate } = intervaloDoPeriodo(chave, hoje);
+  const [dados, conexoes, origem, saude] = await Promise.all([
+    lerTrafegoDaTela(db, chave, hoje),
+    lerConexoes(createAdminClient()),
+    lerOrigemDosPedidos(db, de, ate),
+    lerSaudeDoColetor(db),
+  ]);
+  return <TelaDeTrafego chave={chave} hoje={hoje} acao={lancarGasto} conexoes={conexoes} origem={origem} saude={saude} {...dados} />;
 }
