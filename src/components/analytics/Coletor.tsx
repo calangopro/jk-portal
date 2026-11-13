@@ -14,7 +14,15 @@ import { isProduction } from "@/lib/seo/site";
  * não é chegada de cliente. O `src` leva o prefixo na mão porque o
  * `next/script` não soma o `basePath` sozinho.
  */
+/**
+ * Entra no endereço do arquivo. O `o.js` fica guardado na borda e no
+ * navegador, então uma correção urgente precisa de endereço novo para não
+ * esperar o prazo do cache. A etiqueta do GTM usa o MESMO número: mudou aqui,
+ * muda lá (`infra/gtm/README.md`).
+ */
+export const VERSAO_DO_COLETOR = 2;
+
 export function Coletor() {
   if (!isProduction()) return null;
-  return <Script src={comBasePath("/o.js")} strategy="afterInteractive" />;
+  return <Script src={comBasePath(`/o.js?v=${VERSAO_DO_COLETOR}`)} strategy="afterInteractive" />;
 }

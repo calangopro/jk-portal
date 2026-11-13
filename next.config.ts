@@ -132,12 +132,14 @@ const nextConfig: NextConfig = {
         // O coletor de origem (`public/o.js`) é carregado em TODA página da
         // loja e do portal. Arquivo de `public/` sai da Vercel com
         // `max-age=0`, o que faria cada página da loja bater aqui para
-        // revalidar. Com um dia de cache no navegador e uma semana na borda,
-        // quase nenhuma dessas visitas chega à Vercel. Mudou o arquivo, a
-        // versão nova chega em até um dia; com pressa, troca-se o `?v=` de
-        // quem carrega.
+        // revalidar. Com uma hora de cache no navegador e na borda, quase
+        // nenhuma dessas visitas chega à Vercel, e uma correção no arquivo
+        // chega a todo mundo em uma ou duas horas sem ninguém mexer no GTM.
+        // A primeira versão pedia uma semana na borda, e a primeira correção
+        // do arquivo ficaria presa lá: com pressa, troca-se o `?v=` de quem
+        // carrega (`Coletor.tsx` e a etiqueta do GTM).
         source: "/o.js",
-        headers: [{ key: "Cache-Control", value: "public, max-age=86400, s-maxage=604800, stale-while-revalidate=604800" }],
+        headers: [{ key: "Cache-Control", value: "public, max-age=3600, s-maxage=3600, stale-while-revalidate=86400" }],
       },
       {
         // `source` do Next já recebe o basePath sozinho: isto cobre
