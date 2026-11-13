@@ -140,9 +140,13 @@ export function passosDoColetor(saude: SaudeDoColetor, cobertura: Cobertura | nu
       texto:
         ligados > 0
           ? `${ligados.toLocaleString("pt-BR")} pedidos do período ligados a um visitante.`
-          : (cobertura?.com_sessao ?? 0) === 0
-            ? "Nenhum pedido do período veio com a sessão da Tray. Ela só chega pela API de pedidos, que espera a homologação do aplicativo."
-            : "Os pedidos já vêm com a sessão, mas nenhuma delas foi vista pelo script ainda.",
+          : saude.pedidos_vistos_7d > 0
+            ? `${saude.pedidos_vistos_7d.toLocaleString("pt-BR")} ${saude.pedidos_vistos_7d === 1 ? "pedido foi visto" : "pedidos foram vistos"} na página de compra nos últimos 7 dias, e ainda não ${saude.pedidos_vistos_7d === 1 ? "entrou" : "entraram"} no painel pela importação de pedidos. A ligação aparece na próxima importação.`
+            : saude.sessoes_7d === 0
+              ? "Depende do script na loja: sem ele, não há chegada para ligar ao pedido."
+              : (cobertura?.com_sessao ?? 0) === 0
+                ? "Nenhum pedido passou pela página de compra desde que o script entrou na loja. O outro caminho, pela sessão da Tray, depende da API de pedidos, que espera a homologação do aplicativo."
+                : "Os pedidos já vêm com a sessão, mas nenhuma delas foi vista pelo script ainda.",
     },
   ];
 }
