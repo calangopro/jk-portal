@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowUpRight, Banknote, CalendarDays, CircleSlash, Receipt, ShoppingBag, Sun, Sunrise } from "lucide-react";
+import { ArrowUpRight, Banknote, CalendarDays, CircleSlash, HandCoins, Receipt, ShoppingBag, Sun, Sunrise } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import {
   DIA_ZERADO,
@@ -467,7 +467,7 @@ function Periodo({
 }
 
 export function PainelDeVendas({
-  chave, hoje, topo, resumo, anterior, ultima,
+  chave, hoje, topo, resumo, anterior, ultima, porFora,
 }: VendasDaTela & { chave: ChaveDePeriodo; hoje: string }) {
   const ontem = somarDias(hoje, -1);
   const inicioDoMes = primeiroDoMes(hoje);
@@ -489,7 +489,9 @@ export function PainelDeVendas({
         <h1 className="font-display mt-2 text-4xl text-ink">Vendas</h1>
         <p className="mt-3 max-w-3xl text-muted">
           Pedidos pagos na loja virtual, lidos da Tray. Pedido cancelado ou esperando pagamento não entra no
-          faturamento. O Pix recebido por fora da loja não passa pela Tray e ainda não aparece aqui.
+          faturamento. O que é fechado por fora da loja entra por{" "}
+          <Link href="/admin/registrar-venda" className="font-semibold text-brand-nav hover:underline">Registrar venda</Link>{" "}
+          e aparece no último cartão.
         </p>
         <Atualizacao ultima={ultima} />
       </header>
@@ -501,7 +503,7 @@ export function PainelDeVendas({
         </p>
       ) : (
         <>
-          <section className="mt-8 grid gap-5 md:grid-cols-3" aria-label="Hoje, ontem e o mês">
+          <section className="mt-8 grid gap-5 sm:grid-cols-2 xl:grid-cols-4" aria-label="Hoje, ontem e o mês">
             <Cartao
               Icone={Sun}
               rotulo={`Hoje, ${diaCurto(hoje)}`}
@@ -515,8 +517,19 @@ export function PainelDeVendas({
             <Cartao Icone={Sunrise} rotulo={`Ontem, ${diaCurto(ontem)}`} apoio={pedidosEticket(dOntem.pagos, Number(dOntem.valor_pago))}>
               <Dinheiro valor={Number(dOntem.valor_pago)} />
             </Cartao>
-            <Cartao Icone={CalendarDays} rotulo={`${nomeDoMes(hoje)} até agora`} apoio={pedidosEticket(mes.pagos, mes.valor)}>
+            <Cartao Icone={CalendarDays} rotulo={`${nomeDoMes(hoje)} na loja`} apoio={pedidosEticket(mes.pagos, mes.valor)}>
               <Dinheiro valor={mes.valor} />
+            </Cartao>
+            <Cartao
+              Icone={HandCoins}
+              rotulo={`${nomeDoMes(hoje)} por fora`}
+              apoio={
+                porFora
+                  ? `${porFora.vendas} ${porFora.vendas === 1 ? "venda registrada" : "vendas registradas"}. Com a loja: ${reais(mes.valor + porFora.valor)}`
+                  : "não deu para ler agora"
+              }
+            >
+              <Dinheiro valor={porFora?.valor ?? 0} />
             </Cartao>
           </section>
 

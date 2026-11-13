@@ -8,6 +8,7 @@ import { calcularSinais, type EntradaDosSinais } from "@/lib/painel/sinais";
 import { lerResumoDeVendas, ultimaImportacao } from "@/lib/vendas/dados";
 import { agruparPorCanal } from "@/lib/vendas/origem";
 import { hojeEmSaoPaulo, primeiroDoMes, somarDias } from "@/lib/vendas/periodo";
+import { lerResumoPorFora } from "@/lib/vendas/por-fora";
 import { lerFilaDeRecuperacao } from "@/lib/vendas/recuperacao";
 import { definirMeta } from "./meta-actions";
 import { MetaDoMes } from "./MetaDoMes";
@@ -34,7 +35,7 @@ async function lerPainel(profile: Profile) {
   const hoje = hojeEmSaoPaulo();
   const de = somarDias(hoje, -(DIAS - 1));
 
-  const [atual, anterior, ultima, fila, despesas, doMes, metaDoMes] = await Promise.all([
+  const [atual, anterior, ultima, fila, despesas, doMes, metaDoMes, porFora] = await Promise.all([
     pode("vendas") ? lerResumoDeVendas(db, de, hoje) : null,
     pode("vendas") ? lerResumoDeVendas(db, somarDias(de, -DIAS), somarDias(de, -1)) : null,
     pode("vendas") ? ultimaImportacao(db) : null,
@@ -42,11 +43,16 @@ async function lerPainel(profile: Profile) {
     ehAdmin(profile.role) ? lerDespesas(db) : null,
     pode("vendas") ? lerResumoDeVendas(db, primeiroDoMes(hoje), hoje) : null,
     pode("vendas") ? db.from("metas").select("valor").eq("mes", primeiroDoMes(hoje)).maybeSingle() : null,
+    pode("vendas") ? lerResumoPorFora(db, primeiroDoMes(hoje), hoje) : null,
   ]);
+
+  // O faturamento do mês é a loja mais o que foi registrado por fora dela.
+  const porForaNoMes = porFora?.valor ?? 0;
+  const faturamentoDoMes = doMes ? Number(doMes.totais.valor_pago) + porForaNoMes : 0;
 
   const valorDaMeta = Number(metaDoMes?.data?.valor ?? 0);
   const andamento: Andamento | null =
-    doMes && valorDaMeta > 0 ? andamentoDaMeta(valorDaMeta, Number(doMes.totais.valor_pago), hoje) : null;
+    doMes && valorDaMeta > 0 ? andamentoDaMeta(valorDaMeta, faturamentoDoMes, hoje) : null;
 
   const vendas: DadosDeVendas | null = atual ? { atual, anterior, dias: DIAS, de, ate: hoje } : null;
 
@@ -56,7 +62,7 @@ async function lerPainel(profile: Profile) {
     const diasNoMes = diasDoMes(hoje);
     custos = {
       custoAteHoje: (t.mensal * Number(hoje.slice(8, 10))) / diasNoMes + t.porPedido * doMes.totais.pagos,
-      faturamento: Number(doMes.totais.valor_pago),
+      faturamento: faturamentoDoMes,
     };
   }
 
@@ -84,7 +90,7 @@ async function lerPainel(profile: Profile) {
         ]
       : [];
 
-  return { vendas, sinais, andamento, hoje, podeVerMeta: pode("vendas") };
+  return { vendas, sinais, andamento, hoje, porForaNoMes, podeVerMeta: pode("vendas") };
 }
 
 async function lerConteudo() {
@@ -106,7 +112,7 @@ async function lerConteudo() {
 
 export default async function AdminDashboard() {
   const profile = await requireSessao();
-  const [{ vendas, sinais, andamento, hoje, podeVerMeta }, conteudo] = await Promise.all([
+  const [{ vendas, sinais, andamento, hoje, porForaNoMes, podeVerMeta }, conteudo] = await Promise.all([
     lerPainel(profile),
     profile.areas.includes("conteudo") ? lerConteudo() : null,
   ]);
@@ -123,7 +129,7 @@ export default async function AdminDashboard() {
       </header>
 
       {podeVerMeta ? (
-        <MetaDoMes andamento={andamento} hoje={hoje} acao={ehAdmin(profile.role) ? definirMeta : undefined} />
+        <MetaDoMes andamento={andamento} hoje={hoje} porFora={porForaNoMes} acao={ehAdmin(profile.role) ? definirMeta : undefined} />
       ) : null}
 
       <PainelGeral vendas={vendas} sinais={sinais} />

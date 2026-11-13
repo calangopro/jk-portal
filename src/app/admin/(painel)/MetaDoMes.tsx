@@ -11,8 +11,8 @@ import { BotaoDeAcao } from "./recuperacao/BotaoDeAcao";
  * nele, a loja está atrás, e dá para ver isso sem ler número nenhum. O estado
  * vem sempre com ícone e palavra, nunca só com a cor.
  *
- * A meta é da LOJA VIRTUAL: o que se compara é o faturamento pago lido da Tray.
- * O Pix recebido por fora ainda não entra, e o texto diz isso.
+ * O que se compara com a meta é o faturamento pago lido da Tray MAIS as vendas
+ * registradas por fora da loja (0058), e o texto diz quanto veio de cada lado.
  */
 
 const BOM = "#047857";
@@ -39,10 +39,12 @@ function Formulario({ acao, atual }: { acao: (f: FormData) => Promise<void>; atu
 }
 
 export function MetaDoMes({
-  andamento, hoje, acao,
+  andamento, hoje, porFora = 0, acao,
 }: {
   andamento: Andamento | null;
   hoje: string;
+  /** Quanto do que já entrou veio de venda registrada por fora da loja. */
+  porFora?: number;
   /** Só quem pode definir a meta recebe a ação. */
   acao?: (f: FormData) => Promise<void>;
 }) {
@@ -119,7 +121,8 @@ export function MetaDoMes({
       </ul>
 
       <p className="mt-3 text-xs text-muted">
-        Conta o faturamento pago da loja virtual. O Pix recebido por fora da loja ainda não entra.
+        Conta o faturamento pago da loja virtual mais as vendas registradas por fora dela
+        {porFora > 0 ? ` (${reais(porFora)} até agora)` : " (nenhuma registrada neste mês)"}.
       </p>
 
       {acao ? (

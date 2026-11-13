@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Situacao } from "./tray-csv";
 import type { LinhaDeOrigem } from "./origem";
 import { intervaloDoPeriodo, primeiroDoMes, somarDias, type ChaveDePeriodo } from "./periodo";
+import { lerResumoPorFora, type ResumoPorFora } from "./por-fora";
 
 /**
  * Leitura das vendas da loja para a tela /admin/vendas.
@@ -122,6 +123,8 @@ export type VendasDaTela = {
   resumo: ResumoDeVendas | null;
   anterior: ResumoDeVendas | null;
   ultima: UltimaImportacao;
+  /** Vendas registradas por fora da loja no mês corrente. */
+  porFora: ResumoPorFora | null;
 };
 
 /**
@@ -132,11 +135,12 @@ export async function lerVendasDaTela(db: SupabaseClient, chave: ChaveDePeriodo,
   const ontem = somarDias(hoje, -1);
   const inicioDoMes = primeiroDoMes(hoje);
   const intervalo = intervaloDoPeriodo(chave, hoje);
-  const [topo, resumo, anterior, ultima] = await Promise.all([
+  const [topo, resumo, anterior, ultima, porFora] = await Promise.all([
     lerResumoDeVendas(db, ontem < inicioDoMes ? ontem : inicioDoMes, hoje),
     lerResumoDeVendas(db, intervalo.de, intervalo.ate),
     lerResumoDeVendas(db, intervalo.anteriorDe, intervalo.anteriorAte),
     ultimaImportacao(db),
+    lerResumoPorFora(db, inicioDoMes, hoje),
   ]);
-  return { topo, resumo, anterior, ultima };
+  return { topo, resumo, anterior, ultima, porFora };
 }
