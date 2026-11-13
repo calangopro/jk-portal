@@ -7,8 +7,9 @@ import { completarDias, lerInsightsDoMeta, lerLotesDoGoogle, type DiaDeGasto } f
 /**
  * Leitura do gasto de anúncio direto nas plataformas, pela API de cada uma.
  *
- * META. API de Marketing, com um token de usuário do sistema que tenha a
- * permissão `ads_read` e acesso à conta de anúncios. O token mora em
+ * META. API de Marketing, com um token de usuário do sistema que tenha acesso
+ * à conta de anúncios e a permissão `ads_read` ou `ads_management` (a segunda
+ * inclui a leitura). Este arquivo só LÊ, com qualquer um dos dois. O token mora em
  * `integration_tokens` (provedor `meta_ads`), colado em Integrações, e nunca
  * volta para a tela. Vai no cabeçalho, não no endereço, para não parar em log.
  *
@@ -53,7 +54,7 @@ function mensagemDoMeta(corpo: ErroDoMeta, status: number): string {
   const e = corpo.error;
   if (e?.code === 190) return "O Meta recusou o token: ele venceu ou foi revogado. Gere outro no usuário do sistema e cole em Integrações.";
   if (e?.code === 200 || e?.code === 10 || e?.code === 3) {
-    return "O token não alcança a conta de anúncios. Ele precisa da permissão ads_read, e o usuário do sistema precisa ter a conta JK Alianças 01 atribuída.";
+    return "O token não alcança a conta de anúncios. Ele precisa da permissão ads_read ou ads_management, e o usuário do sistema precisa ter a conta JK Alianças 01 atribuída.";
   }
   if (e?.code === 100) return `O Meta não achou a conta de anúncios ${CONTA_DO_META} com esse token.`;
   if (e?.code === 4 || e?.code === 17 || e?.code === 80000) return "O Meta limitou as chamadas agora. A próxima leitura tenta de novo.";

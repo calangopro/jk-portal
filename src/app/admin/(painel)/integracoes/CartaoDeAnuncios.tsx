@@ -38,8 +38,13 @@ function BotaoSalvar() {
 type Estado = { configurada: boolean; lendo: boolean; problema: string | null };
 
 /**
- * Token do Meta que lê o gasto de anúncio. Só de escrita: o campo nasce vazio
+ * Token do Meta que lê o gasto de anúncio. O CAMPO é só de escrita: nasce vazio
  * mesmo com token salvo, e o token nunca volta para a tela.
+ *
+ * O painel hoje só LÊ com ele. O token pode vir com permissão de gerenciar
+ * anúncios também (decisão do Filipe em 13/11/2026, para o que vier depois), e
+ * por isso o texto não promete "só leitura": diz o que o painel faz, não o que
+ * o token alcança.
  */
 export function CartaoMetaAds({ estado, conta }: { estado: Estado; conta: string }) {
   const [resposta, salvar] = useActionState<IntegracaoState, FormData>(salvarTokenDoMetaAds, {});
@@ -50,7 +55,7 @@ export function CartaoMetaAds({ estado, conta }: { estado: Estado; conta: string
           <p className="font-medium text-ink">Meta, gasto de anúncio</p>
           <p className="mt-1 text-xs leading-relaxed text-muted">
             Lê de hora em hora quanto a conta de anúncios {conta} gastou, para a tela de Tráfego calcular a volta por
-            real gasto. O token só lê: não cria, não pausa e não edita campanha.
+            real gasto. Hoje o painel só lê: não cria, não pausa e não edita campanha, mesmo que o token permita.
           </p>
         </div>
         <Selo ligado={estado.lendo} texto={estado.lendo ? "Lendo" : estado.configurada ? "Com token" : "Sem token"} />
@@ -67,7 +72,8 @@ export function CartaoMetaAds({ estado, conta }: { estado: Estado; conta: string
         />
         <span className="mt-1 block text-[0.68rem] leading-snug text-muted">
           Nas Configurações do negócio do Meta: Usuários, Usuários do sistema. Atribua a conta de anúncios ao usuário,
-          clique em Gerar token, escolha um app e marque só a permissão ads_read, sem data de validade.
+          clique em Gerar token, escolha um app e marque ads_read e ads_management (e business_management, se
+          aparecer), sem data de validade. Para ler o gasto, ads_read sozinho já basta.
         </span>
       </label>
 
