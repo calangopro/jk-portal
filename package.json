@@ -5,14 +5,16 @@
   "scripts": {
     "dev": "next dev",
     "dev:turbo": "next dev --turbopack",
-    "build": "next build && npm run verificar:tokens && npm run verificar:precos && npm run verificar:planilha && npm run verificar:margem",
+    "build": "next build && npm run verificar:tokens && npm run verificar:precos && npm run verificar:planilha && npm run verificar:margem && npm run verificar:pedidos",
     "start": "next start",
     "lint": "next lint",
-    "build:seguro": "BUILD_DIR=.next-build next build && BUILD_DIR=.next-build npm run verificar:tokens && npm run verificar:precos && npm run verificar:planilha && npm run verificar:margem",
+    "build:seguro": "BUILD_DIR=.next-build next build && BUILD_DIR=.next-build npm run verificar:tokens && npm run verificar:precos && npm run verificar:planilha && npm run verificar:margem && npm run verificar:pedidos",
     "verificar:tokens": "node scripts/verificar-tokens.mjs",
     "verificar:precos": "node --experimental-strip-types --disable-warning=ExperimentalWarning scripts/teste-precos.mts",
     "verificar:planilha": "node --experimental-strip-types --disable-warning=ExperimentalWarning --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/teste-planilha-tray.mts",
-    "verificar:margem": "node --experimental-strip-types --disable-warning=ExperimentalWarning --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/teste-margem.mts"
+    "verificar:margem": "node --experimental-strip-types --disable-warning=ExperimentalWarning --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/teste-margem.mts",
+    "verificar:pedidos": "node --experimental-strip-types --disable-warning=ExperimentalWarning --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/teste-pedidos-tray.mts",
+    "vendas:importar": "node --experimental-strip-types --disable-warning=ExperimentalWarning --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/importar-pedidos-tray.mts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
