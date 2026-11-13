@@ -5,6 +5,8 @@ import { createClient } from "@/lib/supabase/server";
 import { lerDespesas, somarDespesas } from "@/lib/custos/dados";
 import { andamentoDaMeta, diasDoMes, type Andamento } from "@/lib/painel/meta";
 import { calcularSinais, type EntradaDosSinais } from "@/lib/painel/sinais";
+import { lerResumoDeGasto } from "@/lib/trafego/dados";
+import { retornoPorPlataforma } from "@/lib/trafego/retorno";
 import { lerResumoDeVendas, ultimaImportacao } from "@/lib/vendas/dados";
 import { agruparPorCanal } from "@/lib/vendas/origem";
 import { hojeEmSaoPaulo, primeiroDoMes, somarDias } from "@/lib/vendas/periodo";
@@ -35,7 +37,7 @@ async function lerPainel(profile: Profile) {
   const hoje = hojeEmSaoPaulo();
   const de = somarDias(hoje, -(DIAS - 1));
 
-  const [atual, anterior, ultima, fila, despesas, doMes, metaDoMes, porFora] = await Promise.all([
+  const [atual, anterior, ultima, fila, despesas, doMes, metaDoMes, porFora, gasto] = await Promise.all([
     pode("vendas") ? lerResumoDeVendas(db, de, hoje) : null,
     pode("vendas") ? lerResumoDeVendas(db, somarDias(de, -DIAS), somarDias(de, -1)) : null,
     pode("vendas") ? ultimaImportacao(db) : null,
@@ -44,6 +46,7 @@ async function lerPainel(profile: Profile) {
     pode("vendas") ? lerResumoDeVendas(db, primeiroDoMes(hoje), hoje) : null,
     pode("vendas") ? db.from("metas").select("valor").eq("mes", primeiroDoMes(hoje)).maybeSingle() : null,
     pode("vendas") ? lerResumoPorFora(db, primeiroDoMes(hoje), hoje) : null,
+    pode("trafego") ? lerResumoDeGasto(db, de, hoje) : null,
   ]);
 
   // O faturamento do mês é a loja mais o que foi registrado por fora dela.
@@ -67,14 +70,16 @@ async function lerPainel(profile: Profile) {
   }
 
   const aRecuperar = fila?.resumo.a_recuperar;
+  const canaisDeAgora = atual ? agruparPorCanal(atual.por_origem) : [];
   const sinais = atual
     ? calcularSinais({
-        atual: { ...atual, canais: agruparPorCanal(atual.por_origem) },
+        atual: { ...atual, canais: canaisDeAgora },
         anterior: anterior ? { ...anterior, canais: agruparPorCanal(anterior.por_origem) } : null,
         dias: DIAS,
         recuperar: aRecuperar ? { clientes: aRecuperar.clientes, valor: Number(aRecuperar.valor) } : null,
         custos,
         meta: andamento,
+        anuncios: gasto ? { gasto: gasto.gasto, linhas: retornoPorPlataforma(gasto.por_plataforma, canaisDeAgora) } : null,
         horasDesdeALeitura: ultima ? (Date.now() - Date.parse(ultima.quando)) / 3_600_000 : null,
       })
     : aRecuperar && aRecuperar.clientes > 0

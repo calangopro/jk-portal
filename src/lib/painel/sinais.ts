@@ -10,6 +10,7 @@
  * propósito: sinal demais vira ruído e ninguém lê.
  */
 import type { LinhaDeCanal } from "../vendas/origem.ts";
+import type { LinhaDeRetorno } from "../trafego/retorno.ts";
 
 export type Gravidade = "problema" | "atencao" | "oportunidade" | "bom";
 
@@ -52,6 +53,8 @@ export type EntradaDosSinais = {
   custos?: { custoAteHoje: number; faturamento: number } | null;
   /** Andamento da meta do mês, quando há meta definida. */
   meta?: { meta: number; feito: number; projecao: number; precisaPorDia: number; ritmo: number; diasQueFaltam: number; situacao: string } | null;
+  /** Gasto de anúncio do período e a volta por plataforma, quando a pessoa tem a área de tráfego. */
+  anuncios?: { gasto: number; linhas: LinhaDeRetorno[] } | null;
   /** Horas desde a última leitura da Tray; `null` se nunca houve. */
   horasDesdeALeitura?: number | null;
 };
@@ -235,6 +238,47 @@ export function calcularSinais(e: EntradaDosSinais): Sinal[] {
           texto: `${reais(c.valor)} agora contra ${reais(antes.get(c.canal)!.valor)} antes.`,
         });
       }
+    }
+  }
+
+  // 8b. Anúncio: gasto contra a venda paga que chegou com a etiqueta da plataforma.
+  if (e.anuncios) {
+    if (e.anuncios.gasto === 0) {
+      s.push({
+        chave: "sem-gasto-lancado", gravidade: "atencao", peso: 0,
+        titulo: `Nenhum gasto de anúncio lançado nos últimos ${e.dias} dias`,
+        texto: "Sem o gasto, o painel não tem como dizer quanto cada plataforma devolve. Dá para lançar o total do período de uma vez.",
+        link: { href: "/admin/trafego", rotulo: "Lançar o gasto" },
+      });
+    }
+    // Abaixo de R$ 100 o gasto é pequeno demais para tirar conclusão.
+    const comGasto = e.anuncios.linhas.filter((l) => l.gasto >= 100);
+    for (const l of comGasto) {
+      if (l.situacao === "sem_venda") {
+        s.push({
+          chave: `anuncio-sem-venda-${l.plataforma}`, gravidade: "problema", peso: l.gasto,
+          titulo: `${l.nome}: ${reais(l.gasto)} em anúncio e nenhuma venda paga com a etiqueta`,
+          texto: "Ou o anúncio não está vendendo, ou o link saiu sem etiqueta e a venda está caindo em \"Sem etiqueta\". Vale conferir os links antes de cortar a verba.",
+          link: { href: "/admin/trafego", rotulo: "Abrir o tráfego" },
+        });
+      } else if (l.situacao === "prejuizo") {
+        s.push({
+          chave: `anuncio-abaixo-de-1-${l.plataforma}`, gravidade: "problema", peso: l.gasto - l.faturamento,
+          titulo: `${l.nome} gastou ${reais(l.gasto)} e vendeu ${reais(l.faturamento)} com etiqueta`,
+          texto: `Cada R$ 1 de anúncio voltou ${reais(l.retorno ?? 0)} em venda paga. A conta só enxerga pedido com etiqueta, então o número real pode ser um pouco maior, mas está abaixo do que se gasta.`,
+          link: { href: "/admin/trafego", rotulo: "Abrir o tráfego" },
+        });
+      }
+    }
+    const melhores = comGasto.filter((l) => l.retorno !== null).sort((a, b) => (b.retorno ?? 0) - (a.retorno ?? 0));
+    if (melhores.length >= 2 && (melhores[0].retorno ?? 0) >= 3 && (melhores[0].retorno ?? 0) >= 2 * (melhores[1].retorno ?? 0)) {
+      const [a, b] = melhores;
+      s.push({
+        chave: `anuncio-rende-mais-${a.plataforma}`, gravidade: "oportunidade", peso: a.faturamento,
+        titulo: `${a.nome} devolve ${reais(a.retorno ?? 0)} por real gasto, contra ${reais(b.retorno ?? 0)} de ${b.nome}`,
+        texto: "É a venda paga com etiqueta sobre o gasto de cada plataforma. Vale testar passar parte da verba para onde volta mais.",
+        link: { href: "/admin/trafego", rotulo: "Abrir o tráfego" },
+      });
     }
   }
 

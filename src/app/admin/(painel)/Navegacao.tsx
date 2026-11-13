@@ -7,7 +7,7 @@ import type { Area } from "@/lib/auth/acessos";
 import {
   LayoutDashboard, FileText, ImageIcon, MessageCircle, Package,
   TrendingUp, Plug, Users, MapPin, PenLine, Palette, LayoutTemplate, BookCheck, ListChecks, CalendarDays, Milestone,
-  Smartphone, UsersRound, QrCode, Bot, Percent, Tags, Megaphone, Banknote, RotateCcw, Wallet, HandCoins, Trophy,
+  Smartphone, UsersRound, QrCode, Bot, Percent, Tags, Megaphone, Banknote, RotateCcw, Wallet, HandCoins, Trophy, Activity,
   Loader2,
 } from "lucide-react";
 
@@ -50,6 +50,7 @@ const GRUPOS: { nome: string; itens: Item[] }[] = [
       { href: "/admin/vendas", area: "vendas", label: "Vendas", Icone: Banknote, desc: "Pedidos pagos da loja" },
       { href: "/admin/vendedores", area: "vendas", label: "Vendedores", Icone: Trophy, desc: "Quanto cada um vendeu" },
       { href: "/admin/recuperacao", area: "recuperacao", label: "Recuperação", Icone: RotateCcw, desc: "Quem não pagou o pedido" },
+      { href: "/admin/trafego", area: "trafego", label: "Tráfego", Icone: Activity, desc: "Gasto de anúncio e retorno" },
       { href: "/admin/custos", area: "custos", label: "Custos", Icone: Wallet, desc: "O que a loja gasta por mês" },
       { href: "/admin/metricas", area: "metricas", label: "Métricas", Icone: TrendingUp, desc: "Busca e cliques" },
       { href: "/admin/integracoes", area: "equipe", label: "Integrações", Icone: Plug, desc: "Google e loja" },
