@@ -1,4 +1,4 @@
-import { requireAdmin } from "@/lib/auth/session";
+import { requireArea } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { lerVendasDaTela } from "@/lib/vendas/dados";
 import { hojeEmSaoPaulo, lerPeriodo } from "@/lib/vendas/periodo";
@@ -26,7 +26,7 @@ export default async function VendasPage({
 }: {
   searchParams: Promise<{ periodo?: string }>;
 }) {
-  await requireAdmin();
+  await requireArea("vendas");
   const chave = lerPeriodo((await searchParams).periodo);
   const hoje = hojeEmSaoPaulo();
   const dados = await lerVendasDaTela(await createClient(), chave, hoje);

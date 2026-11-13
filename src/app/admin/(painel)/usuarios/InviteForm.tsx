@@ -1,5 +1,6 @@
 "use client";
 
+import { NIVEIS } from "@/lib/auth/acessos";
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 import { inviteUser, type UsersState } from "./actions";
@@ -53,10 +54,11 @@ export function InviteForm() {
         <label className="block text-sm font-medium text-ink">
           Papel
           <select name="role" defaultValue="editor" className={field}>
-            <option value="admin">Administrador</option>
-            <option value="editor">Editor</option>
-            <option value="reviewer">Revisor</option>
-            <option value="author">Autor</option>
+            {NIVEIS.map((n) => (
+              <option key={n.papel} value={n.papel}>
+                {n.nome}: {n.resumo.toLowerCase()}
+              </option>
+            ))}
           </select>
         </label>
       </div>

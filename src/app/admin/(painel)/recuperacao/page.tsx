@@ -1,4 +1,4 @@
-import { requireAdmin } from "@/lib/auth/session";
+import { requireArea } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { lerFilaDeRecuperacao, lerJanela } from "@/lib/vendas/recuperacao";
 import { marcarCaso } from "./actions";
@@ -24,7 +24,7 @@ export default async function RecuperacaoPage({
 }: {
   searchParams: Promise<{ dias?: string }>;
 }) {
-  await requireAdmin();
+  await requireArea("recuperacao");
   const janela = lerJanela((await searchParams).dias);
   const fila = await lerFilaDeRecuperacao(await createClient(), janela);
   return <PainelDeRecuperacao fila={fila} janela={janela} acao={marcarCaso} />;

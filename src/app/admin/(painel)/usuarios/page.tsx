@@ -1,4 +1,5 @@
 import { requireAdmin, ROLE_LABEL, type AppRole } from "@/lib/auth/session";
+import { NIVEIS } from "@/lib/auth/acessos";
 import { createClient } from "@/lib/supabase/server";
 import { InviteForm } from "./InviteForm";
 import { BotaoReenviar } from "./BotaoReenviar";
@@ -131,10 +132,9 @@ export default async function UsuariosPage() {
                               defaultValue={u.role}
                               className="rounded-full border border-border bg-white/70 px-3 py-1.5 text-sm text-ink outline-none focus:border-brand"
                             >
-                              <option value="admin">Administrador</option>
-                              <option value="editor">Editor</option>
-                              <option value="reviewer">Revisor</option>
-                              <option value="author">Autor</option>
+                              {NIVEIS.map((n) => (
+                                <option key={n.papel} value={n.papel}>{n.nome}</option>
+                              ))}
                             </select>
                             <button
                               type="submit"
