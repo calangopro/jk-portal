@@ -50,6 +50,8 @@ export type EntradaDosSinais = {
   recuperar?: { clientes: number; valor: number } | null;
   /** Custos do mês contra o faturamento pago do mês, quando a pessoa é administradora. */
   custos?: { custoAteHoje: number; faturamento: number } | null;
+  /** Andamento da meta do mês, quando há meta definida. */
+  meta?: { meta: number; feito: number; projecao: number; precisaPorDia: number; ritmo: number; diasQueFaltam: number; situacao: string } | null;
   /** Horas desde a última leitura da Tray; `null` se nunca houve. */
   horasDesdeALeitura?: number | null;
 };
@@ -101,7 +103,25 @@ export function calcularSinais(e: EntradaDosSinais): Sinal[] {
     s.push({
       chave: "leitura-atrasada", gravidade: "problema", peso: 1e12,
       titulo: `A última leitura da Tray foi há ${Math.round(e.horasDesdeALeitura)} horas`,
-      texto: "Os números abaixo podem estar atrasados. A rotina roda às 9h, 13h, 18h e 22h, com o computador ligado e a Tray aberta no Chrome.",
+      texto: "Os números abaixo podem estar atrasados. A rotina roda de hora em hora, das 8h às 23h, com o computador ligado e a Tray aberta no Chrome.",
+    });
+  }
+
+  // 1b. Meta do mês fora do ritmo.
+  if (e.meta && e.meta.situacao === "atras") {
+    s.push({
+      chave: "meta-atrasada", gravidade: "problema", peso: e.meta.meta - e.meta.projecao,
+      titulo: `No ritmo atual o mês fecha em ${reais(e.meta.projecao)}, abaixo da meta de ${reais(e.meta.meta)}`,
+      texto:
+        e.meta.diasQueFaltam > 0
+          ? `Para bater, a loja precisa de ${reais(e.meta.precisaPorDia)} por dia nos ${e.meta.diasQueFaltam} dias que faltam. Hoje vem ${reais(e.meta.ritmo)} por dia.`
+          : `Faltam ${reais(e.meta.meta - e.meta.feito)} e hoje é o último dia do mês.`,
+    });
+  } else if (e.meta && e.meta.situacao === "batida") {
+    s.push({
+      chave: "meta-batida", gravidade: "bom", peso: e.meta.feito - e.meta.meta,
+      titulo: `A meta do mês foi batida: ${reais(e.meta.feito)}`,
+      texto: `Passou ${reais(e.meta.feito - e.meta.meta)} da meta de ${reais(e.meta.meta)}.`,
     });
   }
 

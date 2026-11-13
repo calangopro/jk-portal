@@ -120,7 +120,7 @@ function Atualizacao({ ultima }: { ultima: UltimaImportacao }) {
     );
   }
   const horas = (Date.now() - Date.parse(ultima.quando)) / 3_600_000;
-  // A rotina roda às 9h, 13h, 18h e 22h: o maior vão normal é o da madrugada, de 11 horas.
+  // A rotina roda de hora em hora, das 8h às 23h: o maior vão normal é o da madrugada, de 9 horas.
   const atrasado = horas > 12;
   if (!atrasado && ultima.ok) {
     return <p className="mt-2 text-xs text-muted">Pedidos trazidos da Tray {haQuantoTempo(ultima.quando)}.</p>;
@@ -130,7 +130,7 @@ function Atualizacao({ ultima }: { ultima: UltimaImportacao }) {
       {ultima.ok
         ? `A última leitura da Tray foi ${haQuantoTempo(ultima.quando)}. Os números abaixo podem estar atrasados.`
         : `A última leitura da Tray, ${haQuantoTempo(ultima.quando)}, deu erro: ${ultima.erro ?? "sem detalhe"}.`}{" "}
-      A rotina roda às 9h, 13h, 18h e 22h, com o computador ligado e a Tray aberta no Chrome.
+      A rotina roda de hora em hora, das 8h às 23h, com o computador ligado e a Tray aberta no Chrome.
     </p>
   );
 }

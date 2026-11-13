@@ -114,7 +114,7 @@ para administrador. As somas dela saem da função `resumo_de_vendas`.
 
 ## Rotina programada
 
-A tarefa "JK: pedidos da Tray" roda este passo a passo sozinha, no Mac do
-Filipe, pelo Claude no Chrome. Ela depende de três coisas: o Mac ligado, o
+A tarefa "JK: pedidos da Tray" roda este passo a passo sozinha, de hora em
+hora, das 8h às 23h, no Mac do Filipe, pelo Claude no Chrome. Ela depende de três coisas: o Mac ligado, o
 Chrome aberto e a Tray logada. Se uma delas falhar, a rodada falha e a próxima
 recupera, porque cada importação traz os últimos trinta dias inteiros.
