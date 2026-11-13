@@ -2,7 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 import { requireArea } from "@/lib/auth/session";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { lerGastoDasPlataformas, type ResultadoDaLeitura } from "@/lib/trafego/plataformas";
 import { PLATAFORMAS, dividirPorDia } from "@/lib/trafego/retorno";
 import { hojeEmSaoPaulo } from "@/lib/vendas/periodo";
 
@@ -52,4 +54,22 @@ export async function lancarGasto(formData: FormData): Promise<void> {
 
   revalidatePath("/admin/trafego");
   revalidatePath("/admin");
+}
+
+export type EstadoDaLeitura = { resultados?: ResultadoDaLeitura[] };
+
+/**
+ * Lê agora o gasto nas plataformas, sem esperar a rotina de hora em hora.
+ *
+ * Relê 35 dias, e não só a semana: é o botão que se aperta logo depois de
+ * ligar uma plataforma, e a leitura mais longa confere o que já estava gravado.
+ * A gravação usa o cliente de serviço (o token do Meta mora numa tabela que só
+ * ele enxerga), então a conferência de quem pediu vem antes de tudo.
+ */
+export async function lerGastoAgora(_anterior: EstadoDaLeitura, _formData: FormData): Promise<EstadoDaLeitura> {
+  await requireArea("trafego");
+  const resultados = await lerGastoDasPlataformas(createAdminClient(), hojeEmSaoPaulo(), 35);
+  revalidatePath("/admin/trafego");
+  revalidatePath("/admin");
+  return { resultados };
 }

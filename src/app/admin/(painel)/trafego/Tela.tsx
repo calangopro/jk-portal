@@ -2,10 +2,12 @@ import Link from "next/link";
 import { CircleAlert, CircleCheck, Megaphone, Minus, Scale, Tag, TrendingUp, TriangleAlert } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { TrafegoDaTela } from "@/lib/trafego/dados";
+import type { Conexao } from "@/lib/trafego/plataformas";
 import { PLATAFORMAS, type LinhaDeRetorno } from "@/lib/trafego/retorno";
 import { PERIODOS, diaCurto, type ChaveDePeriodo } from "@/lib/vendas/periodo";
 import { BotaoDeAcao } from "../recuperacao/BotaoDeAcao";
-import { Cartao, Dinheiro, reais } from "../vendas/PainelDeVendas";
+import { Cartao, Dinheiro, haQuantoTempo, reais } from "../vendas/PainelDeVendas";
+import { LerAgora } from "./LerAgora";
 
 /**
  * A parte da tela de tráfego que só desenha.
@@ -68,15 +70,50 @@ function PorDia({ dias }: { dias: TrafegoDaTela["porDia"] }) {
   );
 }
 
+const NOME_DA_CONEXAO = { meta: "Meta (Instagram e Facebook)", google: "Google Ads" } as const;
+
+/** Uma linha por plataforma: lida há quanto tempo, ou o que falta para ligar. */
+function Ligacao({ c }: { c: Conexao }) {
+  const ligada = Boolean(c.lidaEm) && !c.problema;
+  const estado = ligada
+    ? { nome: "Ligada", cor: BOM, Icone: CircleCheck }
+    : c.lidaEm
+      ? { nome: "Parou de ler", cor: PROBLEMA, Icone: CircleAlert }
+      : { nome: "Ainda não ligada", cor: ATENCAO, Icone: TriangleAlert };
+  const falta =
+    c.problema ??
+    (c.plataforma === "meta"
+      ? "Falta colar o token do Meta em Integrações."
+      : c.configurada
+        ? "Ainda não houve leitura. Use o botão abaixo para testar."
+        : "Falta a conta de serviço do Google neste deploy.");
+  return (
+    <li className="py-3">
+      <p className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+        <span className="text-sm font-semibold text-ink">{NOME_DA_CONEXAO[c.plataforma]}</span>
+        <span className="inline-flex items-center gap-1 text-xs font-bold uppercase tracking-wider" style={{ color: estado.cor }}>
+          <estado.Icone size={13} aria-hidden /> {estado.nome}
+        </span>
+      </p>
+      <p className="mt-0.5 text-xs leading-relaxed text-muted">
+        {ligada ? `Gasto lido direto da plataforma ${haQuantoTempo(c.lidaEm!)}.` : falta}
+        {!ligada && c.lidaEm ? ` A última leitura boa foi ${haQuantoTempo(c.lidaEm)}.` : ""}
+      </p>
+    </li>
+  );
+}
+
 const campo = "w-full rounded-[10px] border border-border bg-white px-3 py-2 text-sm text-ink";
 const rotulo = "block text-[0.68rem] font-semibold uppercase tracking-wider text-muted";
 
 export function TelaDeTrafego({
-  chave, hoje, acao, de, ate, comparacao, gasto, gastoAnterior, linhas, vendaDaLoja, porFora, semEtiqueta, porDia,
+  chave, hoje, acao, conexoes, de, ate, comparacao, gasto, gastoAnterior, linhas, vendaDaLoja, porFora, semEtiqueta, porDia,
 }: TrafegoDaTela & {
   chave: ChaveDePeriodo;
   hoje: string;
   acao: (f: FormData) => Promise<void>;
+  /** Estado da leitura por API de cada plataforma. Sem ele (prévia), o bloco não aparece. */
+  conexoes?: Conexao[] | null;
 }) {
   const total = gasto?.gasto ?? 0;
   const comEtiqueta = linhas.reduce((s, l) => s + l.faturamento, 0);
@@ -222,12 +259,26 @@ export function TelaDeTrafego({
         </>
       )}
 
+      {conexoes ? (
+        <section className="glass mt-6 rounded-[18px] p-5" aria-label="Leitura automática">
+          <p className="eyebrow">Leitura automática</p>
+          <p className="mt-1 max-w-3xl text-xs leading-relaxed text-muted">
+            De hora em hora o painel busca o gasto direto no Meta e no Google Ads e regrava os últimos sete dias, porque
+            as plataformas corrigem o gasto dos dias recentes. Plataforma ligada não precisa de lançamento à mão.
+          </p>
+          <ul className="mt-2 divide-y divide-border/60">
+            {conexoes.map((c) => <Ligacao key={c.plataforma} c={c} />)}
+          </ul>
+          <LerAgora />
+        </section>
+      ) : null}
+
       <section className="glass mt-6 rounded-[18px] p-5" aria-label="Lançar gasto">
-        <p className="eyebrow">Lançar gasto</p>
+        <p className="eyebrow">Lançar gasto à mão</p>
         <p className="mt-1 max-w-3xl text-xs leading-relaxed text-muted">
-          Enquanto a leitura automática das plataformas não está ligada, o gasto entra por aqui. Para um dia só, preencha
-          só o primeiro dia. Para o total de um período (a fatura do mês, por exemplo), preencha os dois: o valor é
-          dividido por igual entre os dias. Lançar de novo o mesmo dia troca o valor, não soma.
+          Para plataforma que ainda não está ligada, ou que não tem leitura automática (Pinterest, TikTok). Para um dia
+          só, preencha só o primeiro dia. Para o total de um período (a fatura do mês, por exemplo), preencha os dois: o
+          valor é dividido por igual entre os dias. Lançar de novo o mesmo dia troca o valor, não soma.
         </p>
         <form action={acao} className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr_1fr_auto] lg:items-end">
           <div>
