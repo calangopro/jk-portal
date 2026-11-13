@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { cronAutorizado } from "@/lib/cron/autorizar";
+import { lerItensDasPlataformas } from "@/lib/trafego/itens";
 import { lerGastoDasPlataformas } from "@/lib/trafego/plataformas";
 import { hojeEmSaoPaulo } from "@/lib/vendas/periodo";
 
@@ -21,6 +22,8 @@ export async function POST(request: Request) {
   if (!(await cronAutorizado(request, supabase))) {
     return NextResponse.json({ erro: "segredo inválido" }, { status: 401 });
   }
-  const resultados = await lerGastoDasPlataformas(supabase, hojeEmSaoPaulo(), 7);
-  return NextResponse.json({ resultados });
+  const hoje = hojeEmSaoPaulo();
+  // O total por dia e o detalhe por campanha são leituras independentes: uma não espera nem derruba a outra.
+  const [resultados, itens] = await Promise.all([lerGastoDasPlataformas(supabase, hoje, 7), lerItensDasPlataformas(supabase, hoje, 7)]);
+  return NextResponse.json({ resultados, itens });
 }

@@ -1,82 +1,28 @@
-import Link from "next/link";
-import { ExternalLink } from "lucide-react";
 import { requireSessao, ROLE_LABEL } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { signOut } from "@/app/admin/login/actions";
-import { Navegacao } from "./Navegacao";
-import { BotaoSair } from "./BotaoSair";
+import { Moldura } from "./Moldura";
 
-import { comBasePath } from "@/lib/seo/base-path";
 /**
- * Chrome da área protegida: barra lateral agrupada por finalidade e uma faixa
- * de topo enxuta. Fica num route group para NÃO envolver a página de login,
- * que precisa ser acessível sem sessão.
+ * Chrome da área protegida. Fica num route group para NÃO envolver a página de
+ * login, que precisa ser acessível sem sessão. O desenho mora em `Moldura.tsx`.
  */
-export default async function PainelLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default async function PainelLayout({ children }: { children: React.ReactNode }) {
   const profile = await requireSessao();
 
   // Aviso na navegação quando há comentário esperando revisão.
   const supabase = await createClient();
-  const { count } = await supabase
-    .from("comments")
-    .select("*", { count: "exact", head: true })
-    .eq("status", "pending");
+  const { count } = await supabase.from("comments").select("*", { count: "exact", head: true }).eq("status", "pending");
 
   return (
-    <div className="min-h-screen lg:grid lg:grid-cols-[16rem_1fr]">
-      {/* Barra lateral */}
-      <aside className="border-b border-border/60 bg-white/40 backdrop-blur-sm lg:sticky lg:top-0 lg:h-screen lg:overflow-y-auto lg:border-b-0 lg:border-r">
-        <div className="px-5 py-5">
-          <Link href="/admin" className="flex items-center gap-2.5">
-            {/* `img` cru não recebe o basePath (só `next/image` recebe), então
-                o caminho do arquivo em public/ é montado na mão. */}
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={comBasePath("/logo.svg")} alt="JK Alianças" width={104} height={35} className="h-6 w-auto" />
-            <span className="text-[0.62rem] font-semibold uppercase tracking-[0.18em] text-brand-nav">
-              Painel
-            </span>
-          </Link>
-        </div>
-
-        <div className="px-3 pb-6">
-          <Navegacao pendentes={count ?? 0} areas={profile.areas} />
-        </div>
-      </aside>
-
-      {/* Conteúdo */}
-      <div className="min-w-0">
-        <header className="glass-nav sticky top-0 z-40">
-          <div className="flex items-center justify-between gap-4 px-5 py-3 sm:px-8">
-            <Link
-              href="/"
-              target="_blank"
-              className="flex items-center gap-1.5 text-sm text-muted transition-colors hover:text-brand-nav"
-            >
-              Ver site <ExternalLink size={13} />
-            </Link>
-
-            <div className="flex items-center gap-4">
-              <div className="text-right">
-                <p className="text-sm font-medium leading-tight text-ink">
-                  {profile.fullName ?? profile.email}
-                </p>
-                <p className="text-xs leading-tight text-muted">{ROLE_LABEL[profile.role]}</p>
-              </div>
-              <form action={signOut}>
-                <BotaoSair />
-              </form>
-            </div>
-          </div>
-        </header>
-
-        <main className="painel-conteudo mx-auto w-full max-w-5xl px-5 py-10 sm:px-8">
-          {children}
-        </main>
-      </div>
-    </div>
+    <Moldura
+      nome={profile.fullName ?? profile.email ?? "Equipe"}
+      papel={ROLE_LABEL[profile.role]}
+      areas={profile.areas}
+      pendentes={count ?? 0}
+      sair={signOut}
+    >
+      {children}
+    </Moldura>
   );
 }

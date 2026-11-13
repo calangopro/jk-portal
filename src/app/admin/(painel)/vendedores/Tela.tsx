@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { HandCoins, RotateCcw, Trophy, TriangleAlert } from "lucide-react";
 import { NOME_DA_FORMA, type ResumoPorFora } from "@/lib/vendas/por-fora";
-import { PERIODOS, diaCurto, type ChaveDePeriodo } from "@/lib/vendas/periodo";
+import { diaCurto, type ChaveDePeriodo } from "@/lib/vendas/periodo";
+import { SeletorDePeriodo } from "../SeletorDePeriodo";
 import { Cartao, Dinheiro, reais } from "../vendas/PainelDeVendas";
 
 const COR = "#b8841f";
@@ -37,19 +38,7 @@ export function TelaDeVendedores({
 
       <div className="mt-8 flex flex-wrap items-end justify-between gap-4">
         <h2 className="font-display text-2xl text-ink">De {diaCurto(de)} a {diaCurto(ate)}</h2>
-        <nav aria-label="Período" className="flex gap-1 rounded-full border border-border bg-surface/60 p-1">
-          {PERIODOS.map((p) => (
-            <Link
-              key={p.chave}
-              href={`?periodo=${p.chave}`}
-              scroll={false}
-              aria-current={p.chave === chave ? "page" : undefined}
-              className={p.chave === chave ? "rounded-full bg-brand px-3.5 py-1.5 text-xs font-semibold text-ink" : "rounded-full px-3.5 py-1.5 text-xs font-semibold text-muted hover:text-ink"}
-            >
-              {p.rotulo}
-            </Link>
-          ))}
-        </nav>
+        <SeletorDePeriodo atual={chave} />
       </div>
 
       {atual === null ? (

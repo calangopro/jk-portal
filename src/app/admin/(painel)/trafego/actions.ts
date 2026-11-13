@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireArea } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { lerItensDasPlataformas } from "@/lib/trafego/itens";
 import { lerGastoDasPlataformas, type ResultadoDaLeitura } from "@/lib/trafego/plataformas";
 import { PLATAFORMAS, dividirPorDia } from "@/lib/trafego/retorno";
 import { hojeEmSaoPaulo } from "@/lib/vendas/periodo";
@@ -68,7 +69,9 @@ export type EstadoDaLeitura = { resultados?: ResultadoDaLeitura[] };
  */
 export async function lerGastoAgora(_anterior: EstadoDaLeitura, _formData: FormData): Promise<EstadoDaLeitura> {
   await requireArea("trafego");
-  const resultados = await lerGastoDasPlataformas(createAdminClient(), hojeEmSaoPaulo(), 35);
+  const db = createAdminClient();
+  const hoje = hojeEmSaoPaulo();
+  const [resultados] = await Promise.all([lerGastoDasPlataformas(db, hoje, 35), lerItensDasPlataformas(db, hoje, 35)]);
   revalidatePath("/admin/trafego");
   revalidatePath("/admin");
   return { resultados };

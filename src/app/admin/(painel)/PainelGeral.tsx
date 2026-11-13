@@ -76,9 +76,9 @@ function Numero({
   serie?: number[];
 }) {
   return (
-    <div className="glass min-w-0 rounded-[18px] p-5">
-      <p className="eyebrow truncate text-[0.62rem]">{rotulo}</p>
-      <p className="font-display numeros mt-2 text-[clamp(1.5rem,2.4vw,2.1rem)] leading-tight text-ink">{valor}</p>
+    <div className="glass min-w-0 rounded-[16px] p-3.5 sm:rounded-[18px] sm:p-5">
+      <p className="eyebrow break-words text-[0.6rem] leading-snug sm:truncate sm:text-[0.62rem]">{rotulo}</p>
+      <p className="font-display numeros mt-2 text-[clamp(1.15rem,5.2vw,1.5rem)] leading-tight text-ink sm:text-[clamp(1.5rem,2.4vw,2.1rem)]">{valor}</p>
       <p className="mt-1">{children}</p>
       {serie ? <Linhazinha valores={serie} /> : null}
     </div>
@@ -213,7 +213,7 @@ export function PainelGeral({ vendas, sinais }: { vendas: DadosDeVendas | null; 
             Abrir as vendas <ArrowRight size={12} aria-hidden />
           </Link>
         </div>
-        <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="mt-4 grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
           <Numero rotulo="Faturamento pago" valor={reais(Number(t.valor_pago))} serie={serie.map((d) => d.valor)}>
             <Variacao d={ta ? variacao(Number(t.valor_pago), Number(ta.valor_pago)) : null} />
           </Numero>
