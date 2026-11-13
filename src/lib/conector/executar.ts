@@ -1,4 +1,5 @@
 import "server-only";
+import { ehAdmin } from "@/lib/auth/acessos";
 import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ErroDoConector, type Contexto, type Operacao, type Risco } from "./tipos";
@@ -122,7 +123,7 @@ export async function executarOperacao(
     if (op.risco !== "leitura" && modo === "leitura") {
       throw new ErroDoConector(`${op.nome} muda o site: rode pela ferramenta "executar", não pela "consultar".`, 403);
     }
-    if (op.soAdmin && ctx.quem.papel !== "admin") {
+    if (op.soAdmin && !ehAdmin(ctx.quem.papel)) {
       throw new ErroDoConector(`${op.nome} é só para administrador, e o seu perfil é ${ctx.quem.papel}.`, 403);
     }
 

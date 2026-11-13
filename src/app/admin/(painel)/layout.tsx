@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ExternalLink } from "lucide-react";
-import { requireStaff, ROLE_LABEL } from "@/lib/auth/session";
+import { requireSessao, ROLE_LABEL } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { signOut } from "@/app/admin/login/actions";
 import { Navegacao } from "./Navegacao";
@@ -17,7 +17,7 @@ export default async function PainelLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const profile = await requireStaff();
+  const profile = await requireSessao();
 
   // Aviso na navegação quando há comentário esperando revisão.
   const supabase = await createClient();
@@ -43,7 +43,7 @@ export default async function PainelLayout({
         </div>
 
         <div className="px-3 pb-6">
-          <Navegacao pendentes={count ?? 0} admin={profile.role === "admin"} />
+          <Navegacao pendentes={count ?? 0} areas={profile.areas} />
         </div>
       </aside>
 

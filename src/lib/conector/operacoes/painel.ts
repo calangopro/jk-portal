@@ -1,4 +1,5 @@
 import "server-only";
+import { ehAdmin } from "@/lib/auth/acessos";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { absoluteUrl } from "@/lib/seo/site";
@@ -71,7 +72,7 @@ export const OPERACOES_PAINEL = [
     retorno: "{ itens: Array<{ quando, quem, operacao, risco, ok, erro?, alvo? }> }",
     risco: "leitura",
     async executar(a, ctx) {
-      if (a.todos && ctx.quem.papel !== "admin") falhar("Ver a atividade de todos é só para administrador.", 403);
+      if (a.todos && !ehAdmin(ctx.quem.papel)) falhar("Ver a atividade de todos é só para administrador.", 403);
       let q = ctx.db
         .from("conector_registro")
         .select("criado_em, operacao, ferramenta, risco, ok, erro, alvo, profiles:profile_id(full_name, email)")

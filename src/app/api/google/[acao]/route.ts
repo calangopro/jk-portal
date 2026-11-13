@@ -1,4 +1,5 @@
 import { randomBytes, timingSafeEqual } from "node:crypto";
+import { ehAdmin as papelDeAdmin } from "@/lib/auth/acessos";
 import { NextResponse } from "next/server";
 import { revalidatePath, revalidateTag } from "next/cache";
 import { getSessionProfile } from "@/lib/auth/session";
@@ -44,7 +45,7 @@ function voltar(request: Request, aviso: string): NextResponse {
 
 async function ehAdmin(): Promise<boolean> {
   const perfil = await getSessionProfile();
-  return Boolean(perfil?.isActive && perfil.role === "admin");
+  return Boolean(perfil?.isActive && papelDeAdmin(perfil.role));
 }
 
 function mesmoValor(a: string, b: string): boolean {

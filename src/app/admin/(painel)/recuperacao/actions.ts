@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireAdmin } from "@/lib/auth/session";
+import { requireArea } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { ESTADOS, type Estado } from "@/lib/vendas/recuperacao";
 
@@ -24,7 +24,7 @@ function dinheiro(v: FormDataEntryValue | null): number | null {
  * chame a ação direto.
  */
 export async function marcarCaso(formData: FormData): Promise<void> {
-  const perfil = await requireAdmin();
+  const perfil = await requireArea("recuperacao");
 
   const pedido = Number(formData.get("pedido"));
   const estado = String(formData.get("estado") ?? "") as Estado;

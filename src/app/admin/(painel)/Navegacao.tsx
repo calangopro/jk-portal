@@ -3,6 +3,7 @@
 import Link, { useLinkStatus } from "next/link";
 import { usePathname } from "next/navigation";
 import type { LucideIcon } from "lucide-react";
+import type { Area } from "@/lib/auth/acessos";
 import {
   LayoutDashboard, FileText, ImageIcon, MessageCircle, Package,
   TrendingUp, Plug, Users, MapPin, PenLine, Palette, LayoutTemplate, BookCheck, ListChecks, CalendarDays, Milestone,
@@ -17,55 +18,57 @@ import {
  * quer. Agrupado, ela vai direto ao grupo certo. Os nomes dizem o que a área
  * faz, não como foi implementada.
  */
-const GRUPOS = [
+type Item = { href: string; area: Area; label: string; Icone: LucideIcon; desc: string };
+
+const GRUPOS: { nome: string; itens: Item[] }[] = [
   {
     nome: "Editorial",
     itens: [
-      { href: "/admin/pautas", label: "Pautas", Icone: ListChecks, desc: "O que escrever a seguir" },
-      { href: "/admin/conteudos", label: "Conteúdos", Icone: FileText, desc: "Posts do site" },
-      { href: "/admin/calendario", label: "Calendário", Icone: CalendarDays, desc: "Quando cada coisa sai" },
-      { href: "/admin/midia", label: "Mídia", Icone: ImageIcon, desc: "Imagens do portal" },
-      { href: "/admin/comentarios", label: "Comentários", Icone: MessageCircle, desc: "Fila de moderação" },
-      { href: "/admin/autores", label: "Autores", Icone: PenLine, desc: "Quem assina" },
-      { href: "/admin/fatos", label: "Base de fatos", Icone: BookCheck, desc: "O que dá para afirmar" },
+      { href: "/admin/pautas", area: "conteudo", label: "Pautas", Icone: ListChecks, desc: "O que escrever a seguir" },
+      { href: "/admin/conteudos", area: "conteudo", label: "Conteúdos", Icone: FileText, desc: "Posts do site" },
+      { href: "/admin/calendario", area: "conteudo", label: "Calendário", Icone: CalendarDays, desc: "Quando cada coisa sai" },
+      { href: "/admin/midia", area: "conteudo", label: "Mídia", Icone: ImageIcon, desc: "Imagens do portal" },
+      { href: "/admin/comentarios", area: "conteudo", label: "Comentários", Icone: MessageCircle, desc: "Fila de moderação" },
+      { href: "/admin/autores", area: "conteudo", label: "Autores", Icone: PenLine, desc: "Quem assina" },
+      { href: "/admin/fatos", area: "conteudo", label: "Base de fatos", Icone: BookCheck, desc: "O que dá para afirmar" },
     ],
   },
   {
     nome: "Loja",
     itens: [
-      { href: "/admin/produtos", label: "Produtos", Icone: Package, desc: "Fotos, preço e link de cada peça" },
-      { href: "/admin/campanhas", label: "Campanhas", Icone: Tags, desc: "Descontos com aprovação" },
-      { href: "/admin/margem", label: "Margem", Icone: Percent, desc: "Custo, ouro e margem mínima", soAdmin: true },
-      { href: "/admin/anuncios", label: "Anúncios", Icone: Megaphone, desc: "Quanto pagar por venda", soAdmin: true },
-      { href: "/admin/lojas", label: "Lojas", Icone: MapPin, desc: "Endereço e horário" },
+      { href: "/admin/produtos", area: "catalogo", label: "Produtos", Icone: Package, desc: "Fotos, preço e link de cada peça" },
+      { href: "/admin/campanhas", area: "campanhas", label: "Campanhas", Icone: Tags, desc: "Descontos com aprovação" },
+      { href: "/admin/margem", area: "margem", label: "Margem", Icone: Percent, desc: "Custo, ouro e margem mínima" },
+      { href: "/admin/anuncios", area: "anuncios", label: "Anúncios", Icone: Megaphone, desc: "Quanto pagar por venda" },
+      { href: "/admin/lojas", area: "catalogo", label: "Lojas", Icone: MapPin, desc: "Endereço e horário" },
     ],
   },
   {
     nome: "Resultado",
     itens: [
-      { href: "/admin/vendas", label: "Vendas", Icone: Banknote, desc: "Pedidos pagos da loja", soAdmin: true },
-      { href: "/admin/recuperacao", label: "Recuperação", Icone: RotateCcw, desc: "Quem não pagou o pedido", soAdmin: true },
-      { href: "/admin/custos", label: "Custos", Icone: Wallet, desc: "O que a loja gasta por mês", soAdmin: true },
-      { href: "/admin/metricas", label: "Métricas", Icone: TrendingUp, desc: "Busca e cliques" },
-      { href: "/admin/integracoes", label: "Integrações", Icone: Plug, desc: "Google e loja" },
+      { href: "/admin/vendas", area: "vendas", label: "Vendas", Icone: Banknote, desc: "Pedidos pagos da loja" },
+      { href: "/admin/recuperacao", area: "recuperacao", label: "Recuperação", Icone: RotateCcw, desc: "Quem não pagou o pedido" },
+      { href: "/admin/custos", area: "custos", label: "Custos", Icone: Wallet, desc: "O que a loja gasta por mês" },
+      { href: "/admin/metricas", area: "metricas", label: "Métricas", Icone: TrendingUp, desc: "Busca e cliques" },
+      { href: "/admin/integracoes", area: "equipe", label: "Integrações", Icone: Plug, desc: "Google e loja" },
     ],
   },
   {
     nome: "Site",
     itens: [
-      { href: "/admin/home", label: "Home", Icone: LayoutTemplate, desc: "Seções da página inicial" },
-      { href: "/admin/bio", label: "Link da bio", Icone: Smartphone, desc: "A página do Instagram" },
-      { href: "/admin/grupo", label: "Grupo de ofertas", Icone: UsersRound, desc: "Página do anúncio e contatos" },
-      { href: "/admin/qrcode", label: "QR codes", Icone: QrCode, desc: "Um por lugar, com as leituras" },
-      { href: "/admin/aparencia", label: "Aparência", Icone: Palette, desc: "Cores e cantos" },
-      { href: "/admin/redirects", label: "Redirects", Icone: Milestone, desc: "Endereços que mudaram" },
+      { href: "/admin/home", area: "site", label: "Home", Icone: LayoutTemplate, desc: "Seções da página inicial" },
+      { href: "/admin/bio", area: "site", label: "Link da bio", Icone: Smartphone, desc: "A página do Instagram" },
+      { href: "/admin/grupo", area: "site", label: "Grupo de ofertas", Icone: UsersRound, desc: "Página do anúncio e contatos" },
+      { href: "/admin/qrcode", area: "site", label: "QR codes", Icone: QrCode, desc: "Um por lugar, com as leituras" },
+      { href: "/admin/aparencia", area: "site", label: "Aparência", Icone: Palette, desc: "Cores e cantos" },
+      { href: "/admin/redirects", area: "site", label: "Redirects", Icone: Milestone, desc: "Endereços que mudaram" },
     ],
   },
   {
     nome: "Equipe",
     itens: [
-      { href: "/admin/usuarios", label: "Usuários", Icone: Users, desc: "Acesso e papéis" },
-      { href: "/admin/conector", label: "Conector do Claude", Icone: Bot, desc: "Claude lendo e escrevendo aqui" },
+      { href: "/admin/usuarios", area: "equipe", label: "Usuários", Icone: Users, desc: "Acesso e papéis" },
+      { href: "/admin/conector", area: "equipe", label: "Conector do Claude", Icone: Bot, desc: "Claude lendo e escrevendo aqui" },
     ],
   },
 ];
@@ -100,7 +103,7 @@ function IconeDoItem({ Icone }: { Icone: LucideIcon }) {
   );
 }
 
-export function Navegacao({ pendentes, admin }: { pendentes: number; admin: boolean }) {
+export function Navegacao({ pendentes, areas }: { pendentes: number; areas: Area[] }) {
   const caminho = usePathname();
   const ativo = (href: string) =>
     href === "/admin" ? caminho === "/admin" : caminho.startsWith(href);
@@ -109,6 +112,11 @@ export function Navegacao({ pendentes, admin }: { pendentes: number; admin: bool
   const base =
     "group flex items-center gap-2.5 rounded-[10px] px-3 py-2 text-sm transition-colors " +
     "[&:has([data-carregando])]:bg-brand/12 [&:has([data-carregando])]:text-brand-strong";
+
+  // Cada pessoa só vê o que o nível dela abre, e grupo vazio some inteiro.
+  const grupos = GRUPOS.map((g) => ({ ...g, itens: g.itens.filter((i) => areas.includes(i.area)) })).filter(
+    (g) => g.itens.length > 0,
+  );
 
   return (
     <nav aria-label="Administração" className="space-y-6">
@@ -124,13 +132,13 @@ export function Navegacao({ pendentes, admin }: { pendentes: number; admin: bool
         <span className="font-medium">Visão geral</span>
       </Link>
 
-      {GRUPOS.map((g) => (
+      {grupos.map((g) => (
         <div key={g.nome}>
           <p className="px-3 pb-1.5 text-[0.62rem] font-semibold uppercase tracking-[0.16em] text-muted">
             {g.nome}
           </p>
           <ul className="space-y-0.5">
-            {g.itens.filter((i) => admin || !("soAdmin" in i && i.soAdmin)).map(({ href, label, Icone, desc }) => {
+            {g.itens.map(({ href, label, Icone, desc }) => {
               const estaAtivo = ativo(href);
               return (
                 <li key={href}>

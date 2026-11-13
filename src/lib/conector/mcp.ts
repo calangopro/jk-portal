@@ -1,4 +1,5 @@
 import "server-only";
+import { ehAdmin } from "@/lib/auth/acessos";
 import { after } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { enderecos } from "./base";
@@ -49,7 +50,7 @@ function visiveis(ctx: Contexto, soLeitura: boolean): Operacao[] {
     (op) =>
       (!soLeitura || op.risco === "leitura") &&
       (ctx.acesso.escopo === "completo" || op.risco === "leitura") &&
-      (!op.soAdmin || ctx.quem.papel === "admin"),
+      (!op.soAdmin || ehAdmin(ctx.quem.papel)),
   );
 }
 

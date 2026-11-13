@@ -4,11 +4,12 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { requireAdmin, type AppRole } from "@/lib/auth/session";
+import { PAPEIS } from "@/lib/auth/acessos";
 import { absoluteUrl } from "@/lib/seo/site";
 
 export type UsersState = { error?: string; success?: string };
 
-const ROLES: AppRole[] = ["admin", "editor", "reviewer", "author"];
+const ROLES: AppRole[] = PAPEIS;
 
 /**
  * Envia o convite pelo Supabase e devolve o motivo em português quando falha.

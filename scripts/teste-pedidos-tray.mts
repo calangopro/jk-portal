@@ -17,6 +17,8 @@ import {
 } from "../src/lib/vendas/tray-csv.ts";
 import { agruparPorCanal, canalDaOrigem, nomeLimpo } from "../src/lib/vendas/origem.ts";
 import { diasEntre, hojeEmSaoPaulo, intervaloDoPeriodo, lerPeriodo, somarDias } from "../src/lib/vendas/periodo.ts";
+import { calcularSinais, porDiaDaSemana, taxaDeCancelamento, variacao } from "../src/lib/painel/sinais.ts";
+import { ehAdmin, ehEquipeDeConteudo, NIVEIS, ROLE_LABEL } from "../src/lib/auth/acessos.ts";
 
 let falhas = 0;
 function confere(nome: string, ok: boolean, detalhe = "") {
@@ -174,6 +176,65 @@ console.log("\nOrigem e período da tela de vendas");
   const janeiro = intervaloDoPeriodo("mes-passado", "2027-01-05");
   confere("mês passado na virada do ano", janeiro.de === "2026-12-01" && janeiro.ate === "2026-12-31");
   confere("período desconhecido cai em este mês", lerPeriodo("xyz") === "mes" && lerPeriodo("30d") === "30d");
+}
+
+console.log("\nSinais do painel e níveis de acesso");
+
+{
+  const periodo = (valor: number, pagos: number, cancelados: number, canais: [string, number][]) => ({
+    totais: { pagos, valor_pago: valor, aguardando: 0, valor_aguardando: 0, cancelados, valor_cancelado: cancelados * 500 },
+    por_dia: [
+      { dia: "2026-11-09", pagos: 1, valor_pago: 100 },
+      { dia: "2026-11-10", pagos: 5, valor_pago: 900 },
+      { dia: "2026-11-11", pagos: 2, valor_pago: 300 },
+      { dia: "2026-11-12", pagos: 2, valor_pago: 300 },
+      { dia: "2026-11-13", pagos: 2, valor_pago: 300 },
+    ],
+    por_hora: [{ hora: 13, pagos: 8, valor: 1500 }, { hora: 20, pagos: 2, valor: 300 }],
+    canais: agruparPorCanal(canais.map(([origem, v]) => ({ origem, pagos: 1, valor: v, criados: 2 }))),
+    por_pagamento: [
+      { tipo: "Boleto - Appmax", pagos: 0, valor: 0, criados: 6, cancelados: 6 },
+      { tipo: "Cartão de Crédito - Appmax", pagos: 30, valor: 9000, criados: 50, cancelados: 20 },
+      { tipo: "Pix - Appmax", pagos: 20, valor: 5000, criados: 22, cancelados: 2 },
+    ],
+  });
+  const sinais = calcularSinais({
+    atual: periodo(8000, 50, 28, [["", 5000], ["chatgpt.com", 2000], ["1-Google Ads", 1000]]),
+    anterior: periodo(10000, 55, 20, [["", 6000], ["chatgpt.com", 500], ["1-Google Ads", 3500]]),
+    dias: 30,
+    recuperar: { clientes: 12, valor: 15000 },
+    custos: { custoAteHoje: 9000, faturamento: 10000 },
+    horasDesdeALeitura: 20,
+  });
+  const chaves = sinais.map((s) => s.chave);
+  confere("leitura atrasada vem primeiro", sinais[0].chave === "leitura-atrasada" && sinais[0].gravidade === "problema");
+  confere("queda de 20% no faturamento é problema", chaves.includes("faturamento-caiu"));
+  confere("custos em 90% do faturamento é problema", chaves.includes("custos-altos"));
+  confere("36% de cancelamento é problema", chaves.includes("cancelamento-alto"), String(taxaDeCancelamento(periodo(0, 50, 28, []).totais)));
+  confere("boleto com 6 de 6 cancelados é problema", sinais.some((s) => s.chave === "pagamento-Boleto" && s.gravidade === "problema"));
+  confere("cartão com 40% de cancelamento é atenção", sinais.some((s) => s.chave.startsWith("pagamento-Cart") && s.gravidade === "atencao"));
+  confere("Pix com 9% de cancelamento não vira sinal", !chaves.some((c) => c.startsWith("pagamento-Pix")));
+  confere("62% sem etiqueta é atenção", chaves.includes("sem-etiqueta"));
+  confere("IA crescendo 300% é oportunidade", chaves.includes("canal-subiu-ia"));
+  confere("Google Ads caindo 71% é atenção", chaves.includes("canal-caiu-google_ads"));
+  confere("fila de recuperação é oportunidade com o valor", sinais.some((s) => s.chave === "fila-de-recuperacao" && s.peso === 15000));
+  confere("problemas antes de atenção, atenção antes de oportunidade", sinais.map((s) => s.gravidade).join().replace(/(\w+)(,\1)+/g, "$1") === "problema,atencao,oportunidade");
+  confere("todo sinal tem título e texto", sinais.every((s) => s.titulo.length > 5 && s.texto.length > 10));
+  confere("nenhum sinal com travessão", !sinais.some((s) => /[\u2013\u2014]/.test(s.titulo + s.texto)));
+
+  const calmo = calcularSinais({ atual: { ...periodo(10000, 50, 2, [["1-Google Ads", 10000]]), por_pagamento: [], por_hora: [] }, anterior: null, dias: 30, horasDesdeALeitura: 1 });
+  confere("período sem nada errado não inventa sinal", calmo.length === 0, calmo.map((s) => s.chave).join());
+
+  const semana = porDiaDaSemana([{ dia: "2026-11-09", valor_pago: 100 }, { dia: "2026-11-10", valor_pago: 900 }, { dia: "2026-11-16", valor_pago: 300 }]);
+  confere("dia da semana: média, do melhor para o pior", semana[0].nome === "terça" && semana[0].media === 900 && semana[1].nome === "segunda" && semana[1].media === 200);
+  confere("variação sem base é nula", variacao(10, 0) === null && variacao(110, 100) === 0.1);
+}
+
+{
+  confere("dono e GM valem como administrador", ehAdmin("dono") && ehAdmin("gm") && ehAdmin("admin"));
+  confere("gerente, tráfego e vendas não são administradores", !ehAdmin("gerente") && !ehAdmin("trafego") && !ehAdmin("vendas") && !ehAdmin(null));
+  confere("vendas e fábrica ficam fora da equipe de conteúdo", !ehEquipeDeConteudo("vendas") && !ehEquipeDeConteudo("fabrica") && ehEquipeDeConteudo("gerente") && ehEquipeDeConteudo("trafego"));
+  confere("os seis níveis novos têm nome", ["dono", "gm", "gerente", "trafego", "vendas", "fabrica"].every((p) => NIVEIS.some((n) => n.papel === p)) && ROLE_LABEL.gm === "GM" && ROLE_LABEL.trafego === "Tráfego");
 }
 
 if (falhas > 0) {
