@@ -8,7 +8,9 @@ import { DESTINOS, type Destino } from "@/lib/leads/tipos";
 import { lerEstadoDoGoogle } from "@/lib/google-perfil/oauth";
 import { absoluteUrl } from "@/lib/seo/site";
 import { CLIENTE_DO_GOOGLE_ADS, CONTA_DO_META, lerConexoes } from "@/lib/trafego/plataformas";
+import { lerEstadoDaApiDePedidos } from "@/lib/vendas/pedidos-da-api";
 import { Cartao } from "./Cartao";
+import { CartaoDaTray } from "./CartaoDaTray";
 import { CartaoGoogleAds, CartaoMetaAds } from "./CartaoDeAnuncios";
 import { CartaoDeChave } from "./CartaoDeChave";
 import { CartaoGoogle } from "./CartaoGoogle";
@@ -36,7 +38,12 @@ export default async function IntegracoesPage({
   // Chaves e contagens com a service_role: `integration_tokens` não tem policy,
   // e a página já exige administrador.
   const admin = createAdminClient();
-  const [chaves, estadoDoGoogle, conexoes] = await Promise.all([lerChaves(admin), lerEstadoDoGoogle(admin), lerConexoes(admin)]);
+  const [chaves, estadoDoGoogle, conexoes, estadoDaTray] = await Promise.all([
+    lerChaves(admin),
+    lerEstadoDoGoogle(admin),
+    lerConexoes(admin),
+    lerEstadoDaApiDePedidos(admin),
+  ]);
   const anuncio = (p: "meta" | "google") => {
     const c = conexoes.find((x) => x.plataforma === p);
     return { configurada: Boolean(c?.configurada), lendo: Boolean(c?.lidaEm) && !c?.problema, problema: c?.problema ?? null, contaDeServico: c?.contaDeServico ?? null };
@@ -131,6 +138,18 @@ export default async function IntegracoesPage({
             contaDeServico={anuncio("google").contaDeServico}
             cliente={CLIENTE_DO_GOOGLE_ADS.replace(/(\d{3})(\d{3})(\d{4})/, "$1-$2-$3")}
           />
+        </div>
+      </section>
+
+      <section className="mt-12">
+        <p className="eyebrow">Loja</p>
+        <h2 className="font-display mt-2 text-2xl text-ink">De onde vêm os pedidos</h2>
+        <p className="mt-2 max-w-3xl text-sm text-muted">
+          Os pedidos da loja alimentam Vendas, Recuperação, Tráfego e Gargalos. Hoje eles entram pela exportação do
+          painel da Tray, de hora em hora. A leitura pela API tira essa dependência de um computador ligado.
+        </p>
+        <div className="mt-6 grid gap-5 lg:grid-cols-2">
+          <CartaoDaTray estado={estadoDaTray} />
         </div>
       </section>
 
