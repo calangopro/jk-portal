@@ -20,6 +20,7 @@ import { diasEntre, hojeEmSaoPaulo, intervaloDoPeriodo, lerPeriodo, somarDias } 
 import { calcularSinais, porDiaDaSemana, taxaDeCancelamento, variacao } from "../src/lib/painel/sinais.ts";
 import { ehAdmin, ehEquipeDeConteudo, NIVEIS, ROLE_LABEL } from "../src/lib/auth/acessos.ts";
 import { andamentoDaMeta } from "../src/lib/painel/meta.ts";
+import { dividirPorDia, retornoPorPlataforma } from "../src/lib/trafego/retorno.ts";
 
 let falhas = 0;
 function confere(nome: string, ok: boolean, detalhe = "") {
@@ -260,6 +261,53 @@ console.log("\nMeta do mês");
     anterior: null, dias: 30, horasDesdeALeitura: 1, meta: andamentoDaMeta(90000, 30000, "2026-11-13"),
   });
   confere("meta fora do ritmo vira sinal de problema", sinal.length === 1 && sinal[0].chave === "meta-atrasada" && sinal[0].gravidade === "problema");
+}
+
+console.log("\nTráfego");
+
+{
+  const canais = agruparPorCanal([
+    { origem: "1-Google Ads", pagos: 10, valor: 6000, criados: 14 },
+    { origem: "ig_Instagram_Stories", pagos: 2, valor: 400, criados: 9 },
+    { origem: "", pagos: 30, valor: 20000, criados: 50 },
+    { origem: "tiktok", pagos: 1, valor: 250, criados: 1 },
+  ]);
+  const linhas = retornoPorPlataforma(
+    [{ plataforma: "meta", gasto: 1000 }, { plataforma: "google", gasto: 1500 }, { plataforma: "pinterest", gasto: 300 }],
+    canais,
+  );
+  const de = (p: string) => linhas.find((l) => l.plataforma === p)!;
+  confere("Google: 6 mil de venda sobre 1,5 mil de gasto volta 4 por real", de("google").retorno === 4 && de("google").custoPorPedido === 150 && de("google").situacao === "positivo");
+  confere("Meta: 400 de venda sobre mil de gasto fica abaixo de 1", de("meta").retorno === 0.4 && de("meta").situacao === "prejuizo" && de("meta").custoPorPedido === 500);
+  confere("Pinterest com gasto e sem venda etiquetada", de("pinterest").situacao === "sem_venda" && de("pinterest").retorno === 0 && de("pinterest").custoPorPedido === null);
+  confere("TikTok com venda e sem gasto lançado não ganha retorno inventado", de("tiktok").situacao === "sem_gasto" && de("tiktok").retorno === null);
+  confere("venda sem etiqueta não entra em plataforma nenhuma", linhas.reduce((s, l) => s + l.faturamento, 0) === 6650);
+  confere("plataforma sem gasto e sem venda fica de fora", !linhas.some((l) => l.plataforma === "outro") && linhas.length === 4);
+  confere("ordem: quem mais gastou primeiro", linhas.map((l) => l.plataforma).join() === "google,meta,pinterest,tiktok");
+
+  const fatias = dividirPorDia(100, "2026-11-01", "2026-11-03");
+  confere("100 em três dias: 33,33 + 33,33 + 33,34", fatias.map((f) => f.gasto).join() === "33.33,33.33,33.34" && fatias[2].dia === "2026-11-03");
+  confere("a soma das fatias bate com o total digitado", Math.round(dividirPorDia(4321.07, "2026-10-01", "2026-10-31").reduce((s, f) => s + f.gasto, 0) * 100) === 432107);
+  confere("um dia só leva o valor inteiro", dividirPorDia(250.5, "2026-11-13", "2026-11-13").length === 1 && dividirPorDia(250.5, "2026-11-13", "2026-11-13")[0].gasto === 250.5);
+  confere("intervalo invertido não gera dia", dividirPorDia(10, "2026-11-13", "2026-11-12").length === 0);
+  confere("virada de mês conta os dias certos", dividirPorDia(90, "2026-02-27", "2026-03-01").map((f) => f.dia).join() === "2026-02-27,2026-02-28,2026-03-01");
+
+  const base = {
+    atual: { totais: { pagos: 43, valor_pago: 26650, aguardando: 0, valor_aguardando: 0, cancelados: 0, valor_cancelado: 0 }, por_dia: [], por_hora: [], canais: [], por_pagamento: [] },
+    anterior: null, dias: 30, horasDesdeALeitura: 1,
+  };
+  const comAnuncio = calcularSinais({ ...base, anuncios: { gasto: 2800, linhas } });
+  const chavesDeAnuncio = comAnuncio.map((s) => s.chave);
+  confere("plataforma abaixo de 1 vira problema", comAnuncio.some((s) => s.chave === "anuncio-abaixo-de-1-meta" && s.gravidade === "problema" && s.peso === 600));
+  confere("gasto sem venda etiquetada vira problema", chavesDeAnuncio.includes("anuncio-sem-venda-pinterest"));
+  confere("quem volta o dobro da segunda vira oportunidade", chavesDeAnuncio.includes("anuncio-rende-mais-google"));
+  confere("com gasto lançado não pede para lançar", !chavesDeAnuncio.includes("sem-gasto-lancado"));
+  const semGasto = calcularSinais({ ...base, anuncios: { gasto: 0, linhas: [] } });
+  confere("sem gasto nenhum, o único sinal é o de lançar", semGasto.length === 1 && semGasto[0].chave === "sem-gasto-lancado" && semGasto[0].gravidade === "atencao");
+  confere("quem não tem a área de tráfego não recebe sinal de anúncio", calcularSinais(base).length === 0);
+  const pequeno = calcularSinais({ ...base, anuncios: { gasto: 80, linhas: retornoPorPlataforma([{ plataforma: "meta", gasto: 80 }], []) } });
+  confere("gasto abaixo de 100 não vira sinal", pequeno.length === 0, pequeno.map((s) => s.chave).join());
+  confere("nenhum sinal de anúncio com travessão", !comAnuncio.some((s) => /[\u2013\u2014]/.test(s.titulo + s.texto)));
 }
 
 if (falhas > 0) {
