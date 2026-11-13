@@ -23,13 +23,13 @@
         "tagId": "460",
         "name": "JK Portal - Coletor de origem",
         "type": "html",
-        "parentFolderId": "400",
-        "notes": "Carrega /guias/o.js (fonte: public/o.js no repositório do portal). Anota de onde a visita chegou e manda para /guias/api/origem, no mesmo domínio. Não lê formulário nem dado pessoal e não manda evento para plataforma nenhuma. Para desligar: pausar esta etiqueta.",
+        "parentFolderId": "325",
+        "notes": "Carrega /guias/o.js (fonte: public/o.js no repositório do portal). Anota de onde a visita chegou e manda para /guias/api/origem, no mesmo domínio. Dispara em toda página e de novo na compra, quando o arquivo só confere o número do pedido. Não lê formulário nem dado pessoal e não manda evento para plataforma nenhuma. Para desligar: pausar esta etiqueta.",
         "parameter": [
           {
             "type": "TEMPLATE",
             "key": "html",
-            "value": "<script async src=\"/guias/o.js\"></script>"
+            "value": "<script async src=\"/guias/o.js?v=2\"></script>"
           },
           {
             "type": "BOOLEAN",
@@ -38,9 +38,10 @@
           }
         ],
         "firingTriggerId": [
-          "2147479553"
+          "2147479553",
+          "44"
         ],
-        "tagFiringOption": "ONCE_PER_LOAD",
+        "tagFiringOption": "ONCE_PER_EVENT",
         "monitoringMetadata": {
           "type": "MAP"
         },
@@ -53,8 +54,34 @@
       {
         "accountId": "6221062229",
         "containerId": "217728559",
-        "folderId": "400",
+        "folderId": "325",
         "name": "🟡 JK Portal /guias"
+      }
+    ],
+    "trigger": [
+      {
+        "accountId": "6221062229",
+        "containerId": "217728559",
+        "triggerId": "44",
+        "name": "purchase",
+        "type": "CUSTOM_EVENT",
+        "customEventFilter": [
+          {
+            "type": "EQUALS",
+            "parameter": [
+              {
+                "type": "TEMPLATE",
+                "key": "arg0",
+                "value": "{{_event}}"
+              },
+              {
+                "type": "TEMPLATE",
+                "key": "arg1",
+                "value": "purchase"
+              }
+            ]
+          }
+        ]
       }
     ]
   }

@@ -22,10 +22,13 @@ pedido ainda não é ligado: os dois passos que faltam estão no fim.
    dele nos trinta dias anteriores e fica com a última que não foi acesso
    direto.
 
-Há um segundo caminho para ligar o pedido, que não depende da API: quando a
-página de confirmação informa o número do pedido (no `dataLayer` ou no
-`dataLayerGa4`), o script manda junto. A sessão tem preferência, porque ninguém
-adivinha uma sessão e número de pedido é sequencial.
+Há um segundo caminho para ligar o pedido, que não depende da API: na compra,
+a Tray põe o número do pedido no `dataLayer`, no formato antigo do Google
+(`ecommerce.purchase.actionField.id`, com o evento `purchase`), e o script
+manda junto. Como o fechamento da compra não recarrega a página a cada passo,
+a etiqueta do GTM dispara de novo nesse evento, e o arquivo, quando é
+carregado pela segunda vez, só confere o pedido. A sessão tem preferência,
+porque ninguém adivinha uma sessão e número de pedido é sequencial.
 
 ## As peças
 

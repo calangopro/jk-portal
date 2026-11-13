@@ -11,7 +11,11 @@
  */
 (function () {
   "use strict";
-  if (window.__jkOrigem) return;
+  /* Carregado de novo na mesma página (o GTM dispara a etiqueta outra vez na compra): só confere de novo. */
+  if (window.__jkOrigem) {
+    try { if (typeof window.__jkOrigemPasso === "function") window.__jkOrigemPasso(); } catch (e) { /* nunca quebra a página */ }
+    return;
+  }
   window.__jkOrigem = 1;
 
   var API = "/guias/api/origem";
@@ -43,7 +47,12 @@
       if (!o || typeof o !== "object" || achado) return;
       var v = o.transactionId || o.transaction_id || o.orderId || o.order_id;
       if (v && /^\d{1,10}$/.test(String(v)) && String(v) !== "0") { achado = String(v); return; }
-      if (o.ecommerce) { olhar(o.ecommerce); olhar(o.ecommerce.purchase && o.ecommerce.purchase.actionField); }
+      if (o.ecommerce) {
+        olhar(o.ecommerce);
+        /* A Tray informa a compra no formato antigo do Google: ecommerce.purchase.actionField.id é o número do pedido. */
+        var compra = o.ecommerce.purchase && o.ecommerce.purchase.actionField;
+        if (!achado && compra && /^\d{1,10}$/.test(String(compra.id)) && String(compra.id) !== "0") achado = String(compra.id);
+      }
     }
     var filas = [window.dataLayer, window.dataLayerGa4];
     for (var f = 0; f < filas.length && !achado; f++) {
@@ -102,9 +111,10 @@
     } catch (e) { /* nunca quebra a página */ }
   }
 
+  window.__jkOrigemPasso = passo;
   passo();
   /* A loja preenche a sessão e a compra depois que a página abre: confere de novo algumas vezes. */
-  var esperas = [1000, 3000, 7000];
+  var esperas = [1000, 3000, 7000, 15000];
   for (var i = 0; i < esperas.length; i++) setTimeout(passo, esperas[i]);
   try {
     new MutationObserver(passo).observe(document.documentElement, { attributes: true, attributeFilter: ["data-session"] });
