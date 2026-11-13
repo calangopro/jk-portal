@@ -5,7 +5,45 @@ para o portal ao mesmo tempo. Conta do GTM: **JK ALIANÇAS (6221062229)**,
 contêiner "WEB - ECOMMERCE - OFICIAL" (217728559).
 
 Levantado em 24/09/2026 a partir da exportação do espaço de trabalho 27 (versão 24).
-Versão no ar desde 25/09/2026: **25** (pixel do Meta no portal e na bio).
+A versão 25 (25/09/2026) pôs o pixel do Meta no portal e na bio.
+
+## ⚠️ A versão no ar NÃO é a mais recente (conferido em 13/11/2026)
+
+| Versão | Estado | Nome | Quem |
+|---|---|---|---|
+| 28 | Mais recente, fora do ar | Suporte a document.write nas tags com nonce (Conversity) | marcela.campello, 26/09 14:42 |
+| 27 | Fora do ar | Nonce do checkout nas tags de HTML (Conversity) | marcela.campello, 26/09 14:37 |
+| **26** | **Ativa** | Google Ads: corrige ID e rótulo da conversão + exceção de pagamento recusado (Conversity) | marcela.campello, republicada 26/09 14:48 |
+
+A Conversity publicou a 27 e a 28 para fazer as tags de HTML rodarem no
+fechamento da compra e, seis minutos depois da 28, voltou para a 26. O motivo
+da volta não está escrito em lugar nenhum do contêiner.
+
+**Consequência: publicar a partir do espaço de trabalho reativa a 27 e a 28.**
+Todo espaço de trabalho nasce da versão MAIS RECENTE, não da ativa. O espaço
+34 mostra "Alterações: 0" e mesmo assim difere do que está no ar: a 28 tem 200
+variáveis e 4 tags de HTML alteradas, a 26 tem 172 variáveis. Uma versão nova
+com "só uma etiqueta a mais" levaria junto tudo o que foi desfeito.
+
+**Antes de qualquer publicação, abrir a aba Versões e conferir se a "Ativa" é
+a "Mais recente".** Se não for, parar e combinar com quem desfez. O caminho
+para publicar por cima da ativa é "Definir como a mais recente" na versão
+ativa, e isso mexe no trabalho de outra pessoa: não se faz sem ela saber.
+
+A aba Versões só abre pelo clique na aba; o endereço direto cai na lista de contas.
+
+A versão 26 também mudou a conversão de compra do Google Ads no GTM, o que a
+regra "Não corrigir o `AW-AW-16750399342`" mais abaixo dizia para não fazer.
+A regra ficou como estava, para a decisão não se perder: vale conferir com a
+Conversity se a compra está sendo contada uma vez só.
+
+### O fechamento da compra tem política de segurança de conteúdo
+
+O carrinho e o fechamento (`/checkout/...`) saem com
+`Content-Security-Policy` em metatag: `script-src 'self' 'unsafe-eval'
+'nonce-...'` mais uma lista de domínios. Script escrito dentro de uma tag de
+HTML (inline) não roda lá sem o nonce, que é o que a 27 e a 28 tentaram
+resolver. Script carregado do próprio domínio roda, por causa do `'self'`.
 
 ## Como a medição está dividida
 
@@ -82,7 +120,17 @@ leva para a loja, não para o portal, e o evento não servia às campanhas.
 
 ## Coletor de origem na loja
 
-**Estado em 13/11/2026: preparado, ainda não importado nem publicado.**
+**Estado em 13/11/2026: preparado e aprovado pelo Filipe, mas NÃO publicado.**
+Ao abrir o contêiner para publicar, a versão ativa (26) não era a mais recente
+(28), como está no começo deste arquivo. Publicar levaria junto as duas versões
+que a Conversity desfez, então nada foi criado nem publicado. O caminho que
+não depende disso é carregar o script pelo tema da loja
+(`docs/origem-do-pedido.md`).
+
+O que já se sabe da etiqueta, conferido em 13/11 injetando o mesmo script à
+mão numa página da loja: na home o script leu a sessão e o recado respondeu
+204; no carrinho ele também carregou, porque a política de segurança de lá
+aceita script do próprio domínio.
 
 O portal passou a anotar de onde cada visita chega (`docs/origem-do-pedido.md`).
 Nas páginas do portal o script entra pelo código. Na loja, quem carrega é o GTM,

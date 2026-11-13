@@ -77,6 +77,10 @@ anúncio, o sufixo do URL final da conta: `adgroupid={adgroupid}&creative={creat
   devolveu o anúncio, o conjunto e a campanha do pedido.
 - Pedido de outro site, robô e corpo grande demais são ignorados.
 
+- Na loja de verdade, com o script injetado à mão: a home expõe a sessão, o
+  recado respondeu 204, e a sessão da home é a mesma que vai no endereço do
+  carrinho (`/checkout/cart?session_id=...`).
+
 **Não foi conferido:** que a sessão de um pedido de verdade, fechado na
 vitrine, é a mesma que a página mostrava. Tudo aponta que sim, mas a prova é o
 primeiro pedido lido pela API depois de o script estar na loja.
@@ -91,9 +95,15 @@ medição.
 
 ## O que falta
 
-1. **O script na loja.** Importar `infra/gtm/coletor-de-origem.json` no GTM
-   (Combinar, nunca Substituir) e publicar, seguindo as regras de
-   `infra/gtm/README.md`. A etiqueta só carrega `/guias/o.js`.
+1. **O script na loja.** São dois caminhos, e em 13/11 nenhum estava feito.
+   - **Pelo tema da loja:** uma linha, `<script async src="/guias/o.js"></script>`,
+     antes do `</body>` de `layouts/default.html`, nos DOIS temas de
+     `~/Projetos/jk-tema-loja` (raiz e `Esquenta/`). Não depende do GTM nem de
+     bloqueador de anúncio. Não cobre o carrinho e o fechamento, que não usam
+     o tema, e não precisa: a sessão é a mesma desde a vitrine.
+   - **Pelo GTM:** `infra/gtm/coletor-de-origem.json`. Aprovado, mas parado: a
+     versão ativa do contêiner não é a mais recente, e publicar reativaria o
+     que a Conversity desfez (`infra/gtm/README.md`).
 2. **A API de pedidos na loja da JK**, que traz a sessão. Depende da
    homologação do aplicativo (`docs/tray-api-de-pedidos.md`).
 3. **O código nos anúncios do Meta**, pelo modelo acima.
