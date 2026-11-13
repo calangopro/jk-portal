@@ -89,15 +89,20 @@ anúncio, o sufixo do URL final da conta: `adgroupid={adgroupid}&creative={creat
   recado respondeu 204, e a sessão da home é a mesma que vai no endereço do
   carrinho (`/checkout/cart?session_id=...`).
 
-- Nas três primeiras horas com o script na loja (13/11, das 15h41 às 18h54):
-  7 pedidos vistos na página de compra, todos com a sessão que o mesmo
-  visitante já tinha antes de comprar. Os sete só tinham chegada direta
-  anotada, o que é esperado no primeiro dia: o coletor não tem passado, e quem
-  compra costuma ter chegado antes.
+- **Com pedido de verdade, pela página de compra.** Nas três primeiras horas
+  com o script na loja (13/11, das 15h41 às 18h54) o coletor viu 7 pedidos na
+  compra. Quando a importação das 19h07 trouxe esses pedidos, os 7 entraram
+  ligados ao visitante: o número que a página informa é o número do pedido da
+  Tray, e a hora em que foi visto bate ao minuto com a hora do pedido. Em todos,
+  a sessão da compra era a que o mesmo visitante já tinha antes.
+- Os sete só tinham chegada direta anotada (3 pagos, R$ 1.282,01). É o
+  esperado no primeiro dia: o coletor não tem passado, quem compra costuma ter
+  chegado antes, e parte das vendas vem de link mandado pelo vendedor.
 
-**Não foi conferido:** que a sessão de um pedido de verdade, fechado na
-vitrine, é a mesma que a página mostrava. Tudo aponta que sim, mas a prova é o
-primeiro pedido lido pela API depois de o script estar na loja.
+**Não foi conferido:** que o `session_id` que a API devolve no pedido é essa
+mesma sessão. Tudo aponta que sim, mas a prova é o primeiro pedido lido pela
+API. Enquanto a API não chega, a ligação pela página de compra já funciona
+sozinha.
 
 ## Privacidade
 
