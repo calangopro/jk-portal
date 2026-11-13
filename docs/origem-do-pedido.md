@@ -5,8 +5,8 @@ origem nenhuma, e campanha e anúncio ela nunca guardou. Por isso a loja passou
 a anotar ela mesma de onde cada visita chega, e o painel liga a chegada ao
 pedido. É o que mostra a venda PAGA por campanha, conjunto e anúncio.
 
-Montado em 13/11/2026. O portal já anota. **Na loja ainda não roda**, e o
-pedido ainda não é ligado: os dois passos que faltam estão no fim.
+Montado em 13/11/2026. O portal e a loja já anotam as chegadas. **O pedido
+ainda não foi visto ligado a uma chegada**: os passos que faltam estão no fim.
 
 ## Como funciona
 
@@ -36,7 +36,7 @@ porque ninguém adivinha uma sessão e número de pedido é sequencial.
 | --- | --- |
 | Script que roda na loja e no portal | `public/o.js`, servido em `/guias/o.js` |
 | Quem carrega no portal | `src/components/analytics/Coletor.tsx` |
-| Quem carrega na loja | etiqueta no GTM, `infra/gtm/coletor-de-origem.json` |
+| Quem carrega na loja | etiqueta "JK Portal - Coletor de origem" no GTM (versão 30) |
 | Rota que recebe o recado | `src/app/api/origem/route.ts` |
 | Classificação da chegada (pura, testada) | `src/lib/origem/chegada.ts` |
 | Gravação e cookie do visitante | `src/lib/origem/registrar.ts` |
@@ -98,15 +98,13 @@ medição.
 
 ## O que falta
 
-1. **O script na loja.** São dois caminhos, e em 13/11 nenhum estava feito.
-   - **Pelo tema da loja:** uma linha, `<script async src="/guias/o.js"></script>`,
-     antes do `</body>` de `layouts/default.html`, nos DOIS temas de
-     `~/Projetos/jk-tema-loja` (raiz e `Esquenta/`). Não depende do GTM nem de
-     bloqueador de anúncio. Não cobre o carrinho e o fechamento, que não usam
-     o tema, e não precisa: a sessão é a mesma desde a vitrine.
-   - **Pelo GTM:** `infra/gtm/coletor-de-origem.json`. Aprovado, mas parado: a
-     versão ativa do contêiner não é a mais recente, e publicar reativaria o
-     que a Conversity desfez (`infra/gtm/README.md`).
+1. ~~O script na loja.~~ **Feito em 13/11/2026**, pela etiqueta "JK Portal -
+   Coletor de origem" do GTM, na versão 30 (`infra/gtm/README.md`). Fica como
+   reforço para a próxima troca de tema: a mesma linha,
+   `<script async src="/guias/o.js?v=2"></script>`, antes do `</body>` de
+   `layouts/default.html` nos DOIS temas de `~/Projetos/jk-tema-loja`. O tema
+   não depende do GTM nem de bloqueador de anúncio; o GTM cobre o carrinho e o
+   fechamento, que o tema não alcança.
 2. **A API de pedidos na loja da JK**, que traz a sessão. Depende da
    homologação do aplicativo (`docs/tray-api-de-pedidos.md`).
 3. **O código nos anúncios do Meta**, pelo modelo acima.

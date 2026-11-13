@@ -7,30 +7,44 @@ contêiner "WEB - ECOMMERCE - OFICIAL" (217728559).
 Levantado em 24/09/2026 a partir da exportação do espaço de trabalho 27 (versão 24).
 A versão 25 (25/09/2026) pôs o pixel do Meta no portal e na bio.
 
-## ⚠️ A versão no ar NÃO é a mais recente (conferido em 13/11/2026)
+## A versão no ar, e a armadilha da "mais recente"
+
+No ar desde 13/11/2026, 15:41: **versão 30**, "Coletor de origem do portal em
+todas as paginas e na compra (Filipe)". É a 26 mais uma etiqueta.
 
 | Versão | Estado | Nome | Quem |
 |---|---|---|---|
-| 28 | Mais recente, fora do ar | Suporte a document.write nas tags com nonce (Conversity) | marcela.campello, 26/09 14:42 |
+| **30** | **Ativa e mais recente** | Coletor de origem do portal em todas as páginas e na compra | Filipe, 13/11 15:41 |
+| 29 | Base da 30, nunca publicada | Restored_26 (cópia da 26) | 13/11 15:36 |
+| 28 | Fora do ar | Suporte a document.write nas tags com nonce (Conversity) | marcela.campello, 26/09 14:42 |
 | 27 | Fora do ar | Nonce do checkout nas tags de HTML (Conversity) | marcela.campello, 26/09 14:37 |
-| **26** | **Ativa** | Google Ads: corrige ID e rótulo da conversão + exceção de pagamento recusado (Conversity) | marcela.campello, republicada 26/09 14:48 |
+| 26 | Estava ativa até 13/11 | Google Ads: corrige ID e rótulo da conversão + exceção de pagamento recusado (Conversity) | marcela.campello, 26/09 14:48 |
 
-A Conversity publicou a 27 e a 28 para fazer as tags de HTML rodarem no
-fechamento da compra e, seis minutos depois da 28, voltou para a 26. O motivo
-da volta não está escrito em lugar nenhum do contêiner.
+**O que aconteceu, para não repetir.** A Conversity publicou a 27 e a 28 em
+26/09 para fazer as tags de HTML rodarem no fechamento da compra e, seis
+minutos depois da 28, voltou para a 26. O motivo da volta não está escrito no
+contêiner. Ficou assim por sete semanas: a versão ATIVA (26) não era a MAIS
+RECENTE (28).
 
-**Consequência: publicar a partir do espaço de trabalho reativa a 27 e a 28.**
-Todo espaço de trabalho nasce da versão MAIS RECENTE, não da ativa. O espaço
-34 mostra "Alterações: 0" e mesmo assim difere do que está no ar: a 28 tem 200
-variáveis e 4 tags de HTML alteradas, a 26 tem 172 variáveis. Uma versão nova
-com "só uma etiqueta a mais" levaria junto tudo o que foi desfeito.
+Todo espaço de trabalho nasce da versão mais recente, não da ativa. O espaço
+34 mostrava "Alterações: 0" e mesmo assim diferia do que estava no ar (4 tags
+de HTML alteradas e uma variável a mais). Publicar "só uma etiqueta" teria
+levado junto as duas versões desfeitas.
+
+O conserto, feito em 13/11 com o sim do Filipe: na aba Versões, menu da 26,
+**"Definir como a versão mais recente"**. Isso cria uma cópia (a 29,
+"Restored_26") sem publicar nada, e o espaço de trabalho pede para ser
+atualizado. Só então a etiqueta nova foi criada e publicada como 30. A 27 e a
+28 continuam no histórico: se a Conversity quiser retomar o nonce, refaz por
+cima da 30. Para desfazer o conserto, o mesmo botão na 28.
 
 **Antes de qualquer publicação, abrir a aba Versões e conferir se a "Ativa" é
-a "Mais recente".** Se não for, parar e combinar com quem desfez. O caminho
-para publicar por cima da ativa é "Definir como a mais recente" na versão
-ativa, e isso mexe no trabalho de outra pessoa: não se faz sem ela saber.
+a "Mais recente".** Se não for, parar e falar com o Filipe.
 
-A aba Versões só abre pelo clique na aba; o endereço direto cai na lista de contas.
+A aba Versões só abre pelo clique na aba; o endereço direto cai na lista de
+contas. A exportação da 26, tirada antes de mexer, está em
+`~/Downloads/GTM-WWT3T789_v26.json` (44 tags, 42 acionadores, 172 variáveis
+mais 27 embutidas).
 
 A versão 26 também mudou a conversão de compra do Google Ads no GTM, o que a
 regra "Não corrigir o `AW-AW-16750399342`" mais abaixo dizia para não fazer.
@@ -120,45 +134,51 @@ leva para a loja, não para o portal, e o evento não servia às campanhas.
 
 ## Coletor de origem na loja
 
-**Estado em 13/11/2026: preparado e aprovado pelo Filipe, mas NÃO publicado.**
-Ao abrir o contêiner para publicar, a versão ativa (26) não era a mais recente
-(28), como está no começo deste arquivo. Publicar levaria junto as duas versões
-que a Conversity desfez, então nada foi criado nem publicado. O caminho que
-não depende disso é carregar o script pelo tema da loja
-(`docs/origem-do-pedido.md`).
+**Publicado em 13/11/2026, 15:41, na versão 30.**
 
-O que já se sabe da etiqueta, conferido em 13/11 injetando o mesmo script à
-mão numa página da loja: na home o script leu a sessão e o recado respondeu
-204; no carrinho ele também carregou, porque a política de segurança de lá
-aceita script do próprio domínio.
-
-O portal passou a anotar de onde cada visita chega (`docs/origem-do-pedido.md`).
-Nas páginas do portal o script entra pelo código. Na loja, quem carrega é o GTM,
+O portal anota de onde cada visita chega (`docs/origem-do-pedido.md`). Nas
+páginas do portal o script entra pelo código. Na loja, quem carrega é o GTM,
 porque é ele que roda em todas as páginas, carrinho e fechamento incluídos.
 
-`coletor-de-origem.json` traz UMA etiqueta, na pasta "🟡 JK Portal /guias":
+Uma etiqueta, na pasta "🟡 JK Portal /guias" (o registro dela é
+`coletor-de-origem.json`; foi criada à mão na tela, não importada):
 
 | Tipo | Nome | O que faz |
 |---|---|---|
-| Tag (HTML personalizado) | JK Portal - Coletor de origem | `<script async src="/guias/o.js"></script>`, no acionador "All Pages" que já existe |
+| Tag (HTML personalizado) | JK Portal - Coletor de origem | `<script async src="/guias/o.js?v=2"></script>`, uma vez por evento, em dois acionadores que já existiam: "All Pages" e "EasyCheckout_OrderPlaced" (o evento `purchase`) |
 
 O que ela faz: carrega um arquivo do próprio domínio, que manda ao portal o
-endereço da página, o site anterior, a sessão da Tray e, na confirmação, o
-número do pedido. **Não manda evento para Meta, Google, Pinterest nem GA4**,
-então não mexe em conversão nenhuma e não conta nada em dobro. Não lê
-formulário, nome, telefone nem e-mail.
+endereço da página, o site anterior, a sessão da Tray e, na compra, o número
+do pedido. **Não manda evento para Meta, Google, Pinterest nem GA4**, então não
+mexe em conversão nenhuma e não conta nada em dobro. Não lê formulário, nome,
+telefone nem e-mail.
 
-Nas páginas do portal a etiqueta também dispara, e não faz nada: o arquivo se
-recusa a rodar duas vezes na mesma página (`window.__jkOrigem`).
+**Por que dois acionadores.** O fechamento da compra não recarrega a página a
+cada passo, então o "All Pages" de lá dispara muito antes de existir pedido. No
+evento de compra a etiqueta dispara de novo; o arquivo percebe que já rodou e
+só confere o número do pedido, que a Tray põe em
+`ecommerce.purchase.actionField.id`.
 
-Como entra, pelas regras da casa: exportar a versão no ar, importar o arquivo
-com **Combinar**, conferir "Alterações no espaço de trabalho" (só esta
-etiqueta), Visualizar numa página da loja e ver o pedido `POST /guias/api/origem`
-responder 204, publicar com o nome dizendo a mudança, e registrar o cartão no
-RELATÓRIO DE MUDANÇAS.
+**Por que roda no fechamento**, onde as tags de HTML da Conversity eram
+barradas: a política de segurança de lá barra script escrito dentro da tag e
+aceita script do próprio domínio. Esta etiqueta só tem um `src` do próprio
+domínio. "Suporte para document.write" fica desmarcado.
 
-Para voltar: pausar a etiqueta e publicar. O arquivo `/guias/o.js` continua no
-ar sem ser carregado por ninguém na loja.
+**O `?v=2` é o mesmo número de `VERSAO_DO_COLETOR`** em
+`src/components/analytics/Coletor.tsx`. O arquivo tem cache de uma hora, então
+correção comum chega sozinha. Só se troca o número (aqui e lá) quando a
+correção não pode esperar.
+
+Nas páginas do portal a etiqueta também dispara, e o arquivo, por já ter
+rodado, só confere se há algo novo para mandar.
+
+Conferido no ar em 13/11: na home e no carrinho o script rodou sozinho,
+carregado pelo GTM. Dois minutos depois da publicação o banco já tinha 5
+sessões da loja e 2 chegadas do Google Ads com o código da campanha
+reconhecido. **Falta ver um pedido de verdade chegar** em `origem_pedidos`.
+
+Para voltar: pausar a etiqueta e publicar, ou publicar a versão 26. O arquivo
+`/guias/o.js` continua no ar sem ser carregado por ninguém na loja.
 
 ## Meta Pixel no portal e na bio
 

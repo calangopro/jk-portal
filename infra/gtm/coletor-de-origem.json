@@ -39,7 +39,7 @@
         ],
         "firingTriggerId": [
           "2147479553",
-          "44"
+          "233"
         ],
         "tagFiringOption": "ONCE_PER_EVENT",
         "monitoringMetadata": {
@@ -62,8 +62,8 @@
       {
         "accountId": "6221062229",
         "containerId": "217728559",
-        "triggerId": "44",
-        "name": "purchase",
+        "triggerId": "233",
+        "name": "EasyCheckout_OrderPlaced",
         "type": "CUSTOM_EVENT",
         "customEventFilter": [
           {
