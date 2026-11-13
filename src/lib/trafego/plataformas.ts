@@ -61,28 +61,46 @@ function mensagemDoMeta(corpo: ErroDoMeta, status: number): string {
   return `O Meta respondeu ${status}${e?.message ? `: ${e.message.slice(0, 200)}` : ""}.`;
 }
 
-export async function buscarGastoDoMeta(token: string, de: string, ate: string): Promise<DiaDeGasto[]> {
-  const url = new URL(`https://graph.facebook.com/${VERSAO_GRAPH}/act_${CONTA_DO_META}/insights`);
-  url.searchParams.set("level", "account");
-  url.searchParams.set("fields", "spend,impressions,clicks");
-  url.searchParams.set("time_increment", "1");
-  url.searchParams.set("time_range", JSON.stringify({ since: de, until: ate }));
-  url.searchParams.set("limit", "100");
+/**
+ * Uma lista da conta de anúncios do Meta, página por página. `caminho` é o que
+ * vem depois de `act_<conta>/` ("insights", "ads"). O teto de páginas existe
+ * para um erro de paginação não virar laço.
+ */
+export async function listarNoMeta(token: string, caminho: string, parametros: Record<string, string>, paginas = 10): Promise<unknown[]> {
+  const url = new URL(`https://graph.facebook.com/${VERSAO_GRAPH}/act_${CONTA_DO_META}/${caminho}`);
+  for (const [k, v] of Object.entries(parametros)) url.searchParams.set(k, v);
 
   const linhas: unknown[] = [];
   let proxima: string | null = url.toString();
-  for (let pagina = 0; proxima && pagina < 10; pagina++) {
+  for (let pagina = 0; proxima && pagina < paginas; pagina++) {
     const r: Response = await fetch(proxima, {
       headers: { Authorization: `Bearer ${token}` },
       cache: "no-store",
-      signal: AbortSignal.timeout(15_000),
+      signal: AbortSignal.timeout(25_000),
     });
     const corpo = (await r.json().catch(() => ({}))) as ErroDoMeta & { data?: unknown[]; paging?: { next?: string } };
     if (!r.ok || corpo.error) throw new Error(mensagemDoMeta(corpo, r.status));
     linhas.push(...(corpo.data ?? []));
     proxima = corpo.paging?.next ?? null;
   }
+  return linhas;
+}
+
+export async function buscarGastoDoMeta(token: string, de: string, ate: string): Promise<DiaDeGasto[]> {
+  const linhas = await listarNoMeta(token, "insights", {
+    level: "account",
+    fields: "spend,impressions,clicks",
+    time_increment: "1",
+    time_range: JSON.stringify({ since: de, until: ate }),
+    limit: "100",
+  });
   return lerInsightsDoMeta(linhas);
+}
+
+/** O token do Meta salvo em Integrações, ou vazio. Cliente de serviço. */
+export async function tokenDoMeta(db: SupabaseClient): Promise<string> {
+  const { data } = await db.from("integration_tokens").select("access_token").eq("provider", PROVEDOR_META_ADS).maybeSingle();
+  return (data?.access_token as string | null) ?? "";
 }
 
 type ErroDoGoogle = {
@@ -105,32 +123,46 @@ function mensagemDoGoogle(corpo: ErroDoGoogle, status: number, email: string): s
   return `O Google Ads respondeu ${status}${e?.message ? `: ${e.message.slice(0, 220)}` : ""}.`;
 }
 
-export async function buscarGastoDoGoogle(de: string, ate: string): Promise<DiaDeGasto[]> {
+/**
+ * Abre a sessão do Google Ads uma vez e devolve a função que roda consultas
+ * (GAQL). O token de acesso vale uma hora e serve para todas as consultas da
+ * mesma rodada.
+ */
+export async function abrirGoogleAds(): Promise<(consulta: string) => Promise<unknown>> {
   const leitura = lerContaDeServico();
   if (!leitura.conta) throw new Error(leitura.problema);
+  const email = leitura.conta.email;
   const token = await tokenDeAcesso(leitura.conta, ESCOPO_GOOGLE_ADS);
 
-  const r = await fetch(
-    `https://googleads.googleapis.com/${VERSAO_GOOGLE_ADS}/customers/${CLIENTE_DO_GOOGLE_ADS}/googleAds:searchStream`,
-    {
-      method: "POST",
-      headers: { Authorization: `Bearer ${token}`, "content-type": "application/json" },
-      body: JSON.stringify({
-        query:
-          "SELECT segments.date, metrics.cost_micros, metrics.clicks, metrics.impressions FROM customer " +
-          `WHERE segments.date >= '${de}' AND segments.date <= '${ate}'`,
-      }),
-      cache: "no-store",
-      signal: AbortSignal.timeout(20_000),
-    },
+  return async (consulta: string) => {
+    const r = await fetch(
+      `https://googleads.googleapis.com/${VERSAO_GOOGLE_ADS}/customers/${CLIENTE_DO_GOOGLE_ADS}/googleAds:searchStream`,
+      {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "content-type": "application/json" },
+        body: JSON.stringify({ query: consulta }),
+        cache: "no-store",
+        signal: AbortSignal.timeout(25_000),
+      },
+    );
+    const corpo = (await r.json().catch(() => ({}))) as unknown;
+    if (!r.ok) {
+      // No erro, o searchStream devolve uma lista com um objeto de erro dentro.
+      const erro = (Array.isArray(corpo) ? corpo[0] : corpo) as ErroDoGoogle;
+      throw new Error(mensagemDoGoogle(erro ?? {}, r.status, email));
+    }
+    return corpo;
+  };
+}
+
+export async function buscarGastoDoGoogle(de: string, ate: string): Promise<DiaDeGasto[]> {
+  const consultar = await abrirGoogleAds();
+  return lerLotesDoGoogle(
+    await consultar(
+      "SELECT segments.date, metrics.cost_micros, metrics.clicks, metrics.impressions FROM customer " +
+        `WHERE segments.date >= '${de}' AND segments.date <= '${ate}'`,
+    ),
   );
-  const corpo = (await r.json().catch(() => ({}))) as unknown;
-  if (!r.ok) {
-    // No erro, o searchStream devolve uma lista com um objeto de erro dentro.
-    const erro = (Array.isArray(corpo) ? corpo[0] : corpo) as ErroDoGoogle;
-    throw new Error(mensagemDoGoogle(erro ?? {}, r.status, leitura.conta.email));
-  }
-  return lerLotesDoGoogle(corpo);
 }
 
 async function gravar(db: SupabaseClient, plataforma: Plataforma, dias: DiaDeGasto[]): Promise<string | null> {
@@ -195,11 +227,10 @@ export async function lerGastoDasPlataformas(db: SupabaseClient, hoje: string, d
     return resultado;
   };
 
-  const { data: chave } = await db.from("integration_tokens").select("access_token").eq("provider", PROVEDOR_META_ADS).maybeSingle();
-  const tokenDoMeta = (chave?.access_token as string | null) ?? "";
+  const token = await tokenDoMeta(db);
 
   return Promise.all([
-    umaPlataforma("meta", () => (tokenDoMeta ? buscarGastoDoMeta(tokenDoMeta, de, hoje) : null)),
+    umaPlataforma("meta", () => (token ? buscarGastoDoMeta(token, de, hoje) : null)),
     umaPlataforma("google", () => buscarGastoDoGoogle(de, hoje)),
   ]);
 }

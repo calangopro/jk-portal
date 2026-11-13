@@ -203,7 +203,7 @@ export function PainelDeCustos({
         </p>
       ) : (
         <>
-          <div className="mt-8 grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="mt-8 grid grid-cols-2 gap-3 sm:gap-5 xl:grid-cols-4">
             <Cartao Icone={Wallet} rotulo="Todo mês" apoio={`${mensais.length} custos, ${reais(t.mensal / 30)} por dia`}>
               <Dinheiro valor={t.mensal} />
             </Cartao>

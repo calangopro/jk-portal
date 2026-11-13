@@ -5,6 +5,7 @@ import { agruparPorCanal } from "../vendas/origem";
 import { diasEntre, intervaloDoPeriodo, type ChaveDePeriodo } from "../vendas/periodo";
 import { lerResumoPorFora } from "../vendas/por-fora";
 import { retornoPorPlataforma, type LinhaDeRetorno } from "./retorno";
+import { diagnosticar, type Diagnostico, type Item } from "./diagnostico";
 
 /**
  * Gasto de anúncio guardado em `anuncios_gasto` (0059). A função do banco roda
@@ -85,5 +86,64 @@ export async function lerTrafegoDaTela(db: SupabaseClient, chave: ChaveDePeriodo
     porFora: Number(porFora?.valor ?? 0),
     semEtiqueta: canais.find((c) => c.canal === "sem_etiqueta")?.valor ?? 0,
     porDia: diasEntre(de, ate).map((dia) => ({ dia, venda: vendaDoDia.get(dia) ?? 0, gasto: gastoDoDia.get(dia) ?? 0 })),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Campanhas, conjuntos e anúncios (0061)
+// ---------------------------------------------------------------------------
+
+export type CampanhasDaTela = {
+  plataforma: "meta" | "google";
+  de: string;
+  ate: string;
+  /** `null` quando a leitura falhou. */
+  diagnostico: Diagnostico | null;
+  /** O que a LOJA recebeu com a etiqueta da plataforma: pedidos criados, pagos e o valor pago. */
+  loja: { criados: number; pagos: number; valor: number };
+};
+
+/**
+ * Os itens da plataforma no período, já julgados, e a venda paga da loja com a
+ * etiqueta dela para pôr ao lado do que a plataforma diz.
+ */
+export async function lerCampanhasDaTela(db: SupabaseClient, plataforma: "meta" | "google", chave: ChaveDePeriodo, hoje: string): Promise<CampanhasDaTela> {
+  const { de, ate } = intervaloDoPeriodo(chave, hoje);
+  const [itens, vendas] = await Promise.all([
+    db.rpc("resumo_de_anuncios", { p_de: de, p_ate: ate, p_plataforma: plataforma }),
+    lerResumoDeVendas(db, de, ate),
+  ]);
+  if (itens.error) console.error("[trafego] resumo_de_anuncios:", itens.error.message);
+
+  const num = (v: unknown) => (v == null ? null : Number(v));
+  const lista: Item[] = ((itens.data ?? []) as Record<string, unknown>[]).map((i) => ({
+    nivel: i.nivel as Item["nivel"],
+    id: String(i.id),
+    nome: String(i.nome ?? ""),
+    campanha_id: (i.campanha_id as string | null) ?? null,
+    conjunto_id: (i.conjunto_id as string | null) ?? null,
+    tipo: (i.tipo as string | null) ?? null,
+    ativo: (i.ativo as boolean | null) ?? null,
+    gasto: Number(i.gasto ?? 0),
+    impressoes: Number(i.impressoes ?? 0),
+    cliques: Number(i.cliques ?? 0),
+    cliques_todos: num(i.cliques_todos),
+    visitas: num(i.visitas),
+    carrinhos: num(i.carrinhos),
+    checkouts: num(i.checkouts),
+    compras: num(i.compras),
+    valor: num(i.valor),
+    conversas: num(i.conversas),
+  }))
+    // Item que não gastou nem apareceu no período só ocupa lugar na lista.
+    .filter((i) => i.gasto > 0 || i.impressoes > 0);
+
+  const canal = agruparPorCanal(vendas?.por_origem ?? []).find((c) => c.canal === (plataforma === "meta" ? "meta" : "google_ads"));
+  return {
+    plataforma,
+    de,
+    ate,
+    diagnostico: itens.error ? null : diagnosticar(lista, plataforma),
+    loja: { criados: canal?.criados ?? 0, pagos: canal?.pagos ?? 0, valor: canal?.valor ?? 0 },
   };
 }

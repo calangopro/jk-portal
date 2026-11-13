@@ -21,6 +21,7 @@ import {
   somarDias,
   type ChaveDePeriodo,
 } from "@/lib/vendas/periodo";
+import { SeletorDePeriodo } from "../SeletorDePeriodo";
 import { Barras, type Barra } from "./Barras";
 
 /**
@@ -70,15 +71,18 @@ export function Cartao({
   apoio: string;
 }) {
   return (
-    <div className="glass min-w-0 rounded-[18px] p-5">
+    // No celular os cartões andam de dois em dois: some o ícone, o rótulo pode
+    // quebrar linha (cortado com reticências ele não dizia o que era o número)
+    // e o valor encolhe para caber em meia tela.
+    <div className="glass min-w-0 rounded-[16px] p-3.5 sm:rounded-[18px] sm:p-5">
       <div className="flex items-center gap-2">
-        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[8px] border border-brand/30 bg-brand/10 text-brand-nav">
+        <span className="hidden h-7 w-7 shrink-0 items-center justify-center rounded-[8px] border border-brand/30 bg-brand/10 text-brand-nav sm:flex">
           <Icone size={14} aria-hidden />
         </span>
-        <p className="eyebrow min-w-0 truncate text-[0.62rem]">{rotulo}</p>
+        <p className="eyebrow min-w-0 break-words text-[0.6rem] leading-snug sm:truncate sm:text-[0.62rem]">{rotulo}</p>
       </div>
-      <p className="font-display mt-3 text-[clamp(1.6rem,2.6vw,2.25rem)] leading-tight text-ink">{children}</p>
-      <p className="mt-1 text-xs text-muted">{apoio}</p>
+      <p className="font-display mt-2 text-[clamp(1.2rem,5.4vw,1.6rem)] leading-tight text-ink sm:mt-3 sm:text-[clamp(1.6rem,2.6vw,2.25rem)]">{children}</p>
+      <p className="mt-1 text-[0.7rem] leading-snug text-muted sm:text-xs">{apoio}</p>
     </div>
   );
 }
@@ -88,27 +92,6 @@ function pedidosEticket(pagos: number, valor: number): string {
   return `${inteiro(pagos)} ${pagos === 1 ? "pedido pago" : "pedidos pagos"}, ticket de ${reais(valor / pagos)}`;
 }
 
-function Periodos({ atual }: { atual: ChaveDePeriodo }) {
-  return (
-    <nav aria-label="Período" className="flex gap-1 rounded-full border border-border bg-surface/60 p-1">
-      {PERIODOS.map((p) => (
-        <Link
-          key={p.chave}
-          href={`?periodo=${p.chave}`}
-          scroll={false}
-          aria-current={p.chave === atual ? "page" : undefined}
-          className={
-            p.chave === atual
-              ? "rounded-full bg-brand px-3.5 py-1.5 text-xs font-semibold text-ink"
-              : "rounded-full px-3.5 py-1.5 text-xs font-semibold text-muted hover:text-ink"
-          }
-        >
-          {p.rotulo}
-        </Link>
-      ))}
-    </nav>
-  );
-}
 
 function Atualizacao({ ultima }: { ultima: UltimaImportacao }) {
   if (!ultima) {
@@ -320,7 +303,7 @@ function Periodo({
 
   return (
     <>
-      <div className="mt-5 grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="mt-5 grid grid-cols-2 gap-3 sm:gap-5 xl:grid-cols-4">
         <Cartao Icone={Banknote} rotulo="Faturamento pago" apoio={variacao(Number(t.valor_pago), Number(anterior?.totais.valor_pago ?? 0), comparacao)}>
           <Dinheiro valor={Number(t.valor_pago)} />
         </Cartao>
@@ -541,7 +524,7 @@ export function PainelDeVendas({
                   De {diaCurto(intervalo.de)} a {diaCurto(intervalo.ate)}
                 </h2>
               </div>
-              <Periodos atual={chave} />
+              <SeletorDePeriodo atual={chave} />
             </div>
             <Periodo resumo={resumo} anterior={anterior} de={intervalo.de} ate={intervalo.ate} comparacao={intervalo.comparacao} />
           </section>

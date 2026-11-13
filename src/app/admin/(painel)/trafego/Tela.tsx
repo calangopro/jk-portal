@@ -1,11 +1,12 @@
 import Link from "next/link";
-import { CircleAlert, CircleCheck, Megaphone, Minus, Scale, Tag, TrendingUp, TriangleAlert } from "lucide-react";
+import { ArrowRight, CircleAlert, CircleCheck, Megaphone, Minus, Scale, Tag, TrendingUp, TriangleAlert } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { TrafegoDaTela } from "@/lib/trafego/dados";
 import type { Conexao } from "@/lib/trafego/plataformas";
 import { PLATAFORMAS, type LinhaDeRetorno } from "@/lib/trafego/retorno";
-import { PERIODOS, diaCurto, type ChaveDePeriodo } from "@/lib/vendas/periodo";
+import { diaCurto, type ChaveDePeriodo } from "@/lib/vendas/periodo";
 import { BotaoDeAcao } from "../recuperacao/BotaoDeAcao";
+import { SeletorDePeriodo } from "../SeletorDePeriodo";
 import { Cartao, Dinheiro, haQuantoTempo, reais } from "../vendas/PainelDeVendas";
 import { LerAgora } from "./LerAgora";
 
@@ -136,26 +137,25 @@ export function TelaDeTrafego({
 
       <div className="mt-8 flex flex-wrap items-end justify-between gap-4">
         <h2 className="font-display text-2xl text-ink">De {diaCurto(de)} a {diaCurto(ate)}</h2>
-        <nav aria-label="Período" className="flex gap-1 rounded-full border border-border bg-surface/60 p-1">
-          {PERIODOS.map((p) => (
-            <Link
-              key={p.chave}
-              href={`?periodo=${p.chave}`}
-              scroll={false}
-              aria-current={p.chave === chave ? "page" : undefined}
-              className={p.chave === chave ? "rounded-full bg-brand px-3.5 py-1.5 text-xs font-semibold text-ink" : "rounded-full px-3.5 py-1.5 text-xs font-semibold text-muted hover:text-ink"}
-            >
-              {p.rotulo}
-            </Link>
-          ))}
-        </nav>
+        <SeletorDePeriodo atual={chave} />
       </div>
+
+      <Link
+        href={`/admin/trafego/campanhas?periodo=${chave === "7d" ? "30d" : chave}`}
+        className="glass mt-5 flex items-center justify-between gap-3 rounded-[16px] p-4 transition-colors hover:border-brand/50"
+      >
+        <span className="min-w-0">
+          <span className="block text-sm font-semibold text-ink">Ver campanhas, conjuntos e anúncios</span>
+          <span className="block text-xs text-muted">O que está bom, o que está ruim e em que etapa do funil cada um perde.</span>
+        </span>
+        <ArrowRight size={16} className="shrink-0 text-brand-nav" aria-hidden />
+      </Link>
 
       {gasto === null ? (
         <p className="glass mt-6 rounded-[18px] p-6 text-sm text-muted">Não deu para ler o gasto agora. Recarregue a página em alguns segundos.</p>
       ) : (
         <>
-          <div className="mt-5 grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="mt-5 grid grid-cols-2 gap-3 sm:gap-5 xl:grid-cols-4">
             <Cartao
               Icone={Megaphone}
               rotulo="Gasto em anúncio"
@@ -189,7 +189,29 @@ export function TelaDeTrafego({
             {linhas.length === 0 ? (
               <p className="mt-3 text-sm text-muted">Nenhum gasto lançado e nenhuma venda com etiqueta de anúncio no período.</p>
             ) : (
-              <div className="mt-3 overflow-x-auto">
+              <>
+              {/* No celular, tabela de seis colunas vira rolagem de lado e ninguém
+                  lê. Cada plataforma vira um cartão, com os mesmos números. */}
+              <ul className="mt-3 divide-y divide-border/60 md:hidden">
+                {linhas.map((l) => {
+                  const s = SITUACAO[l.situacao];
+                  return (
+                    <li key={l.plataforma} className="py-3">
+                      <p className="text-sm font-semibold text-ink">{l.nome}</p>
+                      <p className="mt-0.5 inline-flex items-center gap-1 text-xs font-semibold" style={{ color: s.cor }}>
+                        <s.Icone size={12} aria-hidden /> {s.nome}
+                      </p>
+                      <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                        <div><dt className="text-[0.68rem] text-muted">Gasto</dt><dd className="numeros text-ink">{l.gasto > 0 ? reais(l.gasto) : "·"}</dd></div>
+                        <div><dt className="text-[0.68rem] text-muted">Venda paga com etiqueta</dt><dd className="numeros text-ink">{reais(l.faturamento)} <span className="text-xs text-muted">({l.pedidos})</span></dd></div>
+                        <div><dt className="text-[0.68rem] text-muted">Volta por R$ 1</dt><dd className="numeros font-semibold text-ink">{l.retorno === null ? "·" : reais(l.retorno)}</dd></div>
+                        <div><dt className="text-[0.68rem] text-muted">Gasto por pedido</dt><dd className="numeros text-ink">{l.custoPorPedido === null ? "·" : reais(l.custoPorPedido)}</dd></div>
+                      </dl>
+                    </li>
+                  );
+                })}
+              </ul>
+              <div className="mt-3 hidden overflow-x-auto md:block">
                 <table className="w-full min-w-[46rem] border-collapse">
                   <thead>
                     <tr className="border-b border-border text-left text-[0.68rem] uppercase tracking-wider text-muted">
@@ -236,6 +258,7 @@ export function TelaDeTrafego({
                   </tbody>
                 </table>
               </div>
+              </>
             )}
             <p className="mt-3 max-w-3xl text-xs leading-relaxed text-muted">
               A venda entra na plataforma pela etiqueta de origem do pedido.

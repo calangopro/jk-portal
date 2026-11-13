@@ -23,6 +23,8 @@ import { andamentoDaMeta } from "../src/lib/painel/meta.ts";
 import { dividirPorDia, retornoPorPlataforma } from "../src/lib/trafego/retorno.ts";
 import { contaDoMes } from "../src/lib/custos/conta.ts";
 import { completarDias, lerInsightsDoMeta, lerLotesDoGoogle } from "../src/lib/trafego/leitura.ts";
+import { lerItensDoGoogle, lerItensDoMeta, tipoDoGoogle, tipoDoMeta } from "../src/lib/trafego/leitura-itens.ts";
+import { diagnosticar, objetivoDe, type Item } from "../src/lib/trafego/diagnostico.ts";
 
 let falhas = 0;
 function confere(nome: string, ok: boolean, detalhe = "") {
@@ -365,6 +367,115 @@ console.log("\nLeitura das APIs de anúncio");
   confere("hoje sem linha não é gravado como zero", !cheio.some((d) => d.dia === "2026-11-13"));
   const comHoje = completarDias([{ dia: "2026-11-13", gasto: 34.35, impressoes: 100, cliques: 2 }], "2026-11-13", "2026-11-13", "2026-11-13");
   confere("hoje com linha entra com o parcial", comHoje.length === 1 && comHoje[0].gasto === 34.35);
+}
+
+console.log("\nCampanha, conjunto e anúncio");
+
+{
+  const linha = (ad: string, conjunto: string, campanha: string, gasto: string, extra: Record<string, unknown> = {}) => ({
+    date_start: "2026-11-12", campaign_id: campanha, campaign_name: `Campanha ${campanha}`, adset_id: conjunto, adset_name: `Conjunto ${conjunto}`,
+    ad_id: ad, ad_name: `Anúncio ${ad}`, objective: "OUTCOME_SALES", spend: gasto, impressions: "1000", clicks: "30", inline_link_clicks: "20", ...extra,
+  });
+  const meta = lerItensDoMeta(
+    [
+      linha("a1", "s1", "c1", "100.50", {
+        actions: [
+          { action_type: "landing_page_view", value: "15" },
+          { action_type: "add_to_cart", value: "4" },
+          { action_type: "initiate_checkout", value: "3" },
+          { action_type: "purchase", value: "2" },
+          { action_type: "omni_purchase", value: "2" },
+          { action_type: "offsite_conversion.fb_pixel_purchase", value: "2" },
+          { action_type: "onsite_conversion.messaging_conversation_started_7d", value: "5" },
+        ],
+        action_values: [{ action_type: "purchase", value: "900.00" }, { action_type: "omni_purchase", value: "900.00" }],
+      }),
+      linha("a2", "s1", "c1", "50.25"),
+      linha("a3", "s2", "c1", "10"),
+      linha("a4", "s9", "c9", "0", { impressions: "0" }),
+      { date_start: "2026-11-12", spend: "5" },
+    ],
+    new Map([["a1", "ACTIVE"], ["a2", "ADSET_PAUSED"], ["a3", "PAUSED"]]),
+  );
+  const achar = (nivel: string, id: string) => meta.find((l) => l.nivel === nivel && l.item_id === id)!;
+  confere("Meta: a mesma compra com três nomes conta uma vez", achar("anuncio", "a1").compras === 2 && achar("anuncio", "a1").valor === 900);
+  confere("Meta: funil do anúncio lido das ações", achar("anuncio", "a1").visitas === 15 && achar("anuncio", "a1").carrinhos === 4 && achar("anuncio", "a1").checkouts === 3 && achar("anuncio", "a1").conversas === 5);
+  confere("Meta: conjunto é a soma dos anúncios dele", achar("conjunto", "s1").gasto === 150.75 && achar("conjunto", "s1").impressoes === 2000 && achar("conjunto", "s1").compras === 2);
+  confere("Meta: campanha é a soma de tudo", achar("campanha", "c1").gasto === 160.75 && achar("campanha", "c1").cliques === 60 && achar("campanha", "c1").campanha_id === null);
+  confere("Meta: só ACTIVE está veiculando, e o pai liga se um filho liga", achar("anuncio", "a1").ativo === true && achar("anuncio", "a2").ativo === false && achar("conjunto", "s1").ativo === true && achar("conjunto", "s2").ativo === false);
+  confere("Meta: linha sem impressão e sem gasto fica de fora, e linha sem anúncio também", !meta.some((l) => l.item_id === "a4" || l.item_id === "c9") && meta.length === 6);
+  confere("Meta: sem a lista de situação, ativo fica nulo", lerItensDoMeta([linha("a1", "s1", "c1", "1")], null).every((l) => l.ativo === null));
+  confere("objetivo do Meta em palavra nossa", tipoDoMeta("OUTCOME_SALES") === "vendas" && tipoDoMeta("OUTCOME_TRAFFIC") === "trafego" && tipoDoMeta("OUTCOME_ENGAGEMENT") === "engajamento" && tipoDoMeta("MESSAGES") === "mensagens" && tipoDoMeta(undefined) === "outro");
+
+  const m = (custo: string, conv = "0", valor = "0") => ({ costMicros: custo, impressions: "500", clicks: "40", conversions: conv, conversionsValue: valor });
+  const google = lerItensDoGoogle({
+    campanhas: [{ results: [
+      { campaign: { id: "10", name: "Pesquisa", status: "ENABLED", advertisingChannelType: "SEARCH" }, segments: { date: "2026-11-12" }, metrics: m("30000000", "1.5", "600") },
+      { campaign: { id: "20", name: "PMax", status: "PAUSED", advertisingChannelType: "PERFORMANCE_MAX" }, segments: { date: "2026-11-12" }, metrics: m("20000000") },
+      { campaign: { id: "30", name: "Parada", status: "ENABLED", advertisingChannelType: "SHOPPING" }, segments: { date: "2026-11-12" }, metrics: { costMicros: "0", impressions: "0", clicks: "0" } },
+    ] }],
+    grupos: [{ results: [{ adGroup: { id: "11", name: "Grupo", status: "ENABLED" }, campaign: { id: "10", status: "ENABLED" }, segments: { date: "2026-11-12" }, metrics: m("30000000", "1.5", "600") }] }],
+    recursos: [{ results: [{ assetGroup: { id: "21", name: "Recursos", status: "ENABLED" }, campaign: { id: "20", status: "PAUSED" }, segments: { date: "2026-11-12" }, metrics: m("20000000") }] }],
+    anuncios: [{ results: [
+      { adGroupAd: { status: "ENABLED", ad: { id: "111", type: "RESPONSIVE_SEARCH_AD", responsiveSearchAd: { headlines: [{ text: "Alianças de Ouro" }, { text: "JK Alianças" }, { text: "Frete Grátis" }] } } }, adGroup: { id: "11", status: "ENABLED" }, campaign: { id: "10", status: "ENABLED" }, segments: { date: "2026-11-12" }, metrics: m("30000000", "1.5", "600") },
+    ] }],
+  });
+  const g = (nivel: string, id: string) => google.find((l) => l.nivel === nivel && l.item_id === id)!;
+  confere("Google: micros viram reais e a conversão fracionada é mantida", g("campanha", "10").gasto === 30 && g("campanha", "10").compras === 1.5 && g("campanha", "10").valor === 600);
+  confere("Google: tipo de canal desce da campanha para conjunto e anúncio", g("conjunto", "11").tipo === "pesquisa" && g("anuncio", "111").tipo === "pesquisa" && tipoDoGoogle("PERFORMANCE_MAX") === "pmax");
+  confere("Google: grupo de recursos do Performance Max entra como conjunto", g("conjunto", "21").campanha_id === "20" && g("conjunto", "21").tipo === "pmax");
+  confere("Google: conjunto de campanha pausada não está veiculando", g("conjunto", "21").ativo === false && g("campanha", "20").ativo === false && g("anuncio", "111").ativo === true);
+  confere("Google: anúncio sem nome usa os dois primeiros títulos", g("anuncio", "111").nome === "Alianças de Ouro | JK Alianças");
+  confere("Google: campanha sem impressão e sem gasto fica de fora", !google.some((l) => l.item_id === "30"));
+  confere("Google: nível que falhou vem vazio e não derruba os outros", lerItensDoGoogle({ campanhas: [], anuncios: undefined }).length === 0);
+
+  const item = (nivel: Item["nivel"], id: string, tipo: string, n: Partial<Item>): Item => ({
+    nivel, id, nome: id, campanha_id: null, conjunto_id: null, tipo, ativo: true, gasto: 0, impressoes: 0, cliques: 0, cliques_todos: 0,
+    visitas: 0, carrinhos: 0, checkouts: 0, compras: 0, valor: 0, conversas: 0, ...n,
+  });
+  confere("objetivo: venda, conversa, clique e engajamento pelo que a campanha declara",
+    objetivoDe({ tipo: "vendas", compras: 3, conversas: 50 }) === "venda" && objetivoDe({ tipo: "vendas", compras: 0, conversas: 74 }) === "conversa" &&
+    objetivoDe({ tipo: "trafego", compras: 2, conversas: 267 }) === "clique" && objetivoDe({ tipo: "engajamento", compras: 0, conversas: 138 }) === "conversa" &&
+    objetivoDe({ tipo: "engajamento", compras: 0, conversas: 3 }) === "engajamento" && objetivoDe({ tipo: "pmax", compras: 0, conversas: 0 }) === "venda");
+
+  const base = { impressoes: 100000, cliques: 1000, visitas: 800, carrinhos: 40, checkouts: 30, compras: 20, valor: 8000 };
+  const d = diagnosticar(
+    [
+      item("campanha", "boa", "vendas", { ...base, gasto: 1000 }),
+      item("campanha", "cara", "vendas", { ...base, gasto: 1800, compras: 10, valor: 4000 }),
+      item("campanha", "live", "engajamento", { gasto: 500, impressoes: 90000, cliques_todos: 300 }),
+      item("campanha", "perfil", "trafego", { gasto: 400, impressoes: 50000, cliques: 2000 }),
+      item("conjunto", "s-bom", "vendas", { ...base, campanha_id: "cara", gasto: 300, compras: 8, valor: 3000 }),
+      item("conjunto", "s-ruim", "vendas", { ...base, campanha_id: "cara", gasto: 1500, compras: 2, valor: 1000 }),
+      item("anuncio", "a-zero", "vendas", { campanha_id: "cara", conjunto_id: "s-ruim", gasto: 400, impressoes: 30000, cliques: 300, visitas: 250, carrinhos: 0 }),
+      item("anuncio", "a-pausado", "vendas", { campanha_id: "boa", conjunto_id: "nao-existe", gasto: 500, impressoes: 30000, cliques: 300, ativo: false }),
+    ],
+    "meta",
+  );
+  const c = (id: string) => d.campanhas.find((x) => x.id === id)!;
+  // Régua de venda: 2.800 de gasto em 30 compras = 93,33 por compra.
+  confere("régua da conta: custo médio por compra das campanhas de venda", Math.round(c("boa").custo! * 100) === 5000 && c("boa").veredito === "bom" && /46% abaixo/.test(c("boa").motivo), c("boa").motivo);
+  confere("campanha 93% acima da média é ruim, com o número na frase", c("cara").veredito === "ruim" && /R\$\s180,00/.test(c("cara").motivo) && /93% acima/.test(c("cara").motivo), c("cara").motivo);
+  confere("campanha de engajamento não ganha veredito", c("live").veredito === "sem_dado" && c("live").objetivo === "engajamento" && /não mede/.test(c("live").motivo));
+  confere("campanha de tráfego é julgada pelo clique", c("perfil").objetivo === "clique" && c("perfil").resultados === 2000 && c("perfil").custo === 0.2);
+  confere("a árvore monta campanha, conjunto e anúncio, do que mais gastou para o que menos", c("cara").filhos.map((f) => f.id).join() === "s-ruim,s-bom" && c("cara").filhos[0].filhos[0].id === "a-zero");
+  confere("conjunto herda o objetivo e a régua da campanha", c("cara").filhos[1].veredito === "bom" && c("cara").filhos[0].veredito === "ruim");
+  confere("anúncio que gastou o dobro da média sem compra é ruim", c("cara").filhos[0].filhos[0].veredito === "ruim" && /não trouxe nenhuma compra/.test(c("cara").filhos[0].filhos[0].motivo));
+  confere("gargalo: chega na página e não põe no carrinho", c("cara").filhos[0].filhos[0].gargalo?.etapa === "carrinho", JSON.stringify(c("cara").filhos[0].filhos[0].gargalo));
+  const rever = d.achados.filter((a) => a.tipo === "rever").map((a) => a.nome);
+  const crescer = d.achados.filter((a) => a.tipo === "crescer").map((a) => a.nome);
+  confere("achados: campanha ruim não repete o conjunto e o anúncio ruins dela", rever.join() === "cara", rever.join());
+  confere("achados: o conjunto bom dentro da campanha ruim aparece para crescer", crescer.includes("s-bom") && crescer.includes("boa"));
+  confere("achados: item pausado não vira tarefa", !d.achados.some((a) => a.nome === "a-pausado"));
+  confere("funil só com campanha de venda", d.funil[0].quantidade === 200000 && d.funil.find((f) => f.etapa === "compra")?.quantidade === 30);
+  confere("funil: a taxa é sobre a etapa anterior", d.funil.find((f) => f.etapa === "visita")?.taxa === 0.8 && d.funil.find((f) => f.etapa === "carrinho")?.taxa === 0.05);
+  confere("a maior perda do site é dita em frase", /chegar na página e pôr no carrinho/.test(d.maiorPerda ?? "") && /5 passam/.test(d.maiorPerda ?? ""), d.maiorPerda ?? "");
+  confere("verba por objetivo soma 100% e separa o que não mede venda", Math.round(d.verba.reduce((s, v) => s + v.fatia, 0) * 100) === 100 && d.verba.find((v) => v.objetivo === "engajamento")?.gasto === 500 && d.verba.find((v) => v.objetivo === "venda")?.itens === 2);
+  const textos = [...d.achados.map((a) => a.texto), ...d.campanhas.map((x) => x.motivo), d.maiorPerda ?? ""].join(" ");
+  confere("nenhuma frase do diagnóstico com travessão", !/[–—]/.test(textos));
+  const gg = diagnosticar([item("campanha", "g1", "pesquisa", { gasto: 100, impressoes: 5000, cliques: 200, compras: 4, valor: 900 })], "google");
+  confere("Google: funil de três etapas e a palavra conversão", gg.funil.length === 3 && /conversão/.test(gg.campanhas[0].motivo) && gg.maiorPerda === null);
+  confere("conta sem nada não quebra", diagnosticar([], "meta").campanhas.length === 0 && diagnosticar([], "meta").achados.length === 0);
 }
 
 if (falhas > 0) {
