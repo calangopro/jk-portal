@@ -8,6 +8,7 @@ import type { Area } from "@/lib/auth/acessos";
 import { comBasePath } from "@/lib/seo/base-path";
 import { nomeDoSetor, ondeEstou, setoresDe } from "@/lib/painel/setores";
 import { useAoVivo } from "@/lib/time/ao-vivo";
+import { useNotificarMensagens } from "@/lib/time/notificar";
 import { BotaoSair } from "./BotaoSair";
 import { useAvisosAoVivo, useTituloComAviso } from "./AvisosAoVivo";
 import { AbasDoSetor, BarraDeBaixo, FolhaMais, Lateral, corDoSetor, type Avisos } from "./Navegacao";
@@ -49,6 +50,8 @@ export function Moldura({
   // O canal ao vivo fica ligado em TODA tela do painel: "online" é estar com o painel aberto, não só com o chat.
   useAoVivo(meuId, caminhoDaPrevia === undefined);
   useTituloComAviso(avisos, caminho);
+  // O aviso do sistema (a notificação do computador) também vale em toda tela, para quem ligou no chat.
+  useNotificarMensagens(caminhoDaPrevia === undefined && Boolean(meuId), caminho.startsWith("/admin/chat"));
   const setores = useMemo(() => setoresDe(areas), [areas]);
   const { setor, item } = ondeEstou(setores, caminho);
   const [mais, setMais] = useState(false);

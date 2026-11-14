@@ -6,14 +6,15 @@ import { ArrowDown, ArrowLeft, Check, ChevronDown, ChevronUp, CornerUpLeft, Load
 import { COR_DO_TOM } from "@/lib/painel/tons";
 import { aoAvisar, avisarAqui, useLigacao, type Ligacao } from "@/lib/time/ao-vivo";
 import {
-  CHAVE_DO_RASCUNHO, NOME_DA_SALA, SALAS, daSala, desdeQuandoSincronizar, esperaDoPedido, juntarMensagens, limitesPorExtenso, minhasSalas,
+  CHAVE_DO_RASCUNHO, NOME_DA_SALA, SALAS, daSala, desdeQuandoSincronizar, esperaDoPedido, juntarMensagens, lerSala, limitesPorExtenso, minhasSalas,
   montarLinhas, naoLidasPorSala, pedidosEsperando, pessoasComPresenca, primeiraNaoLida, rascunhoDaResposta, trechoDe,
-  type Abertura, type Lidas, type Mensagem, type Sala,
+  type Abertura, type EstadoDoAviso, type Lidas, type Mensagem, type Sala,
 } from "@/lib/time/chat";
 import { SeloDeTom } from "../Pecas";
 import { FormularioDeResposta } from "../biblioteca/FormularioDeResposta";
 import { botaoCheio, botaoClaro, useAgora } from "../biblioteca/pecas";
 import { apiDoChat, type ApiDoChat, type ImagemEnviada } from "./api";
+import { AvisoDoSistema } from "./AvisoDoSistema";
 import { Conversa, type AcaoDaFala, type Pendente } from "./Conversa";
 import { Escrever } from "./Escrever";
 import { useImagens } from "./Imagens";
@@ -54,6 +55,8 @@ type Props = {
   api?: ApiDoChat;
   /** Só a prévia de desenvolvimento: uma ligação de mentira, com gente online. */
   ligacaoDaPrevia?: Ligacao;
+  /** Só a prévia de desenvolvimento: o estado do aviso do sistema, sem pedir permissão de verdade. */
+  avisoDaPrevia?: EstadoDoAviso;
 };
 
 const maiores = (a: Lidas, b: Lidas): Lidas => {
@@ -89,7 +92,7 @@ export function TelaDoChat(p: Props) {
 }
 
 function Chat({
-  abertura, meuId, souAdmin, salaInicial, rascunho, pedirDeInicio, destaqueInicial, api = apiDoChat, ligacaoDaPrevia,
+  abertura, meuId, souAdmin, salaInicial, rascunho, pedirDeInicio, destaqueInicial, api = apiDoChat, ligacaoDaPrevia, avisoDaPrevia,
 }: Props & { abertura: Abertura }) {
   const ligacaoReal = useLigacao();
   const ligacao = ligacaoDaPrevia ?? ligacaoReal;
@@ -207,7 +210,20 @@ function Chat({
     if (espera.current) clearTimeout(espera.current);
   }, []);
 
-  useEffect(() => aoAvisar((a) => (a.tipo === "lida" ? undefined : agendar())), [agendar]);
+  // O clique num aviso do sistema, com esta tela aberta, pede para ir até a mensagem.
+  const abrirDoAviso = useRef<(sala: Sala, mensagem: number) => void>(() => undefined);
+  useEffect(
+    () =>
+      aoAvisar((a) => {
+        if (a.tipo === "lida") return;
+        if (a.tipo === "abrir") {
+          const s = lerSala(a.sala);
+          if (s) abrirDoAviso.current(s, a.mensagem);
+        }
+        agendar();
+      }),
+    [agendar],
+  );
 
   const [visivel, setVisivel] = useState(true);
   const aoVivo = ligacao.estado === "ao_vivo";
@@ -335,6 +351,18 @@ function Chat({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // A mensagem para onde ir depois de trocar de sala. Ela pode ainda estar chegando: a tela tenta de novo a cada mudança da conversa, por alguns segundos.
+  const [pular, setPular] = useState<{ id: number; ate: number } | null>(null);
+  useEffect(() => {
+    if (!pular) return;
+    if (lista.current?.querySelector(`[data-fala="${pular.id}"]`)) {
+      irPara(pular.id);
+      setPular(null);
+    } else if (Date.now() > pular.ate) {
+      setPular(null);
+    }
+  }, [pular, daAberta, irPara]);
+
   // ------------------------------------------------------------------- o lido
 
   const aLer = useRef<Lidas>({});
@@ -386,6 +414,12 @@ function Chat({
     setAviso(null);
     setVerPedidos(telaLarga.current);
     setGuardando(null);
+  };
+
+  abrirDoAviso.current = (s, mensagem) => {
+    trocarDeSala(s);
+    setVerPessoas(false);
+    setPular({ id: mensagem, ate: Date.now() + 8000 });
   };
 
   const despachar = useCallback(
@@ -557,6 +591,9 @@ function Chat({
         </nav>
         <section className="glass min-h-0 flex-1 overflow-y-auto rounded-[18px] p-3.5" aria-label="Quem está online">
           <ListaDePessoas pessoas={pessoas} meuId={meuId} estado={ligacao.estado} />
+          <div className="mt-4">
+            <AvisoDoSistema estadoDaPrevia={avisoDaPrevia} />
+          </div>
         </section>
       </aside>
 
@@ -615,6 +652,9 @@ function Chat({
             <div className="min-h-0 flex-1 overflow-y-auto p-4">
               <ListaDePessoas pessoas={pessoas} meuId={meuId} estado={ligacao.estado} />
               <p className="mt-3 text-[0.7rem] leading-relaxed text-muted">Online é estar com o painel aberto e à vista, em qualquer tela dele.</p>
+              <div className="mt-4">
+                <AvisoDoSistema estadoDaPrevia={avisoDaPrevia} />
+              </div>
             </div>
           </div>
         ) : null}

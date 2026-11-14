@@ -331,6 +331,118 @@ export function tituloComAviso(titulo: string, n: number): string {
   return `(${n > 99 ? "99+" : n}) ${limpo}`;
 }
 
+// ----------------------------------------------------------- o aviso do sistema
+
+/**
+ * A mensagem que chegou PARA a pessoa, do jeito que o banco devolve em
+ * `chat_para_avisar` (0081): quem, em que sala e o começo do texto. É o que o
+ * aviso do sistema (a notificação do computador) mostra quando o painel está
+ * em segundo plano. Imagem não vem, só a contagem.
+ */
+export type ParaAvisar = {
+  id: number;
+  sala: Sala;
+  autorNome: string | null;
+  trecho: string;
+  imagens: number;
+  pede: boolean;
+  /** É resposta a uma mensagem da própria pessoa. */
+  paraMim: boolean;
+  em: string;
+};
+
+export function lerParaAvisar(v: unknown): { agora: string | null; mensagens: ParaAvisar[] } {
+  const l = objeto(v);
+  if (!l) return { agora: null, mensagens: [] };
+  const mensagens = (Array.isArray(l.mensagens) ? l.mensagens : [])
+    .map(objeto)
+    .map((m): ParaAvisar | null => {
+      const sala = m ? lerSala(m.sala) : null;
+      const id = m ? inteiro(m.id) : 0;
+      if (!m || !sala || id <= 0) return null;
+      return {
+        id,
+        sala,
+        autorNome: texto(m.autor_nome),
+        trecho: typeof m.trecho === "string" ? m.trecho.trim() : "",
+        imagens: Math.max(0, inteiro(m.imagens)),
+        pede: m.pede === true,
+        paraMim: m.para_mim === true,
+        em: typeof m.em === "string" ? m.em : "",
+      };
+    })
+    .filter((m): m is ParaAvisar => m !== null);
+  return { agora: texto(l.agora), mensagens };
+}
+
+export type AvisoDoSistema = {
+  /** Aviso com a mesma marca troca o anterior em vez de empilhar: é o que evita dois avisos da mesma mensagem com duas abas abertas. */
+  marca: string;
+  titulo: string;
+  corpo: string;
+  /** Para onde o clique leva. */
+  sala: Sala;
+  mensagem: number;
+};
+
+/** Até quantas mensagens ganham um aviso cada. Acima disso sai um aviso só, com o resumo: ninguém quer oito avisos de uma conversa animada. */
+export const AVISOS_SEPARADOS = 2;
+
+const emLista = (itens: string[]): string =>
+  itens.length <= 1 ? (itens[0] ?? "") : `${itens.slice(0, -1).join(", ")} e ${itens[itens.length - 1]}`;
+
+const corpoDoAviso = (m: ParaAvisar): string =>
+  m.trecho || (m.imagens > 1 ? `${m.imagens} imagens` : m.imagens === 1 ? "Imagem" : "Mensagem nova");
+
+/**
+ * Os avisos do sistema para um lote de mensagens que chegaram. O título diz
+ * quem e onde, e o que a mensagem é para a pessoa: resposta a ela, pedido de
+ * resposta, ou conversa. O corpo é o começo do texto.
+ */
+export function avisosDoSistema(lista: readonly ParaAvisar[]): AvisoDoSistema[] {
+  const emOrdem = [...lista].sort((a, b) => a.id - b.id);
+  if (emOrdem.length === 0) return [];
+  if (emOrdem.length > AVISOS_SEPARADOS) {
+    const ultima = emOrdem[emOrdem.length - 1];
+    const salas = emLista([...new Set(emOrdem.map((m) => NOME_DA_SALA[m.sala]))]);
+    return [
+      {
+        marca: "jk-chat-resumo",
+        titulo: `${emOrdem.length} mensagens novas no chat do time`,
+        corpo: `Em ${salas}. A última, de ${ultima.autorNome ?? "alguém do time"}: ${corpoDoAviso(ultima)}`,
+        sala: ultima.sala,
+        mensagem: ultima.id,
+      },
+    ];
+  }
+  return emOrdem.map((m) => {
+    const nome = m.autorNome ?? "Alguém do time";
+    const sala = NOME_DA_SALA[m.sala];
+    const titulo = m.paraMim ? `${nome} respondeu a você em ${sala}` : m.pede ? `${nome} pede resposta em ${sala}` : `${nome} em ${sala}`;
+    return { marca: `jk-chat-${m.id}`, titulo, corpo: corpoDoAviso(m), sala: m.sala, mensagem: m.id };
+  });
+}
+
+/**
+ * O estado do aviso do sistema neste navegador.
+ *   sem_suporte  o navegador não mostra aviso de site (iPhone fora do aplicativo instalado, por exemplo);
+ *   desligado    dá para ligar;
+ *   ligado       a pessoa ligou e o navegador permite;
+ *   bloqueado    a pessoa (ou a empresa) negou aviso a este site no navegador: só ela desfaz, no cadeado do endereço.
+ */
+export type EstadoDoAviso = "sem_suporte" | "desligado" | "ligado" | "bloqueado";
+
+/**
+ * Junta a permissão do navegador com a escolha da pessoa. A permissão sozinha
+ * não basta: quem permitiu uma vez e depois desligou no painel continua com a
+ * permissão dada, e o painel precisa respeitar o "desligado".
+ */
+export function estadoDoAviso(permissao: "default" | "granted" | "denied" | null, escolheuLigar: boolean): EstadoDoAviso {
+  if (permissao === null) return "sem_suporte";
+  if (permissao === "denied") return "bloqueado";
+  return permissao === "granted" && escolheuLigar ? "ligado" : "desligado";
+}
+
 // --------------------------------------------------------- quem está online
 
 /**

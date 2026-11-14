@@ -12,8 +12,8 @@ import {
   palavrasDoTexto, respostasProximas, semAcento, type Resposta,
 } from "../src/lib/time/biblioteca.ts";
 import {
-  DIAS_DE_NAO_LIDA, ENDERECO_DO_CHAT, FOLGA_DA_SINCRONIA_MS, LIMITES_DO_PEDIDO, SALAS,
-  avisosDoMenu, caminhoDaImagem, conferirImagem, daSala, desdeQuandoSincronizar, diaDe, duracaoEmPalavra, esperaDoPedido, esperandoPorMim,
+  AVISOS_SEPARADOS, DIAS_DE_NAO_LIDA, ENDERECO_DO_CHAT, FOLGA_DA_SINCRONIA_MS, LIMITES_DO_PEDIDO, SALAS,
+  avisosDoMenu, avisosDoSistema, estadoDoAviso, lerParaAvisar, caminhoDaImagem, conferirImagem, daSala, desdeQuandoSincronizar, diaDe, duracaoEmPalavra, esperaDoPedido, esperandoPorMim,
   estaEsperando, horaCurta, iniciais, juntarMensagens, lerAbertura, lerMensagem, lerPresenca, lerResumo, lerSala, limitesPorExtenso, minhasSalas,
   montarLinhas, naoLidasPorSala, partesDoTexto, pedidosEsperando, pessoasComPresenca, primeiraNaoLida, rascunhoDaResposta, rotuloDoDia,
   textoSobreProduto, tituloComAviso, trechoDe,
@@ -293,6 +293,36 @@ console.log("\nQuem está online");
   confere("a lista: online, depois em outra aba, depois quem está fora, por nome", lista.map((p) => `${p.nome}:${p.presenca}`).join() === "Ana:online,Bia:ausente,Caio:fora,Zé:fora");
   confere("o nome nunca vem do canal: quem não está na lista do banco não aparece", pessoasComPresenca([], presenca).length === 0);
   confere("as iniciais", iniciais("Ana Paula Souza") === "AS" && iniciais("bia") === "BI" && iniciais("") === "?" && iniciais(null) === "?");
+}
+
+console.log("\nO aviso do sistema");
+{
+  const lido = lerParaAvisar({
+    agora: "2026-11-14T18:00:00Z",
+    mensagens: [
+      { id: 7, sala: "fabrica", autor_nome: "Caio", trecho: "  Consigo sim, fica pronto na quinta. ", imagens: 0, pede: false, para_mim: true, em: ha(1) },
+      { id: 8, sala: "loja", autor_nome: "Bia", trecho: "", imagens: 2, pede: true, para_mim: false, em: ha(1) },
+      { id: 0, sala: "loja" }, { id: 9, sala: "sala que não existe" }, "texto solto",
+    ],
+  });
+  confere("lê o que o banco manda e descarta o que veio torto", lido.agora === "2026-11-14T18:00:00Z" && lido.mensagens.length === 2 && lido.mensagens[0].paraMim && lido.mensagens[0].trecho === "Consigo sim, fica pronto na quinta." && lido.mensagens[1].imagens === 2);
+  confere("sem resposta do banco não há o que avisar", lerParaAvisar(null).mensagens.length === 0 && lerParaAvisar(null).agora === null && avisosDoSistema([]).length === 0);
+
+  const [a, b] = avisosDoSistema(lido.mensagens);
+  confere("resposta a mim diz quem respondeu e onde", a.titulo === "Caio respondeu a você em Fábrica" && a.corpo === "Consigo sim, fica pronto na quinta." && a.sala === "fabrica" && a.mensagem === 7);
+  confere("pedido diz que pede resposta, e mensagem só de imagem diz quantas", b.titulo === "Bia pede resposta em Loja" && b.corpo === "2 imagens");
+  confere("cada mensagem tem a própria marca, para duas abas não avisarem em dobro", a.marca === "jk-chat-7" && b.marca === "jk-chat-8");
+  const comum = avisosDoSistema([{ id: 3, sala: "geral", autorNome: null, trecho: "", imagens: 1, pede: false, paraMim: false, em: ha(1) }])[0];
+  confere("mensagem comum: quem e onde; sem nome e só com imagem ainda faz sentido", comum.titulo === "Alguém do time em Geral" && comum.corpo === "Imagem");
+
+  const muitas = [3, 1, 2, 4].map((id) => ({ id, sala: (id % 2 ? "geral" : "fabrica") as "geral" | "fabrica", autorNome: `Pessoa ${id}`, trecho: `Texto ${id}`, imagens: 0, pede: false, paraMim: false, em: ha(1) }));
+  const resumo = avisosDoSistema(muitas);
+  confere("conversa animada vira UM aviso, com o total, as salas e a última", muitas.length > AVISOS_SEPARADOS && resumo.length === 1 && resumo[0].titulo === "4 mensagens novas no chat do time"
+    && resumo[0].corpo === "Em Geral e Fábrica. A última, de Pessoa 4: Texto 4" && resumo[0].mensagem === 4 && resumo[0].sala === "fabrica" && resumo[0].marca === "jk-chat-resumo");
+  confere("nenhum texto de aviso com travessão", [a, b, comum, ...resumo].every((x) => !/[—–]/.test(x.titulo + x.corpo)));
+
+  confere("o estado junta a permissão do navegador com a escolha da pessoa", estadoDoAviso(null, true) === "sem_suporte" && estadoDoAviso("denied", true) === "bloqueado"
+    && estadoDoAviso("default", true) === "desligado" && estadoDoAviso("granted", false) === "desligado" && estadoDoAviso("granted", true) === "ligado");
 }
 
 console.log("\nA conversa em linhas");
