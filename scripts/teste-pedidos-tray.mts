@@ -35,6 +35,7 @@ import { diaOuNulo, lerEstado, naoPegaram, prepararEdicao } from "../src/lib/loj
 import { TETO_DE_BYTES, codigoDaImagem, corpoDasFotos, enderecoAceito, fotosQueNaoEntraram, lerImagens, prepararFotos, type FotoNova } from "../src/lib/loja/imagens.ts";
 import { achatar, ordenar, somar, tomContraAMedia, tomDaVoltaDaLoja, tomDaVoltaDaPlataforma, tomDoVeredito } from "../src/lib/trafego/linhas.ts";
 import { abasDaBarra, nomeDoSetor, ondeEstou, setoresDe } from "../src/lib/painel/setores.ts";
+import { DIAS_DE_ATENCAO, DIAS_DE_ATRASO, diasEntreDatas, esperaEmPalavra, etapaAnterior, lerEntrega, lerEspecificacoes, lerEtapa, proximaEtapa, tomDaEspera } from "../src/lib/fabrica/etapas.ts";
 
 let falhas = 0;
 function confere(nome: string, ok: boolean, detalhe = "") {
@@ -854,10 +855,37 @@ console.log("\nCores de estado do painel");
   confere("cada tom tem texto e fundo, e o neutro é branco", ["bom", "atencao", "ruim"].every((t) => /^#[0-9a-f]{6}$/.test(COR_DO_TOM[t as "bom"].texto) && /^#[0-9a-f]{6}$/.test(COR_DO_TOM[t as "bom"].fundo)) && COR_DO_TOM.neutro.fundo === "#fff");
 }
 
+console.log("\nFila da fábrica");
+{
+  const info = "Numeração - Aro 01: 16<br />Numeração - Aro 02: 14<br />Modelo de Gravação: 1. Gravação Laser<br />Escolha seu Anel: 4. Anel Forever<br />Numeração Anel Solitário: 16<br />Escolha a sua caixinha: 1. Caixinha Padrão<br />Gravação - Aro 01: Paulo victor<br />Gravação - Aro 02: Sofia &amp; eu<br />";
+  const e = lerEspecificacoes(info);
+  confere("abre o campo da loja em linhas, uma por informação", e.length === 8);
+  confere("separa a numeração de cada aro", e.filter((x) => x.tipo === "aro").map((x) => `${x.rotulo}=${x.valor}`).join("|") === "Numeração - Aro 01=16|Numeração - Aro 02=14|Numeração Anel Solitário=16");
+  confere("separa o texto que vai gravado, como o cliente escreveu", e.filter((x) => x.tipo === "gravar").map((x) => x.valor).join("|") === "Paulo victor|Sofia & eu");
+  confere("o modelo de gravação não é texto a gravar", e.find((x) => x.rotulo === "Modelo de Gravação")?.tipo === "outro");
+  confere("o número da opção sai das escolhas de lista", e.find((x) => x.rotulo === "Modelo de Gravação")?.valor === "Gravação Laser" && e.find((x) => x.rotulo === "Escolha a sua caixinha")?.valor === "Caixinha Padrão");
+  confere("texto a gravar que começa com número fica inteiro", lerEspecificacoes("Gravação - Aro 01: 12. 03. 2026")[0].valor === "12. 03. 2026" && lerEspecificacoes("Numeração - Aro 01: 8.5")[0].valor === "8.5");
+  confere("campo vazio, linha sem valor e linha sem dois pontos não quebram", lerEspecificacoes(null).length === 0 && lerEspecificacoes("Gravação - Aro 01: <br />").length === 0 && lerEspecificacoes("embrulhar para presente")[0].rotulo === "Observação");
+  confere("quebra de linha comum também separa", lerEspecificacoes("Numeração - Aro 01: 16\nNumeração - Aro 02: 18").length === 2);
+
+  confere("as etapas andam na ordem e param nas pontas", proximaEtapa("a_produzir") === "em_producao" && proximaEtapa("pronto") === "enviado" && proximaEtapa("enviado") === null && etapaAnterior("a_produzir") === null && etapaAnterior("enviado") === "pronto");
+  confere("etapa desconhecida não é aceita", lerEtapa("pronto") === "pronto" && lerEtapa("cancelado") === null && lerEtapa(undefined) === null);
+  confere("conta os dias corridos desde o pagamento", diasEntreDatas("2026-11-10", "2026-11-14") === 4 && diasEntreDatas("2026-10-30", "2026-11-02") === 3 && diasEntreDatas("2026-11-14", "2026-11-14") === 0);
+  confere("a espera ganha âmbar e vermelho pelos prazos de partida", tomDaEspera(DIAS_DE_ATENCAO - 1, "a_produzir") === "neutro" && tomDaEspera(DIAS_DE_ATENCAO, "em_producao") === "atencao" && tomDaEspera(DIAS_DE_ATRASO, "pronto") === "ruim");
+  confere("pedido enviado não espera mais nada", tomDaEspera(30, "enviado") === "neutro");
+  confere("a espera por extenso", esperaEmPalavra(0) === "hoje" && esperaEmPalavra(1) === "ontem" && esperaEmPalavra(5) === "há 5 dias");
+
+  confere("retirada em loja diz qual loja", lerEntrega("Retire na loja do Shopping Plaza - Osasco")?.nome === "Retirada: Shopping Plaza - Osasco" && lerEntrega("Retire na loja do Shopping Granja Viana")?.tipo === "retirada");
+  confere("motoboy e Correios são reconhecidos", lerEntrega("Entrega por Motoboy")?.tipo === "motoboy" && lerEntrega("CORREIOS SEDEX")?.nome === "Correios SEDEX" && lerEntrega("CORREIOS PAC")?.nome === "Correios PAC");
+  confere("frete que o painel não conhece sai com o nome da loja", lerEntrega("Frete Grátis Sudeste")?.tipo === "envio" && lerEntrega("Frete Grátis Sudeste")?.nome === "Frete Grátis Sudeste" && lerEntrega("") === null && lerEntrega(null) === null);
+}
+
 console.log("\nSetores do painel");
 {
-  const tudo = setoresDe(["conteudo", "site", "catalogo", "campanhas", "vendas", "recuperacao", "metricas", "anuncios", "margem", "custos", "equipe", "lancar_venda", "trafego", "loja"]);
-  confere("quem tem tudo vê os sete setores", tudo.length === 7 && tudo[0].id === "diretoria");
+  const tudo = setoresDe(["conteudo", "site", "catalogo", "campanhas", "vendas", "recuperacao", "metricas", "anuncios", "margem", "custos", "equipe", "lancar_venda", "trafego", "loja", "fabrica"]);
+  confere("quem tem tudo vê os oito setores", tudo.length === 8 && tudo[0].id === "diretoria");
+  const daFabrica = setoresDe(["fabrica"]);
+  confere("quem é da fábrica vê o início e a fila, e navega por tela", daFabrica.map((s) => s.id).join() === "diretoria,fabrica" && abasDaBarra(daFabrica).map((a) => a.href).join() === "/admin,/admin/fabrica");
   const emCampanhas = ondeEstou(tudo, "/admin/trafego/campanhas");
   confere("vale o endereço mais comprido: campanhas não acende o resumo do tráfego", emCampanhas.setor?.id === "trafego" && emCampanhas.item?.href === "/admin/trafego/campanhas");
   confere("tela de dentro acende a tela mãe", ondeEstou(tudo, "/admin/conteudos/abc-123").item?.href === "/admin/conteudos" && ondeEstou(tudo, "/admin/qrcode/novo").setor?.id === "site");

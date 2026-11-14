@@ -1,6 +1,6 @@
 import type { LucideIcon } from "lucide-react";
 import {
-  Activity, Banknote, BookCheck, Bot, CalendarDays, Crosshair, FileText, Filter, Globe, HandCoins, History, ImageIcon,
+  Activity, Banknote, BookCheck, Bot, CalendarDays, Crosshair, FileText, Filter, Globe, Hammer, HandCoins, History, ImageIcon,
   LayoutDashboard, LayoutTemplate, ListChecks, MapPin, MessageCircle, Milestone, Package, Palette, PenLine,
   Percent, Plug, QrCode, RotateCcw, Settings, Smartphone, Store, Table2, Tags, TrendingUp, Trophy, Users,
   UsersRound, Wallet,
@@ -11,7 +11,7 @@ import type { Area } from "@/lib/auth/acessos";
  * Os setores do painel: o escritório da JK, sala por sala.
  *
  * O menu antigo era uma lista de vinte e nove telas em cinco grupos, e a pessoa
- * precisava ler tudo para achar o que queria. Agora são sete salas, cada uma
+ * precisava ler tudo para achar o que queria. Agora são oito salas, cada uma
  * com a sua cor, e dentro de cada sala ficam as telas dela. Este arquivo é a
  * ÚNICA lista: dele saem a barra lateral do computador, a barra de baixo do
  * celular, as abas de cada setor e a folha "Mais". Tela nova entra aqui e
@@ -39,7 +39,7 @@ export type ItemDoSetor = {
   desc: string;
 };
 
-export type SetorId = "diretoria" | "vendas" | "trafego" | "loja" | "conteudo" | "site" | "sistema";
+export type SetorId = "diretoria" | "vendas" | "trafego" | "loja" | "fabrica" | "conteudo" | "site" | "sistema";
 
 export type Setor = {
   id: SetorId;
@@ -102,6 +102,16 @@ export const SETORES: Setor[] = [
       { href: "/admin/campanhas", area: "campanhas", label: "Campanhas de desconto", curto: "Descontos", Icone: Tags, desc: "Descontos com aprovação" },
       { href: "/admin/alteracoes-na-loja", area: "loja", label: "Alterações na loja", curto: "Alterações", Icone: History, desc: "Quem mudou o quê na Tray" },
       { href: "/admin/lojas", area: "catalogo", label: "Lojas físicas", curto: "Lojas", Icone: MapPin, desc: "Endereço e horário" },
+    ],
+  },
+  {
+    id: "fabrica",
+    nome: "Fábrica",
+    frase: "Do pedido pago ao envio",
+    cor: "#566217",
+    Icone: Hammer,
+    itens: [
+      { href: "/admin/fabrica", area: "fabrica", label: "Fila da fábrica", curto: "Fila", Icone: Hammer, desc: "O que produzir e o que enviar" },
     ],
   },
   {
