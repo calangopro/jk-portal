@@ -1,6 +1,6 @@
 import type { LucideIcon } from "lucide-react";
 import {
-  Activity, Banknote, BookCheck, Bot, CalendarDays, Crosshair, FileText, Filter, Globe, Hammer, HandCoins, History, ImageIcon,
+  Activity, Banknote, BookCheck, Bot, CalendarDays, Crosshair, FileText, Filter, Globe, Hammer, HandCoins, HeartPulse, History, ImageIcon,
   LayoutDashboard, LayoutTemplate, ListChecks, MapPin, MessageCircle, Milestone, Package, PackageSearch, Palette, PenLine,
   Percent, Plug, QrCode, RotateCcw, Settings, Smartphone, Store, Table2, Tags, TrendingUp, Trophy, Users,
   UsersRound, Wallet,
@@ -156,6 +156,7 @@ export const SETORES: Setor[] = [
     itens: [
       { href: "/admin/usuarios", area: "equipe", label: "Usuários", Icone: Users, desc: "Acesso e níveis" },
       { href: "/admin/integracoes", area: "equipe", label: "Integrações", Icone: Plug, desc: "Google, Meta e a loja" },
+      { href: "/admin/saude", area: "equipe", label: "Saúde das ligações", curto: "Saúde", Icone: HeartPulse, desc: "O que roda sozinho e o que parou" },
       { href: "/admin/conector", area: "equipe", label: "Conector do Claude", curto: "Conector", Icone: Bot, desc: "Claude lendo e escrevendo aqui" },
     ],
   },

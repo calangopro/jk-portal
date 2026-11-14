@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { revalidateTag } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { cronAutorizado } from "@/lib/cron/autorizar";
+import { registrarPulso } from "@/lib/cron/pulso";
 import { sincronizarAvaliacoes } from "@/lib/google-perfil/sincronizar";
 import { TAG_AVALIACOES } from "@/lib/google-perfil/publico";
 
@@ -25,5 +26,6 @@ export async function POST(request: Request) {
 
   const resultado = await sincronizarAvaliacoes();
   if (resultado.ok) revalidateTag(TAG_AVALIACOES);
+  await registrarPulso(supabase, "avaliacoes", resultado.ok, resultado.ok ? undefined : "a leitura falhou");
   return NextResponse.json(resultado, { status: resultado.ok ? 200 : 500 });
 }

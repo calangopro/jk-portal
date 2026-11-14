@@ -35,6 +35,7 @@ import { diaOuNulo, lerEstado, naoPegaram, prepararEdicao } from "../src/lib/loj
 import { TETO_DE_BYTES, codigoDaImagem, corpoDasFotos, enderecoAceito, fotosQueNaoEntraram, lerImagens, prepararFotos, type FotoNova } from "../src/lib/loja/imagens.ts";
 import { achatar, ordenar, somar, tomContraAMedia, tomDaVoltaDaLoja, tomDaVoltaDaPlataforma, tomDoVeredito } from "../src/lib/trafego/linhas.ts";
 import { abasDaBarra, nomeDoSetor, ondeEstou, setoresDe } from "../src/lib/painel/setores.ts";
+import { avaliarSaude, diaEHora, haQuantoTempo, resumoDoErro, sinaisDaSaude, type SaudeCrua } from "../src/lib/painel/saude.ts";
 import { REGRAS_DE_PARTIDA, diaPorExtenso, diasDeProducao, diasDesde, lerRegras, proximoMalote, quandoFica, somarDiasUteis } from "../src/lib/vendas/prazos.ts";
 import { DIAS_DE_ATENCAO, DIAS_DE_ATRASO, SEM_FILTRO, diasEntreDatas, esperaEmPalavra, etapaAnterior, filtrarFila, grupoDaEntrega, lerEntrega, lerEspecificacoes, lerEtapa, proximaEtapa, tomDaEspera } from "../src/lib/fabrica/etapas.ts";
 
@@ -924,6 +925,51 @@ console.log("\nPrazo de entrega");
   confere("regra gravada é conferida, e lixo volta para a regra de partida", lerRegras({ diasDoMalote: [5, 2, 2], horaDoMalote: 19, confirmadas: true }).diasDoMalote.join() === "2,5" && lerRegras({ diasDoMalote: [], horaDoMalote: 19 }) === REGRAS_DE_PARTIDA && lerRegras({ diasDoMalote: [3], horaDoMalote: 99 }) === REGRAS_DE_PARTIDA && lerRegras(null) === REGRAS_DE_PARTIDA);
   confere("as regras de partida não nascem confirmadas", REGRAS_DE_PARTIDA.confirmadas === false && lerRegras({ diasDoMalote: [3, 5], horaDoMalote: 20 }).confirmadas === false);
   confere("a idade do aviso é contada no dia de São Paulo", diasDesde("2026-11-14T02:30:00Z", "2026-11-14") === 1 && diasDesde("2026-11-14T15:00:00Z", "2026-11-14") === 0 && diasDesde("2026-11-06T15:00:00Z", "2026-11-14") === 8);
+}
+
+console.log("\nSaúde das ligações");
+{
+  const agora = "2026-11-14T12:00:00Z";
+  const ha = (minutos: number) => new Date(Date.parse(agora) - minutos * 60_000).toISOString();
+  const cru: SaudeCrua = {
+    agora,
+    rotinas: [
+      { rotina: "leads", ultima_em: ha(5), ok: true, detalhe: null, ultima_boa_em: ha(5) },
+      { rotina: "publicar", ultima_em: ha(4), ok: false, detalhe: "falhou", ultima_boa_em: ha(300) },
+      { rotina: "avaliacoes", ultima_em: ha(60), ok: false, detalhe: "a leitura falhou", ultima_boa_em: ha(24 * 60) },
+    ],
+    leituras: [
+      { fonte: "tray", ultima_em: ha(10), ultima_boa_em: ha(10), ultimo_status: "success", ultimo_erro: null },
+      { fonte: "tray_pedidos", ultima_em: ha(9 * 60), ultima_boa_em: ha(9 * 60), ultimo_status: "success", ultimo_erro: null },
+      { fonte: "anuncios_meta", ultima_em: ha(30), ultima_boa_em: ha(9 * 60), ultimo_status: "error", ultimo_erro: "Meta respondeu 401: {\"error\":{}}" },
+    ],
+    destinos: [
+      { destino: "rd", ok: 120, erro: 31, sem_chave: 0, ignorado: 25, ultimo_ok_em: "2026-11-11T13:29:28Z", erro_desde: "2026-11-11T15:26:14Z", ultimo_erro: "RD Station respondeu 401: {\"errors\":[]}", fora_da_fila: 31 },
+      { destino: "kommo", ok: 0, erro: 0, sem_chave: 176, ignorado: 0, ultimo_ok_em: null, erro_desde: null, ultimo_erro: null, fora_da_fila: 0 },
+      { destino: "meta", ok: 0, erro: 0, sem_chave: 176, ignorado: 0, ultimo_ok_em: null, erro_desde: null, ultimo_erro: null, fora_da_fila: 0 },
+    ],
+    contatos: 176,
+  };
+  const saude = avaliarSaude(cru);
+  const de = (chave: string) => saude.find((l) => l.chave === chave)!;
+  confere("rotina com rodada boa recente está funcionando", de("leads").estado === "ok" && de("catalogo").estado === "ok");
+  confere("rotina que só responde erro está parada, mesmo rodando", de("publicar").estado === "ruim" && de("publicar").frase.startsWith("Parada há 5 horas"));
+  confere("uma falha depois de rodada boa dentro da tolerância é só atenção", de("avaliacoes").estado === "atencao");
+  confere("a de pedidos tolera a noite inteira", de("pedidos").estado === "ok");
+  confere("leitura parada diz o erro que a pessoa consegue ler", de("gasto-meta").estado === "ruim" && de("gasto-meta").frase.includes("a chave foi recusada") && !de("gasto-meta").frase.includes("{"));
+  confere("rotina que nunca registrou não vira alarme", de("search-console").estado === "sem_registro" && de("gasto-google").estado === "sem_registro");
+  confere("destino recusando diz desde quando, quantos e o que fazer", de("destino-rd").estado === "ruim" && de("destino-rd").frase.startsWith("Recusando desde 11/11 às 12h26: 31 contatos não entraram.") && (de("destino-rd").oQueFazer ?? "").includes("31 contatos já saíram da fila"));
+  confere("destino sem chave é ligação que não foi feita, não erro", de("destino-kommo").estado === "desligada" && de("destino-kommo").frase.startsWith("Sem chave. 176 contatos"));
+  confere("o que pede ação vem primeiro", saude[0].estado === "ruim" && saude[saude.length - 1].estado === "ok");
+  const avisos = sinaisDaSaude(saude);
+  confere("cada ligação quebrada vira um aviso, e as sem chave viram um só", avisos.filter((a) => a.gravidade === "problema").length === 3 && avisos.filter((a) => a.chave === "saude-sem-chave").length === 1);
+  confere("o aviso das sem chave diz quais são", avisos.find((a) => a.chave === "saude-sem-chave")?.titulo === "2 destinos de contato estão sem chave: Kommo e Meta, API de Conversões");
+  confere("o aviso do destino quebrado leva à tela de saúde", avisos.find((a) => a.chave === "saude-destino-rd")?.titulo === "RD Station está recusando os contatos" && avisos.find((a) => a.chave === "saude-destino-rd")?.link?.href === "/admin/saude");
+  confere("sem nada errado não há aviso", sinaisDaSaude(avaliarSaude({ ...cru, rotinas: [], leituras: [], destinos: [{ ...cru.destinos[0], erro: 0, fora_da_fila: 0 }] })).length === 0);
+  confere("o tempo por extenso", haQuantoTempo(1) === "agora há pouco" && haQuantoTempo(45) === "há 45 minutos" && haQuantoTempo(300) === "há 5 horas" && haQuantoTempo(3 * 24 * 60) === "há 3 dias");
+  confere("dia e hora no relógio de São Paulo", diaEHora("2026-11-11T15:26:14Z") === "11/11 às 12h26");
+  confere("o erro sai sem o corpo técnico", resumoDoErro("RD Station respondeu 401: {\"errors\":[]}") === "RD Station respondeu 401 (a chave foi recusada)" && resumoDoErro("tempo esgotado") === "tempo esgotado" && resumoDoErro(null) === null);
+  confere("nenhum texto da saúde com travessão", saude.every((l) => !/[—–]/.test(`${l.nome}${l.paraQue}${l.frase}${l.oQueFazer ?? ""}`)));
 }
 
 console.log("\nSetores do painel");

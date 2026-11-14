@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { cronAutorizado } from "@/lib/cron/autorizar";
+import { registrarPulso } from "@/lib/cron/pulso";
 import { sincronizarCatalogo } from "@/lib/tray/sincronizar";
 import { revalidarPrecos } from "@/lib/tray/revalidar";
 
@@ -30,6 +31,7 @@ export async function POST(request: Request) {
 
   const r = await sincronizarCatalogo();
   if (r.revalidar) revalidarPrecos();
+  await registrarPulso(supabase, "catalogo", r.ok, r.ok ? `${r.produtos} produtos, ${r.alterados} alterados` : (r.erro ?? "falhou"));
 
   return NextResponse.json(
     {

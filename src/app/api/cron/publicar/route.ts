@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { cronAutorizado } from "@/lib/cron/autorizar";
+import { registrarPulso } from "@/lib/cron/pulso";
 import { publicarNoBanco } from "@/lib/publicacao/publicar";
 
 /**
@@ -66,6 +67,7 @@ export async function POST(request: Request) {
     );
   }
 
+  await registrarPulso(supabase, "publicar", true, `${publicados.length} publicados, ${recusados.length} recusados`);
   return NextResponse.json({
     publicados: publicados.length,
     recusados: recusados.length,

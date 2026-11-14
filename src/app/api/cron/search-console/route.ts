@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { cronAutorizado } from "@/lib/cron/autorizar";
+import { registrarPulso } from "@/lib/cron/pulso";
 import { importarDoSearchConsole } from "@/lib/search-console/importar";
 
 /**
@@ -23,5 +24,6 @@ export async function POST(request: Request) {
   }
 
   const resultado = await importarDoSearchConsole();
+  await registrarPulso(supabase, "search-console", resultado.ok, resultado.ok ? undefined : "a importação falhou");
   return NextResponse.json(resultado, { status: resultado.ok ? 200 : 500 });
 }

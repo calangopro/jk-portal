@@ -8,6 +8,8 @@ import { lerDespesas } from "@/lib/custos/dados";
 import { lerFilaDaFabrica } from "@/lib/fabrica/dados";
 import { DIAS_DE_ATRASO, diasEntreDatas, tomDaEspera } from "@/lib/fabrica/etapas";
 import { andamentoDaMeta, diasDoMes, type Andamento } from "@/lib/painel/meta";
+import { sinaisDaSaude } from "@/lib/painel/saude";
+import { lerSaude } from "@/lib/painel/saude-dados";
 import { calcularSinais, type EntradaDosSinais } from "@/lib/painel/sinais";
 import { lerResumoDeGasto } from "@/lib/trafego/dados";
 import { retornoPorPlataforma } from "@/lib/trafego/retorno";
@@ -154,16 +156,21 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
   const semAcesso = (await searchParams).sem === "acesso";
   // Começa já, para andar junto das outras leituras; o resultado é esperado lá embaixo.
   const filaDaFabrica = profile.areas.includes("fabrica") ? lerFilaDaFabrica(await createClient(), 15) : null;
+  // A saúde das ligações só responde a administrador, dono e GM. Também começa já.
+  const saude = ehAdmin(profile.role) ? lerSaude(await createClient()) : null;
   const [{ vendas, sinais, andamento, hoje, porForaNoMes, resultado, salas, podeVerMeta }, conteudo] = await Promise.all([
     lerPainel(profile),
     profile.areas.includes("conteudo") ? lerConteudo() : null,
   ]);
-  const semNada = !vendas && sinais.length === 0 && !conteudo;
+  const semNada = !vendas && sinais.length === 0 && !conteudo && !saude;
   if (conteudo) {
     const [posts, , produtos] = conteudo;
     salas.conteudo = { valor: posts.value.toLocaleString("pt-BR"), apoio: `conteúdos, ${posts.hint}` };
     salas.loja = { valor: produtos.value.toLocaleString("pt-BR"), apoio: "produtos espelhados da loja" };
   }
+  // Ligação quebrada entra na frente dos outros avisos: ela contamina os números de todos.
+  const ligacoes = await saude;
+  const avisos = ligacoes ? [...sinaisDaSaude(ligacoes), ...sinais] : sinais;
   // A sala da fábrica mostra o que está parado esperando começar. Sem isso, quem só tem a fábrica entrava numa tela sem número nenhum.
   const fila = await filaDaFabrica;
   if (fila) {
@@ -203,7 +210,7 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
 
       {resultado ? <ResultadoDoMes r={resultado} /> : null}
 
-      <PainelGeral vendas={vendas} sinais={sinais} />
+      <PainelGeral vendas={vendas} sinais={avisos} />
 
       {conteudo ? (
         <section className="mt-10" aria-label="Conteúdo do site">
