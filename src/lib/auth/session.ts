@@ -2,7 +2,7 @@ import "server-only";
 import { cache } from "react";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { ehAdmin, ehEquipeDeConteudo, type AppRole, type Area } from "./acessos";
+import { ehAdmin, ehEquipeDeConteudo, falhaPassageira, type AppRole, type Area } from "./acessos";
 
 export type { AppRole, Area } from "./acessos";
 export { ROLE_LABEL } from "./acessos";
@@ -30,17 +30,32 @@ export type Profile = {
 export const getSessionProfile = cache(async function getSessionProfile(): Promise<Profile | null> {
   const supabase = await createClient();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  let lido = await supabase.auth.getUser();
+  // Falha passageira não é falta de sessão: uma segunda tentativa, antes de mandar a pessoa para o login.
+  if (!lido.data.user && falhaPassageira(lido.error)) {
+    await new Promise((r) => setTimeout(r, 250));
+    lido = await supabase.auth.getUser();
+  }
+  const user = lido.data.user;
   if (!user) return null;
 
-  const [{ data }, { data: areas }] = await Promise.all([
-    supabase.from("profiles").select("id, email, full_name, role, is_active").eq("id", user.id).maybeSingle(),
-    // A função roda no banco com a regra de verdade. Se falhar, a pessoa fica
-    // sem área nenhuma, que é o lado seguro do erro.
-    supabase.rpc("meus_acessos"),
-  ]);
+  const lerPerfil = () =>
+    Promise.all([
+      supabase.from("profiles").select("id, email, full_name, role, is_active").eq("id", user.id).maybeSingle(),
+      // A função roda no banco com a regra de verdade. Se falhar, a pessoa fica
+      // sem área nenhuma, que é o lado seguro do erro.
+      supabase.rpc("meus_acessos"),
+    ]);
+
+  let [perfil, acessos] = await lerPerfil();
+  // O mesmo para o perfil: erro do banco não quer dizer que a pessoa não existe.
+  if (perfil.error || acessos.error) {
+    console.error("[sessao] leitura falhou, tentando de novo:", perfil.error?.message ?? acessos.error?.message);
+    await new Promise((r) => setTimeout(r, 250));
+    [perfil, acessos] = await lerPerfil();
+  }
+  const data = perfil.data;
+  const areas = acessos.data;
 
   if (!data) return null;
 
