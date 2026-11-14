@@ -31,6 +31,8 @@ import { compararComOBanco, pedidoDaApi, ultimaAlteracao } from "../src/lib/vend
 import { ehRobo, lerChegada, pedidoValido, repeteAAnterior, sessaoValida } from "../src/lib/origem/chegada.ts";
 import { itensQueVenderam, passosDoColetor, vendasPorItem, type Cobertura, type SaudeDoColetor } from "../src/lib/origem/anotado.ts";
 import { diaOuNulo, lerEstado, naoPegaram, prepararEdicao } from "../src/lib/loja/produto.ts";
+import { achatar, ordenar, somar, tomContraAMedia, tomDaVoltaDaLoja, tomDoVeredito } from "../src/lib/trafego/linhas.ts";
+import { abasDaBarra, nomeDoSetor, ondeEstou, setoresDe } from "../src/lib/painel/setores.ts";
 
 let falhas = 0;
 function confere(nome: string, ok: boolean, detalhe = "") {
@@ -735,6 +737,63 @@ console.log("\nEditar produto da loja pelo painel");
   confere("confere o que a Tray gravou de verdade", preco.ok && naoPegaram(preco.final, { ...preco.final, preco: 1499.9 }, ["preco"]).join() === "preco" && naoPegaram(preco.final, preco.final, ["preco"]).length === 0);
   const frases = [estoque, preco, zeroAMais, promo, metade, tirar, sair, zerado].flatMap((r) => (r.ok ? [...r.avisos, ...r.mudancas.map((m) => m.antes + m.depois)] : [r.erro]));
   confere("nenhuma frase com travessão", frases.every((f) => !/[—–]/.test(f)));
+}
+
+console.log("\nTabela de campanhas e anúncios");
+{
+  const base = { campanha_id: null, conjunto_id: null, tipo: "vendas", ativo: true, cliques_todos: null, conversas: null } as const;
+  const itens: Item[] = [
+    { ...base, nivel: "campanha", id: "c1", nome: "Prata", gasto: 1000, impressoes: 50000, cliques: 1000, visitas: 800, carrinhos: 120, checkouts: 50, compras: 20, valor: 6000 },
+    { ...base, nivel: "campanha", id: "c2", nome: "Ouro", gasto: 1000, impressoes: 40000, cliques: 600, visitas: 500, carrinhos: 30, checkouts: 10, compras: 2, valor: 900 },
+    { ...base, nivel: "conjunto", id: "s1", nome: "Mulheres", campanha_id: "c1", gasto: 1000, impressoes: 50000, cliques: 1000, visitas: 800, carrinhos: 120, checkouts: 50, compras: 20, valor: 6000 },
+    { ...base, nivel: "anuncio", id: "a1", nome: "Carrossel", campanha_id: "c1", conjunto_id: "s1", gasto: 700, impressoes: 30000, cliques: 700, visitas: 560, carrinhos: 90, checkouts: 40, compras: 16, valor: 4800 },
+    { ...base, nivel: "anuncio", id: "a2", nome: "Vídeo", campanha_id: "c1", conjunto_id: "s1", ativo: false, gasto: 300, impressoes: 20000, cliques: 300, visitas: 240, carrinhos: 30, checkouts: 10, compras: 4, valor: 1200 },
+  ];
+  const d = diagnosticar(itens, "meta");
+  const linhas = achatar(d.campanhas, { "campanha:c1": { criados: 10, pagos: 8, valor: 4000 }, "anuncio:a1": { criados: 6, pagos: 5, valor: 2800 } });
+
+  confere("a árvore vira uma linha por item, nos três níveis", linhas.length === 5 && linhas.filter((l) => l.nivel === "anuncio").length === 2);
+  const a1 = linhas.find((l) => l.id === "a1")!;
+  confere("o anúncio sabe em que campanha e conjunto está", a1.campanha === "Prata" && a1.conjunto === "Mulheres" && a1.campanhaId === "c1" && a1.conjuntoId === "s1");
+  confere("a venda paga da loja entra na linha, com a volta por real", a1.loja?.pagos === 5 && a1.voltaDaLoja === 4);
+  confere("item sem pedido ligado fica sem volta da loja, não com zero", linhas.find((l) => l.id === "a2")!.voltaDaLoja === null);
+  confere("a campanha conta os conjuntos que tem", linhas.find((l) => l.id === "c1")!.filhos === 1 && a1.filhos === 0);
+
+  const empate = voltaParaEmpatar();
+  confere("volta da loja: verde do empate para cima", tomDaVoltaDaLoja(empate, empate) === "bom" && tomDaVoltaDaLoja(5, empate) === "bom");
+  confere("volta da loja: vermelha abaixo de 1", tomDaVoltaDaLoja(0.99, empate) === "ruim" && tomDaVoltaDaLoja(0, empate) === "ruim");
+  confere("volta da loja: âmbar entre 1 e o empate", tomDaVoltaDaLoja(1, empate) === "atencao" && tomDaVoltaDaLoja(3.2, empate) === "atencao");
+  confere("volta da loja: sem dado não ganha cor", tomDaVoltaDaLoja(null, empate) === "neutro");
+  confere("volta da plataforma: compara com a média da conta", tomContraAMedia(6, 4, 0.2) === "bom" && tomContraAMedia(2, 4, 0.2) === "ruim" && tomContraAMedia(4.5, 4, 0.2) === "neutro");
+  confere("volta da plataforma: item pequeno demais fica sem cor", tomContraAMedia(9, 4, 0.001) === "neutro" && tomContraAMedia(9, null, 0.2) === "neutro");
+  confere("veredito sem opinião não pinta", tomDoVeredito("na_media") === "neutro" && tomDoVeredito("sem_dado") === "neutro" && tomDoVeredito("ruim") === "ruim");
+
+  const anuncios = linhas.filter((l) => l.nivel === "anuncio");
+  confere("ordena pelo gasto, maior primeiro", ordenar(anuncios, "gasto", "desc")[0].id === "a1" && ordenar(anuncios, "gasto", "asc")[0].id === "a2");
+  confere("linha sem valor na coluna vai para o fim nos dois sentidos", ordenar(anuncios, "voltaDaLoja", "desc")[1].id === "a2" && ordenar(anuncios, "voltaDaLoja", "asc")[1].id === "a2");
+  confere("ordenar não mexe na lista original", anuncios[0].id === "a1" && ordenar(anuncios, "nome", "desc")[0].id === "a2" && anuncios[0].id === "a1");
+  const t = somar(linhas.filter((l) => l.nivel === "campanha"));
+  confere("o total soma gasto, compras e a venda da loja", t.itens === 2 && t.gasto === 2000 && t.compras === 22 && t.valor === 6900 && t.lojaValor === 4000 && t.lojaPagos === 8);
+}
+
+console.log("\nSetores do painel");
+{
+  const tudo = setoresDe(["conteudo", "site", "catalogo", "campanhas", "vendas", "recuperacao", "metricas", "anuncios", "margem", "custos", "equipe", "lancar_venda", "trafego", "loja"]);
+  confere("quem tem tudo vê os sete setores", tudo.length === 7 && tudo[0].id === "diretoria");
+  const emCampanhas = ondeEstou(tudo, "/admin/trafego/campanhas");
+  confere("vale o endereço mais comprido: campanhas não acende o resumo do tráfego", emCampanhas.setor?.id === "trafego" && emCampanhas.item?.href === "/admin/trafego/campanhas");
+  confere("tela de dentro acende a tela mãe", ondeEstou(tudo, "/admin/conteudos/abc-123").item?.href === "/admin/conteudos" && ondeEstou(tudo, "/admin/qrcode/novo").setor?.id === "site");
+  confere("a visão geral só acende no endereço exato", ondeEstou(tudo, "/admin").item?.href === "/admin" && ondeEstou(tudo, "/admin/senha").item === null);
+  confere("endereço parecido não casa por engano", ondeEstou(tudo, "/admin/vendasx").item === null);
+  confere("com três setores ou mais, a barra de baixo é por setor", abasDaBarra(tudo).length === 4 && abasDaBarra(tudo)[0].label === "Início" && abasDaBarra(tudo)[1].href === "/admin/vendas");
+
+  const vendedor = setoresDe(["lancar_venda", "recuperacao"]);
+  confere("o vendedor só vê o início e as vendas, e a primeira sala se chama Início", vendedor.length === 2 && nomeDoSetor(vendedor[0]) === "Início" && vendedor[1].itens.length === 2);
+  confere("com menos de três setores, a barra de baixo é por tela", abasDaBarra(vendedor).map((a) => a.href).join() === "/admin,/admin/registrar-venda,/admin/recuperacao");
+  confere("a primeira tela de vendas do vendedor é registrar", vendedor[1].itens[0].href === "/admin/registrar-venda");
+  confere("setor sem nenhuma tela some", setoresDe([]).length === 1 && setoresDe(["equipe"]).some((s) => s.id === "sistema") && !setoresDe(["equipe"]).some((s) => s.id === "loja"));
+  const frases = tudo.flatMap((s) => [s.nome, s.frase, ...s.itens.flatMap((i) => [i.label, i.desc, i.curto ?? ""])]);
+  confere("nenhum nome de setor ou tela com travessão", frases.every((f) => !/[—–]/.test(f)));
 }
 
 console.log("\nTudo certo.");

@@ -1675,9 +1675,11 @@ h4 {
     -webkit-tap-highlight-color: transparent;
   }
 
-  /* Barra de topo: quase opaca e sem desfoque, pelo mesmo motivo dos cartões. */
+  /* Barra de topo: opaca e sem desfoque, pelo mesmo motivo dos cartões. Com
+     qualquer transparência, o título da tela aparecia por trás do nome do
+     setor ao rolar. */
   .painel-topo {
-    background: rgb(var(--jk-bg-rgb) / 0.97);
+    background: rgb(var(--jk-bg-rgb));
     border-bottom: 1px solid rgb(23 21 18 / 0.07);
     padding-top: env(safe-area-inset-top);
   }
