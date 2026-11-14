@@ -1,7 +1,7 @@
 import type { LucideIcon } from "lucide-react";
 import {
   Activity, Banknote, BookCheck, Bot, CalendarDays, Crosshair, FileText, Filter, Globe, Hammer, HandCoins, History, ImageIcon,
-  LayoutDashboard, LayoutTemplate, ListChecks, MapPin, MessageCircle, Milestone, Package, Palette, PenLine,
+  LayoutDashboard, LayoutTemplate, ListChecks, MapPin, MessageCircle, Milestone, Package, PackageSearch, Palette, PenLine,
   Percent, Plug, QrCode, RotateCcw, Settings, Smartphone, Store, Table2, Tags, TrendingUp, Trophy, Users,
   UsersRound, Wallet,
 } from "lucide-react";
@@ -74,6 +74,7 @@ export const SETORES: Setor[] = [
     Icone: Banknote,
     itens: [
       { href: "/admin/vendas", area: "vendas", label: "Pedidos da loja", curto: "Pedidos", Icone: Banknote, desc: "O que foi pago, por dia e por origem" },
+      { href: "/admin/consulta", area: "consulta", label: "Consulta", Icone: PackageSearch, desc: "Produto, pronta entrega e prazo" },
       { href: "/admin/registrar-venda", area: "lancar_venda", label: "Registrar venda", curto: "Registrar", Icone: HandCoins, desc: "O que foi fechado fora da loja" },
       { href: "/admin/vendedores", area: "vendas", label: "Vendedores", Icone: Trophy, desc: "Quanto cada um vendeu" },
       { href: "/admin/recuperacao", area: "recuperacao", label: "Recuperação", curto: "Recuperar", Icone: RotateCcw, desc: "Quem não pagou o pedido" },

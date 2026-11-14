@@ -35,6 +35,7 @@ import { diaOuNulo, lerEstado, naoPegaram, prepararEdicao } from "../src/lib/loj
 import { TETO_DE_BYTES, codigoDaImagem, corpoDasFotos, enderecoAceito, fotosQueNaoEntraram, lerImagens, prepararFotos, type FotoNova } from "../src/lib/loja/imagens.ts";
 import { achatar, ordenar, somar, tomContraAMedia, tomDaVoltaDaLoja, tomDaVoltaDaPlataforma, tomDoVeredito } from "../src/lib/trafego/linhas.ts";
 import { abasDaBarra, nomeDoSetor, ondeEstou, setoresDe } from "../src/lib/painel/setores.ts";
+import { REGRAS_DE_PARTIDA, diaPorExtenso, diasDeProducao, diasDesde, lerRegras, proximoMalote, quandoFica, somarDiasUteis } from "../src/lib/vendas/prazos.ts";
 import { DIAS_DE_ATENCAO, DIAS_DE_ATRASO, SEM_FILTRO, diasEntreDatas, esperaEmPalavra, etapaAnterior, filtrarFila, grupoDaEntrega, lerEntrega, lerEspecificacoes, lerEtapa, proximaEtapa, tomDaEspera } from "../src/lib/fabrica/etapas.ts";
 
 let falhas = 0;
@@ -897,6 +898,32 @@ console.log("\nFila da fábrica");
   confere("atrasado é o que passou do prazo e ainda não saiu", achados({ soAtrasados: true }) === "20001");
   confere("dá para ver só os pedidos com anotação", achados({ soComNota: true }) === "20001");
   confere("os grupos de entrega", grupoDaEntrega("CORREIOS SEDEX") === "envio" && grupoDaEntrega("Retire na loja do Shopping Santana") === "retirada" && grupoDaEntrega(null) === null);
+}
+
+console.log("\nPrazo de entrega");
+{
+  // Novembro de 2026: dia 11 é quarta, 12 quinta, 13 sexta, 14 sábado, 16 segunda, 18 quarta.
+  {
+    confere("lê os dias úteis do texto da loja", diasDeProducao("Disponível em 2 dias úteis") === 2 && diasDeProducao("Disponível em 1 dia útil") === 1 && diasDeProducao("Disponível em 10 dias úteis") === 10);
+    confere("pronta entrega e imediato são zero dias, e texto sem prazo não é chutado", diasDeProducao("Pronta entrega") === 0 && diasDeProducao("Imediata") === 0 && diasDeProducao("Sob consulta") === null && diasDeProducao(null) === null);
+  }
+  confere("o dia do pedido não conta: quarta com 2 dias úteis fica pronta na sexta", somarDiasUteis("2026-11-11", 2) === "2026-11-13");
+  confere("o fim de semana não conta", somarDiasUteis("2026-11-12", 2) === "2026-11-16" && somarDiasUteis("2026-11-13", 1) === "2026-11-16" && somarDiasUteis("2026-11-14", 2) === "2026-11-17");
+  confere("com zero dias vale o próprio dia útil, ou o próximo", somarDiasUteis("2026-11-11", 0) === "2026-11-11" && somarDiasUteis("2026-11-14", 0) === "2026-11-16");
+  confere("o malote é o primeiro de quarta ou sexta, o próprio dia incluído", proximoMalote("2026-11-13", REGRAS_DE_PARTIDA) === "2026-11-13" && proximoMalote("2026-11-14", REGRAS_DE_PARTIDA) === "2026-11-18" && proximoMalote("2026-11-12", REGRAS_DE_PARTIDA) === "2026-11-13");
+  const retirada = quandoFica({ hoje: "2026-11-11", diasUteis: 2, caminho: "retirada", regras: REGRAS_DE_PARTIDA });
+  confere("retirada: pedido de quarta com 2 dias chega na loja na sexta, depois das 20h", retirada.pronta === "2026-11-13" && retirada.chegada === "2026-11-13" && retirada.frase === "Chega na loja em sexta, 13/11, depois das 20h.");
+  confere("a conta da retirada vem com os passos, e manda combinar a partir do dia seguinte", retirada.conta.length === 3 && retirada.conta[2].includes("sábado, 14/11"));
+  const quinta = quandoFica({ hoje: "2026-11-12", diasUteis: 2, caminho: "retirada", regras: REGRAS_DE_PARTIDA });
+  confere("retirada: pedido de quinta com 2 dias só pega o malote da quarta seguinte", quinta.pronta === "2026-11-16" && quinta.chegada === "2026-11-18");
+  const correios = quandoFica({ hoje: "2026-11-12", diasUteis: 2, caminho: "correios", regras: REGRAS_DE_PARTIDA });
+  confere("Correios: a resposta é o dia da postagem, e não promete o prazo dos Correios", correios.chegada === "2026-11-16" && correios.frase.includes("segunda, 16/11") && correios.frase.includes("prazo dos Correios"));
+  const moto = quandoFica({ hoje: "2026-11-14", diasUteis: 0, caminho: "moto", regras: REGRAS_DE_PARTIDA });
+  confere("moto: sai no dia em que fica pronta, e a frase diz que o cliente paga", moto.chegada === "2026-11-16" && moto.frase.includes("O cliente paga a corrida"));
+  confere("o dia por extenso", diaPorExtenso("2026-11-13") === "sexta, 13/11" && diaPorExtenso("2026-11-15") === "domingo, 15/11");
+  confere("regra gravada é conferida, e lixo volta para a regra de partida", lerRegras({ diasDoMalote: [5, 2, 2], horaDoMalote: 19, confirmadas: true }).diasDoMalote.join() === "2,5" && lerRegras({ diasDoMalote: [], horaDoMalote: 19 }) === REGRAS_DE_PARTIDA && lerRegras({ diasDoMalote: [3], horaDoMalote: 99 }) === REGRAS_DE_PARTIDA && lerRegras(null) === REGRAS_DE_PARTIDA);
+  confere("as regras de partida não nascem confirmadas", REGRAS_DE_PARTIDA.confirmadas === false && lerRegras({ diasDoMalote: [3, 5], horaDoMalote: 20 }).confirmadas === false);
+  confere("a idade do aviso é contada no dia de São Paulo", diasDesde("2026-11-14T02:30:00Z", "2026-11-14") === 1 && diasDesde("2026-11-14T15:00:00Z", "2026-11-14") === 0 && diasDesde("2026-11-06T15:00:00Z", "2026-11-14") === 8);
 }
 
 console.log("\nSetores do painel");
