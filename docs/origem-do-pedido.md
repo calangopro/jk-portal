@@ -116,16 +116,23 @@ medição.
 
 1. ~~O script na loja.~~ **Feito em 13/11/2026**, pela etiqueta "JK Portal -
    Coletor de origem" do GTM, na versão 30 (`infra/gtm/README.md`).
-   **No tema, a linha já está escrita e ainda não foi publicada.** Em 13/11 ela
-   entrou em `layouts/default.html` dos DOIS temas de `~/Projetos/jk-tema-loja`
-   (raiz e `Esquenta/`), logo depois do `scripts`:
-   `<script async src="/guias/o.js?v=2"></script>`. O zip pronto é
-   `jk-esquenta-20261113-coletor.zip`, na raiz daquele repositório, e difere da
-   cópia de segurança (`jk-esquenta-backup-20261113-antes-do-coletor.zip`) só
-   nesse arquivo. Falta enviar e publicar no painel da Tray, que pediu login na
-   área de temas. O tema não depende do GTM nem de bloqueador de anúncio; o GTM
-   cobre o carrinho e o fechamento, que o tema não alcança. Com os dois, nada
-   duplica: na segunda carga o arquivo só confere se há algo novo.
+   **No tema também, desde a noite de 13/11.** A linha
+   `<script async src="/guias/o.js?v=2"></script>` está em
+   `layouts/default.html` dos DOIS temas de `~/Projetos/jk-tema-loja` (raiz e
+   `Esquenta/`), logo depois do `scripts`. O Filipe publicou o zip
+   `jk-esquenta-20261113-coletor.zip` pelo painel da Tray, e a loja passou da
+   pasta de tema 231 para a 233. Conferido no ar: a linha aparece uma vez no
+   HTML das páginas, o comentário do tema não vaza, e os CSS e JS seguem
+   iguais aos locais. A cópia de segurança do tema anterior é
+   `jk-esquenta-backup-20261113-antes-do-coletor.zip`. O tema não depende do
+   GTM nem de bloqueador de anúncio; o GTM cobre o carrinho e o fechamento, que
+   o tema não alcança. Com os dois, nada duplica: na segunda carga o arquivo só
+   confere se há algo novo. **O tema permanente já tem a linha no repositório
+   e precisa sair com ela na troca de 01/12.**
+   Um efeito de carregar mais cedo: a primeira página de uma visita pode mandar
+   dois recados, um com a chegada e outro, logo depois, com a sessão, porque a
+   loja só preenche `data-session` depois de a página abrir. Não vira chegada
+   repetida.
 2. **A API de pedidos na loja da JK**, que traz a sessão. Depende da
    homologação do aplicativo (`docs/tray-api-de-pedidos.md`).
 3. **O código nos anúncios do Meta**, pelo modelo acima.
