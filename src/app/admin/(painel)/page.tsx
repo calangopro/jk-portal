@@ -17,6 +17,7 @@ import { definirMeta } from "./meta-actions";
 import { MetaDoMes } from "./MetaDoMes";
 import { PainelGeral, type DadosDeVendas } from "./PainelGeral";
 import { ResultadoDoMes, type Resultado } from "./ResultadoDoMes";
+import { Salas, type NumerosDasSalas } from "./Salas";
 
 /** Quantos dias o painel compara: os últimos 30 contra os 30 anteriores. */
 const DIAS = 30;
@@ -113,7 +114,19 @@ async function lerPainel(profile: Profile) {
         ]
       : [];
 
-  return { vendas, sinais, andamento, hoje, porForaNoMes, resultado, podeVerMeta: pode("vendas") };
+  // O número de cada sala, para os cartões de setor. Só entra o que foi lido.
+  const dinheiro = (n: number) => `R$ ${Math.round(n).toLocaleString("pt-BR")}`;
+  const mes = new Date(`${hoje}T12:00:00`).toLocaleDateString("pt-BR", { month: "long" });
+  const salas: NumerosDasSalas = {};
+  if (doMes) {
+    salas.vendas = {
+      valor: dinheiro(faturamentoDoMes),
+      apoio: `em ${mes}, com ${doMes.totais.pagos} ${doMes.totais.pagos === 1 ? "pedido pago" : "pedidos pagos"} na loja`,
+    };
+  }
+  if (gasto) salas.trafego = { valor: dinheiro(gasto.gasto), apoio: `em anúncio nos últimos ${DIAS} dias` };
+
+  return { vendas, sinais, andamento, hoje, porForaNoMes, resultado, salas, podeVerMeta: pode("vendas") };
 }
 
 async function lerConteudo() {
@@ -135,11 +148,16 @@ async function lerConteudo() {
 
 export default async function AdminDashboard() {
   const profile = await requireSessao();
-  const [{ vendas, sinais, andamento, hoje, porForaNoMes, resultado, podeVerMeta }, conteudo] = await Promise.all([
+  const [{ vendas, sinais, andamento, hoje, porForaNoMes, resultado, salas, podeVerMeta }, conteudo] = await Promise.all([
     lerPainel(profile),
     profile.areas.includes("conteudo") ? lerConteudo() : null,
   ]);
   const semNada = !vendas && sinais.length === 0 && !conteudo;
+  if (conteudo) {
+    const [posts, , produtos] = conteudo;
+    salas.conteudo = { valor: posts.value.toLocaleString("pt-BR"), apoio: `conteúdos, ${posts.hint}` };
+    salas.loja = { valor: produtos.value.toLocaleString("pt-BR"), apoio: "produtos espelhados da loja" };
+  }
 
   return (
     <div data-painel-largo>
@@ -154,6 +172,8 @@ export default async function AdminDashboard() {
       {podeVerMeta ? (
         <MetaDoMes andamento={andamento} hoje={hoje} porFora={porForaNoMes} acao={ehAdmin(profile.role) ? definirMeta : undefined} />
       ) : null}
+
+      <Salas areas={profile.areas} numeros={salas} />
 
       {resultado ? <ResultadoDoMes r={resultado} /> : null}
 

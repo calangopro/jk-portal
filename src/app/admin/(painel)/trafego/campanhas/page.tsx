@@ -5,7 +5,7 @@ import { lerCampanhasDaTela } from "@/lib/trafego/dados";
 import { hojeEmSaoPaulo, lerPeriodo } from "@/lib/vendas/periodo";
 import { TelaDeCampanhas } from "./Tela";
 
-export const metadata = { title: "Campanhas" };
+export const metadata = { title: "Campanhas e anúncios" };
 
 /**
  * Campanhas, conjuntos e anúncios do Meta ou do Google Ads, com o veredito de
