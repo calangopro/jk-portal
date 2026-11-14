@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { ehAdmin, ehEquipeDeConteudo, type AppRole, type Area } from "./acessos";
@@ -16,8 +17,17 @@ export type Profile = {
   areas: Area[];
 };
 
-/** Perfil do usuário logado (ou null se não houver sessão válida). */
-export async function getSessionProfile(): Promise<Profile | null> {
+/**
+ * Perfil do usuário logado (ou null se não houver sessão válida).
+ *
+ * Com `cache`, vale UMA leitura por página. O layout do painel pede a sessão,
+ * e a página pede de novo logo em seguida (`requireArea`, `requireAdmin`): sem
+ * isto eram duas idas ao serviço de login e quatro consultas para descobrir a
+ * mesma coisa, em toda tela. Fora de uma renderização (ação de servidor, rota)
+ * o `cache` não guarda nada entre pedidos, então ninguém herda a sessão de
+ * outra pessoa.
+ */
+export const getSessionProfile = cache(async function getSessionProfile(): Promise<Profile | null> {
   const supabase = await createClient();
 
   const {
@@ -42,7 +52,7 @@ export async function getSessionProfile(): Promise<Profile | null> {
     isActive: data.is_active,
     areas: (Array.isArray(areas) ? areas : []) as Area[],
   };
-}
+});
 
 /** Exige sessão de qualquer pessoa ATIVA, de qualquer nível; caso contrário, manda ao login. */
 export async function requireSessao(): Promise<Profile> {
