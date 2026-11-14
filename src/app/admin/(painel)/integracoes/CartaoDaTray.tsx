@@ -10,9 +10,12 @@ import type { EstadoDaApiDePedidos } from "@/lib/vendas/pedidos-da-api";
  * é uma rota que responde redirecionando para fora do site, e o Link tentaria
  * buscá-la antes do clique.
  *
- * O texto diz o que o painel FAZ (só lê), não o que a permissão alcança: o
- * aplicativo foi cadastrado na Tray com permissão de incluir e alterar produto
- * e pedido.
+ * O texto diz o que o painel FAZ com essa autorização, não o que a permissão
+ * alcança (o aplicativo foi cadastrado na Tray com permissão de incluir e
+ * alterar produto e pedido): lê pedido e produto, altera produto e envia foto,
+ * e não escreve em pedido. Até 13/11/2026 ele dizia "o painel só lê"; deixou
+ * de ser verdade quando a edição de produto entrou (`lib/loja/alterar.ts`), e
+ * foi essa frase velha que travou o pedido de homologação em 14/11.
  */
 
 const quando = (iso: string) =>
@@ -37,7 +40,8 @@ export function CartaoDaTray({ estado }: { estado: EstadoDaApiDePedidos }) {
       </div>
       <p className="mt-1 text-xs leading-relaxed text-muted">
         Lê os pedidos direto da loja, sem ninguém precisar exportar arquivo: pedido novo e pedido que mudou de situação.
-        O painel só lê. Ele não cria nem altera pedido ou produto, mesmo que a permissão do aplicativo na Tray permita.
+        É a mesma autorização que deixa editar produto e levar as fotos aprovadas para a loja, pela tela de Produtos, sempre
+        por uma pessoa e depois de conferir o antes e depois. Em pedido o painel não escreve.
       </p>
 
       {estado.autorizadaEm ? (
