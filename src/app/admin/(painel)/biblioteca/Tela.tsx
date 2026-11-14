@@ -253,11 +253,15 @@ export function TelaDaBiblioteca({
             As respostas da casa. Ache a pergunta, copie a frase e cole na conversa com o cliente.
           </p>
         </div>
-        {/* No celular este botão fica no fim da lista: no topo ele empurrava a busca para baixo. */}
+        {/* No celular este botão fica no fim da lista: no topo ele empurrava a busca para baixo. Quem esconde é
+            a caixa em volta, e não uma classe no botão: `hidden` perdia para o `inline-flex` do próprio botão, e ele
+            aparecia duas vezes na tela. */}
         {!sugerindo ? (
-          <button type="button" onClick={abrirSugestao} className={`${botaoClaro} hidden sm:inline-flex`}>
-            <Plus size={14} aria-hidden="true" /> Sugerir uma resposta
-          </button>
+          <div className="hidden sm:block">
+            <button type="button" onClick={abrirSugestao} className={botaoClaro}>
+              <Plus size={14} aria-hidden="true" /> Sugerir uma resposta
+            </button>
+          </div>
         ) : null}
       </header>
 

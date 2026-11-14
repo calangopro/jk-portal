@@ -92,7 +92,9 @@ function Fala({
   pedido?: boolean;
 }) {
   return (
-    <li className={`glass rounded-[16px] p-4 ${pedido ? "border-l-[3px] border-l-[var(--setor)]" : ""} ${minha && !pedido ? "sm:ml-10" : ""} ${!minha && !pedido ? "sm:mr-10" : ""}`}>
+    <li className={`glass relative overflow-hidden rounded-[16px] p-4 ${minha && !pedido ? "sm:ml-10" : ""} ${!minha && !pedido ? "sm:mr-10" : ""}`}>
+      {/* A faixa do pedido é um elemento, e não borda: dentro do painel o `.glass` define a borda fora de camada e vence a classe. */}
+      {pedido ? <span className="painel-ponto absolute inset-y-0 left-0 w-[3px]" aria-hidden="true" /> : null}
       <p className="flex flex-wrap items-baseline gap-x-2 text-xs">
         <span className="font-bold text-ink">{minha ? "Você" : nome}</span>
         {cargo && !minha ? <span className="text-muted">{cargo}</span> : null}

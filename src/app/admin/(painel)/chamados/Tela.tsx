@@ -113,7 +113,14 @@ function NovoChamado({
           <legend className="text-xs font-semibold text-ink">O que é</legend>
           <div className="mt-1.5 flex flex-wrap gap-1.5">
             {TIPOS.map((t) => (
-              <Ficha key={t.chave} ativa={tipo === t.chave} onClick={() => setTipo(t.chave)}>
+              <Ficha
+                key={t.chave}
+                ativa={tipo === t.chave}
+                onClick={() => {
+                  setTipo(t.chave);
+                  setErro(null);
+                }}
+              >
                 {t.nome}
               </Ficha>
             ))}
@@ -133,6 +140,7 @@ function NovoChamado({
                   onClick={() => {
                     setParaPessoa(false);
                     setSetor(s.chave);
+                    setErro(null);
                   }}
                   className={`painel-toque rounded-[12px] px-3 py-2 text-left ${ativo ? "painel-aba-ativa" : "border border-ink/12 bg-white"}`}
                 >
