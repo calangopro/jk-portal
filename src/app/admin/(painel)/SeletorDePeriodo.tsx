@@ -19,7 +19,7 @@ export function SeletorDePeriodo({ atual, extra = "" }: { atual: ChaveDePeriodo;
           aria-current={p.chave === atual ? "page" : undefined}
           className={
             "shrink-0 whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-semibold sm:px-3.5 " +
-            (p.chave === atual ? "bg-brand text-ink" : "text-muted hover:text-ink")
+            (p.chave === atual ? "painel-aba-ativa" : "text-muted hover:text-ink")
           }
         >
           {p.rotulo}

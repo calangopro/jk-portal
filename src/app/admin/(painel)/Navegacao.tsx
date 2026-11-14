@@ -26,7 +26,13 @@ export function corDoSetor(setor: Pick<Setor, "cor"> | null): CSSProperties {
   const cor = setor?.cor ?? CARVAO;
   // Sobre a cor cheia vai branco. A Diretoria é carvão, e sobre carvão a casa
   // usa o dourado da marca.
-  return { "--setor": cor, "--sobre-setor": cor === CARVAO ? "#d8b877" : "#fff" } as CSSProperties;
+  // O rótulo das telas (`.eyebrow`) leva a cor do setor. Na Diretoria ele
+  // fica no dourado escuro: em carvão, pareceria texto comum.
+  return {
+    "--setor": cor,
+    "--sobre-setor": cor === CARVAO ? "#d8b877" : "#fff",
+    "--rotulo-do-setor": cor === CARVAO ? "#76582b" : cor,
+  } as CSSProperties;
 }
 
 const CARVAO = "#1a1815";

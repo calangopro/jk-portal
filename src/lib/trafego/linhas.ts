@@ -18,8 +18,9 @@
  */
 import type { Avaliado, Nivel, Objetivo, Veredito } from "./diagnostico.ts";
 import type { VendaDoItem } from "../origem/anotado.ts";
+import type { Tom } from "../painel/tons.ts";
 
-export type Tom = "bom" | "atencao" | "ruim" | "neutro";
+export type { Tom };
 
 export type Linha = {
   nivel: Nivel;

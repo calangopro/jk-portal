@@ -1693,6 +1693,28 @@ h4 {
     padding-bottom: env(safe-area-inset-bottom);
   }
 
+  /* O rótulo de cada bloco leva a cor do setor: é o que faz uma tela de
+     Vendas parecer Vendas e uma de Tráfego parecer Tráfego. Utilitário de cor
+     no próprio elemento continua vencendo, porque mora em layer posterior. */
+  .painel-app .eyebrow {
+    color: var(--rotulo-do-setor, var(--color-brand-nav));
+  }
+
+  /* Coluna de gráfico de uma série só, na cor do setor. A recuada é a que não
+     está em destaque: 70% de opacidade ainda passa de 3:1 sobre o branco. */
+  .painel-coluna {
+    background: var(--setor, var(--color-brand));
+    transition: filter 120ms ease, opacity 120ms ease;
+  }
+  .painel-coluna-recuada {
+    opacity: 0.7;
+  }
+  .group:hover > .painel-coluna,
+  .group:focus-visible > .painel-coluna {
+    filter: brightness(0.82);
+    opacity: 1;
+  }
+
   .painel-selo {
     background: color-mix(in srgb, var(--setor) 12%, #fff);
     color: var(--setor);

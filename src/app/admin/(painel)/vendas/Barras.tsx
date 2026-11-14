@@ -2,8 +2,10 @@
  * Gráfico de barras de uma série só, sem biblioteca e sem JavaScript no
  * navegador: a dica aparece por `:hover` e por foco do teclado.
  *
- * Uma série, uma cor (o dourado da marca), sem legenda: o título do bloco já
- * diz o que a barra mede. A escala fica na linha do topo, com o maior valor
+ * Uma série, uma cor (a do setor em que a tela está), sem legenda: o título
+ * do bloco já diz o que a barra mede. Com `destaque`, a barra apontada fica na
+ * cor cheia e as outras recuam um tom: é a barra de que a frase em cima do
+ * gráfico fala ("Melhor dia: 10/11"), e o olho a encontra sem procurar. A escala fica na linha do topo, com o maior valor
  * escrito, e os números de cada barra moram na dica e na tabela que a página
  * oferece logo abaixo. A coluna inteira é a área de toque, não só a barra, para
  * dia fraco não virar alvo de dois pixels.
@@ -20,7 +22,7 @@ export type Barra = {
   detalhe: string;
 };
 
-export function Barras({ barras, topo, descricao }: { barras: Barra[]; topo: string; descricao: string }) {
+export function Barras({ barras, topo, descricao, destaque }: { barras: Barra[]; topo: string; descricao: string; destaque?: string }) {
   const maior = Math.max(...barras.map((b) => b.valor), 0);
 
   return (
@@ -55,7 +57,7 @@ export function Barras({ barras, topo, descricao }: { barras: Barra[]; topo: str
                     // A coluna inteira é a área de toque; a barra tem teto de largura
                     // para sete dias não virarem sete blocos.
                     b.valor > 0
-                      ? "mx-auto w-full max-w-10 rounded-t-[4px] bg-brand transition-colors group-hover:bg-brand-strong group-focus-visible:bg-brand-strong"
+                      ? `painel-coluna mx-auto w-full max-w-10 rounded-t-[4px] ${destaque && destaque !== b.chave ? "painel-coluna-recuada" : ""}`
                       : "mx-auto w-full max-w-10 bg-border"
                   }
                   style={{ height: b.valor > 0 ? `max(${altura}%, 3px)` : "2px" }}

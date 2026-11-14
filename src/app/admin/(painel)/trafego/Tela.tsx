@@ -3,7 +3,8 @@ import { ArrowRight, CircleAlert, CircleCheck, Megaphone, Minus, Scale, Tag, Tre
 import type { LucideIcon } from "lucide-react";
 import type { TrafegoDaTela } from "@/lib/trafego/dados";
 import type { Conexao } from "@/lib/trafego/plataformas";
-import { PLATAFORMAS, type LinhaDeRetorno } from "@/lib/trafego/retorno";
+import { MARGEM_DE_REFERENCIA, voltaParaEmpatar } from "@/lib/painel/premissas";
+import { PLATAFORMAS, tomDaFaixaDeVolta, type LinhaDeRetorno } from "@/lib/trafego/retorno";
 import { diaCurto, type ChaveDePeriodo } from "@/lib/vendas/periodo";
 import { BotaoDeAcao } from "../recuperacao/BotaoDeAcao";
 import { SeletorDePeriodo } from "../SeletorDePeriodo";
@@ -128,6 +129,9 @@ export function TelaDeTrafego({
   const diasSemGasto = porDia.length - (gasto?.dias_com_gasto ?? 0);
   const maiorGasto = Math.max(...linhas.map((l) => l.gasto), 1);
   const tudo = vendaDaLoja + porFora;
+  const empate = voltaParaEmpatar();
+  const tons = tomDaFaixaDeVolta(total > 0 ? comEtiqueta / total : null, total > 0 ? tudo / total : null, empate);
+  const empatePorExtenso = `empate em ${reais(empate)}, pela premissa de margem de ${Math.round(MARGEM_DE_REFERENCIA * 100)}%`;
 
   return (
     <div data-painel-largo>
@@ -165,16 +169,29 @@ export function TelaDeTrafego({
               Icone={Megaphone}
               rotulo="Gasto em anúncio"
               apoio={total === 0 ? "nada lançado neste período" : d === null ? `em ${gasto.dias_com_gasto} de ${porDia.length} dias` : `${d > 0 ? "+" : ""}${d}% ${comparacao}`}
+              serie={total > 0 ? porDia.map((p) => p.gasto) : undefined}
             >
               <Dinheiro valor={total} />
             </Cartao>
             <Cartao Icone={Tag} rotulo="Venda de anúncio" apoio={`${pedidos} ${pedidos === 1 ? "pedido pago" : "pedidos pagos"} com etiqueta de anúncio`}>
               <Dinheiro valor={comEtiqueta} />
             </Cartao>
-            <Cartao Icone={TrendingUp} rotulo="Volta por R$ 1, no mínimo" apoio="só a venda que chegou com etiqueta de anúncio">
+            <Cartao
+              Icone={TrendingUp}
+              rotulo="Volta por R$ 1, no mínimo"
+              tom={tons.minimo}
+              aviso="Paga a conta mesmo no mínimo"
+              apoio={`só a venda que chegou com etiqueta de anúncio; ${empatePorExtenso}`}
+            >
               {total > 0 ? <Dinheiro valor={comEtiqueta / total} /> : <span className="text-muted">Sem gasto</span>}
             </Cartao>
-            <Cartao Icone={Scale} rotulo="Volta por R$ 1, no máximo" apoio="tudo o que a loja e os vendedores venderam">
+            <Cartao
+              Icone={Scale}
+              rotulo="Volta por R$ 1, no máximo"
+              tom={tons.maximo}
+              aviso={tons.maximo === "ruim" ? "Mesmo contando tudo, gastou mais do que vendeu" : "Mesmo contando tudo, não cobre a margem"}
+              apoio="tudo o que a loja e os vendedores venderam"
+            >
               {total > 0 ? <Dinheiro valor={tudo / total} /> : <span className="text-muted">Sem gasto</span>}
             </Cartao>
           </div>

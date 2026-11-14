@@ -215,6 +215,8 @@ export function PainelDeCustos({
                 <Cartao
                   Icone={CalendarDays}
                   rotulo={`${nomeDoMes(mes.hoje)} até hoje`}
+                  tom={custoAteHoje > vendido ? "ruim" : "neutro"}
+                  aviso="Passou do que foi vendido"
                   apoio={`${dia} de ${mes.diasNoMes} dias dos custos mensais, a embalagem de ${mes.pedidosPagos} pedidos e ${comGastoReal ? "o anúncio de verdade" : "a estimativa de anúncio"}`}
                 >
                   <Dinheiro valor={custoAteHoje} />

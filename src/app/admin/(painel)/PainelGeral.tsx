@@ -5,6 +5,7 @@ import type { ResumoDeVendas } from "@/lib/vendas/dados";
 import { agruparPorCanal } from "@/lib/vendas/origem";
 import { diaCurto, diasEntre } from "@/lib/vendas/periodo";
 import { porDiaDaSemana, taxaDeCancelamento, variacao, type Gravidade, type Sinal } from "@/lib/painel/sinais";
+import { Linhazinha, Variacao } from "./Pecas";
 
 /**
  * Painel visual da Visão geral: os números do período contra o período
@@ -32,41 +33,6 @@ const reaisCurto = (n: number) =>
   n >= 1000 ? `R$ ${(n / 1000).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} mil` : `R$ ${Math.round(n)}`;
 const inteiro = (n: number) => n.toLocaleString("pt-BR");
 
-/** Selo de variação. `bomSeSobe` falso inverte a cor (cancelamento subir é ruim). */
-function Variacao({ d, bomSeSobe = true, sufixo = "%" }: { d: number | null; bomSeSobe?: boolean; sufixo?: string }) {
-  if (d === null) return <span className="text-xs text-muted">sem comparação</span>;
-  const valor = sufixo === "%" ? Math.round(d * 100) : Math.round(d * 10) / 10;
-  if (valor === 0) {
-    return (
-      <span className="inline-flex items-center gap-1 text-xs font-semibold text-muted">
-        <Minus size={12} aria-hidden /> igual
-      </span>
-    );
-  }
-  const subiu = valor > 0;
-  const bom = subiu === bomSeSobe;
-  const Icone = subiu ? ArrowUpRight : ArrowDownRight;
-  return (
-    <span className="inline-flex items-center gap-0.5 text-xs font-semibold" style={{ color: bom ? BOM : PROBLEMA }}>
-      <Icone size={13} aria-hidden />
-      {subiu ? "subiu" : "caiu"} {Math.abs(valor).toLocaleString("pt-BR")}
-      {sufixo}
-    </span>
-  );
-}
-
-function Linhazinha({ valores }: { valores: number[] }) {
-  const max = Math.max(...valores, 1);
-  const pontos = valores
-    .map((v, i) => `${(i / Math.max(valores.length - 1, 1)) * 100},${26 - (v / max) * 24}`)
-    .join(" ");
-  return (
-    <svg viewBox="0 0 100 28" preserveAspectRatio="none" className="mt-3 h-7 w-full" aria-hidden>
-      <polyline points={pontos} fill="none" stroke={ATUAL} strokeWidth="2" vectorEffect="non-scaling-stroke" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
 function Numero({
   rotulo, valor, children, serie,
 }: {
@@ -80,7 +46,7 @@ function Numero({
       <p className="eyebrow break-words text-[0.6rem] leading-snug sm:truncate sm:text-[0.62rem]">{rotulo}</p>
       <p className="font-display numeros mt-2 text-[clamp(1.15rem,5.2vw,1.5rem)] leading-tight text-ink sm:text-[clamp(1.5rem,2.4vw,2.1rem)]">{valor}</p>
       <p className="mt-1">{children}</p>
-      {serie ? <Linhazinha valores={serie} /> : null}
+      {serie ? <Linhazinha valores={serie} cor={ATUAL} /> : null}
     </div>
   );
 }

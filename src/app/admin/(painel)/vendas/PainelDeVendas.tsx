@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { ArrowUpRight, Banknote, CalendarDays, CircleSlash, HandCoins, Receipt, ShoppingBag, Sun, Sunrise } from "lucide-react";
-import type { LucideIcon } from "lucide-react";
 import {
   DIA_ZERADO,
   type Dia,
@@ -21,6 +20,9 @@ import {
   somarDias,
   type ChaveDePeriodo,
 } from "@/lib/vendas/periodo";
+import { variacao } from "@/lib/painel/sinais";
+import { tomDoCancelamento, tomDoMeioDePagamento, type Tom } from "@/lib/painel/tons";
+import { Cartao, Dinheiro, ListaComBarra, SeloDeTom } from "../Pecas";
 import { SeletorDePeriodo } from "../SeletorDePeriodo";
 import { Barras, type Barra } from "./Barras";
 
@@ -45,47 +47,9 @@ export function haQuantoTempo(iso: string): string {
   return d === 1 ? "há 1 dia" : `há ${d} dias`;
 }
 
-function variacao(agora: number, antes: number, comparacao: string): string {
-  if (!antes) return "sem venda no período de comparação";
-  const pct = ((agora - antes) / antes) * 100;
-  return `${pct > 0 ? "+" : ""}${pct.toFixed(0)}% ${comparacao}`;
-}
-
-/** Número de dinheiro com os centavos menores, para o valor caber no cartão. */
-export function Dinheiro({ valor }: { valor: number }) {
-  const [inteiros, centavos] = reais(valor).split(",");
-  return (
-    <span className="numeros">
-      {inteiros}
-      <span className="text-[0.55em] text-muted">,{centavos}</span>
-    </span>
-  );
-}
-
-export function Cartao({
-  Icone, rotulo, children, apoio,
-}: {
-  Icone: LucideIcon;
-  rotulo: string;
-  children: React.ReactNode;
-  apoio: string;
-}) {
-  return (
-    // No celular os cartões andam de dois em dois: some o ícone, o rótulo pode
-    // quebrar linha (cortado com reticências ele não dizia o que era o número)
-    // e o valor encolhe para caber em meia tela.
-    <div className="glass min-w-0 rounded-[16px] p-3.5 sm:rounded-[18px] sm:p-5">
-      <div className="flex items-center gap-2">
-        <span className="hidden h-7 w-7 shrink-0 items-center justify-center rounded-[8px] border border-brand/30 bg-brand/10 text-brand-nav sm:flex">
-          <Icone size={14} aria-hidden />
-        </span>
-        <p className="eyebrow min-w-0 break-words text-[0.6rem] leading-snug sm:truncate sm:text-[0.62rem]">{rotulo}</p>
-      </div>
-      <p className="font-display mt-2 text-[clamp(1.2rem,5.4vw,1.6rem)] leading-tight text-ink sm:mt-3 sm:text-[clamp(1.6rem,2.6vw,2.25rem)]">{children}</p>
-      <p className="mt-1 text-[0.7rem] leading-snug text-muted sm:text-xs">{apoio}</p>
-    </div>
-  );
-}
+// O cartão e o dinheiro moram nas peças comuns. Saem daqui também porque as
+// telas vizinhas (recuperação, custos, vendedores) já os buscavam neste arquivo.
+export { Cartao, Dinheiro } from "../Pecas";
 
 function pedidosEticket(pagos: number, valor: number): string {
   if (!pagos) return "nenhum pedido pago";
@@ -156,33 +120,6 @@ function TabelaDeDias({ dias }: { dias: Dia[] }) {
   );
 }
 
-function ListaComBarra({
-  linhas, total,
-}: {
-  linhas: { chave: string; nome: string; direita: string; valor: number; apoio?: string }[];
-  total: number;
-}) {
-  return (
-    <ul className="mt-4 space-y-3">
-      {linhas.map((l) => {
-        const pct = total ? (l.valor / total) * 100 : 0;
-        return (
-          <li key={l.chave}>
-            <div className="flex items-baseline justify-between gap-3 text-sm">
-              <span className="min-w-0 truncate text-ink">{l.nome}</span>
-              <span className="numeros shrink-0 text-xs text-muted">{l.direita}</span>
-            </div>
-            <div className="mt-1 h-1.5 rounded-full bg-border/60">
-              <div className="h-1.5 rounded-full bg-brand" style={{ width: `${Math.max(pct, l.valor > 0 ? 0.5 : 0)}%` }} />
-            </div>
-            {l.apoio ? <p className="mt-1 text-[0.7rem] text-muted">{l.apoio}</p> : null}
-          </li>
-        );
-      })}
-    </ul>
-  );
-}
-
 function LinhaDeProduto({ p }: { p: ProdutoVendido }) {
   const nome = nomeLimpo(p.nome);
   return (
@@ -203,10 +140,10 @@ function LinhaDeProduto({ p }: { p: ProdutoVendido }) {
   );
 }
 
-const SELO: Record<PedidoRecente["situacao"], { nome: string; classe: string }> = {
-  pago: { nome: "Pago", classe: "bg-emerald-100 text-emerald-800" },
-  aguardando: { nome: "Aguardando", classe: "bg-brand/15 text-brand-strong" },
-  cancelado: { nome: "Cancelado", classe: "bg-border/70 text-muted" },
+const SELO: Record<PedidoRecente["situacao"], { nome: string; tom: Tom }> = {
+  pago: { nome: "Pago", tom: "bom" },
+  aguardando: { nome: "Aguardando", tom: "atencao" },
+  cancelado: { nome: "Cancelado", tom: "ruim" },
 };
 
 function LinhaDePedido({ p }: { p: PedidoRecente }) {
@@ -233,9 +170,7 @@ function LinhaDePedido({ p }: { p: PedidoRecente }) {
       </td>
       <td className="numeros py-2.5 pr-4 text-right text-sm text-ink">{reais(Number(p.total))}</td>
       <td className="py-2.5 text-right">
-        <span className={`inline-block rounded-full px-2 py-0.5 text-[0.68rem] font-semibold ${selo.classe}`} title={p.status}>
-          {selo.nome}
-        </span>
+        <SeloDeTom tom={selo.tom} titulo={p.status}>{selo.nome}</SeloDeTom>
       </td>
     </tr>
   );
@@ -300,14 +235,27 @@ function Periodo({
 
   const canais = agruparPorCanal(resumo.por_origem);
   const produtos = resumo.produtos;
+  const tomDoCancelado = tomDoCancelamento(t.cancelados, criados);
 
   return (
     <>
       <div className="mt-5 grid grid-cols-2 gap-3 sm:gap-5 xl:grid-cols-4">
-        <Cartao Icone={Banknote} rotulo="Faturamento pago" apoio={variacao(Number(t.valor_pago), Number(anterior?.totais.valor_pago ?? 0), comparacao)}>
+        <Cartao
+          Icone={Banknote}
+          rotulo="Faturamento pago"
+          variacao={{ d: variacao(Number(t.valor_pago), Number(anterior?.totais.valor_pago ?? 0)) }}
+          apoio={comparacao}
+          serie={dias.map((d) => Number(d.valor_pago))}
+        >
           <Dinheiro valor={Number(t.valor_pago)} />
         </Cartao>
-        <Cartao Icone={ShoppingBag} rotulo="Pedidos pagos" apoio={variacao(t.pagos, anterior?.totais.pagos ?? 0, comparacao)}>
+        <Cartao
+          Icone={ShoppingBag}
+          rotulo="Pedidos pagos"
+          variacao={{ d: variacao(t.pagos, anterior?.totais.pagos ?? 0) }}
+          apoio={comparacao}
+          serie={dias.map((d) => d.pagos)}
+        >
           <span className="numeros">{inteiro(t.pagos)}</span>
         </Cartao>
         <Cartao Icone={Receipt} rotulo="Ticket médio" apoio={`${inteiro(t.clientes)} ${t.clientes === 1 ? "cliente" : "clientes"} no período`}>
@@ -316,6 +264,8 @@ function Periodo({
         <Cartao
           Icone={CircleSlash}
           rotulo="Cancelados"
+          tom={tomDoCancelado}
+          aviso={tomDoCancelado === "ruim" ? "Cancelamento alto" : "Vale acompanhar"}
           apoio={criados ? `${inteiro(t.cancelados)} de ${inteiro(criados)} pedidos criados, ${reais(Number(t.valor_cancelado))}` : "nenhum pedido criado"}
         >
           <span className="numeros">{criados ? `${Math.round((t.cancelados / criados) * 100)}%` : "0%"}</span>
@@ -329,7 +279,7 @@ function Periodo({
             ? `Melhor dia: ${diaCurto(maiorDia.dia)}, ${diaDaSemana(maiorDia.dia)}, com ${reais(Number(maiorDia.valor_pago))}.`
             : "Nenhuma venda paga no período."}
         </p>
-        <Barras barras={barrasDeDia} topo={reais(Number(maiorDia.valor_pago))} descricao="Faturamento pago em cada dia do período" />
+        <Barras barras={barrasDeDia} topo={reais(Number(maiorDia.valor_pago))} destaque={Number(maiorDia.valor_pago) > 0 ? maiorDia.dia : undefined} descricao="Faturamento pago em cada dia do período" />
         <TabelaDeDias dias={dias} />
       </div>
 
@@ -368,6 +318,7 @@ function Periodo({
                 apoio: f.criados
                   ? `${inteiro(f.cancelados)} de ${inteiro(f.criados)} cancelados (${Math.round((f.cancelados / f.criados) * 100)}%)`
                   : undefined,
+                tom: tomDoMeioDePagamento(f.cancelados, f.criados),
               }))}
             />
           ) : (
@@ -382,7 +333,7 @@ function Periodo({
           {pico.valor > 0 ? `A hora mais forte foi ${pico.titulo}, com ${pico.valor} ${pico.valor === 1 ? "pedido" : "pedidos"}.` : "Nenhum pedido pago no período."}{" "}
           Hora em que a pessoa fechou o pedido no site.
         </p>
-        <Barras barras={barrasDeHora} topo={`${pico.valor} ${pico.valor === 1 ? "pedido" : "pedidos"}`} descricao="Pedidos pagos por hora do dia" />
+        <Barras barras={barrasDeHora} topo={`${pico.valor} ${pico.valor === 1 ? "pedido" : "pedidos"}`} destaque={pico.valor > 0 ? pico.chave : undefined} descricao="Pedidos pagos por hora do dia" />
       </div>
 
       <div className="glass mt-6 rounded-[18px] p-5">
