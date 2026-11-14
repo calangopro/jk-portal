@@ -293,12 +293,12 @@ console.log("\nTextos, prazo e imagem");
 console.log("\nO setor Time no menu");
 {
   const time = SETORES.find((s) => s.id === "time");
-  confere("o setor existe, com a biblioteca e os chamados", time?.itens.map((i) => i.href).join() === "/admin/biblioteca,/admin/chamados" && time.itens.every((i) => i.area === "time"));
+  confere("o setor existe, com o tutor, a biblioteca e os chamados", time?.itens.map((i) => i.href).join() === "/admin/tutor,/admin/biblioteca,/admin/chamados" && time.itens.every((i) => i.area === "time"));
   confere("a cor do setor não é verde, âmbar nem vermelho de estado", time !== undefined && !["#046c4e", "#9a4a07", "#b01919"].includes(time.cor) && new Set(SETORES.map((s) => s.cor)).size === SETORES.length);
 
   const vendedor = setoresDe(["consulta", "lancar_venda", "recuperacao", "time"]);
   confere("o vendedor vê três salas: início, vendas e time", vendedor.map((s) => s.id).join() === "diretoria,vendas,time");
-  confere("com três salas, a barra de baixo do vendedor é por setor", abasDaBarra(vendedor).map((a) => a.label).join() === "Início,Vendas,Time" && abasDaBarra(vendedor)[2].href === "/admin/biblioteca");
+  confere("com três salas, a barra de baixo do vendedor é por setor", abasDaBarra(vendedor).map((a) => a.label).join() === "Início,Vendas,Time" && abasDaBarra(vendedor)[2].href === "/admin/tutor");
   const fabrica = setoresDe(["consulta", "fabrica", "time"]);
   confere("a fábrica vê quatro salas, e todas cabem na barra", abasDaBarra(fabrica).map((a) => a.label).join() === "Início,Vendas,Time,Fábrica");
   const tudo = setoresDe(["conteudo", "site", "catalogo", "campanhas", "vendas", "recuperacao", "metricas", "anuncios", "margem", "custos", "equipe", "lancar_venda", "trafego", "loja", "fabrica", "consulta", "time"]);
