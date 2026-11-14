@@ -42,8 +42,13 @@ export default async function ProdutosPage() {
   const perfil = await requireStaff();
   const supabase = await createClient();
 
-  const [itens, padroes, { data: logs }] = await Promise.all([
-    listarCatalogo(supabase),
+  // Custo é da empresa: só quem administra recebe a margem no navegador. Os
+  // custos são pedidos junto com o catálogo, e não depois dele.
+  const catalogo = listarCatalogo(supabase);
+  const custos = ehAdmin(perfil.role) ? margensDoCatalogo(supabase, catalogo) : null;
+
+  const [itens, padroes, { data: logs }, margensLidas] = await Promise.all([
+    catalogo,
     lerPadroes(supabase),
     supabase
       .from("sync_logs")
@@ -51,12 +56,12 @@ export default async function ProdutosPage() {
       .eq("source", "tray")
       .order("created_at", { ascending: false })
       .limit(5),
+    custos,
   ]);
 
-  // Custo é da empresa: só o administrador recebe a margem no navegador.
   let margens: Record<string, MargemNaLista> | null = null;
-  if (perfil.role === "admin") {
-    const { porProduto } = await margensDoCatalogo(supabase, itens);
+  if (margensLidas) {
+    const { porProduto } = margensLidas;
     margens = Object.fromEntries(
       Object.entries(porProduto).map(([id, c]) => [
         id,

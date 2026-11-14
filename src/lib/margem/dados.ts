@@ -157,9 +157,16 @@ export type CustoDoItem = {
  */
 export async function margensDoCatalogo(
   db: SupabaseClient,
-  itens: Pick<ItemDoCatalogo, "id" | "preco" | "precoAntes">[],
+  // Aceita a lista ainda a caminho: quem chama pode pedir o catálogo e os
+  // custos ao mesmo tempo, em vez de esperar um para começar o outro.
+  itensOuPromessa: Pick<ItemDoCatalogo, "id" | "preco" | "precoAntes">[] | Promise<Pick<ItemDoCatalogo, "id" | "preco" | "precoAntes">[]>,
 ): Promise<{ parametros: Parametros; porProduto: Record<string, CustoDoItem> }> {
-  const [parametros, familias, linhas] = await Promise.all([lerParametros(db), lerFamilias(db), linhasDeCusto(db)]);
+  const [parametros, familias, linhas, itens] = await Promise.all([
+    lerParametros(db),
+    lerFamilias(db),
+    linhasDeCusto(db),
+    itensOuPromessa,
+  ]);
   const mapaFamilias = new Map(familias.map((f) => [f.codigo, f]));
   const porId = new Map(linhas.map((l) => [l.product_id, gravado(l)]));
   const porProduto: Record<string, CustoDoItem> = {};

@@ -58,6 +58,10 @@ export function Catalogo({
   const [ordem, setOrdem] = useState<Ordem>("vendidos");
   // Nulo = ninguém mexeu ainda, e só a primeira categoria (a que mais vende) abre.
   const [abertas, setAbertas] = useState<Set<string> | null>(null);
+  // Quantas linhas de cada categoria estão desenhadas. A categoria que mais
+  // vende tem centenas de produtos: desenhar todas de uma vez pesava no HTML e
+  // travava o celular na abertura. O resto entra sozinho ao rolar.
+  const [limites, setLimites] = useState<Record<string, number>>({});
   const [selecionado, setSelecionado] = useState<string | null>(null);
   // Estado mudado na gaveta antes do servidor devolver a lista nova.
   const [ajustes, setAjustes] = useState<Record<string, EstadoDoProduto>>({});
@@ -289,6 +293,10 @@ export function Catalogo({
         <div className="mt-2 space-y-3">
           {grupos.map((g) => {
             const aberta = estaAberta(g.nome);
+            // O produto selecionado sempre está desenhado, senão J e K (e o
+            // link direto) rolariam até uma linha que ainda não existe.
+            const noGrupo = selecionado ? g.itens.findIndex((p) => p.id === selecionado) : -1;
+            const limite = Math.max(limites[g.nome] ?? LINHAS_POR_VEZ, noGrupo + 1);
             return (
               <section
                 key={g.nome}
@@ -317,9 +325,15 @@ export function Catalogo({
                 </button>
                 {aberta ? (
                   <ul className="border-t border-border/60">
-                    {g.itens.map((p) => (
+                    {g.itens.slice(0, limite).map((p) => (
                       <Linha key={p.id} p={p} ativo={p.id === selecionado} onAbrir={abrir} margem={margens ? (margens[p.id] ?? null) : undefined} />
                     ))}
+                    {g.itens.length > limite ? (
+                      <MaisLinhas
+                        faltam={g.itens.length - limite}
+                        onMais={() => setLimites((l) => ({ ...l, [g.nome]: limite + LINHAS_POR_VEZ * 2 }))}
+                      />
+                    ) : null}
                   </ul>
                 ) : null}
               </section>
@@ -341,6 +355,38 @@ export function Catalogo({
         />
       ) : null}
     </>
+  );
+}
+
+/** Quantas linhas uma categoria desenha de início, e de quantas em quantas cresce. */
+const LINHAS_POR_VEZ = 60;
+
+/**
+ * Fim provisório da lista. Quando chega perto da tela, pede mais linhas
+ * sozinho; o botão existe para teclado e para quando o navegador não avisa.
+ */
+function MaisLinhas({ faltam, onMais }: { faltam: number; onMais: () => void }) {
+  const ref = useRef<HTMLLIElement>(null);
+  const pedir = useRef(onMais);
+  pedir.current = onMais;
+  useEffect(() => {
+    const alvo = ref.current;
+    if (!alvo || typeof IntersectionObserver === "undefined") return;
+    const vigia = new IntersectionObserver(
+      (entradas) => {
+        if (entradas.some((e) => e.isIntersecting)) pedir.current();
+      },
+      { rootMargin: "600px 0px" },
+    );
+    vigia.observe(alvo);
+    return () => vigia.disconnect();
+  }, [faltam]);
+  return (
+    <li ref={ref} className="px-5 py-3 text-center">
+      <button type="button" onClick={onMais} className="text-xs font-semibold text-brand-nav hover:underline">
+        Mostrar mais ({faltam.toLocaleString("pt-BR")} produtos)
+      </button>
+    </li>
   );
 }
 

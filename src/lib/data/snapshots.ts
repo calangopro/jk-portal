@@ -43,27 +43,49 @@ export async function ultimoPeriodo(
   return linha ? { inicio: linha.period_start, fim: linha.period_end } : null;
 }
 
-/** Todas as linhas de um período, em páginas de 1.000. */
+/**
+ * Todas as linhas de um período, em páginas de 1.000.
+ *
+ * As páginas são pedidas AO MESMO TEMPO. Uma depois da outra, um período de
+ * 8 mil linhas eram oito idas ao banco em fila, e a tela de Métricas levava
+ * quatro segundos para chegar inteira. Primeiro se conta, depois se pede tudo
+ * de uma vez. A ordem por `id` continua fixa, senão a paginação pode repetir
+ * ou pular linha entre páginas.
+ */
 export async function snapshotsDoPeriodo(
   supabase: SupabaseClient,
   periodo: PeriodoDoSnapshot,
   dimensao?: "query" | "page",
 ): Promise<Snapshot[]> {
-  const todas: Snapshot[] = [];
-  for (let de = 0; ; de += PAGINA) {
+  const doPeriodo = (colunas: string, opcoes?: { count: "exact"; head: true }) => {
     let consulta = supabase
       .from("analytics_snapshots")
-      .select("metric, dimension, dimension_value, value, period_start, period_end")
+      .select(colunas, opcoes)
       .eq("source", "gsc")
       .eq("period_start", periodo.inicio)
       .eq("period_end", periodo.fim);
     if (dimensao) consulta = consulta.eq("dimension", dimensao);
+    return consulta;
+  };
 
-    // Ordem fixa, senão a paginação pode repetir ou pular linha entre páginas.
-    const { data, error } = await consulta.order("id").range(de, de + PAGINA - 1);
-    if (error || !data) break;
-    todas.push(...(data as Snapshot[]));
-    if (data.length < PAGINA) break;
+  const { count, error } = await doPeriodo("id", { count: "exact", head: true });
+  if (error || !count) return [];
+
+  const paginas = Math.ceil(count / PAGINA);
+  const partes = await Promise.all(
+    Array.from({ length: paginas }, (_, i) =>
+      doPeriodo("metric, dimension, dimension_value, value, period_start, period_end")
+        .order("id")
+        .range(i * PAGINA, (i + 1) * PAGINA - 1),
+    ),
+  );
+
+  const todas: Snapshot[] = [];
+  for (const parte of partes) {
+    // Página com erro encerra a leitura ali, como na versão em fila: melhor
+    // devolver o começo inteiro do que um conjunto com um buraco no meio.
+    if (parte.error || !parte.data) break;
+    todas.push(...(parte.data as unknown as Snapshot[]));
   }
   return todas;
 }
