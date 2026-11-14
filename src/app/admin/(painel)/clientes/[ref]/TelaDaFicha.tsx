@@ -12,9 +12,10 @@ import type { Tom } from "@/lib/painel/tons";
 import { nomeLimpo } from "@/lib/vendas/origem";
 import { NOME_DA_FORMA, NOME_DO_CANAL_DE_VENDA } from "@/lib/vendas/por-fora";
 import { Cartao, Dinheiro, SeloDeTom } from "../../Pecas";
-import { CartaoDaOportunidade, type Marcar } from "../CartaoDaOportunidade";
+import type { Marcar } from "../CartaoDaOportunidade";
 import { comprasEmPalavra } from "../LinhaDoCliente";
 import { EditarFicha } from "./EditarFicha";
+import { OportunidadesDaFicha } from "./OportunidadesDaFicha";
 
 /**
  * A ficha do cliente, só o desenho. A leitura fica em `page.tsx`, para a tela
@@ -319,17 +320,7 @@ export function TelaDaFicha({
         </div>
       </div>
 
-      {oportunidades.length > 0 ? (
-        <section className="mt-9" aria-labelledby="oportunidades-do-cliente">
-          <h2 id="oportunidades-do-cliente" className="font-display text-2xl text-ink">Para chamar agora</h2>
-          <p className="mt-1 text-xs text-muted">O que vence para este cliente nos próximos 90 dias.</p>
-          <ul className="mt-3 grid gap-3 lg:grid-cols-2">
-            {oportunidades.map((o) => (
-              <CartaoDaOportunidade key={`${o.tipo}|${o.ocorrencia}`} o={{ ...o, ref: f.ref, telefone: f.telefone }} marcar={marcar} />
-            ))}
-          </ul>
-        </section>
-      ) : null}
+      <OportunidadesDaFicha oportunidades={oportunidades.map((o) => ({ ...o, ref: f.ref, telefone: f.telefone }))} marcar={marcar} />
 
       <section className="glass mt-9 rounded-[18px] p-4 sm:p-6" aria-labelledby="o-que-sabemos">
         <h2 id="o-que-sabemos" className="font-display text-2xl text-ink">O que sabemos</h2>

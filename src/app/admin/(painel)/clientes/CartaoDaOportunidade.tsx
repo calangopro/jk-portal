@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { CalendarDays, Check, Loader2, MessageCircle, Undo2, X } from "lucide-react";
 import { LinkRapido } from "@/components/ui/LinkRapido";
 import {
@@ -9,17 +10,22 @@ import {
 import { SeloDeTom } from "../Pecas";
 
 /**
- * Uma oportunidade de venda: quando, por quê, o que oferecer e as duas
- * decisões ("já falei" e "não vale").
+ * Uma oportunidade de venda na tela: quando, por quê, o que oferecer e as duas
+ * decisões ("já falei" e "não vale"). Serve à lista de oportunidades e à ficha
+ * do cliente.
  *
- * Serve à lista de oportunidades e à ficha do cliente. Marcada, a oportunidade
- * não some na hora: vira uma linha com "Desfazer", porque dedo erra de botão.
- * Na próxima visita ela já não vem do servidor.
+ * QUEM GUARDA O "DESFAZER" É A LISTA, NÃO O CARTÃO. Marcar grava no banco e
+ * manda a página se redesenhar, e a oportunidade marcada deixa de vir do
+ * servidor: o cartão dela some. Na primeira versão o "Desfazer" morava dentro
+ * do cartão, e no ar aconteceram as duas coisas erradas: na lista ele sumia
+ * junto, e na ficha o botão ficava travado para sempre, esperando um redesenho
+ * que tirava o próprio cartão de baixo dele. Por isso a marcação mora em
+ * `useMarcacao`, usado por quem FICA na tela (a lista), no mesmo padrão do
+ * salvar da ficha: espera a ação, guarda o que foi marcado e só então pede o
+ * redesenho.
  *
  * O botão do WhatsApp só ABRE a conversa. O painel não escreve nem manda
  * mensagem para cliente.
- *
- * A ação vem de fora, como propriedade, para a tela poder ser vista sem sessão.
  */
 
 export type Marcar = (ref: string, tipo: string, ocorrencia: string, decisao: string) => Promise<{ ok: true } | { ok: false; erro: string }>;
@@ -34,54 +40,102 @@ export type OportunidadeNaTela = Oportunidade & {
   responsavel?: string | null;
 };
 
+type Fechada = Exclude<Decisao, "reaberta">;
+
+export type MarcadaAgora = { o: OportunidadeNaTela; decisao: Fechada };
+
 export const idDaOportunidade = (o: Pick<OportunidadeNaTela, "ref" | "tipo" | "ocorrencia">) => `${o.ref}|${o.tipo}|${o.ocorrencia}`;
 
-const DECISAO_EM_PALAVRA: Record<Exclude<Decisao, "reaberta">, string> = { falei: "já falei", nao_vale: "não vale" };
+const DECISAO_EM_PALAVRA: Record<Fechada, string> = { falei: "já falei", nao_vale: "não vale" };
 
-export function CartaoDaOportunidade({
-  o, marcar, aoMarcar,
-}: {
-  o: OportunidadeNaTela;
-  marcar: Marcar;
-  /** Avisa a lista, para ela refazer as contagens. `null`: desfeita. */
-  aoMarcar?: (id: string, decisao: Exclude<Decisao, "reaberta"> | null) => void;
-}) {
-  const [feita, setFeita] = useState<Exclude<Decisao, "reaberta"> | null>(null);
-  const [erro, setErro] = useState<string | null>(null);
-  const [ocupado, comecar] = useTransition();
+/**
+ * A marcação de oportunidades de uma lista: o que foi marcado NESTA visita
+ * (para oferecer o "Desfazer"), qual está indo ao servidor e o último erro.
+ *
+ * A ação vem de fora, como propriedade de quem usa, para a tela poder ser
+ * vista sem sessão.
+ */
+export function useMarcacao(marcar: Marcar) {
+  const router = useRouter();
+  const [agora, setAgora] = useState<MarcadaAgora[]>([]);
+  const [emCurso, setEmCurso] = useState<string | null>(null);
+  const [erro, setErro] = useState<{ id: string; texto: string } | null>(null);
+  const [, comecar] = useTransition();
 
-  const decidir = (decisao: Decisao) =>
+  const decidir = (o: OportunidadeNaTela, decisao: Decisao) => {
+    const id = idDaOportunidade(o);
+    setEmCurso(id);
+    setErro(null);
     comecar(async () => {
-      setErro(null);
       const r = await marcar(o.ref, o.tipo, o.ocorrencia, decisao);
+      setEmCurso(null);
       if (!r.ok) {
-        setErro(r.erro);
+        setErro({ id, texto: r.erro });
         return;
       }
-      const nova = decisao === "reaberta" ? null : decisao;
-      setFeita(nova);
-      aoMarcar?.(idDaOportunidade(o), nova);
+      setAgora((lista) => {
+        const semEla = lista.filter((m) => idDaOportunidade(m.o) !== id);
+        return decisao === "reaberta" ? semEla : [...semEla, { o, decisao }];
+      });
+      // Só agora a página é redesenhada: o que foi marcado já está guardado aqui.
+      router.refresh();
     });
+  };
 
+  /** A oportunidade ainda está aberta, ou seja, não foi marcada nesta visita. */
+  const aberta = (o: OportunidadeNaTela) => !agora.some((m) => idDaOportunidade(m.o) === idDaOportunidade(o));
+
+  return { agora, emCurso, erro, decidir, aberta };
+}
+
+const botao = "painel-toque inline-flex h-10 items-center justify-center gap-1.5 rounded-full px-4 text-xs font-semibold disabled:opacity-60";
+
+/** O que foi marcado nesta visita, com o "Desfazer": dedo erra de botão. */
+export function MarcadasAgora({
+  marcadas, emCurso, erro, aoDesfazer,
+}: {
+  marcadas: MarcadaAgora[];
+  emCurso: string | null;
+  erro: { id: string; texto: string } | null;
+  aoDesfazer: (o: OportunidadeNaTela) => void;
+}) {
+  if (marcadas.length === 0) return null;
+  return (
+    <ul className="mt-3 space-y-2" aria-label="Marcadas agora">
+      {marcadas.map(({ o, decisao }) => {
+        const id = idDaOportunidade(o);
+        return (
+          <li key={id} className="glass flex flex-wrap items-center justify-between gap-x-3 gap-y-2 rounded-[16px] px-4 py-3">
+            <p className="min-w-0 text-xs text-muted">
+              <span className="font-semibold text-ink">{o.cliente ?? NOME_DO_TIPO[o.tipo]}</span>
+              {o.cliente ? `, ${NOME_DO_TIPO[o.tipo].toLowerCase()}` : ""} de {dataPorExtenso(o.ocorrencia).slice(0, 5)}: marcada como{" "}
+              {DECISAO_EM_PALAVRA[decisao]}.
+            </p>
+            <button type="button" disabled={emCurso !== null} onClick={() => aoDesfazer(o)} className={`${botao} border border-ink/12 bg-white text-ink`}>
+              {emCurso === id ? <Loader2 size={13} className="animate-spin" aria-hidden="true" /> : <Undo2 size={13} aria-hidden="true" />} Desfazer
+            </button>
+            {erro?.id === id ? <p className="basis-full text-xs font-semibold text-[#b01919]">{erro.texto}</p> : null}
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+export function CartaoDaOportunidade({
+  o, emCurso, erro, aoDecidir,
+}: {
+  o: OportunidadeNaTela;
+  /** A oportunidade que está indo ao servidor agora. Enquanto houver uma, nenhum botão aceita toque. */
+  emCurso: string | null;
+  erro: { id: string; texto: string } | null;
+  aoDecidir: (o: OportunidadeNaTela, decisao: Fechada) => void;
+}) {
+  const id = idDaOportunidade(o);
+  const ocupado = emCurso !== null;
   const tom = tomDoPrazo(o.emDias);
   const prazo = o.emDias < 0 ? `passou ${prazoEmPalavra(o.emDias)}` : prazoEmPalavra(o.emDias);
   const lugar = [o.cidade, o.uf].filter(Boolean).join(", ");
-  const botao = "painel-toque inline-flex h-10 items-center justify-center gap-1.5 rounded-full px-4 text-xs font-semibold disabled:opacity-60";
-
-  if (feita) {
-    return (
-      <li className="glass flex flex-wrap items-center justify-between gap-x-3 gap-y-2 rounded-[16px] px-4 py-3">
-        <p className="min-w-0 text-xs text-muted">
-          <span className="font-semibold text-ink">{o.cliente ?? NOME_DO_TIPO[o.tipo]}</span>
-          {o.cliente ? `, ${NOME_DO_TIPO[o.tipo].toLowerCase()}` : ""}: marcada como {DECISAO_EM_PALAVRA[feita]}.
-        </p>
-        <button type="button" disabled={ocupado} onClick={() => decidir("reaberta")} className={`${botao} border border-ink/12 bg-white text-ink`}>
-          {ocupado ? <Loader2 size={13} className="animate-spin" aria-hidden="true" /> : <Undo2 size={13} aria-hidden="true" />} Desfazer
-        </button>
-        {erro ? <p className="basis-full text-xs font-semibold text-[#b01919]">{erro}</p> : null}
-      </li>
-    );
-  }
 
   return (
     <li className="glass flex flex-col rounded-[16px] p-4">
@@ -123,14 +177,14 @@ export function CartaoDaOportunidade({
         ) : (
           <span className="basis-full text-xs text-muted sm:basis-auto">Sem telefone na ficha.</span>
         )}
-        <button type="button" disabled={ocupado} onClick={() => decidir("falei")} className={`${botao} flex-1 border border-ink/12 bg-white text-ink sm:flex-none`}>
-          {ocupado ? <Loader2 size={13} className="animate-spin" aria-hidden="true" /> : <Check size={14} aria-hidden="true" />} Já falei
+        <button type="button" disabled={ocupado} onClick={() => aoDecidir(o, "falei")} className={`${botao} flex-1 border border-ink/12 bg-white text-ink sm:flex-none`}>
+          {emCurso === id ? <Loader2 size={13} className="animate-spin" aria-hidden="true" /> : <Check size={14} aria-hidden="true" />} Já falei
         </button>
-        <button type="button" disabled={ocupado} onClick={() => decidir("nao_vale")} className={`${botao} flex-1 border border-ink/12 bg-white text-ink sm:flex-none`}>
+        <button type="button" disabled={ocupado} onClick={() => aoDecidir(o, "nao_vale")} className={`${botao} flex-1 border border-ink/12 bg-white text-ink sm:flex-none`}>
           <X size={14} aria-hidden="true" /> Não vale
         </button>
       </div>
-      {erro ? <p className="mt-2 text-xs font-semibold text-[#b01919]">{erro}</p> : null}
+      {erro?.id === id ? <p className="mt-2 text-xs font-semibold text-[#b01919]">{erro.texto}</p> : null}
     </li>
   );
 }
