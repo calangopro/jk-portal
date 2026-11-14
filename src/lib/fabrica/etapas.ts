@@ -147,3 +147,68 @@ export function lerEntrega(frete: string | null | undefined): Entrega | null {
   if (/correios/i.test(f)) return { tipo: "correios", nome: "Correios" };
   return { tipo: "envio", nome: f };
 }
+
+// ------------------------------------------------------------------- filtro
+
+/** Como o pedido sai, em três grupos: é por onde a bancada separa as peças prontas. */
+export type GrupoDeEntrega = "retirada" | "motoboy" | "envio";
+
+export const NOME_DO_GRUPO: Record<GrupoDeEntrega, string> = {
+  retirada: "Retirada na loja",
+  motoboy: "Motoboy",
+  envio: "Correios e envio",
+};
+
+export function grupoDaEntrega(frete: string | null | undefined): GrupoDeEntrega | null {
+  const e = lerEntrega(frete);
+  if (!e) return null;
+  return e.tipo === "retirada" ? "retirada" : e.tipo === "motoboy" ? "motoboy" : "envio";
+}
+
+/** O que o filtro precisa saber de um pedido. O pedido da fila tem tudo isso e mais. */
+export type PedidoParaFiltro = {
+  pedido: number;
+  dia: string;
+  etapa: Etapa;
+  cliente: string | null;
+  cidade: string | null;
+  entrega: string | null;
+  rastreio: string | null;
+  nota: string | null;
+  pecas: { nome: string; referencia: string | null; info: string | null }[];
+};
+
+export type FiltroDaFila = {
+  busca: string;
+  entrega: GrupoDeEntrega | "todas";
+  soAtrasados: boolean;
+  soComNota: boolean;
+};
+
+export const SEM_FILTRO: FiltroDaFila = { busca: "", entrega: "todas", soAtrasados: false, soComNota: false };
+
+const semAcento = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+
+/**
+ * A busca procura em tudo o que está escrito no cartão: número do pedido,
+ * cliente, cidade, loja de retirada, peça, referência, numeração, texto da
+ * gravação, rastreio e anotação. Sem acento e sem maiúscula, e com mais de uma
+ * palavra todas precisam aparecer ("osasco eternal" acha a Eternal Love que
+ * retira em Osasco).
+ */
+export function filtrarFila<T extends PedidoParaFiltro>(pedidos: T[], f: FiltroDaFila, hoje: string): T[] {
+  const palavras = semAcento(f.busca).split(/\s+/).filter(Boolean);
+  return pedidos.filter((p) => {
+    if (f.entrega !== "todas" && grupoDaEntrega(p.entrega) !== f.entrega) return false;
+    if (f.soAtrasados && tomDaEspera(diasEntreDatas(p.dia, hoje), p.etapa) !== "ruim") return false;
+    if (f.soComNota && !p.nota) return false;
+    if (palavras.length === 0) return true;
+    const texto = semAcento(
+      [
+        p.pedido, p.cliente, p.cidade, p.entrega, p.rastreio, p.nota,
+        ...p.pecas.flatMap((x) => [x.nome, x.referencia, (x.info ?? "").replace(/<[^>]+>/g, " ")]),
+      ].filter(Boolean).join(" "),
+    );
+    return palavras.every((w) => texto.includes(w));
+  });
+}

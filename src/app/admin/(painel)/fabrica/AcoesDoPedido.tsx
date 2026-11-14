@@ -2,12 +2,16 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowRight, Loader2, NotebookPen, Undo2 } from "lucide-react";
-import { ACAO_PARA, etapaAnterior, proximaEtapa, type Etapa } from "@/lib/fabrica/etapas";
+import { ArrowLeftRight, ArrowRight, Loader2, NotebookPen } from "lucide-react";
+import { ACAO_PARA, ETAPAS, proximaEtapa, type Etapa } from "@/lib/fabrica/etapas";
 
 /**
- * Os botões de um pedido da fábrica: levar para a etapa seguinte, voltar uma
- * etapa e anotar.
+ * Os botões de um pedido da fábrica: levar para a etapa seguinte, mudar para
+ * qualquer outra etapa e anotar.
+ *
+ * "Mudar etapa" existe porque a fila nem sempre anda de degrau em degrau:
+ * pedido que já saiu vai de "a produzir" direto para "enviado", e pedido
+ * movido por engano volta. A função do banco sempre aceitou qualquer destino.
  *
  * O botão principal é grande de propósito: é o que se toca com a peça na outra
  * mão. Marcar como enviado abre o campo do rastreio antes de gravar, e o campo
@@ -29,12 +33,11 @@ export function AcoesDoPedido({
   const router = useRouter();
   const [ocupado, comecar] = useTransition();
   const [erro, setErro] = useState<string | null>(null);
-  const [aberto, setAberto] = useState<"envio" | "nota" | null>(null);
+  const [aberto, setAberto] = useState<"envio" | "nota" | "etapa" | null>(null);
   const [codigo, setCodigo] = useState(rastreio ?? "");
   const [texto, setTexto] = useState(nota ?? "");
 
   const proxima = proximaEtapa(etapa);
-  const anterior = etapaAnterior(etapa);
 
   const levar = (destino: Etapa, extras?: { rastreio?: string; nota?: string }) =>
     comecar(async () => {
@@ -69,6 +72,27 @@ export function AcoesDoPedido({
               {ocupado ? <Loader2 size={15} className="animate-spin" aria-hidden="true" /> : null} Confirmar o envio
             </button>
             <button type="button" disabled={ocupado} onClick={() => setAberto(null)} className={botaoSecundario}>
+              Cancelar
+            </button>
+          </div>
+        </div>
+      ) : aberto === "etapa" ? (
+        <div className="space-y-2">
+          <p className="text-xs font-semibold text-ink">Levar este pedido direto para</p>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            {ETAPAS.filter((e) => e.chave !== etapa).map((e) => (
+              <button
+                key={e.chave}
+                type="button"
+                disabled={ocupado}
+                // Enviado passa pelo campo do rastreio, como no botão principal.
+                onClick={() => (e.chave === "enviado" ? setAberto("envio") : levar(e.chave))}
+                className={`${botaoSecundario} justify-center`}
+              >
+                {e.nome}
+              </button>
+            ))}
+            <button type="button" disabled={ocupado} onClick={() => setAberto(null)} className={`${botaoSecundario} justify-center border-transparent bg-transparent text-muted`}>
               Cancelar
             </button>
           </div>
@@ -113,11 +137,9 @@ export function AcoesDoPedido({
           <button type="button" disabled={ocupado} onClick={() => setAberto("nota")} className={botaoSecundario}>
             <NotebookPen size={13} aria-hidden="true" /> {nota ? "Editar anotação" : "Anotar"}
           </button>
-          {anterior ? (
-            <button type="button" disabled={ocupado} onClick={() => levar(anterior)} className={botaoSecundario} title={ACAO_PARA[anterior]}>
-              <Undo2 size={13} aria-hidden="true" /> Voltar etapa
-            </button>
-          ) : null}
+          <button type="button" disabled={ocupado} onClick={() => setAberto("etapa")} className={botaoSecundario}>
+            <ArrowLeftRight size={13} aria-hidden="true" /> Mudar etapa
+          </button>
         </div>
       )}
       {erro ? <p className="mt-2 text-xs font-semibold text-[#b01919]">{erro}</p> : null}
