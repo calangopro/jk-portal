@@ -45,6 +45,20 @@ const nextConfig: NextConfig = {
   basePath: BASE_PATH,
   distDir: process.env.BUILD_DIR || ".next",
   experimental: {
+    /**
+     * Por quanto tempo o navegador reaproveita uma página do painel que já
+     * buscou, em segundos. No Next 15 o padrão para rota dinâmica é ZERO:
+     * voltar para a tela de onde a pessoa acabou de sair refazia a página
+     * inteira no servidor, e ir e vir entre duas telas parecia site travado.
+     *
+     * `dynamic` vale para a página visitada. `static` vale para o que foi
+     * buscado antes do clique por inteiro (o `LinkRapido` do painel faz isso
+     * quando o dedo ou o mouse encosta no link), e o mínimo aceito é 30.
+     *
+     * Não deixa dado velho depois de gravar: toda Server Action que chama
+     * `revalidatePath` ou `revalidateTag` esvazia esse cache no navegador.
+     */
+    staleTimes: { dynamic: 30, static: 60 },
     serverActions: {
       /**
        * Hosts públicos por onde o portal é acessado, para a checagem de CSRF de

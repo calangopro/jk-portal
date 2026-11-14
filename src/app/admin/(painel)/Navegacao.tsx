@@ -1,6 +1,7 @@
 "use client";
 
-import Link, { useLinkStatus } from "next/link";
+import { useLinkStatus } from "next/link";
+import { LinkRapido as Link } from "@/components/ui/LinkRapido";
 import { usePathname } from "next/navigation";
 import type { LucideIcon } from "lucide-react";
 import type { Area } from "@/lib/auth/acessos";

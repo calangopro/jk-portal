@@ -131,9 +131,8 @@ type LinhaDaLista = {
 
 /** O catálogo ativo inteiro, já com preço do dia e estado de foto. */
 export async function listarCatalogo(db: SupabaseClient): Promise<ItemDoCatalogo[]> {
-  const linhas: LinhaDaLista[] = [];
-  for (let de = 0; ; de += PAGINA) {
-    const { data, error } = await db
+  const pagina = (i: number) =>
+    db
       .from("products")
       .select(
         "id, tray_id, name, url, status, price, promotional_price, main_image_url, " +
@@ -143,11 +142,19 @@ export async function listarCatalogo(db: SupabaseClient): Promise<ItemDoCatalogo
       )
       .eq("is_active", true)
       .order("id")
-      .range(de, de + PAGINA - 1);
-    if (error) throw new ErroDeFoto(`Não deu para ler o catálogo: ${error.message}`);
-    const pagina = (data ?? []) as unknown as LinhaDaLista[];
-    linhas.push(...pagina);
-    if (pagina.length < PAGINA) break;
+      .range(i * PAGINA, (i + 1) * PAGINA - 1);
+
+  // As páginas saem de duas em duas, ao mesmo tempo. O catálogo tem pouco mais
+  // de mil produtos e o Supabase entrega mil por pedido: em fila, a segunda
+  // página só era pedida depois de a primeira chegar inteira.
+  const linhas: LinhaDaLista[] = [];
+  for (let i = 0; ; i += 2) {
+    const par = await Promise.all([pagina(i), pagina(i + 1)]);
+    for (const { data, error } of par) {
+      if (error) throw new ErroDeFoto(`Não deu para ler o catálogo: ${error.message}`);
+      linhas.push(...((data ?? []) as unknown as LinhaDaLista[]));
+    }
+    if ((par[1].data ?? []).length < PAGINA) break;
   }
 
   return linhas.map((p) => {
