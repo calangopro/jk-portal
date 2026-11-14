@@ -67,7 +67,8 @@ export function useMarcacao(marcar: Marcar) {
     setEmCurso(id);
     setErro(null);
     comecar(async () => {
-      const r = await marcar(o.ref, o.tipo, o.ocorrencia, decisao);
+      // Rede caindo no meio não pode deixar os botões travados nem derrubar a tela.
+      const r = await marcar(o.ref, o.tipo, o.ocorrencia, decisao).catch(() => ({ ok: false as const, erro: "Não deu para marcar agora. Tente de novo em alguns segundos." }));
       setEmCurso(null);
       if (!r.ok) {
         setErro({ id, texto: r.erro });
