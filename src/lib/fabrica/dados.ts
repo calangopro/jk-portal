@@ -23,7 +23,15 @@ export type PecaDoPedido = {
 };
 
 export type PedidoDaFabrica = {
-  pedido: number;
+  /**
+   * Como a fábrica identifica o trabalho: o número do pedido da loja ("11389")
+   * ou "v" mais o código da venda por fora (0075). É a chave de tudo na tela.
+   */
+  ref: string;
+  /** De onde veio: pedido pago na loja ou venda fechada por fora. */
+  origem: "loja" | "por_fora";
+  /** O número do pedido na loja. `null` em venda por fora. */
+  pedido: number | null;
   /** Dia do pedido, `AAAA-MM-DD`. */
   dia: string;
   feitoEm: string;
@@ -37,6 +45,10 @@ export type PedidoDaFabrica = {
   cidade: string | null;
   uf: string | null;
   entrega: string | null;
+  /** Endereço de entrega. Só vem em venda por fora que não é retirada em loja. */
+  endereco: string | null;
+  /** Primeiro nome de quem vendeu, em venda por fora: é a quem a fábrica pergunta. */
+  vendedor: string | null;
   rastreio: string | null;
   nota: string | null;
   pecas: PecaDoPedido[];
@@ -55,7 +67,9 @@ export async function lerFilaDaFabrica(db: SupabaseClient, dias: number): Promis
   }
   const cru = (data ?? {}) as { dias?: number; pedidos?: Record<string, unknown>[] };
   const pedidos = (cru.pedidos ?? []).map((p): PedidoDaFabrica => ({
-    pedido: Number(p.pedido),
+    ref: texto(p.ref) ?? String(p.pedido ?? ""),
+    origem: p.origem === "por_fora" ? "por_fora" : "loja",
+    pedido: p.pedido === null || p.pedido === undefined ? null : Number(p.pedido),
     dia: String(p.dia ?? ""),
     feitoEm: String(p.feito_em ?? ""),
     statusDaLoja: texto(p.status_da_loja),
@@ -66,6 +80,8 @@ export async function lerFilaDaFabrica(db: SupabaseClient, dias: number): Promis
     cidade: texto(p.cidade),
     uf: texto(p.uf),
     entrega: texto(p.entrega),
+    endereco: texto(p.endereco),
+    vendedor: texto(p.vendedor),
     rastreio: texto(p.rastreio),
     nota: texto(p.nota),
     pecas: (Array.isArray(p.pecas) ? (p.pecas as Record<string, unknown>[]) : []).map((i) => ({
@@ -81,20 +97,26 @@ export async function lerFilaDaFabrica(db: SupabaseClient, dias: number): Promis
 }
 
 /**
- * Move vários pedidos de uma vez para a mesma etapa (0068). Serve para pôr a
+ * A referência de um trabalho da fábrica: número de pedido da loja ou "v" mais
+ * o código da venda por fora. Conferida antes de ir ao banco.
+ */
+export const REF_DA_FABRICA = /^(?:[0-9]{1,12}|v[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/;
+
+/**
+ * Move vários pedidos de uma vez para a mesma etapa (0068, por referência desde a 0075). Serve para pôr a
  * fila em dia: marcar como enviado, de uma vez, o que já saiu. Pedido que não
  * está pago fica de fora e é contado em `fora`.
  */
 export async function moverPedidosDaFabrica(
   db: SupabaseClient,
-  a: { pedidos: number[]; etapa: Etapa },
+  a: { refs: string[]; etapa: Etapa },
 ): Promise<{ ok: true; movidos: number; fora: number } | { ok: false; erro: string }> {
-  const { data, error } = await db.rpc("mover_pedidos_da_fabrica", { p_pedidos: a.pedidos, p_etapa: a.etapa });
+  const { data, error } = await db.rpc("mover_varios_na_fabrica", { p_refs: a.refs, p_etapa: a.etapa });
   if (!error) {
     const r = (data ?? {}) as { movidos?: number; fora?: unknown[] };
     return { ok: true, movidos: Number(r.movidos ?? 0), fora: Array.isArray(r.fora) ? r.fora.length : 0 };
   }
-  console.error("[fabrica] mover_pedidos_da_fabrica:", error.message);
+  console.error("[fabrica] mover_varios_na_fabrica:", error.message);
   const conhecida = /fábrica|Etapa|pedidos/i.test(error.message);
   return { ok: false, erro: conhecida ? error.message : "Não deu para mover os pedidos agora. Tente de novo em alguns segundos." };
 }
@@ -105,17 +127,17 @@ export async function moverPedidosDaFabrica(
  */
 export async function moverPedidoDaFabrica(
   db: SupabaseClient,
-  a: { pedido: number; etapa: Etapa; rastreio?: string; nota?: string },
+  a: { ref: string; etapa: Etapa; rastreio?: string; nota?: string },
 ): Promise<{ ok: true } | { ok: false; erro: string }> {
-  const { error } = await db.rpc("mover_pedido_da_fabrica", {
-    p_pedido: a.pedido,
+  const { error } = await db.rpc("mover_na_fabrica", {
+    p_ref: a.ref,
     p_etapa: a.etapa,
     p_rastreio: a.rastreio ?? null,
     p_nota: a.nota ?? null,
   });
   if (!error) return { ok: true };
-  console.error("[fabrica] mover_pedido_da_fabrica:", error.message);
+  console.error("[fabrica] mover_na_fabrica:", error.message);
   // As mensagens da função já estão em português e são para a pessoa ler.
-  const conhecida = /fábrica|Etapa|longo/i.test(error.message);
+  const conhecida = /fábrica|Etapa|longo|venda|Pedido/i.test(error.message);
   return { ok: false, erro: conhecida ? error.message : "Não deu para mover o pedido agora. Tente de novo em alguns segundos." };
 }

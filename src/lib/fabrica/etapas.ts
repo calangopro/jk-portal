@@ -167,7 +167,10 @@ export function grupoDaEntrega(frete: string | null | undefined): GrupoDeEntrega
 
 /** O que o filtro precisa saber de um pedido. O pedido da fila tem tudo isso e mais. */
 export type PedidoParaFiltro = {
-  pedido: number;
+  /** Número do pedido da loja. `null` em venda por fora. */
+  pedido: number | null;
+  /** Primeiro nome de quem vendeu, em venda por fora. */
+  vendedor?: string | null;
   dia: string;
   etapa: Etapa;
   cliente: string | null;
@@ -205,7 +208,8 @@ export function filtrarFila<T extends PedidoParaFiltro>(pedidos: T[], f: FiltroD
     if (palavras.length === 0) return true;
     const texto = semAcento(
       [
-        p.pedido, p.cliente, p.cidade, p.entrega, p.rastreio, p.nota,
+        // Venda por fora não tem número: é achada por "por fora" e pelo nome de quem vendeu.
+        p.pedido ?? "venda por fora", p.vendedor, p.cliente, p.cidade, p.entrega, p.rastreio, p.nota,
         ...p.pecas.flatMap((x) => [x.nome, x.referencia, (x.info ?? "").replace(/<[^>]+>/g, " ")]),
       ].filter(Boolean).join(" "),
     );

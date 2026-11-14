@@ -74,3 +74,21 @@ export async function lerResumoPorFora(db: SupabaseClient, de: string, ate: stri
   const r = { ...POR_FORA_VAZIO, ...(data as Partial<ResumoPorFora> | null) };
   return { ...r, valor: Number(r.valor) };
 }
+
+/** Em que etapa da fábrica está uma venda por fora (0075). */
+export type VendaNaFabrica = { etapa: string; entrega: string | null; rastreio: string | null };
+
+/**
+ * A etapa da fábrica de cada venda pedida. Só vem venda que a pessoa pode ver e
+ * que foi para a fábrica; erro vira objeto vazio, e a lista de vendas continua
+ * valendo sem o selo.
+ */
+export async function lerEtapasDasVendas(db: SupabaseClient, ids: string[]): Promise<Record<string, VendaNaFabrica>> {
+  if (ids.length === 0) return {};
+  const { data, error } = await db.rpc("etapa_das_vendas", { p_ids: ids });
+  if (error) {
+    console.error("[vendas] etapa_das_vendas:", error.message);
+    return {};
+  }
+  return (data ?? {}) as Record<string, VendaNaFabrica>;
+}

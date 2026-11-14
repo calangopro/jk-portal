@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireArea } from "@/lib/auth/session";
-import { moverPedidoDaFabrica, moverPedidosDaFabrica } from "@/lib/fabrica/dados";
+import { REF_DA_FABRICA, moverPedidoDaFabrica, moverPedidosDaFabrica } from "@/lib/fabrica/dados";
 import { lerEtapa } from "@/lib/fabrica/etapas";
 import { createClient } from "@/lib/supabase/server";
 
@@ -13,15 +13,15 @@ import { createClient } from "@/lib/supabase/server";
  * grava e quem guarda o nome de quem moveu.
  */
 export async function moverPedido(
-  pedido: number,
+  ref: string,
   etapa: string,
   extras: { rastreio?: string; nota?: string } = {},
 ): Promise<{ ok: true } | { ok: false; erro: string }> {
   await requireArea("fabrica");
   const destino = lerEtapa(etapa);
-  if (!destino || !Number.isSafeInteger(pedido) || pedido <= 0) return { ok: false, erro: "Pedido ou etapa inválidos." };
+  if (!destino || typeof ref !== "string" || !REF_DA_FABRICA.test(ref)) return { ok: false, erro: "Pedido ou etapa inválidos." };
   const r = await moverPedidoDaFabrica(await createClient(), {
-    pedido,
+    ref,
     etapa: destino,
     rastreio: extras.rastreio?.slice(0, 80),
     nota: extras.nota?.slice(0, 500),
@@ -39,15 +39,15 @@ const TETO_DA_LEVA = 200;
  * mexe em rastreio nem em anotação.
  */
 export async function moverVarios(
-  pedidos: number[],
+  refs: string[],
   etapa: string,
 ): Promise<{ ok: true; movidos: number; fora: number } | { ok: false; erro: string }> {
   await requireArea("fabrica");
   const destino = lerEtapa(etapa);
-  const lista = [...new Set(Array.isArray(pedidos) ? pedidos : [])].filter((n) => Number.isSafeInteger(n) && n > 0);
+  const lista = [...new Set(Array.isArray(refs) ? refs : [])].filter((r) => typeof r === "string" && REF_DA_FABRICA.test(r));
   if (!destino || lista.length === 0) return { ok: false, erro: "Escolha pelo menos um pedido e a etapa." };
   if (lista.length > TETO_DA_LEVA) return { ok: false, erro: `Dá para mover até ${TETO_DA_LEVA} pedidos por vez.` };
-  const r = await moverPedidosDaFabrica(await createClient(), { pedidos: lista, etapa: destino });
+  const r = await moverPedidosDaFabrica(await createClient(), { refs: lista, etapa: destino });
   if (r.ok) revalidatePath("/admin/fabrica");
   return r;
 }
