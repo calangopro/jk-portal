@@ -1,7 +1,11 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireStaff } from "@/lib/auth/session";
+import { ehAdmin } from "@/lib/auth/acessos";
+import { requireArea, requireStaff } from "@/lib/auth/session";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { alterarProdutoNaLoja, lerProdutoNaLoja, preverEdicaoDoProduto, type Previa, type Resultado } from "@/lib/loja/alterar";
+import type { Edicao } from "@/lib/loja/produto";
 import { createClient } from "@/lib/supabase/server";
 import {
   ErroDeFoto,
@@ -151,4 +155,29 @@ export async function marcarNaPlanilha(fotoIds: string[]): Promise<Resposta<{ ma
     revalidatePath("/admin/produtos");
     return { marcadas };
   });
+}
+
+// ---------------------------------------------------------------------------
+// Editar o produto na loja (0065)
+// ---------------------------------------------------------------------------
+//
+// As três ações pedem a área `loja` e sempre falam com a loja da JK. Usam o
+// cliente de serviço porque o token da Tray e o registro das alterações não
+// abrem para o navegador; quem chega aqui já passou pela conferência da área.
+
+export async function lerNaLoja(trayId: string) {
+  await requireArea("loja");
+  return lerProdutoNaLoja(createAdminClient(), "jk", String(trayId));
+}
+
+export async function preverNaLoja(trayId: string, edicao: Edicao): Promise<Previa> {
+  const perfil = await requireArea("loja");
+  return preverEdicaoDoProduto(createAdminClient(), { loja: "jk", trayId: String(trayId), edicao, podePreco: ehAdmin(perfil.role) });
+}
+
+export async function gravarNaLoja(trayId: string, edicao: Edicao): Promise<Resultado> {
+  const perfil = await requireArea("loja");
+  const r = await alterarProdutoNaLoja(createAdminClient(), { loja: "jk", trayId: String(trayId), edicao, podePreco: ehAdmin(perfil.role), quem: perfil.id });
+  if (r.estado === "ok") revalidatePath("/admin/produtos");
+  return r;
 }

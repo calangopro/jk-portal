@@ -16,7 +16,8 @@ import {
   type TipoDeFoto,
 } from "@/lib/catalogo/estados";
 import { nomeDeArquivo, paraJpeg } from "@/lib/catalogo/jpeg-no-navegador";
-import { decidir, devolver, dispensar, lerProduto, registrarFoto } from "./actions";
+import { decidir, devolver, dispensar, gravarNaLoja, lerNaLoja, lerProduto, preverNaLoja, registrarFoto } from "./actions";
+import { EditarNaLoja } from "./EditarNaLoja";
 import { digitando, reais, type MargemNaLista } from "./util";
 import { MargemNaGaveta } from "./MargemNaGaveta";
 
@@ -58,8 +59,11 @@ export function Gaveta({
   onAndar,
   onEstado,
   margem,
+  loja = null,
 }: {
   produto: ItemDoCatalogo;
+  /** Quem pode alterar a loja pelo painel. Nulo esconde a seção. */
+  loja?: { podePreco: boolean } | null;
   /** Só para administrador; undefined esconde a seção. */
   margem?: MargemNaLista | null;
   posicao: { i: number; de: number };
@@ -387,6 +391,9 @@ export function Gaveta({
         ) : null}
 
         {margem !== undefined ? <MargemNaGaveta key={produto.id} productId={produto.id} margem={margem} /> : null}
+        {loja ? (
+          <EditarNaLoja key={`loja-${produto.id}`} trayId={produto.trayId} podePreco={loja.podePreco} acoes={{ ler: lerNaLoja, prever: preverNaLoja, gravar: gravarNaLoja }} />
+        ) : null}
 
         {/* Envio feito fora do Claude */}
         <section className="mt-6 rounded-[14px] border border-dashed border-border bg-white/60 p-4">

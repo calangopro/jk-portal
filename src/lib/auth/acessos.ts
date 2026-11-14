@@ -37,7 +37,9 @@ export type Area =
   | "equipe"
   | "fabrica"
   | "lancar_venda"
-  | "trafego";
+  | "trafego"
+  /** Alterar a loja na Tray pelo painel (0065). Preço fica mais fechado ainda: ver `lib/loja/produto.ts`. */
+  | "loja";
 
 /** Na ordem em que aparecem para quem convida: da empresa para o editorial. */
 export const NIVEIS: { papel: AppRole; nome: string; resumo: string }[] = [

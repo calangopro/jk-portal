@@ -1,3 +1,4 @@
+import { ehAdmin } from "@/lib/auth/acessos";
 import { requireStaff } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { trayConfigurada } from "@/lib/tray/cliente";
@@ -102,7 +103,12 @@ export default async function ProdutosPage() {
         </p>
       </header>
 
-      <Catalogo itens={itens} padroes={padroes} margens={margens} />
+      <Catalogo
+        itens={itens}
+        padroes={padroes}
+        margens={margens}
+        loja={perfil.areas.includes("loja") ? { podePreco: ehAdmin(perfil.role) } : null}
+      />
 
       <details className="glass mt-10 rounded-[18px] p-5">
         <summary className="cursor-pointer text-sm font-semibold text-ink">
