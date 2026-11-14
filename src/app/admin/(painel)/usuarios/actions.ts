@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { requireAdmin, type AppRole } from "@/lib/auth/session";
-import { PAPEIS } from "@/lib/auth/acessos";
+import { ehAdmin, PAPEIS } from "@/lib/auth/acessos";
 import { absoluteUrl } from "@/lib/seo/site";
 
 export type UsersState = { error?: string; success?: string };
@@ -165,7 +165,7 @@ export async function updateRole(formData: FormData) {
 
   // Trava de segurança: um admin não pode rebaixar a si mesmo (evita ficar
   // sem nenhum administrador no sistema).
-  if (userId === me.id && role !== "admin") return;
+  if (userId === me.id && !ehAdmin(role)) return;
 
   const supabase = await createClient();
   await supabase.from("profiles").update({ role }).eq("id", userId);
