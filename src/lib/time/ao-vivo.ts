@@ -57,6 +57,19 @@ let canal: RealtimeChannel | null = null;
 let quem: string | null = null;
 let usos = 0;
 let despedida: ReturnType<typeof setTimeout> | null = null;
+
+/**
+ * Por quanto tempo uma falha ao entrar ainda conta como "ligando". A primeira
+ * ligação depois de um tempo sem ninguém acorda o serviço do outro lado, e a
+ * entrada costuma falhar uma vez antes de dar certo (visto em 14/11: "sem
+ * ligação" aos 6 segundos, "ao vivo" logo depois, sem ninguém mexer). Dizer
+ * "sem ligação ao vivo" nesse intervalo seria alarme falso. Depois de ter
+ * entrado uma vez, queda é queda, na hora.
+ */
+const PACIENCIA_MS = 15_000;
+let comecouEm = 0;
+let jaEntrou = false;
+let paciencia: ReturnType<typeof setTimeout> | null = null;
 const ouvintesDaLigacao = new Set<() => void>();
 const ouvintesDeAviso = new Set<(a: Aviso) => void>();
 
@@ -126,6 +139,8 @@ async function entrar(id: string) {
 
   const novo = supabase.channel(CANAL_DO_TIME, { config: { private: true, presence: { key: id }, broadcast: { self: false } } });
   canal = novo;
+  comecouEm = Date.now();
+  jaEntrou = false;
   novo
     .on("presence", { event: "sync" }, () => {
       if (canal === novo) mudar({ presenca: lerPresenca(novo.presenceState()) });
@@ -137,18 +152,34 @@ async function entrar(id: string) {
     .subscribe((estado) => {
       if (canal !== novo) return;
       if (estado === "SUBSCRIBED") {
+        jaEntrou = true;
+        if (paciencia) clearTimeout(paciencia);
+        paciencia = null;
         mudar({ estado: "ao_vivo" });
         void dizerPresente();
         avisarAqui({ tipo: "voltou" });
-      } else {
-        // Erro, tempo esgotado ou canal fechado. O cliente tenta de novo sozinho; enquanto isso, ninguém aparece online.
+        return;
+      }
+      // Erro, tempo esgotado ou canal fechado. O cliente tenta de novo sozinho; enquanto isso, ninguém aparece online.
+      const falta = PACIENCIA_MS - (Date.now() - comecouEm);
+      if (jaEntrou || falta <= 0) {
         mudar({ estado: "fora", presenca: SEM_NINGUEM });
+        return;
+      }
+      // Ainda nos primeiros segundos: segue "ligando", e só vira "fora" se o prazo acabar sem entrar.
+      if (!paciencia) {
+        paciencia = setTimeout(() => {
+          paciencia = null;
+          if (canal === novo && ligacao.estado !== "ao_vivo") mudar({ estado: "fora", presenca: SEM_NINGUEM });
+        }, falta);
       }
     });
 }
 
 function sair() {
   document.removeEventListener("visibilitychange", aoMudarDeVista);
+  if (paciencia) clearTimeout(paciencia);
+  paciencia = null;
   const antigo = canal;
   canal = null;
   quem = null;
