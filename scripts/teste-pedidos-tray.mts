@@ -37,6 +37,7 @@ import { achatar, ordenar, somar, tomContraAMedia, tomDaVoltaDaLoja, tomDaVoltaD
 import { readFileSync, readdirSync } from "node:fs";
 import { falhaPassageira } from "../src/lib/auth/acessos.ts";
 import { faixasDoGoogle, horarioEmTexto, mesmoHorario } from "../src/lib/google-perfil/horario.ts";
+import { SEM_RESPOSTA, conferirSaida, montarPergunta, produtosDoTexto, type FonteDoTutor } from "../src/lib/tutor/regras.ts";
 import { SETORES, abasDaBarra, nomeDoSetor, ondeEstou, setoresDe } from "../src/lib/painel/setores.ts";
 import { PECA_VAZIA, lerProducao, montarInfo } from "../src/lib/vendas/producao.ts";
 import { avaliarSaude, diaEHora, haQuantoTempo, resumoDoErro, sinaisDaSaude, type SaudeCrua } from "../src/lib/painel/saude.ts";
@@ -1031,6 +1032,36 @@ console.log("\nSetores do painel");
   confere("setor sem nenhuma tela some", setoresDe([]).length === 1 && setoresDe(["equipe"]).some((s) => s.id === "sistema") && !setoresDe(["equipe"]).some((s) => s.id === "loja"));
   const frases = tudo.flatMap((s) => [s.nome, s.frase, ...s.itens.flatMap((i) => [i.label, i.desc, i.curto ?? ""])]);
   confere("nenhum nome de setor ou tela com travessão", frases.every((f) => !/[—–]/.test(f)));
+}
+
+console.log("\nTutor do vendedor");
+{
+  const fontes: FonteDoTutor[] = [
+    { id: "a1", pergunta: "Polimento custa quanto?", explicacao: "É grátis, sempre.", frase: "O polimento é por nossa conta.", confirmada: false },
+    { id: "b2", pergunta: "Faz em prata 925?", explicacao: "Não. Aliança só em prata 950.", frase: null, confirmada: true },
+  ];
+  const boa = conferirSaida({ responde: true, para_o_vendedor: "É grátis — sempre.", frase_para_o_cliente: "O polimento é por nossa conta – pode trazer.", usou: ["a1", "inventada"] }, fontes, false);
+  confere("fonte que o modelo inventou é descartada", boa.respondeu && boa.fontes.map((f) => f.id).join() === "a1");
+  confere("o travessão sai do que o tutor escreve", boa.paraOVendedor === "É grátis, sempre." && boa.fraseParaOCliente === "O polimento é por nossa conta, pode trazer.");
+  confere("resposta apoiada em fonte não confirmada avisa", boa.temFonteAConfirmar && !conferirSaida({ responde: true, para_o_vendedor: "Não.", frase_para_o_cliente: "", usou: ["b2"] }, fontes, false).temFonteAConfirmar);
+  const deCabeca = conferirSaida({ responde: true, para_o_vendedor: "Parcelamos em 12x.", frase_para_o_cliente: "Parcelamos em 12x sem juros.", usou: [] }, fontes, false);
+  confere("\"respondi\" sem citar fonte nem produto vira \"não respondi\", e a frase para o cliente some", !deCabeca.respondeu && deCabeca.fraseParaOCliente === null && deCabeca.fontes.length === 0);
+  confere("com produto na mão, responder sem fonte da biblioteca vale", conferirSaida({ responde: true, para_o_vendedor: "O preço de hoje é este.", frase_para_o_cliente: "Custa R$ 399,90.", usou: [] }, fontes, true).respondeu);
+  confere("sem nada na biblioteca, a resposta fixa manda abrir chamado", !SEM_RESPOSTA.respondeu && SEM_RESPOSTA.paraOVendedor.includes("chamado") && !/[—–]/.test(SEM_RESPOSTA.paraOVendedor));
+
+  const mensagem = montarPergunta({ duvida: "tem custo?", leitura: { eConversa: true, pergunta: "A aliança escureceu, tem garantia?", produto: null, detalhes: "comprou há 5 meses" }, fontes, produtos: [{ codigo: "217", nome: "Par Eternal Love", preco: 399.9, url: "https://x/eternal", diasUteis: 2, prazo: { retirada: "Chega na loja em quarta.", correios: "Postada na terça." } }] });
+  confere("a mensagem ao modelo diz o estado de cada resposta da casa", mensagem.includes("[a1] (A CONFIRMAR)") && mensagem.includes("[b2] (CONFIRMADA)") && mensagem.includes("DETALHES DO PRINT: comprou há 5 meses"));
+  confere("o produto vai com o preço de hoje e a data da conta do painel", mensagem.includes("preço de hoje R$") && mensagem.includes("Chega na loja em quarta.") && mensagem.includes("2 dias úteis"));
+  confere("sem resposta da casa, a mensagem diz isso por escrito", montarPergunta({ duvida: "x", leitura: null, fontes: [], produtos: [] }).includes("(nenhuma resposta da casa trata disso)"));
+
+  const catalogo = [
+    { nome: "Par de Alianças de Namoro Eternal Love em Prata 950 3mm + Anel Solitário Diamond", codigo: "217", vendidos: 797 },
+    { nome: "Par de Alianças de Namoro Elegance em Prata 950 2mm + Anel Solitário Brinde", codigo: "1333", vendidos: 304 },
+    { nome: "Par de Alianças de Casamento em Ouro 18k Florence 4mm", codigo: "900", vendidos: 12 },
+  ];
+  confere("o nome do modelo aponta a peça", produtosDoTexto("par Eternal Love de 3mm com anel", catalogo).map((p) => p.codigo).join() === "217");
+  confere("palavra que está em todo o catálogo não aponta peça nenhuma", produtosDoTexto("aliança de prata 3 mm com anel solitário", catalogo).length === 0 && produtosDoTexto("aliança", catalogo).length === 0);
+  confere("o código do produto também acha", produtosDoTexto("florence ouro 18k", catalogo).map((p) => p.codigo).join() === "900");
 }
 
 console.log("\nHorário das lojas pelo Google");

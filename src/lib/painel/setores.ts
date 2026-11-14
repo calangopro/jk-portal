@@ -3,7 +3,7 @@ import {
   Activity, Banknote, BellRing, BookCheck, Bot, CalendarDays, Contact, Crosshair, FileText, Filter, Globe, Hammer, HandCoins, Handshake,
   HeartPulse, History, ImageIcon, LayoutDashboard, LayoutTemplate, LibraryBig, ListChecks, MapPin, MessageCircle, MessagesSquare, Milestone,
   Package, PackageSearch, Palette, PenLine,
-  Percent, Plug, QrCode, RotateCcw, Settings, Smartphone, Star, Store, Table2, Tags, TrendingUp, Trophy, Users,
+  Percent, Plug, QrCode, RotateCcw, Settings, Smartphone, Sparkles, Star, Store, Table2, Tags, TrendingUp, Trophy, Users,
   UsersRound, Wallet,
 } from "lucide-react";
 import type { Area } from "@/lib/auth/acessos";
@@ -93,6 +93,7 @@ export const SETORES: Setor[] = [
     cor: "#8a3aa0",
     Icone: Handshake,
     itens: [
+      { href: "/admin/tutor", area: "time", label: "Tutor", Icone: Sparkles, desc: "Pergunte com o print da conversa" },
       { href: "/admin/biblioteca", area: "time", label: "Biblioteca JK", curto: "Biblioteca", Icone: LibraryBig, desc: "As respostas da casa, prontas para colar" },
       { href: "/admin/chamados", area: "time", label: "Chamados", Icone: MessagesSquare, desc: "Pedir uma coisa a outro setor" },
     ],
