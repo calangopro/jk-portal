@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import type { Nivel, Objetivo, Veredito } from "@/lib/trafego/diagnostico";
 import {
-  ordenar, somar, tomContraAMedia, tomDaVoltaDaLoja, tomDoVeredito, type Coluna, type Linha, type Tom,
+  ordenar, somar, tomDaVoltaDaLoja, tomDaVoltaDaPlataforma, tomDoVeredito, type Coluna, type Linha, type Tom,
 } from "@/lib/trafego/linhas";
 
 /**
@@ -208,7 +208,6 @@ export function TabelaDeAnuncios({
 
   // ------------------------------------------------------------ as células
 
-  const fatia = (l: Linha) => (gastoDaConta > 0 ? l.gasto / gastoDaConta : 0);
   const resultado = (l: Linha) => {
     if (l.objetivo === "engajamento") return <span className="text-muted">{VAZIO}</span>;
     const [um, varios] = UNIDADE[l.objetivo];
@@ -221,7 +220,7 @@ export function TabelaDeAnuncios({
   const custo = (l: Linha) =>
     l.custo === null || l.objetivo === "engajamento" ? <span className="text-muted">{VAZIO}</span> : <Pintado tom={tomDoVeredito(l.veredito)}>{reais(l.custo)}</Pintado>;
   const volta = (l: Linha) =>
-    l.retorno === null ? <span className="text-muted">{VAZIO}</span> : <Pintado tom={tomContraAMedia(l.retorno, mediaDaVolta, fatia(l))}>{vezes(l.retorno)}</Pintado>;
+    l.retorno === null ? <span className="text-muted">{VAZIO}</span> : <Pintado tom={tomDaVoltaDaPlataforma(l, mediaDaVolta, gastoDaConta)}>{vezes(l.retorno)}</Pintado>;
   const lojaPago = (l: Linha) =>
     l.loja ? (
       <>

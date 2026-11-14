@@ -31,7 +31,7 @@ import { compararComOBanco, pedidoDaApi, ultimaAlteracao } from "../src/lib/vend
 import { ehRobo, lerChegada, pedidoValido, repeteAAnterior, sessaoValida } from "../src/lib/origem/chegada.ts";
 import { itensQueVenderam, passosDoColetor, vendasPorItem, type Cobertura, type SaudeDoColetor } from "../src/lib/origem/anotado.ts";
 import { diaOuNulo, lerEstado, naoPegaram, prepararEdicao } from "../src/lib/loja/produto.ts";
-import { achatar, ordenar, somar, tomContraAMedia, tomDaVoltaDaLoja, tomDoVeredito } from "../src/lib/trafego/linhas.ts";
+import { achatar, ordenar, somar, tomContraAMedia, tomDaVoltaDaLoja, tomDaVoltaDaPlataforma, tomDoVeredito } from "../src/lib/trafego/linhas.ts";
 import { abasDaBarra, nomeDoSetor, ondeEstou, setoresDe } from "../src/lib/painel/setores.ts";
 
 let falhas = 0;
@@ -766,6 +766,7 @@ console.log("\nTabela de campanhas e anúncios");
   confere("volta da loja: sem dado não ganha cor", tomDaVoltaDaLoja(null, empate) === "neutro");
   confere("volta da plataforma: compara com a média da conta", tomContraAMedia(6, 4, 0.2) === "bom" && tomContraAMedia(2, 4, 0.2) === "ruim" && tomContraAMedia(4.5, 4, 0.2) === "neutro");
   confere("volta da plataforma: item pequeno demais fica sem cor", tomContraAMedia(9, 4, 0.001) === "neutro" && tomContraAMedia(9, null, 0.2) === "neutro");
+  confere("volta da plataforma: só campanha de venda ganha cor", tomDaVoltaDaPlataforma({ objetivo: "venda", retorno: 1, gasto: 500 }, 4, 1000) === "ruim" && tomDaVoltaDaPlataforma({ objetivo: "clique", retorno: 0.15, gasto: 500 }, 4, 1000) === "neutro" && tomDaVoltaDaPlataforma({ objetivo: "conversa", retorno: 9, gasto: 500 }, 4, 1000) === "neutro");
   confere("veredito sem opinião não pinta", tomDoVeredito("na_media") === "neutro" && tomDoVeredito("sem_dado") === "neutro" && tomDoVeredito("ruim") === "ruim");
 
   const anuncios = linhas.filter((l) => l.nivel === "anuncio");

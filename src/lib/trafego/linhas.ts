@@ -143,6 +143,17 @@ export function tomContraAMedia(valor: number | null, media: number | null, fati
   return "neutro";
 }
 
+/**
+ * A cor da volta da plataforma numa linha. Só campanha de VENDA ganha cor:
+ * campanha de conversa, de clique ou de engajamento também traz alguma compra
+ * pelo pixel, e pintar de vermelho a volta de uma campanha que não foi feita
+ * para vender é julgar pela régua errada.
+ */
+export function tomDaVoltaDaPlataforma(l: Pick<Linha, "objetivo" | "retorno" | "gasto">, media: number | null, gastoDaConta: number): Tom {
+  if (l.objetivo !== "venda") return "neutro";
+  return tomContraAMedia(l.retorno, media, gastoDaConta > 0 ? l.gasto / gastoDaConta : 0);
+}
+
 export type TotaisDaLista = {
   itens: number;
   gasto: number;
