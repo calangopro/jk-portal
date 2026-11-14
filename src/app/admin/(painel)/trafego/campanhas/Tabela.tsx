@@ -6,10 +6,12 @@ import {
   ArrowDown, ArrowUp, ChevronDown, ChevronRight, Circle, CircleAlert, CircleCheck, Minus, Pause, Search, Store,
   TriangleAlert, Wrench, X,
 } from "lucide-react";
+import { COR_DO_TOM } from "@/lib/painel/tons";
 import type { Nivel, Objetivo, Veredito } from "@/lib/trafego/diagnostico";
 import {
   ordenar, somar, tomDaVoltaDaLoja, tomDaVoltaDaPlataforma, tomDoVeredito, type Coluna, type Linha, type Tom,
 } from "@/lib/trafego/linhas";
+import { ICONE_DO_TOM } from "../../Pecas";
 
 /**
  * A tabela de campanhas, conjuntos e anúncios, no jeito de gerenciador de
@@ -29,12 +31,10 @@ import {
  * ninguém lê.
  */
 
-const TOM: Record<Tom, { texto: string; fundo: string; Icone: LucideIcon | null }> = {
-  bom: { texto: "#046c4e", fundo: "#e3f4ec", Icone: CircleCheck },
-  atencao: { texto: "#9a4a07", fundo: "#fcefd9", Icone: TriangleAlert },
-  ruim: { texto: "#b01919", fundo: "#fde8e8", Icone: CircleAlert },
-  neutro: { texto: "inherit", fundo: "transparent", Icone: null },
-};
+// As cores e os ícones de estado são os do painel inteiro; aqui só se juntam.
+const TOM = Object.fromEntries(
+  (Object.keys(COR_DO_TOM) as Tom[]).map((t) => [t, { ...COR_DO_TOM[t], Icone: ICONE_DO_TOM[t] }]),
+) as Record<Tom, { texto: string; fundo: string; Icone: LucideIcon | null }>;
 
 const VEREDITO: Record<Veredito, { nome: string; Icone: LucideIcon }> = {
   bom: { nome: "Bom", Icone: CircleCheck },

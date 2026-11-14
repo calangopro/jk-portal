@@ -14,6 +14,7 @@
  *
  * Arquivo puro, para o teste rodar sem banco.
  */
+import type { Tom } from "../painel/tons.ts";
 import type { LinhaDeCanal } from "../vendas/origem.ts";
 
 export const PLATAFORMAS = [
@@ -88,3 +89,22 @@ export function dividirPorDia(total: number, de: string, ate: string): { dia: st
   const resto = centavos(total - porDia * dias.length);
   return dias.map((dia, i) => ({ dia, gasto: i === dias.length - 1 ? centavos(porDia + resto) : porDia }));
 }
+
+/**
+ * A cor dos dois cartões de volta do resumo: o mínimo (só a venda com etiqueta
+ * de anúncio) e o máximo (tudo o que a loja e os vendedores venderam).
+ *
+ * A volta de verdade está ENTRE os dois, então cada ponta só ganha cor quando
+ * o veredito não depende de onde, na faixa, a verdade cai:
+ *   - se até o mínimo passa do empate, a conta fecha de qualquer jeito: verde;
+ *   - se nem o máximo chega a 1, gastou mais do que vendeu de qualquer jeito:
+ *     vermelho; se nem o máximo chega ao empate, não cobre a margem: âmbar.
+ * No meio disso não há cor, porque não há certeza.
+ */
+export function tomDaFaixaDeVolta(minimo: number | null, maximo: number | null, empate: number): { minimo: Tom; maximo: Tom } {
+  return {
+    minimo: minimo !== null && minimo >= empate ? "bom" : "neutro",
+    maximo: maximo === null ? "neutro" : maximo < 1 ? "ruim" : maximo < empate ? "atencao" : "neutro",
+  };
+}
+

@@ -297,16 +297,34 @@ export function PainelDeRecuperacao({
           </div>
 
           <div className="mt-5 grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
-            <Cartao Icone={PhoneCall} rotulo="Para chamar" apoio={`${pessoas(n("a_recuperar"))} sem ninguém falando`}>
+            <Cartao
+              Icone={PhoneCall}
+              rotulo="Para chamar"
+              tom={n("a_recuperar") > 0 ? "atencao" : "neutro"}
+              aviso="Ninguém chamou ainda"
+              apoio={`${pessoas(n("a_recuperar"))} sem ninguém falando`}
+            >
               <Dinheiro valor={v("a_recuperar")} />
             </Cartao>
             <Cartao Icone={MessageCircle} rotulo="Em contato" apoio={pessoas(n("em_contato"))}>
               <Dinheiro valor={v("em_contato")} />
             </Cartao>
-            <Cartao Icone={CircleCheck} rotulo="Voltaram e pagaram" apoio={`${pessoas(n("recuperado"))}, em pedido novo na loja`}>
+            <Cartao
+              Icone={CircleCheck}
+              rotulo="Voltaram e pagaram"
+              tom={v("recuperado") > 0 ? "bom" : "neutro"}
+              aviso="Recuperado"
+              apoio={`${pessoas(n("recuperado"))}, em pedido novo na loja`}
+            >
               <Dinheiro valor={v("recuperado")} />
             </Cartao>
-            <Cartao Icone={HandCoins} rotulo="Pagaram por fora" apoio={`${pessoas(n("pago_por_fora"))}, com venda registrada`}>
+            <Cartao
+              Icone={HandCoins}
+              rotulo="Pagaram por fora"
+              tom={v("pago_por_fora") > 0 ? "bom" : "neutro"}
+              aviso="Recuperado por fora"
+              apoio={`${pessoas(n("pago_por_fora"))}, com venda registrada`}
+            >
               <Dinheiro valor={v("pago_por_fora")} />
             </Cartao>
           </div>

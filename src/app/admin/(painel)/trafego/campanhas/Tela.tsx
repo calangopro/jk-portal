@@ -1,12 +1,14 @@
 import Link from "next/link";
-import { CircleAlert, CircleCheck, Megaphone, Receipt, ShoppingBag, Store, Target, TrendingUp, TriangleAlert } from "lucide-react";
+import { CircleAlert, Megaphone, Receipt, ShoppingBag, Store, Target, TrendingUp } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { itensQueVenderam, type ItemQueVendeu } from "@/lib/origem/anotado";
 import { IMPOSTO_DA_FATURA, MARGEM_DE_REFERENCIA, voltaParaEmpatar } from "@/lib/painel/premissas";
 import type { CampanhasDaTela } from "@/lib/trafego/dados";
 import { resultadoEmPalavra, type Achado, type Avaliado } from "@/lib/trafego/diagnostico";
-import { achatar, tomDaVoltaDaLoja, type Tom } from "@/lib/trafego/linhas";
+import { COR_DO_TOM as TOM, type Tom } from "@/lib/painel/tons";
+import { achatar, tomDaVoltaDaLoja } from "@/lib/trafego/linhas";
 import { diaCurto, type ChaveDePeriodo } from "@/lib/vendas/periodo";
+import { ICONE_DO_TOM } from "../../Pecas";
 import { SeletorDePeriodo } from "../../SeletorDePeriodo";
 import { haQuantoTempo, reais } from "../../vendas/PainelDeVendas";
 import { TabelaDeAnuncios } from "./Tabela";
@@ -27,13 +29,6 @@ import { TabelaDeAnuncios } from "./Tabela";
  */
 
 const BARRA = "#1f86b0";
-const TOM: Record<Tom, { texto: string; fundo: string }> = {
-  bom: { texto: "#046c4e", fundo: "#e3f4ec" },
-  atencao: { texto: "#9a4a07", fundo: "#fcefd9" },
-  ruim: { texto: "#b01919", fundo: "#fde8e8" },
-  neutro: { texto: "var(--color-ink)", fundo: "#fff" },
-};
-const ICONE_DO_TOM: Record<Tom, LucideIcon | null> = { bom: CircleCheck, atencao: TriangleAlert, ruim: CircleAlert, neutro: null };
 const PALAVRA_DO_TOM: Record<Tom, string> = { bom: "Paga a conta", atencao: "Não cobre a margem", ruim: "Gastou mais do que vendeu", neutro: "" };
 
 const NOME_DA_PLATAFORMA = { meta: "Meta", google: "Google Ads" } as const;

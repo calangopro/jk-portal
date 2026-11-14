@@ -20,7 +20,8 @@ import { diasEntre, hojeEmSaoPaulo, intervaloDoPeriodo, lerPeriodo, somarDias } 
 import { calcularSinais, porDiaDaSemana, taxaDeCancelamento, variacao } from "../src/lib/painel/sinais.ts";
 import { ehAdmin, ehEquipeDeConteudo, NIVEIS, ROLE_LABEL } from "../src/lib/auth/acessos.ts";
 import { andamentoDaMeta } from "../src/lib/painel/meta.ts";
-import { dividirPorDia, retornoPorPlataforma } from "../src/lib/trafego/retorno.ts";
+import { dividirPorDia, retornoPorPlataforma, tomDaFaixaDeVolta } from "../src/lib/trafego/retorno.ts";
+import { COR_DO_TOM, tomDoCancelamento, tomDoMeioDePagamento } from "../src/lib/painel/tons.ts";
 import { contaDoMes } from "../src/lib/custos/conta.ts";
 import { completarDias, lerInsightsDoMeta, lerLotesDoGoogle } from "../src/lib/trafego/leitura.ts";
 import { lerItensDoGoogle, lerItensDoMeta, tipoDoGoogle, tipoDoMeta } from "../src/lib/trafego/leitura-itens.ts";
@@ -775,6 +776,27 @@ console.log("\nTabela de campanhas e anúncios");
   confere("ordenar não mexe na lista original", anuncios[0].id === "a1" && ordenar(anuncios, "nome", "desc")[0].id === "a2" && anuncios[0].id === "a1");
   const t = somar(linhas.filter((l) => l.nivel === "campanha"));
   confere("o total soma gasto, compras e a venda da loja", t.itens === 2 && t.gasto === 2000 && t.compras === 22 && t.valor === 6900 && t.lojaValor === 4000 && t.lojaPagos === 8);
+}
+
+console.log("\nCores de estado do painel");
+{
+  confere("cancelamento do período: de 30% para cima é ruim, como nos sinais", tomDoCancelamento(30, 100) === "ruim" && tomDoCancelamento(57, 167) === "ruim");
+  confere("cancelamento do período: entre 20% e 30% é atenção", tomDoCancelamento(22, 100) === "atencao");
+  confere("cancelamento do período: abaixo de 20% não ganha cor", tomDoCancelamento(19, 100) === "neutro" && tomDoCancelamento(0, 50) === "neutro");
+  confere("cancelamento do período: com menos de 20 pedidos não há cor", tomDoCancelamento(10, 19) === "neutro" && tomDoCancelamento(10, 20) === "ruim");
+  confere("meio de pagamento: de 80% para cima é ruim (boleto 7 de 7)", tomDoMeioDePagamento(7, 7) === "ruim" && tomDoMeioDePagamento(8, 10) === "ruim");
+  confere("meio de pagamento: de 30% para cima é atenção (cartão 34 de 93)", tomDoMeioDePagamento(34, 93) === "atencao" && tomDoMeioDePagamento(3, 10) === "atencao");
+  confere("meio de pagamento: Pix com 22% não ganha cor", tomDoMeioDePagamento(15, 67) === "neutro");
+  confere("meio de pagamento: 1 de 1 cancelado não quer dizer nada", tomDoMeioDePagamento(1, 1) === "neutro" && tomDoMeioDePagamento(4, 4) === "neutro");
+
+  const empate = voltaParaEmpatar();
+  const real = tomDaFaixaDeVolta(1.58, 4.04, empate);
+  confere("faixa de volta: verdade no meio da faixa não ganha cor", real.minimo === "neutro" && real.maximo === "neutro");
+  confere("faixa de volta: até o mínimo passa do empate, verde", tomDaFaixaDeVolta(3.5, 6, empate).minimo === "bom" && tomDaFaixaDeVolta(empate, 6, empate).minimo === "bom");
+  confere("faixa de volta: nem o máximo chega a 1, vermelho", tomDaFaixaDeVolta(0.2, 0.9, empate).maximo === "ruim" && tomDaFaixaDeVolta(0.2, 0.9, empate).minimo === "neutro");
+  confere("faixa de volta: nem o máximo chega ao empate, âmbar", tomDaFaixaDeVolta(0.7, 2.5, empate).maximo === "atencao");
+  confere("faixa de volta: sem gasto não há cor", tomDaFaixaDeVolta(null, null, empate).minimo === "neutro" && tomDaFaixaDeVolta(null, null, empate).maximo === "neutro");
+  confere("cada tom tem texto e fundo, e o neutro é branco", ["bom", "atencao", "ruim"].every((t) => /^#[0-9a-f]{6}$/.test(COR_DO_TOM[t as "bom"].texto) && /^#[0-9a-f]{6}$/.test(COR_DO_TOM[t as "bom"].fundo)) && COR_DO_TOM.neutro.fundo === "#fff");
 }
 
 console.log("\nSetores do painel");

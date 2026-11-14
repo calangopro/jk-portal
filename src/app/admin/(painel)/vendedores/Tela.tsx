@@ -5,7 +5,6 @@ import { diaCurto, type ChaveDePeriodo } from "@/lib/vendas/periodo";
 import { SeletorDePeriodo } from "../SeletorDePeriodo";
 import { Cartao, Dinheiro, reais } from "../vendas/PainelDeVendas";
 
-const COR = "#b8841f";
 
 /** A parte da tela de vendedores que só desenha. */
 export function TelaDeVendedores({
@@ -46,7 +45,12 @@ export function TelaDeVendedores({
       ) : (
         <>
           <div className="mt-5 grid gap-5 sm:grid-cols-3">
-            <Cartao Icone={HandCoins} rotulo="Vendido por fora" apoio={d === null ? `${atual.vendas} ${atual.vendas === 1 ? "venda" : "vendas"}` : `${d > 0 ? "+" : ""}${d}% ${comparacao}`}>
+            <Cartao
+              Icone={HandCoins}
+              rotulo="Vendido por fora"
+              variacao={d === null ? undefined : { d: d / 100 }}
+              apoio={d === null ? `${atual.vendas} ${atual.vendas === 1 ? "venda" : "vendas"}` : comparacao}
+            >
               <Dinheiro valor={atual.valor} />
             </Cartao>
             <Cartao Icone={Trophy} rotulo="Quem mais vendeu" apoio={lista[0] ? `${reais(Number(lista[0].valor))} em ${lista[0].vendas} ${lista[0].vendas === 1 ? "venda" : "vendas"}` : "nenhuma venda registrada"}>
@@ -74,13 +78,21 @@ export function TelaDeVendedores({
                     </tr>
                   </thead>
                   <tbody>
-                    {lista.map((v) => (
+                    {lista.map((v, posicao) => (
                       <tr key={v.vendedor_id} className="border-b border-border/50 last:border-0">
-                        <td className="py-3 pr-4 text-sm font-semibold text-ink">{v.vendedor}</td>
+                        <td className="py-3 pr-4 text-sm font-semibold text-ink">
+                          <span className="flex items-center gap-2.5">
+                            {/* A posição no período. O primeiro lugar leva a cor cheia do setor. */}
+                            <span className={`painel-selo numeros grid h-6 w-6 shrink-0 place-items-center rounded-full text-[0.7rem] font-bold ${posicao === 0 ? "painel-selo-ativo" : ""}`}>
+                              {posicao + 1}
+                            </span>
+                            {v.vendedor}
+                          </span>
+                        </td>
                         <td className="py-3 pr-4">
                           <span className="numeros block text-sm text-ink">{reais(Number(v.valor))}</span>
                           <span className="mt-1 block h-2 rounded-full bg-border/60">
-                            <span className="block h-2 rounded-full" style={{ width: `${Math.max((Number(v.valor) / maior) * 100, 1)}%`, background: COR }} />
+                            <span className="painel-ponto block h-2 rounded-full" style={{ width: `${Math.max((Number(v.valor) / maior) * 100, 1)}%` }} />
                           </span>
                         </td>
                         <td className="numeros py-3 pr-4 text-right text-sm text-ink">{v.vendas}</td>
