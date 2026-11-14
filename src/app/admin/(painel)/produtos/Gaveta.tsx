@@ -209,7 +209,8 @@ export function Gaveta({
       tabIndex={-1}
       role="dialog"
       aria-labelledby="gaveta-titulo"
-      className="fixed inset-y-0 right-0 z-40 flex w-full max-w-[38rem] flex-col border-l border-border bg-[var(--color-surface-alt)] shadow-[0_0_60px_rgba(23,21,18,0.18)] outline-none"
+      // z-50: acima do cabeçalho e da barra de baixo do painel, que são z-40.
+      className="fixed inset-y-0 right-0 z-50 flex w-full max-w-[38rem] flex-col border-l border-border bg-[var(--color-surface-alt)] shadow-[0_0_60px_rgba(23,21,18,0.18)] outline-none"
     >
       {/* Topo */}
       <div className="flex items-center gap-2 border-b border-border px-5 py-3">
