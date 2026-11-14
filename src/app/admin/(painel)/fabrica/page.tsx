@@ -3,7 +3,7 @@ import { lerFilaDaFabrica } from "@/lib/fabrica/dados";
 import { lerEtapa } from "@/lib/fabrica/etapas";
 import { createClient } from "@/lib/supabase/server";
 import { hojeEmSaoPaulo } from "@/lib/vendas/periodo";
-import { moverPedido } from "./actions";
+import { moverPedido, moverVarios } from "./actions";
 import { JANELAS, TelaDaFabrica } from "./Tela";
 
 export const metadata = { title: "Fila da fábrica" };
@@ -20,5 +20,5 @@ export default async function FabricaPage({ searchParams }: { searchParams: Prom
   const sp = await searchParams;
   const dias = JANELAS.includes(Number(sp.dias)) ? Number(sp.dias) : JANELAS[0];
   const fila = await lerFilaDaFabrica(await createClient(), dias);
-  return <TelaDaFabrica fila={fila} etapa={lerEtapa(sp.etapa) ?? "a_produzir"} dias={dias} hoje={hojeEmSaoPaulo()} mover={moverPedido} />;
+  return <TelaDaFabrica fila={fila} etapa={lerEtapa(sp.etapa) ?? "a_produzir"} dias={dias} hoje={hojeEmSaoPaulo()} mover={moverPedido} moverVarios={moverVarios} />;
 }

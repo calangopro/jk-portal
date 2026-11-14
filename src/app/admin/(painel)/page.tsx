@@ -4,6 +4,8 @@ import { ehAdmin } from "@/lib/auth/acessos";
 import { createClient } from "@/lib/supabase/server";
 import { contaDoMes } from "@/lib/custos/conta";
 import { lerDespesas } from "@/lib/custos/dados";
+import { lerFilaDaFabrica } from "@/lib/fabrica/dados";
+import { DIAS_DE_ATRASO, diasEntreDatas, tomDaEspera } from "@/lib/fabrica/etapas";
 import { andamentoDaMeta, diasDoMes, type Andamento } from "@/lib/painel/meta";
 import { calcularSinais, type EntradaDosSinais } from "@/lib/painel/sinais";
 import { lerResumoDeGasto } from "@/lib/trafego/dados";
@@ -148,6 +150,8 @@ async function lerConteudo() {
 
 export default async function AdminDashboard() {
   const profile = await requireSessao();
+  // Começa já, para andar junto das outras leituras; o resultado é esperado lá embaixo.
+  const filaDaFabrica = profile.areas.includes("fabrica") ? lerFilaDaFabrica(await createClient(), 15) : null;
   const [{ vendas, sinais, andamento, hoje, porForaNoMes, resultado, salas, podeVerMeta }, conteudo] = await Promise.all([
     lerPainel(profile),
     profile.areas.includes("conteudo") ? lerConteudo() : null,
@@ -157,6 +161,16 @@ export default async function AdminDashboard() {
     const [posts, , produtos] = conteudo;
     salas.conteudo = { valor: posts.value.toLocaleString("pt-BR"), apoio: `conteúdos, ${posts.hint}` };
     salas.loja = { valor: produtos.value.toLocaleString("pt-BR"), apoio: "produtos espelhados da loja" };
+  }
+  // A sala da fábrica mostra o que está parado esperando começar. Sem isso, quem só tem a fábrica entrava numa tela sem número nenhum.
+  const fila = await filaDaFabrica;
+  if (fila) {
+    const aProduzir = fila.pedidos.filter((p) => p.etapa === "a_produzir");
+    const tarde = aProduzir.filter((p) => tomDaEspera(diasEntreDatas(p.dia, hoje), p.etapa) === "ruim").length;
+    salas.fabrica = {
+      valor: aProduzir.length.toLocaleString("pt-BR"),
+      apoio: `${aProduzir.length === 1 ? "pedido a produzir" : "pedidos a produzir"}${tarde > 0 ? `, ${tarde} há ${DIAS_DE_ATRASO} dias ou mais` : ""}`,
+    };
   }
 
   return (
