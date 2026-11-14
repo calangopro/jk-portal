@@ -99,8 +99,7 @@ export default async function ProdutosPage() {
           <p className="eyebrow">Loja</p>
           <h1 className="font-display mt-2 text-4xl text-ink">Produtos</h1>
           <p className="mt-3 max-w-2xl text-muted">
-            Cada peça da loja com preço, link e a foto nova. A lista mostra o que
-            falta, o que espera aprovação e o que já está na loja.
+            As peças da loja, por categoria, da que mais vende para a que menos.
           </p>
         </div>
         <p className="text-xs text-muted">

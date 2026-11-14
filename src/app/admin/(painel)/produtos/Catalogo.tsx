@@ -1,10 +1,10 @@
 "use client";
 
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ChevronDown, ExternalLink, Search, Clock } from "lucide-react";
+import { Camera, ChevronDown, ChevronRight, ExternalLink, Package, Search, Clock } from "lucide-react";
 import type { ItemDoCatalogo, Padroes } from "@/lib/catalogo/fotos";
 import { COR, ESTADOS, PONTO, RESOLVIDO, ROTULO, type EstadoDoProduto } from "@/lib/catalogo/estados";
-import { Gaveta } from "./Gaveta";
+import { Gaveta, type AbaDaGaveta } from "./Gaveta";
 import { LevarParaLoja } from "./LevarParaLoja";
 import { ComoGerar } from "./ComoGerar";
 import { digitando, reais, pct, type MargemNaLista } from "./util";
@@ -12,6 +12,20 @@ import { digitando, reais, pct, type MargemNaLista } from "./util";
 type Ordem = "vendidos" | "nome" | "preco-maior" | "preco-menor" | "menor-margem";
 type FiltroDeMargem = "todas" | "sem_custo" | "abaixo" | "hoje_passa";
 type Filtro = "todos" | EstadoDoProduto;
+
+/**
+ * A tela faz dois trabalhos, e cada um tem a sua aba:
+ *   produtos  achar uma peça e ver ou mudar os dados dela (nome, preço, estoque);
+ *   fotos     a fila das fotos novas: o que falta, o que espera aprovação, o que
+ *             vai para a loja.
+ * Antes os dois moravam na mesma página, com a fila de fotos no topo, e quem
+ * vinha só mudar um preço precisava atravessar um trabalho que não era o dele.
+ */
+type Modo = "produtos" | "fotos";
+const MODOS: { chave: Modo; nome: string; frase: string; Icone: typeof Package }[] = [
+  { chave: "produtos", nome: "Produtos", frase: "Achar uma peça e mudar os dados", Icone: Package },
+  { chave: "fotos", nome: "Fotos novas", frase: "Gerar, aprovar e levar para a loja", Icone: Camera },
+];
 
 const ORDENS: { valor: Ordem; rotulo: string }[] = [
   { valor: "vendidos", rotulo: "Mais vendidos" },
@@ -51,6 +65,9 @@ export function Catalogo({
   /** Só para administrador. Nulo: a coluna e o filtro de margem nem aparecem. */
   margens?: Record<string, MargemNaLista> | null;
 }) {
+  const [modo, setModo] = useState<Modo>("produtos");
+  // A aba da gaveta mora aqui para continuar a mesma ao passar de produto em produto.
+  const [abaDaGaveta, setAbaDaGaveta] = useState<AbaDaGaveta>(loja ? "dados" : "fotos");
   const [filtroDeMargem, setFiltroDeMargem] = useState<FiltroDeMargem>("todas");
   const [busca, setBusca] = useState("");
   const [filtro, setFiltro] = useState<Filtro>("todos");
@@ -164,7 +181,13 @@ export function Catalogo({
 
   // Link direto para um produto: /admin/produtos?p=217 (é o que o conector devolve).
   useEffect(() => {
-    const codigo = new URLSearchParams(window.location.search).get("p");
+    const parametros = new URLSearchParams(window.location.search);
+    // `?aba=fotos` abre direto na fila de fotos (é o endereço que o conector usa).
+    if (parametros.get("aba") === "fotos") {
+      setModo("fotos");
+      setAbaDaGaveta("fotos");
+    }
+    const codigo = parametros.get("p");
     const p = codigo ? itens.find((x) => x.trayId === codigo || x.id === codigo) : null;
     if (p) {
       setSoDisponiveis(p.disponivel);
@@ -186,6 +209,20 @@ export function Catalogo({
     return () => window.removeEventListener("keydown", tecla);
   }, []);
 
+  const trocarDeModo = useCallback(
+    (m: Modo) => {
+      setModo(m);
+      // O filtro por estado da foto só existe na aba de fotos.
+      if (m === "produtos") setFiltro("todos");
+      setAbaDaGaveta(m === "fotos" || !loja ? "fotos" : "dados");
+      const url = new URL(window.location.href);
+      if (m === "fotos") url.searchParams.set("aba", "fotos");
+      else url.searchParams.delete("aba");
+      window.history.replaceState(null, "", url);
+    },
+    [loja],
+  );
+
   const categorias = useMemo(() => {
     const m = new Map<string, string>();
     for (const p of itens) if (p.categoriaId) m.set(p.categoriaId, p.categoria);
@@ -197,35 +234,74 @@ export function Catalogo({
 
   return (
     <>
-      {/* Resumo que também é filtro: o número já é o botão. */}
-      <section className="mt-8 grid gap-5 xl:grid-cols-[minmax(0,1fr)_22rem]">
-        <div className="glass rounded-[20px] p-5">
-          <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <p className="text-sm font-semibold text-ink">Fotos novas</p>
-            <p className="text-sm text-muted">
-              <span className="font-display text-2xl text-ink">{resolvidos.toLocaleString("pt-BR")}</span> de{" "}
-              {total.toLocaleString("pt-BR")} resolvidos
-            </p>
-          </div>
-          <BarraDeEstados contagem={contagem} total={total} className="mt-3 h-2.5" />
-          <div className="mt-4 flex flex-wrap gap-2" role="group" aria-label="Filtrar por estado da foto">
-            <Chip ativo={filtro === "todos"} onClick={() => setFiltro("todos")} rotulo="Todos" numero={total} />
-            {ESTADOS.map((e) => (
-              <Chip
-                key={e}
-                ativo={filtro === e}
-                onClick={() => setFiltro(filtro === e ? "todos" : e)}
-                rotulo={ROTULO[e]}
-                numero={contagem[e]}
-                cor={PONTO[e]}
-              />
-            ))}
-          </div>
-        </div>
-        <LevarParaLoja aprovados={contagem.aprovada} />
-      </section>
+      <div role="tablist" aria-label="O que fazer nesta tela" className="mt-6 grid grid-cols-2 gap-2 sm:max-w-xl">
+        {MODOS.map((m) => {
+          const ativo = modo === m.chave;
+          return (
+            <button
+              key={m.chave}
+              type="button"
+              role="tab"
+              aria-selected={ativo}
+              onClick={() => trocarDeModo(m.chave)}
+              className={`painel-toque flex items-center gap-2.5 rounded-[14px] px-3.5 py-3 text-left ${ativo ? "painel-aba-ativa" : "border border-ink/10 bg-white text-ink"}`}
+            >
+              <m.Icone size={18} className="shrink-0" aria-hidden />
+              <span className="min-w-0">
+                <span className="block text-sm font-semibold leading-tight">{m.nome}</span>
+                <span className={`block text-[0.7rem] leading-tight ${ativo ? "opacity-85" : "text-muted"}`}>{m.frase}</span>
+              </span>
+              {m.chave === "fotos" && contagem.aguardando > 0 ? (
+                <span className="ml-auto shrink-0 rounded-full bg-wine px-1.5 py-0.5 text-[0.62rem] font-bold leading-none text-white" title="Fotos esperando aprovação">
+                  {contagem.aguardando}
+                </span>
+              ) : null}
+            </button>
+          );
+        })}
+      </div>
 
-      <ComoGerar padroes={padroes} categorias={categorias} />
+      {modo === "fotos" ? (
+        <>
+        {/* Resumo que também é filtro: o número já é o botão. */}
+        <section className="mt-8 grid gap-5 xl:grid-cols-[minmax(0,1fr)_22rem]">
+          <div className="glass rounded-[20px] p-5">
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <p className="text-sm font-semibold text-ink">Fotos novas</p>
+              <p className="text-sm text-muted">
+                <span className="font-display text-2xl text-ink">{resolvidos.toLocaleString("pt-BR")}</span> de{" "}
+                {total.toLocaleString("pt-BR")} resolvidos
+              </p>
+            </div>
+            <BarraDeEstados contagem={contagem} total={total} className="mt-3 h-2.5" />
+            <div className="mt-4 flex flex-wrap gap-2" role="group" aria-label="Filtrar por estado da foto">
+              <Chip ativo={filtro === "todos"} onClick={() => setFiltro("todos")} rotulo="Todos" numero={total} />
+              {ESTADOS.map((e) => (
+                <Chip
+                  key={e}
+                  ativo={filtro === e}
+                  onClick={() => setFiltro(filtro === e ? "todos" : e)}
+                  rotulo={ROTULO[e]}
+                  numero={contagem[e]}
+                  cor={PONTO[e]}
+                />
+              ))}
+            </div>
+          </div>
+          <LevarParaLoja aprovados={contagem.aprovada} />
+        </section>
+
+        <ComoGerar padroes={padroes} categorias={categorias} />
+
+        </>
+      ) : (
+        <p className="mt-4 max-w-2xl text-sm text-muted">
+          {loja
+            ? "Clique numa peça para abrir os dados dela: nome, preço, promoção e estoque."
+            : "Clique numa peça para abrir as fotos dela."}{" "}
+          {loja ? (margens ? "As fotos e o custo ficam nas abas ao lado, dentro do produto." : "As fotos ficam na aba ao lado, dentro do produto.") : ""}
+        </p>
+      )}
 
       {/* Barra de ferramentas */}
       <div className="z-10 -mx-1 mt-6 flex flex-wrap items-center gap-3 rounded-[16px] bg-background px-1 py-3 lg:sticky lg:top-[var(--painel-topo,0px)]">
@@ -313,20 +389,22 @@ export function Catalogo({
                   <span className="text-xs text-muted">
                     {procurando ? `${g.itens.length} de ${g.total}` : `${g.total} produtos`}
                   </span>
-                  <span className="flex w-40 items-center gap-2 text-xs text-muted">
-                    <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-ink/[0.07]">
-                      <span
-                        className="block h-full rounded-full bg-brand-strong"
-                        style={{ width: `${g.total ? (g.resolvidos / g.total) * 100 : 0}%` }}
-                      />
+                  {modo === "fotos" ? (
+                    <span className="flex w-40 items-center gap-2 text-xs text-muted" title="Produtos desta categoria com a foto resolvida">
+                      <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-ink/[0.07]">
+                        <span
+                          className="block h-full rounded-full bg-brand-strong"
+                          style={{ width: `${g.total ? (g.resolvidos / g.total) * 100 : 0}%` }}
+                        />
+                      </span>
+                      {g.resolvidos}/{g.total}
                     </span>
-                    {g.resolvidos}/{g.total}
-                  </span>
+                  ) : null}
                 </button>
                 {aberta ? (
                   <ul className="border-t border-border/60">
                     {g.itens.slice(0, limite).map((p) => (
-                      <Linha key={p.id} p={p} ativo={p.id === selecionado} onAbrir={abrir} margem={margens ? (margens[p.id] ?? null) : undefined} />
+                      <Linha key={p.id} p={p} ativo={p.id === selecionado} onAbrir={abrir} margem={margens ? (margens[p.id] ?? null) : undefined} comFoto={modo === "fotos"} />
                     ))}
                     {g.itens.length > limite ? (
                       <MaisLinhas
@@ -352,6 +430,8 @@ export function Catalogo({
           onEstado={(e) => setAjustes((a) => ({ ...a, [atual.id]: e }))}
           margem={margens ? (margens[atual.id] ?? null) : undefined}
           loja={loja}
+          aba={abaDaGaveta}
+          onAba={setAbaDaGaveta}
         />
       ) : null}
     </>
@@ -395,12 +475,15 @@ const Linha = memo(function Linha({
   ativo,
   onAbrir,
   margem,
+  comFoto,
 }: {
   p: ItemDoCatalogo;
   ativo: boolean;
   onAbrir: (p: ItemDoCatalogo) => void;
   /** undefined = quem olha não é administrador. */
   margem?: MargemNaLista | null;
+  /** Na aba de fotos a linha mostra o estado da foto; na de produtos, só a seta de abrir. */
+  comFoto: boolean;
 }) {
   return (
     <li
@@ -433,7 +516,7 @@ const Linha = memo(function Linha({
               <span>Cód. {p.trayId}</span>
               {p.vendidos > 0 ? <span>{p.vendidos.toLocaleString("pt-BR")} vendidos</span> : null}
               {!p.disponivel ? <span className="text-wine">Indisponível</span> : null}
-              {p.reservadoAte ? (
+              {comFoto && p.reservadoAte ? (
                 <span className="inline-flex items-center gap-1 text-brand-strong">
                   <Clock size={11} /> sendo gerada
                 </span>
@@ -458,9 +541,13 @@ const Linha = memo(function Linha({
               )}
             </span>
           ) : null}
-          <span className={`w-28 shrink-0 rounded-full px-2.5 py-1 text-center text-xs font-semibold ${COR[p.estado]}`}>
-            {ROTULO[p.estado]}
-          </span>
+          {comFoto ? (
+            <span className={`w-28 shrink-0 rounded-full px-2.5 py-1 text-center text-xs font-semibold ${COR[p.estado]}`}>
+              {ROTULO[p.estado]}
+            </span>
+          ) : (
+            <ChevronRight size={16} className="shrink-0 text-muted" aria-hidden />
+          )}
         </button>
         {p.url ? (
           <a
