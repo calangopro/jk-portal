@@ -110,7 +110,7 @@ export default async function ConectorPage() {
   return (
     <>
       <header>
-        <p className="eyebrow">Equipe</p>
+        <p className="eyebrow">Sistema</p>
         <h1 className="font-display mt-2 text-4xl text-ink">Conector do Claude</h1>
         <p className="mt-3 max-w-2xl text-muted">
           Liga o painel ao Claude (no site, no app do celular e no Claude Code). Ele lê tudo o que está aqui, escreve

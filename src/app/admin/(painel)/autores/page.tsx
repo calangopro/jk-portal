@@ -63,7 +63,7 @@ export default async function AutoresPage() {
   return (
     <>
       <header>
-        <p className="eyebrow">Editorial</p>
+        <p className="eyebrow">Conteúdo</p>
         <h1 className="font-display mt-2 text-4xl text-ink">Autores</h1>
         <p className="mt-3 max-w-2xl text-muted">
           Quem assina e quem revisa o conteúdo. Cada pessoa cadastrada ganha uma

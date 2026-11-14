@@ -228,7 +228,7 @@ export function Catalogo({
       <ComoGerar padroes={padroes} categorias={categorias} />
 
       {/* Barra de ferramentas */}
-      <div className="sticky top-0 z-10 -mx-1 mt-6 flex flex-wrap items-center gap-3 rounded-[16px] bg-background/85 px-1 py-3 backdrop-blur-md">
+      <div className="z-10 -mx-1 mt-6 flex flex-wrap items-center gap-3 rounded-[16px] bg-background px-1 py-3 lg:sticky lg:top-[var(--painel-topo,0px)]">
         <label className="relative min-w-[14rem] flex-1">
           <span className="sr-only">Buscar produto</span>
           <Search size={15} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-muted" />

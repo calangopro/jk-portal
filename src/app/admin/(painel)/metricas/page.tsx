@@ -101,7 +101,7 @@ export default async function MetricasPage({
   return (
     <>
       <header>
-        <p className="eyebrow">Resultado</p>
+        <p className="eyebrow">Conteúdo</p>
         <h1 className="font-display mt-2 text-4xl text-ink">Métricas</h1>
         <p className="mt-3 max-w-2xl text-muted">
           Quantas pessoas leem o site, de onde vêm e quais páginas levam à loja.

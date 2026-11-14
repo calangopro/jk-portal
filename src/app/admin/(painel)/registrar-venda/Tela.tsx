@@ -22,7 +22,7 @@ export function TelaDeRegistrarVenda({
   return (
     <div data-painel-largo>
       <header>
-        <p className="eyebrow">Loja</p>
+        <p className="eyebrow">Vendas</p>
         <h1 className="font-display mt-2 text-4xl text-ink">Registrar venda</h1>
         <p className="mt-3 max-w-3xl text-muted">
           Toda venda fechada fora do site entra aqui: Pix direto, link de pagamento, venda pelo WhatsApp. Pedido pago

@@ -249,7 +249,7 @@ export function EditorDaHome({ inicial }: { inicial: Layout }) {
 
   return (
     <div>
-      <div className="glass sticky top-4 z-20 mb-6 flex flex-wrap items-center gap-3 rounded-[18px] p-4">
+      <div className="glass sticky top-[calc(var(--painel-topo,3.5rem)+0.5rem)] z-20 mb-6 flex flex-wrap items-center gap-3 rounded-[18px] p-4">
         <button
           type="button"
           onClick={salvar}

@@ -59,7 +59,7 @@ export default async function LojasPage() {
     <>
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="eyebrow">Unidades</p>
+          <p className="eyebrow">Loja</p>
           <h1 className="font-display mt-2 text-4xl text-ink">Lojas</h1>
           <p className="mt-3 max-w-2xl text-muted">
             Cada loja publicada vira uma página com dados estruturados de negócio

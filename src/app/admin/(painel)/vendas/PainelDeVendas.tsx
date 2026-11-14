@@ -468,7 +468,7 @@ export function PainelDeVendas({
   return (
     <div data-painel-largo>
       <header>
-        <p className="eyebrow">Loja</p>
+        <p className="eyebrow">Vendas</p>
         <h1 className="font-display mt-2 text-4xl text-ink">Vendas</h1>
         <p className="mt-3 max-w-3xl text-muted">
           Pedidos pagos na loja virtual, lidos da Tray. Pedido cancelado ou esperando pagamento não entra no

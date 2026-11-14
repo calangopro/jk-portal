@@ -67,7 +67,7 @@ export default async function IntegracoesPage({
   return (
     <>
       <header>
-        <p className="eyebrow">Ferramentas</p>
+        <p className="eyebrow">Sistema</p>
         <h1 className="font-display mt-2 text-4xl text-ink">Integrações</h1>
         <p className="mt-3 max-w-2xl text-muted">
           Tudo que mede o resultado do portal fica centralizado aqui. As tags só

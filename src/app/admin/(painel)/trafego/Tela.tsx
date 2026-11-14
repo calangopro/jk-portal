@@ -132,7 +132,7 @@ export function TelaDeTrafego({
   return (
     <div data-painel-largo>
       <header>
-        <p className="eyebrow">Loja</p>
+        <p className="eyebrow">Tráfego</p>
         <h1 className="font-display mt-2 text-4xl text-ink">Tráfego</h1>
         <p className="mt-3 max-w-3xl text-muted">
           Quanto foi gasto em anúncio e quanto de venda paga voltou. A conta usa só pedido pago na loja: o painel do Meta

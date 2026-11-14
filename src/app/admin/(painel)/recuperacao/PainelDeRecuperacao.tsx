@@ -273,7 +273,7 @@ export function PainelDeRecuperacao({
   return (
     <div data-painel-largo>
       <header>
-        <p className="eyebrow">Loja</p>
+        <p className="eyebrow">Vendas</p>
         <h1 className="font-display mt-2 text-4xl text-ink">Recuperação</h1>
         <p className="mt-3 max-w-3xl text-muted">
           Quem criou pedido na loja, não pagou e não voltou, do maior valor para o menor. A pessoa sai da lista
