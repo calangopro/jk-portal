@@ -30,7 +30,7 @@ export async function perguntar(duvida: string, imagem: string | null): Promise<
   const hoje = hojeEmSaoPaulo();
   // O teto do dia, contado pelo relógio de São Paulo.
   const { count } = await db.from("tutor_perguntas").select("id", { count: "exact", head: true }).eq("quem", perfil.id).gte("criado_em", `${hoje}T00:00:00-03:00`);
-  if ((count ?? 0) >= TETO_POR_DIA) return { ok: false, erro: `Você já fez ${TETO_POR_DIA} perguntas hoje, que é o teto do dia. Para o que falta, abra um chamado.` };
+  if ((count ?? 0) >= TETO_POR_DIA) return { ok: false, erro: `Você já fez ${TETO_POR_DIA} perguntas hoje, que é o teto do dia. Para o que falta, pergunte no chat do time.` };
 
   let resposta: ResultadoDoTutor;
   try {
@@ -40,7 +40,7 @@ export async function perguntar(duvida: string, imagem: string | null): Promise<
     );
   } catch (e) {
     console.error("[tutor] perguntar:", e);
-    return { ok: false, erro: "O tutor não respondeu agora. Tente de novo em alguns segundos, ou abra um chamado." };
+    return { ok: false, erro: "O tutor não respondeu agora. Tente de novo em alguns segundos, ou pergunte no chat do time." };
   }
 
   const { error } = await db.from("tutor_perguntas").insert({

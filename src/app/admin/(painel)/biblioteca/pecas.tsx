@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Check, Copy } from "lucide-react";
 
 /**
- * As peças pequenas que a Biblioteca e os Chamados dividem: os dois botões, o
+ * As peças pequenas que a Biblioteca e o Chat dividem: os dois botões, o
  * campo de texto, a ficha de filtro, o botão de copiar e os relógios da tela.
  */
 

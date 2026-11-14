@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { Check, Copy, ExternalLink, ImagePlus, Loader2, MessagesSquare, Sparkles, TriangleAlert, X } from "lucide-react";
 import type { ResultadoDoTutor } from "@/lib/tutor/perguntar";
+import { CHAVE_DO_RASCUNHO } from "@/lib/time/chat";
 import { TETO_DA_IMAGEM } from "@/lib/tutor/regras";
 import type { EstadoDoTutor } from "./actions";
 
@@ -20,8 +21,8 @@ import type { EstadoDoTutor } from "./actions";
  * linguagem ler e não é guardada.
  *
  * O tutor só responde com o que está na Biblioteca JK e no catálogo. Quando
- * não acha, a saída é abrir um chamado, e a tela leva até lá com a pergunta
- * já copiada.
+ * não acha, a saída é perguntar no chat do time, e a tela leva até lá com a
+ * pergunta já escrita.
  *
  * A ação vem de fora, como propriedade, para a tela poder ser vista sem sessão.
  */
@@ -131,16 +132,22 @@ function Resposta({ r }: { r: ResultadoDoTutor }) {
           <p className="mt-1.5 break-words text-sm leading-relaxed">{r.paraOVendedor}</p>
           <div className="mt-3 flex flex-wrap gap-2">
             <Link
-              href="/admin/chamados?novo=duvida"
-              // A pergunta vai pela área de transferência, e não pelo endereço: endereço fica em histórico e em registro.
-              onClick={() => void navigator.clipboard?.writeText(r.pergunta).catch(() => undefined)}
+              href="/admin/chat?pedir=1"
+              // A pergunta vai guardada no navegador, e não pelo endereço: endereço fica em histórico e em registro. O chat lê e apaga.
+              onClick={() => {
+                try {
+                  sessionStorage.setItem(CHAVE_DO_RASCUNHO, r.pergunta);
+                } catch {
+                  // Sem armazenamento de sessão, a pessoa cola: o botão de copiar está ao lado.
+                }
+              }}
               className="painel-toque inline-flex h-10 items-center gap-1.5 rounded-full bg-[#6d3505] px-4 text-xs font-semibold text-white"
             >
-              <MessagesSquare size={14} aria-hidden="true" /> Abrir um chamado
+              <MessagesSquare size={14} aria-hidden="true" /> Perguntar no chat
             </Link>
             <Copiar texto={r.pergunta}>Copiar a pergunta</Copiar>
           </div>
-          <p className="mt-2 text-[0.7rem] leading-relaxed">Ao abrir o chamado, a pergunta já vai copiada: é só colar. A resposta do time pode virar item da biblioteca.</p>
+          <p className="mt-2 text-[0.7rem] leading-relaxed">A pergunta já vai escrita no chat, pedindo resposta: é só escolher a sala e enviar. A resposta do time pode virar item da biblioteca.</p>
         </div>
       )}
 

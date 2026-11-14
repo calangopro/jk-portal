@@ -140,6 +140,19 @@ const nextConfig: NextConfig = {
    * o arquivo junto. Conferido com `next start` sobre o `build:seguro`.
    */
   serverExternalPackages: ["quickjs-emscripten-core", "@jitl/quickjs-singlefile-cjs-release-sync"],
+  /**
+   * Os chamados entre setores viraram o chat do time em 14/11/2026, um dia
+   * depois de entrarem no ar. Quem ficou com a tela antiga aberta, ou com o
+   * endereço no histórico, cai no chat em vez de numa página que não existe.
+   * Temporário (307): não é endereço público, e some quando ninguém mais
+   * tiver o antigo guardado. O prefixo do site entra sozinho.
+   */
+  async redirects() {
+    return [
+      { source: "/admin/chamados", destination: "/admin/chat", permanent: false },
+      { source: "/admin/chamados/:resto*", destination: "/admin/chat", permanent: false },
+    ];
+  },
   async headers() {
     return [
       {

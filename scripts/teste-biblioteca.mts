@@ -1,9 +1,9 @@
 /**
- * Confere as contas da Biblioteca JK e dos chamados entre setores. Roda sem
- * banco e sem navegador:
+ * Confere as contas da Biblioteca JK e do chat do time. Roda sem banco e sem
+ * navegador:
  *   node --experimental-strip-types scripts/teste-biblioteca.mts
  *
- * As respostas e os chamados daqui são INVENTADOS, só com a forma dos de
+ * As respostas e as conversas daqui são INVENTADAS, só com a forma das de
  * verdade. Nenhuma regra da casa, nenhum valor e nenhum cliente mora neste
  * arquivo: o conteúdo da biblioteca fica no banco.
  */
@@ -12,11 +12,13 @@ import {
   palavrasDoTexto, respostasProximas, semAcento, type Resposta,
 } from "../src/lib/time/biblioteca.ts";
 import {
-  AVISO_ANTES_DO_PRAZO, LIMITES_DA_ESPERA, SEM_FILTRO, SETORES_DO_CHAMADO, TIPOS,
-  avisosDoMenu, caminhoDaImagem, conferirImagem, duracaoEmPalavra, ehParaMim, esperaDoChamado, filtrarChamados, lerPrecisoAte, lerSetor, lerTipo,
-  limitesPorExtenso, oQueEsperaPorMim, ordenarChamados, paraQuem, piorEspera, podeResolver, rascunhoDaResposta, textoSobreProduto,
-  type Chamado,
-} from "../src/lib/time/chamados.ts";
+  DIAS_DE_NAO_LIDA, ENDERECO_DO_CHAT, FOLGA_DA_SINCRONIA_MS, LIMITES_DO_PEDIDO, SALAS,
+  avisosDoMenu, caminhoDaImagem, conferirImagem, daSala, desdeQuandoSincronizar, diaDe, duracaoEmPalavra, esperaDoPedido, esperandoPorMim,
+  estaEsperando, horaCurta, iniciais, juntarMensagens, lerAbertura, lerMensagem, lerPresenca, lerResumo, lerSala, limitesPorExtenso, minhasSalas,
+  montarLinhas, naoLidasPorSala, partesDoTexto, pedidosEsperando, pessoasComPresenca, primeiraNaoLida, rascunhoDaResposta, rotuloDoDia,
+  textoSobreProduto, tituloComAviso, trechoDe,
+  type Mensagem,
+} from "../src/lib/time/chat.ts";
 import { abasDaBarra, ondeEstou, setoresDe, SETORES } from "../src/lib/painel/setores.ts";
 
 let falhas = 0;
@@ -43,7 +45,7 @@ function resposta(id: string, a: Partial<Resposta>): Resposta {
     confirmadoPorNome: null,
     confirmadoEm: null,
     atualizadoEm: "2026-11-14T12:00:00Z",
-    chamado: null,
+    conversa: null,
     ...a,
   };
 }
@@ -160,140 +162,194 @@ console.log("\nEstado e o que cada nível pode");
   confere("travessão é recusado", conferirResposta({ ...ok, frase: "Pode — sim" }) !== null && conferirResposta({ ...ok, explicacao: "Pode – sim" }) !== null);
 }
 
-// ------------------------------------------------------------------ chamados
+// ---------------------------------------------------------------------- chat
 
 const AGORA = Date.parse("2026-11-14T15:00:00-03:00");
 const ha = (minutos: number) => new Date(AGORA - minutos * 60_000).toISOString();
+const ANA = "11111111-1111-4111-8111-111111111111";
+const BIA = "22222222-2222-4222-8222-222222222222";
+const CAIO = "33333333-3333-4333-8333-333333333333";
 
-function chamado(numero: number, a: Partial<Chamado>): Chamado {
+function mensagem(id: number, a: Partial<Mensagem>): Mensagem {
   return {
-    id: `c${numero}`,
-    numero,
-    tipo: "duvida",
-    texto: "Pedido de exemplo",
-    paraSetor: "fabrica",
-    paraPessoa: null,
-    paraPessoaNome: null,
-    abertoPor: "ana",
-    abertoPorNome: "Ana",
-    estado: "aberto",
-    precisoAte: null,
-    produto: null,
-    aguardandoDesde: ha(5),
-    criadoEm: ha(5),
-    atualizadoEm: ha(5),
-    mensagens: 0,
-    anexos: 0,
-    ultima: null,
-    naBiblioteca: false,
+    id,
+    sala: "fabrica",
+    autor: ANA,
+    autorNome: "Ana",
+    autorPapel: "vendas",
+    texto: "Mensagem de exemplo",
+    apagada: false,
+    respondeA: null,
+    pede: false,
+    esperandoDesde: null,
+    atendidaEm: null,
+    atendidaPorNome: null,
+    respostas: 0,
+    naBiblioteca: null,
+    em: ha(10),
+    mudou: ha(10),
+    anexos: [],
     ...a,
   };
 }
 
-console.log("\nA espera do chamado");
+console.log("\nAs salas do chat");
 {
-  confere("os quatro tipos e os cinco setores da trava do banco", TIPOS.map((t) => t.chave).join() === "duvida,orcamento,estoque_prazo,outro" && SETORES_DO_CHAMADO.map((s) => s.chave).join() === "vendas,fabrica,loja,trafego,diretoria");
-  confere("tipo e setor desconhecidos não passam", lerTipo("orcamento") === "orcamento" && lerTipo("reclamacao") === null && lerSetor("loja") === "loja" && lerSetor("rh") === null);
-  confere("duração curta: agora, minutos, horas e dias", duracaoEmPalavra(0) === "agora" && duracaoEmPalavra(45) === "45 min" && duracaoEmPalavra(60) === "1 h" && duracaoEmPalavra(26 * 60) === "26 h" && duracaoEmPalavra(3 * 1440) === "3 dias");
-
-  const novo = esperaDoChamado(chamado(1, { aguardandoDesde: ha(5) }), AGORA);
-  confere("dúvida aberta há pouco não tem cor", novo.tom === "neutro" && novo.palavra === "Aberto há 5 min");
-  const parado = esperaDoChamado(chamado(1, { aguardandoDesde: ha(LIMITES_DA_ESPERA.duvida.atencao) }), AGORA);
-  confere("dúvida no limite de atenção fica âmbar, com a palavra", parado.tom === "atencao" && parado.palavra === "Parado há 30 min");
-  const atrasado = esperaDoChamado(chamado(1, { aguardandoDesde: ha(LIMITES_DA_ESPERA.duvida.atraso + 60) }), AGORA);
-  confere("dúvida além do limite de atraso fica vermelha", atrasado.tom === "ruim" && atrasado.palavra === "Atrasado, 3 h sem resposta");
-  confere("orçamento espera mais antes de mudar de cor", esperaDoChamado(chamado(1, { tipo: "orcamento", aguardandoDesde: ha(180) }), AGORA).tom === "neutro"
-    && esperaDoChamado(chamado(1, { tipo: "orcamento", aguardandoDesde: ha(300) }), AGORA).tom === "atencao");
-  confere("orçamento parado há 26 horas é vermelho", esperaDoChamado(chamado(1, { tipo: "orcamento", aguardandoDesde: ha(26 * 60) }), AGORA).tom === "ruim");
-  confere("respondido é verde e resolvido não tem cor, por mais velhos que sejam", esperaDoChamado(chamado(1, { estado: "respondido", aguardandoDesde: ha(9999) }), AGORA).tom === "bom"
-    && esperaDoChamado(chamado(1, { estado: "resolvido", aguardandoDesde: ha(9999) }), AGORA).tom === "neutro");
-
-  const vencido = esperaDoChamado(chamado(1, { aguardandoDesde: ha(5), precisoAte: ha(10) }), AGORA);
-  confere("prazo pedido vencido deixa vermelho mesmo recém-aberto", vencido.tom === "ruim" && vencido.palavra === "Passou do prazo há 10 min");
-  const perto = esperaDoChamado(chamado(1, { aguardandoDesde: ha(5), precisoAte: new Date(AGORA + 40 * 60_000).toISOString() }), AGORA);
-  confere("prazo pedido chegando deixa âmbar", perto.tom === "atencao" && perto.palavra === "Faltam 40 min para o prazo");
-  confere("prazo pedido longe não muda a cor", esperaDoChamado(chamado(1, { aguardandoDesde: ha(5), precisoAte: new Date(AGORA + (AVISO_ANTES_DO_PRAZO + 30) * 60_000).toISOString() }), AGORA).tom === "neutro");
-  confere("vale o pior dos dois: atrasado continua atrasado com prazo longe", esperaDoChamado(chamado(1, { aguardandoDesde: ha(500), precisoAte: new Date(AGORA + 9999 * 60_000).toISOString() }), AGORA).tom === "ruim");
-  const duas = [chamado(1, { aguardandoDesde: ha(300) }), chamado(2, { tipo: "orcamento", aguardandoDesde: ha(900) }), chamado(3, { estado: "respondido" })];
-  confere("a pior espera é a cor mais grave, não a mais longa", piorEspera(duas, AGORA)?.tom === "ruim" && piorEspera(duas, AGORA)?.minutos === 300);
-  confere("sem chamado aberto não há pior espera", piorEspera([chamado(1, { estado: "respondido" })], AGORA) === null && piorEspera([], AGORA) === null);
-  confere("a frase dos limites sai dos próprios limites", limitesPorExtenso().includes("âmbar depois de 30 min e vermelho depois de 2 h") && limitesPorExtenso().includes("âmbar depois de 4 h e vermelho depois de 24 h"));
+  confere("são seis salas: a geral e uma por setor, sem travessão em nenhum texto", SALAS.map((s) => s.chave).join() === "geral,vendas,fabrica,loja,trafego,diretoria" && SALAS.every((s) => !/[—–]/.test(s.nome + s.resolve)));
+  confere("sala que não existe é recusada", lerSala("fabrica") === "fabrica" && lerSala("financeiro") === null && lerSala(null) === null && lerSala(3) === null);
+  confere("as minhas salas: a geral e as do setor a que respondo", minhasSalas(["loja"]).join() === "geral,loja" && minhasSalas([]).join() === "geral" && minhasSalas(["diretoria", "vendas"]).join() === "geral,vendas,diretoria");
 }
 
-console.log("\nPara quem é e o que espera por mim");
+console.log("\nLer o que o banco devolve");
 {
-  const daFabrica = { id: "bia", setores: ["fabrica"] };
-  const daVenda = { id: "ana", setores: ["vendas"] };
-  const semSetor = { id: "edu", setores: [] as string[] };
-  const paraAFabrica = chamado(1, {});
-  const paraOEdu = chamado(2, { paraSetor: null, paraPessoa: "edu", paraPessoaNome: "Edu" });
+  const crua = {
+    id: 12, sala: "loja", autor: ANA, autor_nome: "Ana", autor_papel: "vendas", texto: "Tem em Guarulhos?", apagada: false,
+    responde_a: { id: 9, autor: BIA, autor_nome: "Bia", trecho: "Qual numeração?", apagada: false, imagens: 0 },
+    pede: true, esperando_desde: ha(5), atendida_em: null, atendida_por_nome: null, respostas: 2, na_biblioteca: null, em: ha(5), mudou: ha(4),
+    anexos: ["a1", 7, null, "a2"],
+  };
+  const m = lerMensagem(crua);
+  confere("a mensagem do banco vira mensagem da tela", m !== null && m.id === 12 && m.sala === "loja" && m.pede && m.respostas === 2 && m.respondeA?.id === 9 && m.respondeA.autorNome === "Bia");
+  confere("anexo que não é texto fica de fora", m?.anexos.join() === "a1,a2");
+  confere("mensagem sem número, sem sala ou sem data não entra", lerMensagem({ ...crua, id: 0 }) === null && lerMensagem({ ...crua, sala: "x" }) === null && lerMensagem({ ...crua, em: null }) === null && lerMensagem(null) === null && lerMensagem("oi") === null);
+  const a = lerAbertura({ agora: ha(0), setores: ["loja", "inventado"], lidas: { loja: 9, geral: "3", x: 5 }, pessoas: [{ id: ANA, nome: "Ana", papel: "vendas" }, { nome: "sem id" }], janelas: { fabrica: 41 }, mensagens: [crua, { id: 1 }] });
+  confere("a abertura lê setores, leituras, pessoas, janelas e mensagens, e descarta o que veio torto", a !== null && a.setores.join() === "loja" && a.lidas.loja === 9 && a.lidas.geral === 3 && Object.keys(a.lidas).length === 2
+    && a.pessoas.length === 1 && a.janelas.fabrica === 41 && a.mensagens.length === 1);
+  confere("sem acesso o banco devolve nada, e a abertura é nula", lerAbertura(null) === null && lerAbertura({}) === null);
+  const r = lerResumo({ novas: 3, pedidos: 1, pedidos_do_setor: 2, desde: ha(40) });
+  confere("o resumo do menu: o que não li mais o pedido lido que o meu setor ainda deve", esperandoPorMim(r) === 4 && r.pedidosDoSetor === 2 && esperandoPorMim(lerResumo(null)) === 0 && esperandoPorMim(lerResumo({ novas: -5, pedidos: "x" })) === 0);
+  confere("o número do menu vai no endereço do chat", avisosDoMenu(r)[ENDERECO_DO_CHAT] === 4 && ENDERECO_DO_CHAT === "/admin/chat");
+}
 
-  confere("para quem: o setor ou o nome da pessoa", paraQuem(paraAFabrica) === "Fábrica" && paraQuem(paraOEdu) === "Edu");
-  confere("chamado do setor é de quem responde por ele", ehParaMim(paraAFabrica, daFabrica) && !ehParaMim(paraAFabrica, daVenda) && !ehParaMim(paraAFabrica, semSetor));
-  confere("chamado no nome é só da pessoa", ehParaMim(paraOEdu, semSetor) && !ehParaMim(paraOEdu, daFabrica));
-  confere("resolve quem abriu, quem recebeu e a diretoria", podeResolver(paraAFabrica, daVenda, false) && podeResolver(paraAFabrica, daFabrica, false) && !podeResolver(paraAFabrica, semSetor, false) && podeResolver(paraAFabrica, semSetor, true));
+console.log("\nJuntar e sincronizar");
+{
+  const base = [mensagem(1, { mudou: ha(30) }), mensagem(2, { mudou: ha(20) })];
+  const juntas = juntarMensagens(base, [mensagem(3, { mudou: ha(1) }), mensagem(2, { mudou: ha(5), texto: "Editada" })]);
+  confere("mensagem nova entra e a que mudou troca a antiga, em ordem de número", juntas.map((m) => m.id).join() === "1,2,3" && juntas[1].texto === "Editada");
+  confere("versão mais velha da mesma mensagem não desfaz a mais nova", juntarMensagens(juntas, [mensagem(2, { mudou: ha(25), texto: "Antiga" })])[1].texto === "Editada");
+  confere("sem novidade, a lista é a MESMA (a tela não redesenha)", juntarMensagens(base, []) === base && juntarMensagens(juntas, [mensagem(2, { mudou: ha(25) })]) === juntas);
+  confere("a sincronia pede a partir da última mudança vista, menos a folga", Date.parse(desdeQuandoSincronizar(juntas, ha(60))) === Date.parse(ha(1)) - FOLGA_DA_SINCRONIA_MS);
+  confere("sem mensagem, pede a partir da hora em que a tela abriu", Date.parse(desdeQuandoSincronizar([], ha(60))) === Date.parse(ha(60)) - FOLGA_DA_SINCRONIA_MS);
+  const duas = [mensagem(1, { sala: "geral" }), mensagem(2, {}), mensagem(40, {}), mensagem(41, {})];
+  confere("a conversa da sala: só as dela, e a partir da janela quando a sala tem mais", daSala(duas, "fabrica").map((m) => m.id).join() === "2,40,41" && daSala(duas, "fabrica", 40).map((m) => m.id).join() === "40,41" && daSala(duas, "loja").length === 0);
+}
 
+console.log("\nO que não li");
+{
   const lista = [
-    paraAFabrica,
-    paraOEdu,
-    chamado(3, { estado: "respondido" }),
-    chamado(4, { abertoPor: "bia", abertoPorNome: "Bia", paraSetor: "fabrica" }),
-    chamado(5, { estado: "resolvido" }),
+    mensagem(1, { sala: "geral", autor: BIA }),
+    mensagem(2, { sala: "geral", autor: ANA }),
+    mensagem(3, { sala: "geral", autor: BIA, apagada: true }),
+    mensagem(4, { sala: "fabrica", autor: BIA }),
+    mensagem(5, { sala: "fabrica", autor: CAIO }),
+    mensagem(6, { sala: "loja", autor: BIA, em: ha((DIAS_DE_NAO_LIDA + 1) * 1440) }),
   ];
-  const meuDaFabrica = oQueEsperaPorMim(lista, daFabrica);
-  confere("a fábrica tem um para responder: o que ela mesma abriu não conta", meuDaFabrica.paraResponder.map((c) => c.numero).join() === "1" && meuDaFabrica.respondidos.length === 0);
-  const meuDaVenda = oQueEsperaPorMim(lista, daVenda);
-  confere("quem abriu vê a resposta que chegou", meuDaVenda.paraResponder.length === 0 && meuDaVenda.respondidos.map((c) => c.numero).join() === "3");
-
-  confere("o número do menu soma o que espera a pessoa e as respostas que chegaram", avisosDoMenu({ paraResponder: 2, respondidos: 1 })["/admin/chamados"] === 3 && avisosDoMenu({ paraResponder: 0, respondidos: 0 })["/admin/chamados"] === 0);
-  confere("sem filtro, a lista é o que está em andamento", filtrarChamados(lista, SEM_FILTRO, daVenda).map((c) => c.numero).join() === "1,2,3,4");
-  confere("filtro para o meu setor", filtrarChamados(lista, { ...SEM_FILTRO, quem: "para_mim" }, daFabrica).map((c) => c.numero).join() === "1,3,4");
-  confere("filtro abertos por mim", filtrarChamados(lista, { ...SEM_FILTRO, quem: "meus" }, daFabrica).map((c) => c.numero).join() === "4");
-  confere("filtro por tipo", filtrarChamados([chamado(1, {}), chamado(2, { tipo: "orcamento" })], { ...SEM_FILTRO, tipo: "orcamento" }, daVenda).map((c) => c.numero).join() === "2");
-  confere("os resolvidos ficam numa lista à parte", filtrarChamados(lista, { ...SEM_FILTRO, resolvidos: true }, daVenda).map((c) => c.numero).join() === "5");
-
-  const ordem = ordenarChamados([
-    chamado(1, { aguardandoDesde: ha(5) }),
-    chamado(2, { aguardandoDesde: ha(200) }),
-    chamado(3, { aguardandoDesde: ha(45) }),
-    chamado(4, { estado: "respondido", atualizadoEm: ha(1) }),
-    chamado(5, { estado: "resolvido", atualizadoEm: ha(0) }),
-    chamado(6, { aguardandoDesde: ha(400) }),
-  ], AGORA);
-  confere("a ordem: vermelho mais antigo, vermelho, âmbar, sem cor, respondido, resolvido", ordem.map((c) => c.numero).join() === "6,2,3,1,4,5");
+  const n = naoLidasPorSala(lista, { fabrica: 4 }, ANA, AGORA);
+  confere("não lida: depois de onde li, de outra pessoa, não apagada", n.geral === 1 && n.fabrica === 1 && n.vendas === 0);
+  confere("mensagem velha demais não conta como não lida", n.loja === 0);
+  confere("a linha de novas entra na primeira que não li", primeiraNaoLida(daSala(lista, "fabrica"), 4, ANA, AGORA) === 5 && primeiraNaoLida(daSala(lista, "fabrica"), 5, ANA, AGORA) === null && primeiraNaoLida(daSala(lista, "geral"), 0, ANA, AGORA) === 1);
+  confere("a minha própria mensagem nunca é nova para mim", naoLidasPorSala([mensagem(9, { autor: ANA })], {}, ANA, AGORA).fabrica === 0);
 }
 
-console.log("\nTextos, prazo e imagem");
+console.log("\nO pedido e a espera");
+{
+  const pedido = (a: Partial<Mensagem>) => mensagem(1, { pede: true, esperandoDesde: ha(5), ...a });
+  confere("mensagem comum não tem espera", esperaDoPedido(mensagem(1, {}), AGORA) === null && !estaEsperando(mensagem(1, {})));
+  const novo = esperaDoPedido(pedido({}), AGORA);
+  confere("pedido novo: sem cor, com o tempo", novo?.tom === "neutro" && novo.palavra === "Esperando há 5 min" && esperaDoPedido(pedido({ esperandoDesde: ha(0) }), AGORA)?.palavra === "Esperando resposta");
+  const parado = esperaDoPedido(pedido({ esperandoDesde: ha(LIMITES_DO_PEDIDO.atencao) }), AGORA);
+  confere("no limite de atenção fica âmbar", parado?.tom === "atencao" && parado.palavra === "Parado há 30 min");
+  const atrasado = esperaDoPedido(pedido({ esperandoDesde: ha(LIMITES_DO_PEDIDO.atraso + 60) }), AGORA);
+  confere("no limite de atraso fica vermelho", atrasado?.tom === "ruim" && atrasado.palavra === "3 h sem resposta");
+  const atendido = esperaDoPedido(pedido({ esperandoDesde: ha(9999), atendidaEm: ha(1), atendidaPorNome: "Bia" }), AGORA);
+  confere("atendido é verde e diz por quem, por mais velho que seja", atendido?.tom === "bom" && atendido.palavra === "Respondido por Bia" && esperaDoPedido(pedido({ atendidaEm: ha(1) }), AGORA)?.palavra === "Respondido");
+  confere("pedido apagado não espera nada", esperaDoPedido(pedido({ apagada: true }), AGORA) === null && !estaEsperando(pedido({ apagada: true })));
+  confere("sem a hora do pedido, a espera conta da hora da mensagem", esperaDoPedido(pedido({ esperandoDesde: null, em: ha(45) }), AGORA)?.tom === "atencao");
+  const fila = pedidosEsperando([
+    mensagem(1, { pede: true, esperandoDesde: ha(5) }),
+    mensagem(2, { pede: true, esperandoDesde: ha(200), sala: "loja" }),
+    mensagem(3, { pede: true, esperandoDesde: ha(90), atendidaEm: ha(1) }),
+    mensagem(4, { pede: true, esperandoDesde: ha(60) }),
+    mensagem(5, {}),
+  ]);
+  confere("os que esperam, do mais antigo para o mais novo, sem os atendidos", fila.map((m) => m.id).join() === "2,4,1" && pedidosEsperando(fila, "fabrica").map((m) => m.id).join() === "4,1");
+  confere("duração em palavra", duracaoEmPalavra(0) === "agora" && duracaoEmPalavra(12) === "12 min" && duracaoEmPalavra(60) === "1 h" && duracaoEmPalavra(47 * 60) === "47 h" && duracaoEmPalavra(49 * 60) === "2 dias");
+  confere("a frase dos limites diz que é premissa, sem travessão", limitesPorExtenso().includes("premissa") && limitesPorExtenso().includes("30 min") && limitesPorExtenso().includes("2 h") && !/[—–]/.test(limitesPorExtenso()));
+}
+
+console.log("\nQuem está online");
+{
+  const canal = {
+    [ANA]: [{ id: ANA, v: false }, { id: ANA, v: true }],
+    [BIA]: [{ id: BIA.toUpperCase(), v: false }],
+    intruso: [{ id: "não é um id", v: true }, { nome: "sem id" }, "texto solto"],
+    torto: "não é lista",
+  };
+  const presenca = lerPresenca(canal);
+  confere("uma aba à vista basta para estar online; só aba escondida é ausente", presenca.get(ANA) === "online" && presenca.get(BIA) === "ausente");
+  confere("registro sem id de verdade não vira presença", presenca.size === 2 && lerPresenca(null).size === 0 && lerPresenca("x").size === 0);
+  const lista = pessoasComPresenca([{ id: CAIO, nome: "Caio", papel: "fabrica" }, { id: BIA, nome: "Bia", papel: "gerente" }, { id: ANA, nome: "Ana", papel: "vendas" }, { id: "x", nome: "Zé", papel: "gm" }], presenca);
+  confere("a lista: online, depois em outra aba, depois quem está fora, por nome", lista.map((p) => `${p.nome}:${p.presenca}`).join() === "Ana:online,Bia:ausente,Caio:fora,Zé:fora");
+  confere("o nome nunca vem do canal: quem não está na lista do banco não aparece", pessoasComPresenca([], presenca).length === 0);
+  confere("as iniciais", iniciais("Ana Paula Souza") === "AS" && iniciais("bia") === "BI" && iniciais("") === "?" && iniciais(null) === "?");
+}
+
+console.log("\nA conversa em linhas");
+{
+  const ontem = AGORA - 86_400_000;
+  const lista = [
+    mensagem(1, { em: new Date(ontem).toISOString(), autor: BIA }),
+    mensagem(2, { em: ha(40), autor: BIA }),
+    mensagem(3, { em: ha(38), autor: BIA }),
+    mensagem(4, { em: ha(20), autor: BIA }),
+    mensagem(5, { em: ha(19), autor: ANA }),
+    mensagem(6, { em: ha(18), autor: ANA }),
+  ];
+  const linhas = montarLinhas(lista, 6);
+  confere("um separador por dia e a linha de novas antes da primeira não lida", linhas.map((l) => l.tipo).join() === "dia,fala,dia,fala,fala,fala,fala,novas,fala");
+  const cabecas = linhas.filter((l) => l.tipo === "fala").map((l) => (l.tipo === "fala" && l.cabeca ? "c" : "-")).join("");
+  confere("o nome aparece uma vez por sequência: muda com o dia, com a pessoa, com a pausa e com a linha de novas", cabecas === "cc-cc" + "c");
+  confere("os dias no relógio de São Paulo", diaDe("2026-11-15T02:30:00Z") === "2026-11-14" && diaDe("2026-11-15T03:30:00Z") === "2026-11-15" && diaDe("torto") === "");
+  confere("hoje, ontem e o dia da semana", rotuloDoDia(diaDe(AGORA), AGORA) === "Hoje" && rotuloDoDia(diaDe(ontem), AGORA) === "Ontem" && /10\/11/.test(rotuloDoDia("2026-11-10", AGORA)) && /ter/i.test(rotuloDoDia("2026-11-10", AGORA)));
+  confere("a hora curta é a de São Paulo", horaCurta("2026-11-14T18:05:00Z") === "15:05");
+
+  const partes = partesDoTexto("Veja em https://exemplo.test/par?x=1. E também http://exemplo.test/a), certo?");
+  confere("o endereço vira link e a pontuação do fim fica de fora", partes.map((p) => `${p.tipo}:${p.valor}`).join("|") === "texto:Veja em |link:https://exemplo.test/par?x=1|texto:. E também |link:http://exemplo.test/a|texto:), certo?");
+  confere("texto sem endereço é uma parte só, e script não vira link", partesDoTexto("Bom dia").length === 1 && partesDoTexto("javascript:alert(1)").every((p) => p.tipo === "texto"));
+  confere("o trecho de uma linha: texto cortado, imagem, ou apagada", trechoDe(mensagem(1, { texto: "a\n b   c" })) === "a b c" && trechoDe(mensagem(1, { texto: "", anexos: ["x"] })) === "Imagem" && trechoDe(mensagem(1, { texto: "", anexos: ["x", "y"] })) === "2 imagens"
+    && trechoDe(mensagem(1, { apagada: true, texto: "segredo" })) === "Mensagem apagada" && trechoDe(mensagem(1, { texto: "x".repeat(200) }), 20).length === 20);
+  confere("o título da aba ganha e perde o número, sem acumular", tituloComAviso("Chat do time", 3) === "(3) Chat do time" && tituloComAviso("(3) Chat do time", 5) === "(5) Chat do time" && tituloComAviso("(5) Chat do time", 0) === "Chat do time" && tituloComAviso("Vendas", 120) === "(99+) Vendas");
+}
+
+console.log("\nTextos e imagem");
 {
   const texto = textoSobreProduto({ nome: "Par de alianças de exemplo 4 mm", codigo: "9001", url: "https://exemplo.test/par" });
-  confere("o chamado da consulta já cita a peça, o código e o link", texto.startsWith("Sobre a peça: Par de alianças de exemplo 4 mm (cód. 9001)\nhttps://exemplo.test/par\n") && texto.endsWith("Loja, numeração e para quando: "));
+  confere("a pergunta que nasce na consulta já cita a peça, o código e o link", texto.startsWith("Sobre a peça: Par de alianças de exemplo 4 mm (cód. 9001)\nhttps://exemplo.test/par\n") && texto.endsWith("Loja, numeração e para quando: "));
   confere("sem código e sem link, só o nome", textoSobreProduto({ nome: "Anel de exemplo" }).startsWith("Sobre a peça: Anel de exemplo\n"));
 
-  const rascunho = rascunhoDaResposta({
-    texto: "Tem  esse modelo\nna loja de exemplo?",
-    abertoPor: "ana",
-    mensagens: [
-      { id: 1, autor: "bia", autorNome: "Bia", autorPapel: "fabrica", texto: "Tem sim.", em: ha(3), imagens: [] },
-      { id: 2, autor: "ana", autorNome: "Ana", autorPapel: "vendas", texto: "Obrigada!", em: ha(2), imagens: [] },
-      { id: 3, autor: "bia", autorNome: "Bia", autorPapel: "fabrica", texto: "  Chega no próximo malote. ", em: ha(1), imagens: [] },
-      { id: 4, autor: "bia", autorNome: "Bia", autorPapel: "fabrica", texto: "", em: ha(1), imagens: [] },
-    ],
-  });
-  confere("o rascunho da biblioteca: a pergunta é o pedido, numa linha só", rascunho.pergunta === "Tem esse modelo na loja de exemplo?");
-  confere("a explicação junta só o que os OUTROS responderam, em ordem", rascunho.explicacao === "Tem sim.\nChega no próximo malote.");
-
-  confere("preciso até: 18h digitado no Brasil é 18h no Brasil", lerPrecisoAte("2026-11-14T18:00") === "2026-11-14T18:00:00-03:00" && Date.parse(lerPrecisoAte("2026-11-14T18:00")!) === Date.parse("2026-11-14T21:00:00Z"));
-  confere("preciso até: vazio ou torto vira nada", lerPrecisoAte("") === null && lerPrecisoAte(null) === null && lerPrecisoAte("amanhã cedo") === null && lerPrecisoAte("2026-13-45T99:99") === null);
+  const pergunta = mensagem(10, { texto: "Tem  esse modelo\nna loja de exemplo?", autor: ANA });
+  const cita = { id: 10, autor: ANA, autorNome: "Ana", trecho: "", apagada: false, imagens: 0 };
+  const rascunho = rascunhoDaResposta(pergunta, [
+    pergunta,
+    mensagem(11, { autor: BIA, texto: "Tem sim.", respondeA: cita }),
+    mensagem(12, { autor: ANA, texto: "Obrigada!", respondeA: cita }),
+    mensagem(13, { autor: BIA, texto: "  Chega no próximo malote. ", respondeA: cita }),
+    mensagem(14, { autor: BIA, texto: "", respondeA: cita }),
+    mensagem(15, { autor: BIA, texto: "Resposta apagada", respondeA: cita, apagada: true }),
+    mensagem(16, { autor: CAIO, texto: "Mensagem solta, sem responder a ela" }),
+  ]);
+  confere("o rascunho da biblioteca: a pergunta é a mensagem, numa linha só", rascunho.pergunta === "Tem esse modelo na loja de exemplo?");
+  confere("a explicação junta só o que os OUTROS responderam A ELA, em ordem", rascunho.explicacao === "Tem sim.\nChega no próximo malote.");
 
   confere("imagem: só os quatro tipos, até 5 MB", conferirImagem({ tipo: "image/png", tamanho: 1000 }) === null && conferirImagem({ tipo: "application/pdf", tamanho: 1000 }) !== null
     && conferirImagem({ tipo: "image/jpeg", tamanho: 5 * 1024 * 1024 + 1 }) !== null && conferirImagem({ tipo: "image/webp", tamanho: 0 }) !== null);
-  confere("o caminho do print: pasta de quem envia, nome sorteado, sem o nome do arquivo", caminhoDaImagem("u-123", "ab12-cd34", "image/png") === "u-123/ab12-cd34.png" && caminhoDaImagem("u-123", "../x y", "image/jpeg") === "u-123/xy.jpg");
+  confere("o caminho da imagem: pasta de quem envia, nome sorteado, sem o nome do arquivo", caminhoDaImagem("u-123", "ab12-cd34", "image/png") === "u-123/ab12-cd34.png" && caminhoDaImagem("u-123", "../x y", "image/jpeg") === "u-123/xy.jpg");
 }
 
 console.log("\nO setor Time no menu");
 {
   const time = SETORES.find((s) => s.id === "time");
-  confere("o setor existe, com o tutor, a biblioteca e os chamados", time?.itens.map((i) => i.href).join() === "/admin/tutor,/admin/biblioteca,/admin/chamados" && time.itens.every((i) => i.area === "time"));
+  confere("o setor existe, com o tutor, a biblioteca e o chat", time?.itens.map((i) => i.href).join() === "/admin/tutor,/admin/biblioteca,/admin/chat" && time.itens.every((i) => i.area === "time"));
   confere("a cor do setor não é verde, âmbar nem vermelho de estado", time !== undefined && !["#046c4e", "#9a4a07", "#b01919"].includes(time.cor) && new Set(SETORES.map((s) => s.cor)).size === SETORES.length);
 
   const vendedor = setoresDe(["consulta", "lancar_venda", "recuperacao", "time"]);
@@ -303,7 +359,7 @@ console.log("\nO setor Time no menu");
   confere("a fábrica vê quatro salas, e todas cabem na barra", abasDaBarra(fabrica).map((a) => a.label).join() === "Início,Vendas,Time,Fábrica");
   const tudo = setoresDe(["conteudo", "site", "catalogo", "campanhas", "vendas", "recuperacao", "metricas", "anuncios", "margem", "custos", "equipe", "lancar_venda", "trafego", "loja", "fabrica", "consulta", "time"]);
   confere("para quem vê tudo, o Time fica entre os quatro da barra", abasDaBarra(tudo).map((a) => a.label).join() === "Início,Vendas,Time,Tráfego");
-  confere("o chamado aberto acende a tela de chamados", ondeEstou(tudo, "/admin/chamados/12").item?.href === "/admin/chamados" && ondeEstou(tudo, "/admin/biblioteca").setor?.id === "time");
+  confere("o chat acende o item dele no setor Time", ondeEstou(tudo, "/admin/chat").item?.href === "/admin/chat" && ondeEstou(tudo, "/admin/biblioteca").setor?.id === "time");
   const frases = time ? [time.nome, time.frase, ...time.itens.flatMap((i) => [i.label, i.desc, i.curto ?? ""])] : [];
   confere("nenhum nome do setor com travessão", frases.every((f) => !/[—–]/.test(f)));
 }

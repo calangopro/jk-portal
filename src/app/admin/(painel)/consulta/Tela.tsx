@@ -373,10 +373,10 @@ function Detalhe({
             <LinhaDaLoja key={`${l.id}:${porLoja.get(l.id)?.em ?? ""}`} loja={l} aviso={porLoja.get(l.id)} produto={p} hoje={hoje} informar={informar} />
           ))}
         </ul>
-        {/* Ninguém informou e a resposta depende de outra pessoa: vira chamado, com a peça já citada. */}
+        {/* Ninguém informou e a resposta depende de outra pessoa: vira pergunta no chat, na sala das lojas, com a peça já citada. */}
         <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-ink/[0.07] pt-3">
-          <p className="min-w-0 flex-1 basis-48 text-xs leading-relaxed text-muted">Não achou a resposta aqui? Pergunte por um chamado: ele chega no setor certo e fica com dono.</p>
-          <Link href={`/admin/chamados?novo=estoque_prazo&produto=${p.id}`} className={botaoClaro}>
+          <p className="min-w-0 flex-1 basis-48 text-xs leading-relaxed text-muted">Não achou a resposta aqui? Pergunte no chat do time: a mensagem já vai com a peça e pedindo resposta.</p>
+          <Link href={`/admin/chat?sala=loja&produto=${p.id}`} className={botaoClaro}>
             <MessagesSquare size={14} aria-hidden="true" /> Perguntar ao time sobre esta peça
           </Link>
         </div>

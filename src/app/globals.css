@@ -1794,6 +1794,26 @@ h4 {
     animation: painel-aparecer 160ms ease-out;
   }
 
+  /* O chat do time ocupa a altura que sobra entre a barra de topo e a de
+     baixo, e a conversa rola por DENTRO dele: a página em si não rola, senão o
+     campo de escrever sairia da tela a cada mensagem. As margens negativas
+     devolvem parte do respiro que `main` dá a toda tela, e a conta fecha em
+     100dvh nos dois tamanhos (ver `Moldura.tsx`: o `main` tem 1,25rem em cima
+     e 6rem embaixo no celular, 2rem e 3rem no computador). */
+  .painel-chat {
+    height: calc(100dvh - var(--painel-topo, 6.5rem) - 5.25rem - env(safe-area-inset-bottom));
+    min-height: 22rem;
+    margin-top: -0.5rem;
+    margin-bottom: -1.5rem;
+  }
+  @media (min-width: 64rem) {
+    .painel-chat {
+      height: calc(100dvh - var(--painel-topo, 3.25rem) - 4rem);
+      margin-top: 0;
+      margin-bottom: -2rem;
+    }
+  }
+
   @media (prefers-reduced-motion: reduce) {
     .painel-folha,
     .painel-fundo,

@@ -85,17 +85,17 @@ export const SETORES: Setor[] = [
   },
   // O Time é a única sala que TODO nível tem. Fica em terceiro para caber na
   // barra de baixo do celular de qualquer pessoa: é onde chega o aviso de
-  // chamado, e aviso escondido no "Mais" ninguém vê.
+  // mensagem do chat, e aviso escondido no "Mais" ninguém vê.
   {
     id: "time",
     nome: "Time",
-    frase: "Respostas da casa e pedidos entre setores",
+    frase: "Respostas da casa e conversa entre setores",
     cor: "#8a3aa0",
     Icone: Handshake,
     itens: [
       { href: "/admin/tutor", area: "time", label: "Tutor", Icone: Sparkles, desc: "Pergunte com o print da conversa" },
       { href: "/admin/biblioteca", area: "time", label: "Biblioteca JK", curto: "Biblioteca", Icone: LibraryBig, desc: "As respostas da casa, prontas para colar" },
-      { href: "/admin/chamados", area: "time", label: "Chamados", Icone: MessagesSquare, desc: "Pedir uma coisa a outro setor" },
+      { href: "/admin/chat", area: "time", label: "Chat do time", curto: "Chat", Icone: MessagesSquare, desc: "Conversa entre setores, ao vivo" },
     ],
   },
   {

@@ -78,8 +78,8 @@ function Contador({ n }: { n: number }) {
 }
 
 /**
- * O que espera a pessoa em cada tela, pelo endereço da tela: hoje, os chamados
- * (`/admin/chamados`). Tela nova que queira o número no menu entra aqui, sem
+ * O que espera a pessoa em cada tela, pelo endereço da tela: hoje, o chat do
+ * time (`/admin/chat`). Tela nova que queira o número no menu entra aqui, sem
  * mexer nas quatro peças de navegação.
  */
 export type Avisos = Record<string, number>;

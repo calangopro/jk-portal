@@ -7,8 +7,9 @@ import { ChevronRight, ExternalLink } from "lucide-react";
 import type { Area } from "@/lib/auth/acessos";
 import { comBasePath } from "@/lib/seo/base-path";
 import { nomeDoSetor, ondeEstou, setoresDe } from "@/lib/painel/setores";
+import { useAoVivo } from "@/lib/time/ao-vivo";
 import { BotaoSair } from "./BotaoSair";
-import { useAvisosAoVivo } from "./AvisosAoVivo";
+import { useAvisosAoVivo, useTituloComAviso } from "./AvisosAoVivo";
 import { AbasDoSetor, BarraDeBaixo, FolhaMais, Lateral, corDoSetor, type Avisos } from "./Navegacao";
 
 /**
@@ -26,14 +27,16 @@ import { AbasDoSetor, BarraDeBaixo, FolhaMais, Lateral, corDoSetor, type Avisos 
  * durante o desenvolvimento.
  */
 export function Moldura({
-  nome, papel, areas, pendentes, avisos: avisosDoServidor, sair, children, caminhoDaPrevia,
+  nome, papel, areas, pendentes, avisos: avisosDoServidor, meuId, sair, children, caminhoDaPrevia,
 }: {
   nome: string;
   papel: string;
   areas: Area[];
   pendentes: number;
-  /** O que espera a pessoa em cada tela, pelo endereço (hoje, os chamados). Continua se atualizando sozinho. */
+  /** O que espera a pessoa em cada tela, pelo endereço (hoje, o chat do time). Continua se atualizando sozinho. */
   avisos?: Avisos;
+  /** O id de quem está logado, quando a pessoa tem o setor Time: liga o canal ao vivo (quem está online e mensagem nova). */
+  meuId?: string | null;
   sair: () => Promise<void>;
   children: React.ReactNode;
   /** Só para a prévia de desenvolvimento: desenha como se a pessoa estivesse neste endereço. */
@@ -43,6 +46,9 @@ export function Moldura({
   const caminho = caminhoDaPrevia ?? daBarra;
   // Na prévia de desenvolvimento não há sessão para perguntar ao servidor: fica o número que veio.
   const avisos = useAvisosAoVivo(avisosDoServidor, caminhoDaPrevia === undefined);
+  // O canal ao vivo fica ligado em TODA tela do painel: "online" é estar com o painel aberto, não só com o chat.
+  useAoVivo(meuId, caminhoDaPrevia === undefined);
+  useTituloComAviso(avisos, caminho);
   const setores = useMemo(() => setoresDe(areas), [areas]);
   const { setor, item } = ondeEstou(setores, caminho);
   const [mais, setMais] = useState(false);
