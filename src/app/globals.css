@@ -1780,9 +1780,18 @@ h4 {
   .painel-folha {
     animation: painel-subir 240ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
   }
-  .painel-fundo,
-  .painel-entrada {
+  .painel-fundo {
     animation: painel-aparecer 160ms ease-out both;
+  }
+  /* SEM `both` nem `forwards`, de propósito. Animação que continua valendo
+     depois de terminar faz o navegador tratar a tela como `will-change:
+     opacity`, e isso cria uma pilha própria: tudo o que é `fixed` lá dentro
+     (a gaveta do produto, as janelas do editor) passa a ficar ATRÁS do
+     cabeçalho e da barra de baixo, por maior que seja o `z-index`. Foi o que
+     escondeu o botão de fechar da gaveta. Sem o preenchimento, a pilha só
+     existe durante os 160 ms da entrada. */
+  .painel-entrada {
+    animation: painel-aparecer 160ms ease-out;
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -1797,7 +1806,8 @@ h4 {
   }
 }
 
-/* A página entra só por opacidade. Com `transform`, a página viraria bloco de
+/* A página entra só por opacidade, e a animação não fica valendo depois do fim
+   (ver `.painel-entrada`). Com `transform`, a página viraria bloco de
    contenção durante a animação e uma gaveta `fixed` aberta na chegada (o link
    direto de produto abre uma) nasceria presa nela. */
 @keyframes painel-aparecer {
