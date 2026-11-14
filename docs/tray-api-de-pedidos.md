@@ -60,8 +60,8 @@ gravar recusa qualquer loja que não seja a da JK.
 
 A regra da Tray: "Caso o aplicativo consuma menos que 2 POST e 2 PUT em 2
 recursos, será necessário realizar algumas requisições, via POSTMAN ou
-INSOMNIA". O aplicativo só lê, então as quatro foram feitas à parte em
-13/11/2026, na loja de testes, em dois recursos sem dado pessoal:
+INSOMNIA". Em 13/11/2026 o aplicativo só lia, então as quatro foram feitas à
+parte, na loja de testes, em dois recursos sem dado pessoal:
 
 | Requisição | Retorno |
 | --- | --- |
@@ -75,15 +75,33 @@ cliente com CPF, e CPF inventado tem chance real de ser o de alguém. Se a Tray
 pedir escrita em pedidos, o caminho é o Filipe indicar um cliente de teste.
 
 As requisições foram feitas por uma rota temporária, só local e só para a loja
-de testes, apagada em seguida. **O cliente de produção continua só de
-leitura.** Detalhes que a API cobrou: `POST /categories` recusa o campo
-`order` ("Não é possível salvar a ordenação manualmente").
+de testes, apagada em seguida. Detalhes que a API cobrou: `POST /categories`
+recusa o campo `order` ("Não é possível salvar a ordenação manualmente").
+
+**Desde 13/11/2026 o aplicativo também escreve**, por decisão do dono do
+projeto (`docs/loja-pelo-painel.md`): altera produto (`PUT /products/{id}`) e
+envia foto (`POST /products/{id}/images`), sempre por uma pessoa e pelo caminho
+único de `src/lib/loja/alterar.ts`. Em pedido ele continua só lendo. A Tray
+exige evidência de TODA requisição que o aplicativo usa, feita na loja de
+testes, então em 14/11 foi gerada a evidência dessas duas, com a leitura do
+produto antes e depois (`evidencias-de-produto-e-fotos.md`).
 
 As evidências estão em `entregas/tray-homologacao/` (fora do git):
-`evidencias-de-leitura.md` e `evidencias-de-escrita.md`, com URL, JSON e
-retorno de cada requisição e o token mascarado. Falta abrir o chamado
-"Homologação Loja 1305187 - Relatórios de pedidos e vitrine" pelo formulário de
-homologação da Tray, que é do Filipe.
+`evidencias-de-leitura.md`, `evidencias-de-escrita.md` e
+`evidencias-de-produto-e-fotos.md`, com URL, JSON e retorno de cada requisição
+e o token mascarado. A conferência campo a campo do formulário está em
+`conferencia-do-formulario.md`, na mesma pasta.
+
+**O chamado foi aberto pelo Filipe em 14/11/2026**, pelo formulário de
+homologação da Tray (Octadesk, "Parcerias técnico"), com o título que a Tray
+pede, "Homologacao Loja 1305187 - Relatorios de pedidos e vitrine" (sem
+acento), e os três arquivos anexados. Falta a Tray responder.
+
+**Homologado não é liberado.** Depois da homologação, a liberação do
+aplicativo para a loja 1305187 é OUTRO chamado ("Liberar o aplicativo para loja
+(PONTUAL)"), pelo link "Clique aqui para solicitar a liberação do app" na
+página de homologação da documentação da Tray. Sem ele o aplicativo não aparece
+para instalar na loja de verdade.
 
 A categoria 3743 e o produto 93525 ficaram na loja de testes com o nome "Teste
 de homologacao JK Aliancas (pode apagar)". Apagar depois da homologação.
