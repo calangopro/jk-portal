@@ -35,6 +35,7 @@ import { diaOuNulo, lerEstado, naoPegaram, prepararEdicao } from "../src/lib/loj
 import { TETO_DE_BYTES, codigoDaImagem, corpoDasFotos, enderecoAceito, fotosQueNaoEntraram, lerImagens, prepararFotos, type FotoNova } from "../src/lib/loja/imagens.ts";
 import { achatar, ordenar, somar, tomContraAMedia, tomDaVoltaDaLoja, tomDaVoltaDaPlataforma, tomDoVeredito } from "../src/lib/trafego/linhas.ts";
 import { readFileSync, readdirSync } from "node:fs";
+import { falhaPassageira } from "../src/lib/auth/acessos.ts";
 import { SETORES, abasDaBarra, nomeDoSetor, ondeEstou, setoresDe } from "../src/lib/painel/setores.ts";
 import { PECA_VAZIA, lerProducao, montarInfo } from "../src/lib/vendas/producao.ts";
 import { avaliarSaude, diaEHora, haQuantoTempo, resumoDoErro, sinaisDaSaude, type SaudeCrua } from "../src/lib/painel/saude.ts";
@@ -1029,6 +1030,12 @@ console.log("\nSetores do painel");
   confere("setor sem nenhuma tela some", setoresDe([]).length === 1 && setoresDe(["equipe"]).some((s) => s.id === "sistema") && !setoresDe(["equipe"]).some((s) => s.id === "loja"));
   const frases = tudo.flatMap((s) => [s.nome, s.frase, ...s.itens.flatMap((i) => [i.label, i.desc, i.curto ?? ""])]);
   confere("nenhum nome de setor ou tela com travessão", frases.every((f) => !/[—–]/.test(f)));
+}
+
+console.log("\nSessão");
+{
+  confere("limite de pedidos, serviço fora e falha de rede são falhas passageiras", falhaPassageira({ status: 429 }) && falhaPassageira({ status: 503 }) && falhaPassageira({ name: "AuthRetryableFetchError", status: 0 }));
+  confere("sessão que não existe ou chave inválida não ganham segunda tentativa", !falhaPassageira({ name: "AuthSessionMissingError", status: 400 }) && !falhaPassageira({ status: 401 }) && !falhaPassageira({ status: 403 }) && !falhaPassageira(null));
 }
 
 console.log("\nAcesso de cada tela");
