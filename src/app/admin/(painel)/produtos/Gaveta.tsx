@@ -299,7 +299,8 @@ export function Gaveta({
                 aria-selected={abaAtual === a}
                 aria-controls={`painel-${a}`}
                 onClick={() => onAba(a)}
-                className={`flex-1 rounded-[9px] px-3 py-2 text-sm font-semibold transition-colors ${
+                // 44 px de altura no celular: é alvo de dedo. No computador volta ao tamanho de texto.
+                className={`min-h-11 flex-1 rounded-[9px] px-3 py-2 text-sm font-semibold transition-colors sm:min-h-0 ${
                   abaAtual === a ? "bg-white text-ink shadow-sm" : "text-ink/60 hover:text-ink"
                 }`}
               >
