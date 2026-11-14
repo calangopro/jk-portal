@@ -261,8 +261,9 @@ console.log("\nO pedido e a espera");
   confere("no limite de atenção fica âmbar", parado?.tom === "atencao" && parado.palavra === "Parado há 30 min");
   const atrasado = esperaDoPedido(pedido({ esperandoDesde: ha(LIMITES_DO_PEDIDO.atraso + 60) }), AGORA);
   confere("no limite de atraso fica vermelho", atrasado?.tom === "ruim" && atrasado.palavra === "3 h sem resposta");
-  const atendido = esperaDoPedido(pedido({ esperandoDesde: ha(9999), atendidaEm: ha(1), atendidaPorNome: "Bia" }), AGORA);
-  confere("atendido é verde e diz por quem, por mais velho que seja", atendido?.tom === "bom" && atendido.palavra === "Respondido por Bia" && esperaDoPedido(pedido({ atendidaEm: ha(1) }), AGORA)?.palavra === "Respondido");
+  const atendido = esperaDoPedido(pedido({ esperandoDesde: ha(9999), atendidaEm: ha(1), atendidaPorNome: "Bia", respostas: 1 }), AGORA);
+  confere("atendido é verde e diz por quem, por mais velho que seja", atendido?.tom === "bom" && atendido.palavra === "Respondido por Bia" && esperaDoPedido(pedido({ atendidaEm: ha(1), respostas: 2 }), AGORA)?.palavra === "Respondido");
+  confere("marcado como resolvido sem resposta diz resolvido, e não respondido", esperaDoPedido(pedido({ atendidaEm: ha(1), atendidaPorNome: "Bia" }), AGORA)?.palavra === "Resolvido por Bia" && esperaDoPedido(pedido({ atendidaEm: ha(1) }), AGORA)?.palavra === "Resolvido");
   confere("pedido apagado não espera nada", esperaDoPedido(pedido({ apagada: true }), AGORA) === null && !estaEsperando(pedido({ apagada: true })));
   confere("sem a hora do pedido, a espera conta da hora da mensagem", esperaDoPedido(pedido({ esperandoDesde: null, em: ha(45) }), AGORA)?.tom === "atencao");
   const fila = pedidosEsperando([

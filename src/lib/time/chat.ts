@@ -256,10 +256,20 @@ export type Espera = { tom: Tom; palavra: string; minutos: number };
 /**
  * A cor e a palavra do pedido. `null` para mensagem que não pede resposta.
  * Atendido é verde; esperando fica sem cor, depois âmbar, depois vermelho.
+ *
+ * O pedido é atendido de dois jeitos, e a palavra diz qual: alguém respondeu
+ * a ele ("Respondido por"), ou alguém marcou como resolvido sem responder
+ * ("Resolvido por"), que é o caso da resposta que veio numa mensagem solta.
  */
-export function esperaDoPedido(m: Pick<Mensagem, "pede" | "atendidaEm" | "atendidaPorNome" | "esperandoDesde" | "apagada" | "em">, agora: number): Espera | null {
+export function esperaDoPedido(
+  m: Pick<Mensagem, "pede" | "atendidaEm" | "atendidaPorNome" | "esperandoDesde" | "apagada" | "em"> & { respostas?: number },
+  agora: number,
+): Espera | null {
   if (!m.pede || m.apagada) return null;
-  if (m.atendidaEm) return { tom: "bom", palavra: m.atendidaPorNome ? `Respondido por ${m.atendidaPorNome}` : "Respondido", minutos: 0 };
+  if (m.atendidaEm) {
+    const verbo = (m.respostas ?? 0) > 0 ? "Respondido" : "Resolvido";
+    return { tom: "bom", palavra: m.atendidaPorNome ? `${verbo} por ${m.atendidaPorNome}` : verbo, minutos: 0 };
+  }
   const desde = Date.parse(m.esperandoDesde ?? m.em);
   const minutos = Number.isFinite(desde) ? Math.max(0, Math.floor((agora - desde) / 60_000)) : 0;
   const ha = duracaoEmPalavra(minutos);
