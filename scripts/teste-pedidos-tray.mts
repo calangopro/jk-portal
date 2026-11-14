@@ -36,6 +36,7 @@ import { TETO_DE_BYTES, codigoDaImagem, corpoDasFotos, enderecoAceito, fotosQueN
 import { achatar, ordenar, somar, tomContraAMedia, tomDaVoltaDaLoja, tomDaVoltaDaPlataforma, tomDoVeredito } from "../src/lib/trafego/linhas.ts";
 import { readFileSync, readdirSync } from "node:fs";
 import { falhaPassageira } from "../src/lib/auth/acessos.ts";
+import { faixasDoGoogle, horarioEmTexto, mesmoHorario } from "../src/lib/google-perfil/horario.ts";
 import { SETORES, abasDaBarra, nomeDoSetor, ondeEstou, setoresDe } from "../src/lib/painel/setores.ts";
 import { PECA_VAZIA, lerProducao, montarInfo } from "../src/lib/vendas/producao.ts";
 import { avaliarSaude, diaEHora, haQuantoTempo, resumoDoErro, sinaisDaSaude, type SaudeCrua } from "../src/lib/painel/saude.ts";
@@ -1030,6 +1031,19 @@ console.log("\nSetores do painel");
   confere("setor sem nenhuma tela some", setoresDe([]).length === 1 && setoresDe(["equipe"]).some((s) => s.id === "sistema") && !setoresDe(["equipe"]).some((s) => s.id === "loja"));
   const frases = tudo.flatMap((s) => [s.nome, s.frase, ...s.itens.flatMap((i) => [i.label, i.desc, i.curto ?? ""])]);
   confere("nenhum nome de setor ou tela com travessão", frases.every((f) => !/[—–]/.test(f)));
+}
+
+console.log("\nHorário das lojas pelo Google");
+{
+  const dia = (d: string, abre: number, fecha: number, minutos = 0) => ({ openDay: d, openTime: { hours: abre }, closeDay: d, closeTime: minutos ? { hours: fecha, minutes: minutos } : { hours: fecha } });
+  const doGoogle = { periods: [...["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY"].map((d) => dia(d, 10, 22)), dia("SUNDAY", 14, 20)] };
+  const faixas = faixasDoGoogle(doGoogle)!;
+  confere("dias com o mesmo horário viram uma faixa só, no formato da página da loja", faixas.length === 2 && faixas[0].opens === "10:00" && faixas[0].closes === "22:00" && faixas[0].dayOfWeek.join() === "Monday,Tuesday,Wednesday,Thursday,Friday,Saturday" && faixas[1].dayOfWeek.join() === "Sunday");
+  confere("o horário por extenso junta os dias seguidos", horarioEmTexto(faixas) === "seg a sáb, das 10h às 22h; dom, das 14h às 20h");
+  confere("minutos aparecem, e dias soltos são listados", horarioEmTexto(faixasDoGoogle({ periods: [dia("MONDAY", 10, 21, 50), dia("WEDNESDAY", 10, 21, 50)] })) === "seg e qua, das 10h às 21h50");
+  confere("meia-noite do fim do dia vira 23:59", faixasDoGoogle({ periods: [dia("FRIDAY", 10, 24)] })![0].closes === "23:59");
+  confere("sem período legível, não há horário para publicar", faixasDoGoogle({ periods: [] }) === null && faixasDoGoogle(null) === null && faixasDoGoogle({ periods: [{ openDay: "FERIADO", openTime: { hours: 10 }, closeTime: { hours: 22 } }] }) === null);
+  confere("portal e Google com o mesmo horário são reconhecidos como iguais", mesmoHorario(faixas, [{ opens: "10:00", closes: "22:00", dayOfWeek: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"] }, { opens: "14:00", closes: "20:00", dayOfWeek: ["Sunday"] }]) && !mesmoHorario(faixas, null) && !mesmoHorario(null, null));
 }
 
 console.log("\nSessão");

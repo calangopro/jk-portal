@@ -75,7 +75,7 @@ type LinhaDeAvaliacao = {
 const MARCA_TRADUCAO = /\((?:Translated by Google|Traduzido pelo Google)\)/i;
 const MARCA_ORIGINAL = /\(Original\)/i;
 
-function textoOriginal(comentario: string): string {
+export function textoOriginal(comentario: string): string {
   if (MARCA_ORIGINAL.test(comentario)) return (comentario.split(MARCA_ORIGINAL).pop() ?? "").trim();
   if (MARCA_TRADUCAO.test(comentario)) return (comentario.split(MARCA_TRADUCAO)[0] ?? "").trim();
   return comentario.trim();
