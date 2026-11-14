@@ -54,6 +54,54 @@ O que a API cobrou, para não redescobrir:
 - A resposta de sucesso é `{"message":"Saved"}`, sem o produto. Por isso a
   segunda leitura.
 
+## Fase 2, feita em parte: fotos pela API e o histórico
+
+Na gaveta do produto, quando há foto aprovada, aparece "Levar as fotos
+aprovadas para a loja". São dois passos: conferir (o painel lê as fotos que a
+loja mostra agora e diz, posição por posição, qual sai e qual entra) e enviar
+(manda, espera a Tray mostrar e só então dá a baixa). A planilha continua
+existindo como segundo caminho.
+
+| Peça | Onde |
+| --- | --- |
+| Regras das fotos (puro, testado) | `src/lib/loja/imagens.ts` |
+| Envio, conferência e registro | `levarFotosParaLoja` em `src/lib/loja/alterar.ts` |
+| Tela | `src/app/admin/(painel)/produtos/FotosNaLoja.tsx` |
+| Ações do servidor | `preverFotosDoProduto`, `levarFotosDoProduto` em `produtos/actions.ts` |
+| Histórico de alterações | `/admin/alteracoes-na-loja` (`alteracoes-na-loja/`) |
+
+**O que a Tray faz com as fotos, medido na loja de testes em 14/11/2026.** A
+documentação diz uma coisa e a API faz outra, então vale o que foi medido:
+
+- `POST /products/:id/images` com `{"Images": {"picture_source_N": "endereço"}}`.
+  O endereço precisa ser público, sem espaço nem acento, em JPG ou PNG.
+- **As fotos são uma fila, sem buraco.** `picture_source_N` é a enésima foto da
+  fila de agora: mandar a 2 SUBSTITUI a segunda foto que a loja mostra. Número
+  além do fim acrescenta no fim. Não é gaveta fixa.
+- **A resposta é sempre `Uploaded images`, mesmo quando a foto é descartada.**
+  A de 2,4 MB e a de 2,7 MB sumiram sem aviso; a de 1,83 MB entrou. A
+  documentação fala em 350 KB, e não é isso: o corte fica perto de 2 MB. O
+  painel manda no máximo 1,5 MB e, acima disso, uma cópia mais leve do mesmo
+  tamanho em pixels.
+- 2000 x 2000 px entra. A Tray não recomprime: serve os mesmos bytes.
+- **O nome do arquivo na Tray termina com o MD5 do conteúdo.** É a prova de que
+  a foto no lugar é a que foi mandada, e é o que deixa o painel reconhecer "esta
+  foto já está na loja" e não mandar de novo.
+- Três fotos trocadas de uma vez apareceram em menos de 6 segundos. O painel
+  espera até 32.
+- Remover é mandar um espaço (`" "`) na posição: a fila encolhe.
+
+**A regra do painel:** produto na posição 1, face na 2, uso na 3. O que estiver
+nessas posições sai da loja; da 4 em diante nada muda. A planilha fazia
+diferente (empurrava as antigas para trás): pela API isso exigiria mandar de
+volta as fotos antigas, e a pessoa vê o que sai antes de confirmar.
+
+**Só muda de estado a foto que o painel VIU na loja.** A que ficou pendente
+continua "aprovada", para poder ser mandada de novo.
+
+**Variações ficaram de fora, de propósito:** nenhum dos 1.169 produtos ativos
+da JK usa variação na Tray.
+
 ## O que a API respondeu na loja de testes
 
 | Recurso | Lê | Observação |
@@ -65,7 +113,7 @@ O que a API cobrou, para não redescobrir:
 | Status de pedido | sim | `/orders/statuses`: cada um com `id`, nome e tipo (`open`, `closed`, `canceled`) |
 | Formas de envio | sim | `/shippings` |
 | Clientes, pagamentos, carrinhos | sim | |
-| Imagens do produto | não confirmado | a leitura respondeu 404; a documentação fala em `POST /products/:id/images` |
+| Imagens do produto | sim | vêm em `ProductImage`, dentro do produto; a escrita foi testada (ver acima) |
 | Estoque por centro de distribuição | não | os endereços de multi-CD responderam 500 ou 404 |
 | Notas fiscais, cupons | não | 404 e 405 |
 
@@ -76,9 +124,8 @@ CPF.
 
 ## As próximas fases
 
-**Fase 2, o resto do produto.** Descrição, categoria, marca, peso e medidas;
-fotos (o que tira a planilha do caminho das fotos novas); estoque e preço por
-variação; cadastrar produto novo.
+**Fase 2, o que falta.** Descrição, categoria, marca, peso e medidas, e
+cadastrar produto novo. As fotos e o histórico já estão feitos.
 
 **Fase 3, pedido, fábrica e envio.** Fila da fábrica com o pedido pago e o que
 produzir (o item traz a informação adicional, como aro e gravação), mudar o
@@ -90,5 +137,7 @@ variação. O estoque por local não respondeu na API da loja de testes. Antes d
 desenhar, é preciso saber o que a JK quer ver: estoque por loja física, ou só
 o do site.
 
-**Em todas:** uma tela com o histórico de alterações, que hoje só existe no
-banco.
+**Em todas:** cada alteração nova aparece em `/admin/alteracoes-na-loja`. Ao
+criar um recurso novo (pedido, por exemplo), a tela precisa aprender a
+desenhá-lo: ela já mostra os campos do produto por extenso e as fotos lado a
+lado.

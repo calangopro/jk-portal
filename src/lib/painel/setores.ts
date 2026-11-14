@@ -1,6 +1,6 @@
 import type { LucideIcon } from "lucide-react";
 import {
-  Activity, Banknote, BookCheck, Bot, CalendarDays, Crosshair, FileText, Filter, Globe, HandCoins, ImageIcon,
+  Activity, Banknote, BookCheck, Bot, CalendarDays, Crosshair, FileText, Filter, Globe, HandCoins, History, ImageIcon,
   LayoutDashboard, LayoutTemplate, ListChecks, MapPin, MessageCircle, Milestone, Package, Palette, PenLine,
   Percent, Plug, QrCode, RotateCcw, Settings, Smartphone, Store, Table2, Tags, TrendingUp, Trophy, Users,
   UsersRound, Wallet,
@@ -100,6 +100,7 @@ export const SETORES: Setor[] = [
     itens: [
       { href: "/admin/produtos", area: "catalogo", label: "Produtos", Icone: Package, desc: "Fotos, preço e estoque de cada peça" },
       { href: "/admin/campanhas", area: "campanhas", label: "Campanhas de desconto", curto: "Descontos", Icone: Tags, desc: "Descontos com aprovação" },
+      { href: "/admin/alteracoes-na-loja", area: "loja", label: "Alterações na loja", curto: "Alterações", Icone: History, desc: "Quem mudou o quê na Tray" },
       { href: "/admin/lojas", area: "catalogo", label: "Lojas físicas", curto: "Lojas", Icone: MapPin, desc: "Endereço e horário" },
     ],
   },

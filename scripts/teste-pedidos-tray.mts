@@ -32,6 +32,7 @@ import { compararComOBanco, pedidoDaApi, ultimaAlteracao } from "../src/lib/vend
 import { ehRobo, lerChegada, pedidoValido, repeteAAnterior, sessaoValida } from "../src/lib/origem/chegada.ts";
 import { itensQueVenderam, passosDoColetor, vendasPorItem, type Cobertura, type SaudeDoColetor } from "../src/lib/origem/anotado.ts";
 import { diaOuNulo, lerEstado, naoPegaram, prepararEdicao } from "../src/lib/loja/produto.ts";
+import { TETO_DE_BYTES, codigoDaImagem, corpoDasFotos, enderecoAceito, fotosQueNaoEntraram, lerImagens, prepararFotos, type FotoNova } from "../src/lib/loja/imagens.ts";
 import { achatar, ordenar, somar, tomContraAMedia, tomDaVoltaDaLoja, tomDaVoltaDaPlataforma, tomDoVeredito } from "../src/lib/trafego/linhas.ts";
 import { abasDaBarra, nomeDoSetor, ondeEstou, setoresDe } from "../src/lib/painel/setores.ts";
 
@@ -738,6 +739,60 @@ console.log("\nEditar produto da loja pelo painel");
   confere("confere o que a Tray gravou de verdade", preco.ok && naoPegaram(preco.final, { ...preco.final, preco: 1499.9 }, ["preco"]).join() === "preco" && naoPegaram(preco.final, preco.final, ["preco"]).length === 0);
   const frases = [estoque, preco, zeroAMais, promo, metade, tirar, sair, zerado].flatMap((r) => (r.ok ? [...r.avisos, ...r.mudancas.map((m) => m.antes + m.depois)] : [r.erro]));
   confere("nenhuma frase com travessão", frases.every((f) => !/[—–]/.test(f)));
+}
+
+console.log("\nFotos do produto na loja");
+{
+  const tray = (posicao: number, md5: string) => `https://images.tcdn.com.br/img/img_prod/1501140/produto_de_teste_93525_${posicao}_${md5}.jpg`;
+  const A = "a".repeat(32), B = "b".repeat(32), C = "c".repeat(32), N1 = "1".repeat(32), N2 = "2".repeat(32), N3 = "3".repeat(32);
+  const cru = { ProductImage: [A, B, C, "d".repeat(32)].map((m, i) => ({ http: tray(i + 1, m).replace("https:", "http:"), https: tray(i + 1, m), thumbs: { "90": { https: `${tray(i + 1, m)}?90` }, "180": { https: `${tray(i + 1, m)}?180` } } })) };
+  const atuais = lerImagens(cru);
+  confere("lê as fotos da loja na ordem, com a miniatura de 180", atuais.length === 4 && atuais[0].url === tray(1, A) && atuais[0].miniatura.endsWith("?180"));
+  confere("produto sem foto e resposta sem a lista viram fila vazia", lerImagens({}).length === 0 && lerImagens(null).length === 0 && lerImagens({ ProductImage: [{}] }).length === 0);
+  confere("o código no fim do nome é o MD5 do arquivo", codigoDaImagem(tray(1, A)) === A && codigoDaImagem("https://x.supabase.co/foto.jpg") === null && codigoDaImagem(null) === null);
+
+  const base = "https://jtteytvzxplnpqgzmqdq.supabase.co/storage/v1/object/public/media/produtos/1637/";
+  const foto = (tipo: FotoNova["tipo"], md5: string | null, bytes: number | null = 400_000): FotoNova => ({ id: `f-${tipo}`, tipo, url: `${base}alianca-${tipo}-1.jpg`, caminho: `produtos/1637/alianca-${tipo}-1.jpg`, bytes, largura: 2000, altura: 2000, md5 });
+
+  const tres = prepararFotos(atuais, [foto("uso", N3), foto("produto", N1), foto("face", N2)]);
+  confere("três fotos novas entram nas posições 1, 2 e 3, nessa ordem", tres.ok && tres.trocas.map((t) => `${t.tipo}:${t.ficaEm}`).join() === "produto:1,face:2,uso:3");
+  confere("cada troca diz a foto que sai da loja", tres.ok && tres.trocas[0].antes?.url === tray(1, A) && tres.trocas[2].antes?.url === tray(3, C));
+  confere("o aviso conta quantas fotos saem", tres.ok && tres.avisos.some((a) => a.startsWith("As 3 fotos")));
+  confere("o corpo usa a posição pedida", tres.ok && Object.keys(corpoDasFotos(tres.trocas)).join() === "picture_source_1,picture_source_2,picture_source_3");
+
+  const semFoto = prepararFotos([], [foto("uso", N3), foto("face", N2)]);
+  confere("produto sem foto: as novas entram na fila pela ordem, e não na posição pedida", semFoto.ok && semFoto.trocas.map((t) => `${t.tipo}:${t.ficaEm}`).join() === "face:1,uso:2" && semFoto.trocas.every((t) => t.antes === null));
+  confere("avisa quando a foto que não é de produto vira a principal", semFoto.ok && semFoto.avisos.some((a) => a.includes("face vira a foto principal")));
+  const umaSo = prepararFotos(atuais.slice(0, 1), [foto("produto", N1), foto("uso", N3)]);
+  confere("produto com uma foto: produto troca a 1 e uso entra na 2", umaSo.ok && umaSo.trocas.map((t) => `${t.tipo}:${t.ficaEm}:${t.antes ? "troca" : "acrescenta"}`).join() === "produto:1:troca,uso:2:acrescenta" && umaSo.avisos.some((a) => a.includes("entra na posição 2, e não na 3")));
+
+  const repetida = prepararFotos(atuais, [foto("produto", A), foto("face", N2)]);
+  confere("foto que a loja já mostra naquele lugar não vai de novo", repetida.ok && repetida.trocas[0].jaEsta && !repetida.trocas[1].jaEsta && Object.keys(corpoDasFotos(repetida.trocas)).join() === "picture_source_2");
+  confere("a foto que já está não conta como foto que sai", repetida.ok && repetida.avisos.some((a) => a.startsWith("A foto que a loja mostra hoje nessa posição sai")) && repetida.avisos.some((a) => a.includes("só recebe a baixa")));
+
+  const grande = prepararFotos(atuais, [foto("face", N2, TETO_DE_BYTES + 1), foto("uso", N3, TETO_DE_BYTES)]);
+  confere("foto acima do teto vai em cópia leve, e a pessoa é avisada", grande.ok && grande.trocas[0].reduzir && !grande.trocas[1].reduzir && grande.avisos.some((a) => a.includes("cópia mais leve")));
+  confere("sem saber o tamanho, o servidor confere antes de mandar", (() => { const r = prepararFotos(atuais, [foto("uso", N3, null)]); return r.ok && r.trocas[0].reduzir; })());
+  confere("duas do mesmo tipo: vale a primeira, que é a mais nova", (() => { const r = prepararFotos(atuais, [foto("face", N2), { ...foto("face", N3), id: "velha" }]); return r.ok && r.trocas.length === 1 && r.trocas[0].fotoId === "f-face"; })());
+  confere("sem foto aprovada não há o que levar", !prepararFotos(atuais, []).ok);
+  confere("foto maior que 2000 px é recusada antes de ir", !prepararFotos(atuais, [{ ...foto("uso", N3), largura: 2400 }]).ok);
+  confere("endereço com espaço, acento ou sem extensão de imagem é recusado", enderecoAceito(`${base}alianca-uso-1.jpg`) && !enderecoAceito(`${base}aliança uso.jpg`) && !enderecoAceito(`${base}foto.webp`) && !enderecoAceito("http://x.com/a.jpg") && !prepararFotos(atuais, [{ ...foto("uso", N3), url: `${base}aliança.jpg` }]).ok);
+
+  if (tres.ok) {
+    const depoisCerto = lerImagens({ ProductImage: [N1, N2, N3, "d".repeat(32)].map((m, i) => ({ https: tray(i + 1, m) })) });
+    confere("entrou quando o arquivo no lugar tem o MD5 da foto", fotosQueNaoEntraram(atuais, depoisCerto, tres.trocas).length === 0);
+    const faltaUma = lerImagens({ ProductImage: [N1, B, N3, "d".repeat(32)].map((m, i) => ({ https: tray(i + 1, m) })) });
+    confere("a foto que a Tray descartou em silêncio aparece como pendente", fotosQueNaoEntraram(atuais, faltaUma, tres.trocas).map((t) => t.tipo).join() === "face");
+    const outraNoLugar = lerImagens({ ProductImage: ["e".repeat(32), N2, N3].map((m, i) => ({ https: tray(i + 1, m) })) });
+    confere("endereço que mudou para OUTRA foto não conta como entrada", fotosQueNaoEntraram(atuais, outraNoLugar, tres.trocas).map((t) => t.tipo).join() === "produto");
+    confere("fila que encolheu deixa a foto do fim como pendente", fotosQueNaoEntraram(atuais, depoisCerto.slice(0, 2), tres.trocas).map((t) => t.tipo).join() === "uso");
+  }
+  const semMd5 = prepararFotos(atuais, [foto("produto", null)]);
+  if (semMd5.ok) {
+    confere("sem MD5 vale a prova mais fraca: o endereço do lugar mudou", fotosQueNaoEntraram(atuais, atuais, semMd5.trocas).length === 1 && fotosQueNaoEntraram(atuais, lerImagens({ ProductImage: [{ https: tray(1, N1) }] }), semMd5.trocas).length === 0);
+  }
+  const frases = [tres, semFoto, umaSo, repetida, grande, prepararFotos(atuais, [])].flatMap((r) => (r.ok ? r.avisos : [r.erro]));
+  confere("nenhuma frase das fotos com travessão", frases.every((f) => !/[—–]/.test(f)));
 }
 
 console.log("\nTabela de campanhas e anúncios");

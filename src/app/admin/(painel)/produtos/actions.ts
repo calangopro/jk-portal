@@ -4,7 +4,10 @@ import { revalidatePath } from "next/cache";
 import { ehAdmin } from "@/lib/auth/acessos";
 import { requireArea, requireStaff } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { alterarProdutoNaLoja, lerProdutoNaLoja, preverEdicaoDoProduto, type Previa, type Resultado } from "@/lib/loja/alterar";
+import {
+  alterarProdutoNaLoja, fotosAprovadas, lerProdutoNaLoja, levarFotosParaLoja, preverEdicaoDoProduto, preverFotosNaLoja,
+  type Previa, type PreviaDeFotos, type Resultado, type ResultadoDeFotos,
+} from "@/lib/loja/alterar";
 import type { Edicao } from "@/lib/loja/produto";
 import { createClient } from "@/lib/supabase/server";
 import {
@@ -179,5 +182,31 @@ export async function gravarNaLoja(trayId: string, edicao: Edicao): Promise<Resu
   const perfil = await requireArea("loja");
   const r = await alterarProdutoNaLoja(createAdminClient(), { loja: "jk", trayId: String(trayId), edicao, podePreco: ehAdmin(perfil.role), quem: perfil.id });
   if (r.estado === "ok") revalidatePath("/admin/produtos");
+  return r;
+}
+
+// ---------------------------------------------------------------------------
+// Fotos aprovadas direto para a loja
+// ---------------------------------------------------------------------------
+//
+// Mesma regra das ações acima: pedem a área `loja`, falam sempre com a loja da
+// JK e levam o nome de quem mandou. O envio espera a Tray mostrar as fotos, e
+// por isso a página tem `maxDuration` de 60 segundos.
+
+export async function preverFotosDoProduto(productId: string): Promise<PreviaDeFotos> {
+  await requireArea("loja");
+  const db = createAdminClient();
+  const dados = await fotosAprovadas(db, String(productId));
+  if (!dados) return { estado: "nao_achado" };
+  return preverFotosNaLoja(db, { loja: "jk", trayId: dados.trayId, fotos: dados.fotos });
+}
+
+export async function levarFotosDoProduto(productId: string): Promise<ResultadoDeFotos> {
+  const perfil = await requireArea("loja");
+  const db = createAdminClient();
+  const dados = await fotosAprovadas(db, String(productId));
+  if (!dados) return { estado: "nao_achado" };
+  const r = await levarFotosParaLoja(db, { loja: "jk", trayId: dados.trayId, fotos: dados.fotos, quem: perfil.id, darBaixa: true });
+  if (r.estado === "ok" && r.entraram.length > 0) revalidatePath("/admin/produtos");
   return r;
 }
