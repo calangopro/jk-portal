@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { CircleCheck, HandCoins, MessageCircle, PhoneCall, RotateCcw, Search } from "lucide-react";
+import { CircleCheck, Contact, HandCoins, MessageCircle, PhoneCall, RotateCcw, Search } from "lucide-react";
 import { SUBDOMINIO_KOMMO } from "@/lib/leads/chaves";
 import { legivel } from "@/lib/leads/telefone";
 import { canalDaOrigem, NOME_DO_CANAL, nomeLimpo } from "@/lib/vendas/origem";
@@ -57,9 +57,22 @@ function Periodos({ atual }: { atual: Janela }) {
   );
 }
 
-function Contatos({ c }: { c: Caso }) {
+function Contatos({ c, comFicha }: { c: Caso; comFicha: boolean }) {
   const ligacao = "inline-flex items-center gap-1 text-xs font-semibold text-brand-nav hover:underline";
-  if (!c.telefone) return <span className="text-xs text-muted">{c.email ?? "Sem telefone nem e-mail"}</span>;
+  // A ficha abre pelo número do pedido: o endereço não leva telefone nem e-mail.
+  const ficha = comFicha ? (
+    <Link href={`/admin/clientes/p${c.pedido}`} className={ligacao}>
+      <Contact size={13} aria-hidden /> Ficha do cliente
+    </Link>
+  ) : null;
+  if (!c.telefone) {
+    return (
+      <span className="flex flex-wrap items-center gap-x-4 gap-y-1">
+        <span className="text-xs text-muted">{c.email ?? "Sem telefone nem e-mail"}</span>
+        {ficha}
+      </span>
+    );
+  }
   return (
     <span className="flex flex-wrap items-center gap-x-4 gap-y-1">
       <span className="numeros text-xs text-ink">{legivel(c.telefone)}</span>
@@ -75,6 +88,7 @@ function Contatos({ c }: { c: Caso }) {
       >
         <Search size={13} aria-hidden /> Procurar na Kommo
       </a>
+      {ficha}
     </span>
   );
 }
@@ -156,7 +170,7 @@ function EmContato({ c }: { c: Caso }) {
   );
 }
 
-function CartaoDoCaso({ c, acao }: { c: Caso; acao?: Acao }) {
+function CartaoDoCaso({ c, acao, comFicha }: { c: Caso; acao?: Acao; comFicha: boolean }) {
   const itens = c.itens ? c.itens.split(" + ").map(nomeLimpo).join(" + ") : null;
   return (
     <li className="glass rounded-[16px] p-4 sm:p-5">
@@ -181,7 +195,7 @@ function CartaoDoCaso({ c, acao }: { c: Caso; acao?: Acao }) {
       </p>
 
       <div className="mt-2">
-        <Contatos c={c} />
+        <Contatos c={c} comFicha={comFicha} />
       </div>
 
       {acao ? <Decisoes c={c} acao={acao} /> : null}
@@ -189,13 +203,13 @@ function CartaoDoCaso({ c, acao }: { c: Caso; acao?: Acao }) {
   );
 }
 
-function ListaDeCasos({ casos, acao, visiveis = 20 }: { casos: Caso[]; acao?: Acao; visiveis?: number }) {
+function ListaDeCasos({ casos, acao, comFicha, visiveis = 20 }: { casos: Caso[]; acao?: Acao; comFicha: boolean; visiveis?: number }) {
   const primeiros = casos.slice(0, visiveis);
   const resto = casos.slice(visiveis);
   return (
     <>
       <ul className="mt-4 space-y-3">
-        {primeiros.map((c) => <CartaoDoCaso key={c.pedido} c={c} acao={acao} />)}
+        {primeiros.map((c) => <CartaoDoCaso key={c.pedido} c={c} acao={acao} comFicha={comFicha} />)}
       </ul>
       {resto.length > 0 ? (
         <details className="mt-3">
@@ -203,7 +217,7 @@ function ListaDeCasos({ casos, acao, visiveis = 20 }: { casos: Caso[]; acao?: Ac
             Ver os outros {resto.length}, de valor menor
           </summary>
           <ul className="mt-3 space-y-3">
-            {resto.map((c) => <CartaoDoCaso key={c.pedido} c={c} acao={acao} />)}
+            {resto.map((c) => <CartaoDoCaso key={c.pedido} c={c} acao={acao} comFicha={comFicha} />)}
           </ul>
         </details>
       ) : null}
@@ -255,11 +269,13 @@ function Fechados({ casos, acao }: { casos: Caso[]; acao?: Acao }) {
 }
 
 export function PainelDeRecuperacao({
-  fila, janela, acao,
+  fila, janela, acao, comFicha = false,
 }: {
   fila: FilaDeRecuperacao | null;
   janela: Janela;
   acao?: Acao;
+  /** Quem tem a área de lançar venda ganha o atalho para a ficha de cada cliente. */
+  comFicha?: boolean;
 }) {
   const r = fila?.resumo ?? {};
   const n = (fase: Fase) => r[fase]?.clientes ?? 0;
@@ -345,7 +361,7 @@ export function PainelDeRecuperacao({
               Cartão não aprovado em compra alta costuma se resolver com Pix ou com o valor dividido em dois cartões.
             </p>
             {paraChamar.length > 0 ? (
-              <ListaDeCasos casos={paraChamar} acao={acao} />
+              <ListaDeCasos casos={paraChamar} acao={acao} comFicha={comFicha} />
             ) : (
               <p className="glass mt-4 rounded-[16px] p-5 text-sm text-muted">Ninguém na fila neste período.</p>
             )}
@@ -354,7 +370,7 @@ export function PainelDeRecuperacao({
           {emContato.length > 0 ? (
             <section className="mt-10" aria-labelledby="em-contato">
               <h2 id="em-contato" className="font-display text-2xl text-ink">Em contato</h2>
-              <ListaDeCasos casos={emContato} acao={acao} visiveis={50} />
+              <ListaDeCasos casos={emContato} acao={acao} comFicha={comFicha} visiveis={50} />
             </section>
           ) : null}
 

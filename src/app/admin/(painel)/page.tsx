@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requireSessao, ROLE_LABEL, type Profile } from "@/lib/auth/session";
 import { ehAdmin } from "@/lib/auth/acessos";
 import { createClient } from "@/lib/supabase/server";
+import { lerLojasFisicas, lerOportunidades } from "@/lib/clientes/dados";
 import { contaDoMes } from "@/lib/custos/conta";
 import { lerDespesas } from "@/lib/custos/dados";
 import { andamentoDaMeta, diasDoMes, type Andamento } from "@/lib/painel/meta";
@@ -15,6 +16,7 @@ import { lerResumoPorFora } from "@/lib/vendas/por-fora";
 import { lerFilaDeRecuperacao } from "@/lib/vendas/recuperacao";
 import { definirMeta } from "./meta-actions";
 import { MetaDoMes } from "./MetaDoMes";
+import { OportunidadesDaSemana } from "./OportunidadesDaSemana";
 import { PainelGeral, type DadosDeVendas } from "./PainelGeral";
 import { ResultadoDoMes, type Resultado } from "./ResultadoDoMes";
 import { Salas, type NumerosDasSalas } from "./Salas";
@@ -40,7 +42,7 @@ async function lerPainel(profile: Profile) {
   const hoje = hojeEmSaoPaulo();
   const de = somarDias(hoje, -(DIAS - 1));
 
-  const [atual, anterior, ultima, fila, despesas, doMes, metaDoMes, porFora, gasto, gastoDoMes] = await Promise.all([
+  const [atual, anterior, ultima, fila, despesas, doMes, metaDoMes, porFora, gasto, gastoDoMes, oportunidades] = await Promise.all([
     pode("vendas") ? lerResumoDeVendas(db, de, hoje) : null,
     pode("vendas") ? lerResumoDeVendas(db, somarDias(de, -DIAS), somarDias(de, -1)) : null,
     pode("vendas") ? ultimaImportacao(db) : null,
@@ -51,6 +53,8 @@ async function lerPainel(profile: Profile) {
     pode("vendas") ? lerResumoPorFora(db, primeiroDoMes(hoje), hoje) : null,
     pode("trafego") ? lerResumoDeGasto(db, de, hoje) : null,
     ehAdmin(profile.role) ? lerResumoDeGasto(db, primeiroDoMes(hoje), hoje) : null,
+    // O que vence para os clientes nos próximos sete dias, para quem atende.
+    pode("lancar_venda") ? lerLojasFisicas().then((lojas) => lerOportunidades(db, hoje, 7, lojas)) : null,
   ]);
 
   // O faturamento do mês é a loja mais o que foi registrado por fora dela.
@@ -126,7 +130,7 @@ async function lerPainel(profile: Profile) {
   }
   if (gasto) salas.trafego = { valor: dinheiro(gasto.gasto), apoio: `em anúncio nos últimos ${DIAS} dias` };
 
-  return { vendas, sinais, andamento, hoje, porForaNoMes, resultado, salas, podeVerMeta: pode("vendas") };
+  return { vendas, sinais, andamento, hoje, porForaNoMes, resultado, salas, podeVerMeta: pode("vendas"), oportunidades: oportunidades?.lista ?? [] };
 }
 
 async function lerConteudo() {
@@ -148,11 +152,11 @@ async function lerConteudo() {
 
 export default async function AdminDashboard() {
   const profile = await requireSessao();
-  const [{ vendas, sinais, andamento, hoje, porForaNoMes, resultado, salas, podeVerMeta }, conteudo] = await Promise.all([
+  const [{ vendas, sinais, andamento, hoje, porForaNoMes, resultado, salas, podeVerMeta, oportunidades }, conteudo] = await Promise.all([
     lerPainel(profile),
     profile.areas.includes("conteudo") ? lerConteudo() : null,
   ]);
-  const semNada = !vendas && sinais.length === 0 && !conteudo;
+  const semNada = !vendas && sinais.length === 0 && !conteudo && oportunidades.length === 0;
   if (conteudo) {
     const [posts, , produtos] = conteudo;
     salas.conteudo = { valor: posts.value.toLocaleString("pt-BR"), apoio: `conteúdos, ${posts.hint}` };
@@ -174,6 +178,8 @@ export default async function AdminDashboard() {
       ) : null}
 
       <Salas areas={profile.areas} numeros={salas} />
+
+      <OportunidadesDaSemana lista={oportunidades} />
 
       {resultado ? <ResultadoDoMes r={resultado} /> : null}
 

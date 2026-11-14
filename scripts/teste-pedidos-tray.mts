@@ -894,8 +894,10 @@ console.log("\nSetores do painel");
   confere("com três setores ou mais, a barra de baixo é por setor", abasDaBarra(tudo).length === 4 && abasDaBarra(tudo)[0].label === "Início" && abasDaBarra(tudo)[1].href === "/admin/vendas");
 
   const vendedor = setoresDe(["lancar_venda", "recuperacao"]);
-  confere("o vendedor só vê o início e as vendas, e a primeira sala se chama Início", vendedor.length === 2 && nomeDoSetor(vendedor[0]) === "Início" && vendedor[1].itens.length === 2);
-  confere("com menos de três setores, a barra de baixo é por tela", abasDaBarra(vendedor).map((a) => a.href).join() === "/admin,/admin/registrar-venda,/admin/recuperacao");
+  confere("o vendedor só vê o início e as vendas, e a primeira sala se chama Início", vendedor.length === 2 && nomeDoSetor(vendedor[0]) === "Início"
+    && vendedor[1].itens.map((i) => i.href).join() === "/admin/registrar-venda,/admin/oportunidades,/admin/clientes,/admin/recuperacao");
+  confere("com menos de três setores, a barra de baixo é por tela, e a quinta tela fica no Mais", abasDaBarra(vendedor).map((a) => a.href).join() === "/admin,/admin/registrar-venda,/admin/oportunidades,/admin/clientes");
+  confere("a ficha de um cliente acende a tela de clientes", ondeEstou(tudo, "/admin/clientes/p48213").item?.href === "/admin/clientes");
   confere("a primeira tela de vendas do vendedor é registrar", vendedor[1].itens[0].href === "/admin/registrar-venda");
   confere("setor sem nenhuma tela some", setoresDe([]).length === 1 && setoresDe(["equipe"]).some((s) => s.id === "sistema") && !setoresDe(["equipe"]).some((s) => s.id === "loja"));
   const frases = tudo.flatMap((s) => [s.nome, s.frase, ...s.itens.flatMap((i) => [i.label, i.desc, i.curto ?? ""])]);

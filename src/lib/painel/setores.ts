@@ -1,7 +1,7 @@
 import type { LucideIcon } from "lucide-react";
 import {
-  Activity, Banknote, BookCheck, Bot, CalendarDays, Crosshair, FileText, Filter, Globe, Hammer, HandCoins, History, ImageIcon,
-  LayoutDashboard, LayoutTemplate, ListChecks, MapPin, MessageCircle, Milestone, Package, Palette, PenLine,
+  Activity, Banknote, BellRing, BookCheck, Bot, CalendarDays, Contact, Crosshair, FileText, Filter, Globe, Hammer, HandCoins, History,
+  ImageIcon, LayoutDashboard, LayoutTemplate, ListChecks, MapPin, MessageCircle, Milestone, Package, Palette, PenLine,
   Percent, Plug, QrCode, RotateCcw, Settings, Smartphone, Store, Table2, Tags, TrendingUp, Trophy, Users,
   UsersRound, Wallet,
 } from "lucide-react";
@@ -69,12 +69,14 @@ export const SETORES: Setor[] = [
   {
     id: "vendas",
     nome: "Vendas",
-    frase: "Pedidos e vendedores",
+    frase: "Pedidos, clientes e vendedores",
     cor: "#1a64a8",
     Icone: Banknote,
     itens: [
       { href: "/admin/vendas", area: "vendas", label: "Pedidos da loja", curto: "Pedidos", Icone: Banknote, desc: "O que foi pago, por dia e por origem" },
       { href: "/admin/registrar-venda", area: "lancar_venda", label: "Registrar venda", curto: "Registrar", Icone: HandCoins, desc: "O que foi fechado fora da loja" },
+      { href: "/admin/oportunidades", area: "lancar_venda", label: "Oportunidades", curto: "Chamar", Icone: BellRing, desc: "Quem vale chamar nos próximos dias" },
+      { href: "/admin/clientes", area: "lancar_venda", label: "Clientes", Icone: Contact, desc: "A ficha de cada cliente" },
       { href: "/admin/vendedores", area: "vendas", label: "Vendedores", Icone: Trophy, desc: "Quanto cada um vendeu" },
       { href: "/admin/recuperacao", area: "recuperacao", label: "Recuperação", curto: "Recuperar", Icone: RotateCcw, desc: "Quem não pagou o pedido" },
     ],
