@@ -1,11 +1,11 @@
-import { requireStaff } from "@/lib/auth/session";
+import { requireArea } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { Biblioteca, type Midia } from "./Biblioteca";
 
 export const metadata = { title: "Mídia" };
 
 export default async function MidiaPage() {
-  await requireStaff();
+  await requireArea("conteudo");
   const supabase = await createClient();
 
   const { data } = await supabase

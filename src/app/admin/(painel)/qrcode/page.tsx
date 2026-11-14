@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Plus } from "lucide-react";
-import { requireStaff } from "@/lib/auth/session";
+import { requireArea } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { COLUNAS_DO_QRCODE, destinoLegivel, enderecoCurto, type Qrcode } from "@/lib/qrcode/tipos";
 import { quandoLegivel } from "@/lib/content/agenda";
@@ -67,7 +67,7 @@ function Tabela({ qrcodes, resumos }: { qrcodes: Qrcode[]; resumos: Map<string, 
 }
 
 export default async function QrcodesPage() {
-  await requireStaff();
+  await requireArea("site");
   const supabase = await createClient();
 
   const hoje = hojeEmSaoPaulo();

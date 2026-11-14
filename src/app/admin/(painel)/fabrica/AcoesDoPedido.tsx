@@ -19,12 +19,13 @@ import { ACAO_PARA, ETAPAS, proximaEtapa, type Etapa } from "@/lib/fabrica/etapa
  *
  * A ação vem de fora, como propriedade, para a tela poder ser vista sem sessão.
  */
-type Mover = (pedido: number, etapa: string, extras?: { rastreio?: string; nota?: string }) => Promise<{ ok: true } | { ok: false; erro: string }>;
+type Mover = (ref: string, etapa: string, extras?: { rastreio?: string; nota?: string }) => Promise<{ ok: true } | { ok: false; erro: string }>;
 
 export function AcoesDoPedido({
   pedido, etapa, nota, rastreio, mover,
 }: {
-  pedido: number;
+  /** A referência do trabalho: número do pedido da loja ou "v" mais o código da venda por fora. */
+  pedido: string;
   etapa: Etapa;
   nota: string | null;
   rastreio: string | null;

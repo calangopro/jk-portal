@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { requireStaff } from "@/lib/auth/session";
+import { requireArea } from "@/lib/auth/session";
 import {
   obterConteudo,
   paginasComparaveis,
@@ -17,7 +17,7 @@ export default async function EditarConteudoPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  await requireStaff();
+  await requireArea("conteudo");
   const { id } = await params;
   const conteudo = await obterConteudo(id);
   if (!conteudo) notFound();

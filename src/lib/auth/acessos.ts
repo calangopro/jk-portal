@@ -78,3 +78,20 @@ export function ehAdmin(papel: string | null | undefined): boolean {
 export function ehEquipeDeConteudo(papel: string | null | undefined): boolean {
   return Boolean(papel) && papel !== "vendas" && papel !== "fabrica";
 }
+
+/**
+ * A falha ao ler a sessão é passageira (rede, limite de pedidos, serviço fora)
+ * ou é sessão que não existe?
+ *
+ * Importa porque as duas davam no mesmo lugar: a pessoa logada que abria várias
+ * telas em seguida caía na tela de login, com a sessão inteira. Medido em
+ * 14/11/2026: de 21 telas pedidas em rajada, 7 responderam com o login; pedidas
+ * devagar, as 21 abriram. Falha passageira merece uma segunda tentativa; sessão
+ * que não existe, não.
+ */
+export function falhaPassageira(erro: { name?: string; status?: number } | null | undefined): boolean {
+  if (!erro) return false;
+  if (erro.name === "AuthRetryableFetchError") return true;
+  const status = erro.status ?? 0;
+  return status === 429 || status >= 500 || status === 0;
+}

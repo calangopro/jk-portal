@@ -1,4 +1,5 @@
 import { createServerClient } from "@supabase/ssr";
+import { falhaPassageira } from "@/lib/auth/acessos";
 import { OPCOES_DO_COOKIE } from "./cookie";
 import { NextResponse, type NextRequest } from "next/server";
 
@@ -49,9 +50,14 @@ export async function updateSession(request: NextRequest) {
   );
 
   // IMPORTANTE: não coloque lógica entre createServerClient e getUser().
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  let lido = await supabase.auth.getUser();
+  // Falha passageira (rede, limite de pedidos) não é falta de sessão. Sem a segunda tentativa, quem abria várias
+  // telas em seguida era mandado para o login com a sessão inteira.
+  if (!lido.data.user && falhaPassageira(lido.error)) {
+    await new Promise((r) => setTimeout(r, 200));
+    lido = await supabase.auth.getUser();
+  }
+  const user = lido.data.user;
 
   /** Redirect que preserva os cookies de sessão renovados. */
   const redirectTo = (pathname: string, search = "") => {

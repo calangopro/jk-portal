@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Check, CircleAlert, Loader2 } from "lucide-react";
 import type { CamposDaFicha, DadosDaFicha } from "@/lib/clientes/dados";
@@ -87,7 +87,9 @@ export function EditarFicha({
   const [erro, setErro] = useState<string | null>(null);
   const [salvo, setSalvo] = useState(false);
   const [resolvidas, setResolvidas] = useState<string[]>([]);
-  const [ocupado, comecar] = useTransition();
+  // Estado nosso, e não o `isPending` de uma transição: no ar, a transição ficou
+  // presa quando o redesenho da página não entrou, e o botão nunca mais aceitou toque.
+  const [ocupado, setOcupado] = useState(false);
 
   const mudar = (parte: Partial<Estado>) => {
     setE((atual) => ({ ...atual, ...parte }));
@@ -115,43 +117,46 @@ export function EditarFicha({
   const { campos, datasTortas } = mudancas();
   const mudou = Object.keys(campos).length > 0 || datasTortas.length > 0;
 
-  const gravar = () =>
-    comecar(async () => {
-      if (datasTortas.length > 0) {
-        setErro("Tem data que não deu para entender. Escreva como 12/06 ou 12/06/2024.");
-        return;
-      }
-      const r = await salvar(refDoCliente, campos);
-      if (!r.ok) {
-        setErro(r.erro);
-        return;
-      }
-      // O que ficou gravado passa a ser a base: a data digitada "120624" vira "12/06/2024" na caixa.
-      const novo: Estado = { ...e, par: e.par.trim(), notas: e.notas.trim(), datas: { ...e.datas } };
-      for (const { campo } of DATAS) if (campo in campos) novo.datas[campo] = dataPorExtenso(campos[campo] ?? null);
-      setBase(novo);
-      setE(novo);
-      setSalvo(true);
-      router.refresh();
-    });
+  const gravar = async () => {
+    if (datasTortas.length > 0) {
+      setErro("Tem data que não deu para entender. Escreva como 12/06 ou 12/06/2024.");
+      return;
+    }
+    setOcupado(true);
+    const r = await salvar(refDoCliente, campos).catch(() => ({ ok: false as const, erro: "Não deu para gravar agora. Tente de novo em alguns segundos." }));
+    setOcupado(false);
+    if (!r.ok) {
+      setErro(r.erro);
+      return;
+    }
+    // O que ficou gravado passa a ser a base: a data digitada "120624" vira "12/06/2024" na caixa.
+    const novo: Estado = { ...e, par: e.par.trim(), notas: e.notas.trim(), datas: { ...e.datas } };
+    for (const { campo } of DATAS) if (campo in campos) novo.datas[campo] = dataPorExtenso(campos[campo] ?? null);
+    setBase(novo);
+    setE(novo);
+    setSalvo(true);
+    // O cabeçalho e o que há para oferecer se acertam quando o redesenho valer. O formulário não espera por ele.
+    router.refresh();
+  };
 
   /** Confirma (ou recusa) uma data lida da gravação. Grava na hora, sem esperar o botão de salvar. */
-  const decidirSugestao = (s: Sugestao, campo: "data_namoro" | "data_casamento" | null) =>
-    comecar(async () => {
-      setErro(null);
-      const r = await salvar(refDoCliente, campo ? { [campo]: s.data } : { recusar_data: s.data });
-      if (!r.ok) {
-        setErro(r.erro);
-        return;
-      }
-      setResolvidas((lista) => [...lista, s.data]);
-      if (campo) {
-        const porExtenso = dataPorExtenso(s.data);
-        setBase((b) => ({ ...b, datas: { ...b.datas, [campo]: porExtenso } }));
-        setE((atual) => ({ ...atual, datas: { ...atual.datas, [campo]: porExtenso } }));
-      }
-      router.refresh();
-    });
+  const decidirSugestao = async (s: Sugestao, campo: "data_namoro" | "data_casamento" | null) => {
+    setErro(null);
+    setOcupado(true);
+    const r = await salvar(refDoCliente, campo ? { [campo]: s.data } : { recusar_data: s.data }).catch(() => ({ ok: false as const, erro: "Não deu para gravar agora. Tente de novo em alguns segundos." }));
+    setOcupado(false);
+    if (!r.ok) {
+      setErro(r.erro);
+      return;
+    }
+    setResolvidas((lista) => [...lista, s.data]);
+    if (campo) {
+      const porExtenso = dataPorExtenso(s.data);
+      setBase((b) => ({ ...b, datas: { ...b.datas, [campo]: porExtenso } }));
+      setE((atual) => ({ ...atual, datas: { ...atual.datas, [campo]: porExtenso } }));
+    }
+    router.refresh();
+  };
 
   const abertas = sugestoes.filter((s) => !resolvidas.includes(s.data));
   const rotulo = "text-xs font-semibold text-ink";

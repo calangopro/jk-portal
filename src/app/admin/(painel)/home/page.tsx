@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { requireStaff } from "@/lib/auth/session";
+import { requireArea } from "@/lib/auth/session";
 import { lerLayout } from "@/lib/blocos/ler";
 import { EditorDaHome } from "./EditorDaHome";
 
@@ -8,12 +8,12 @@ export const metadata: Metadata = { title: "Home" };
 /**
  * Edição da home.
  *
- * Fica em `requireStaff`, e não `requireAdmin`: reordenar seção e reescrever
+ * Fica em `requireArea("site")`, e não `requireAdmin`: reordenar seção e reescrever
  * headline é trabalho de editor. O que é irreversível ou vale para o site
  * inteiro (a paleta, em Aparência) continua restrito a admin.
  */
 export default async function PaginaDaHome() {
-  await requireStaff();
+  await requireArea("site");
   const layout = await lerLayout("home");
 
   return (

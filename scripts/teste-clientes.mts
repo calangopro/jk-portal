@@ -12,7 +12,7 @@ import {
 } from "../src/lib/clientes/identidade.ts";
 import {
   CARENCIA_DA_GRAVACAO, DIAS_DEPOIS, MARCOS_EM_MESES, TIPOS,
-  dataPorExtenso, datasNaGravacao, diasEntre, interpretarDataDigitada, lerDataParcial, lojaParaConvidar,
+  dataPorExtenso, datasNaGravacao, diasEntre, interpretarDataDigitada, lerDataParcial, listaQueVale, lojaParaConvidar,
   ocorrenciaNoAno, oportunidadesDoCliente, prazoEmPalavra, somarMeses, sugestoesDaGravacao, tipoDaPeca, tomDoPrazo,
   type ClienteParaConta, type CompraParaConta, type FichaParaConta,
 } from "../src/lib/clientes/oportunidades.ts";
@@ -218,6 +218,21 @@ console.log("\nOportunidades");
 
   confere("prazo em palavra", prazoEmPalavra(0) === "hoje" && prazoEmPalavra(1) === "amanhã" && prazoEmPalavra(12) === "em 12 dias" && prazoEmPalavra(-1) === "ontem" && prazoEmPalavra(-3) === "há 3 dias");
   confere("a cor do prazo", tomDoPrazo(-2) === "ruim" && tomDoPrazo(0) === "atencao" && tomDoPrazo(1) === "atencao" && tomDoPrazo(5) === "neutro");
+}
+
+console.log("\nA lista na tela, sem esperar o redesenho da página");
+{
+  const o = (id: string, ocorrencia: string) => ({ id, ocorrencia });
+  const A = o("a", "2026-11-20"), B = o("b", "2026-11-25"), C = o("c", "2026-12-01");
+  const ids = (l: { id: string }[]) => l.map((x) => x.id).join();
+  const vale = (servidor: typeof A[], marcadas: typeof A[], reabertas: typeof A[]) => ids(listaQueVale(servidor, marcadas, reabertas, (x) => x.id));
+  confere("sem nada feito na visita, vale a lista do servidor", vale([A, B, C], [], []) === "a,b,c");
+  confere("marcada agora sai, mesmo que o servidor ainda a devolva", vale([A, B, C], [B], []) === "a,c");
+  confere("marcada agora e o servidor já sem ela: continua fora", vale([A, C], [B], []) === "a,c");
+  confere("reaberta agora volta, mesmo que o servidor ainda não a devolva", vale([A, C], [], [B]) === "a,b,c");
+  confere("reaberta agora e o servidor já com ela: não aparece duas vezes", vale([A, B, C], [], [B]) === "a,b,c");
+  confere("marcar de novo o que foi reaberto tira da lista", vale([A, C], [B], [B]) === "a,c");
+  confere("a que voltou entra na ordem da data, não no fim", vale([C], [], [A]) === "a,c");
 }
 
 if (falhas > 0) {

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Archive, ArchiveRestore, ArrowLeft, Download } from "lucide-react";
-import { requireStaff } from "@/lib/auth/session";
+import { requireArea } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { COLUNAS_DO_QRCODE, enderecoCurto, enderecoDoQrcode, type Qrcode } from "@/lib/qrcode/tipos";
 import { hojeEmSaoPaulo } from "@/lib/tray/preco";
@@ -19,7 +19,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** Um QR: a arte para baixar, para onde ele leva e quantas vezes foi lido. */
 export default async function QrcodePage({ params }: { params: Promise<{ id: string }> }) {
-  await requireStaff();
+  await requireArea("site");
   const { id } = await params;
   if (!UUID.test(id)) notFound();
 

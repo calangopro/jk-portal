@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requireStaff } from "@/lib/auth/session";
+import { requireArea } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { avaliarItens, listarCampanhas, lerCampanha, ROTULO_DO_STATUS } from "@/lib/campanhas/dados";
@@ -15,7 +15,7 @@ export const metadata = { title: "Campanhas" };
  * administrador, dentro da campanha.
  */
 export default async function CampanhasPage() {
-  await requireStaff();
+  await requireArea("campanhas");
   const db = await createClient();
   const campanhas = await listarCampanhas(db);
 

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requireStaff } from "@/lib/auth/session";
+import { requireArea } from "@/lib/auth/session";
 import { clustersExistentes } from "@/lib/data/admin-contents";
 import { listarPautas, oportunidades, virarRascunho } from "./actions";
 import { Oportunidades } from "./Oportunidades";
@@ -27,7 +27,7 @@ export const metadata = { title: "Pautas" };
  * e caro de desfazer depois que as duas estão no ar.
  */
 export default async function PautasPage() {
-  await requireStaff();
+  await requireArea("conteudo");
 
   const [fila, oportunidadesDaBusca, clusters] = await Promise.all([
     listarPautas(),

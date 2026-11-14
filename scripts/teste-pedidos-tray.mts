@@ -34,7 +34,10 @@ import { itensQueVenderam, passosDoColetor, vendasPorItem, type Cobertura, type 
 import { diaOuNulo, lerEstado, naoPegaram, prepararEdicao } from "../src/lib/loja/produto.ts";
 import { TETO_DE_BYTES, codigoDaImagem, corpoDasFotos, enderecoAceito, fotosQueNaoEntraram, lerImagens, prepararFotos, type FotoNova } from "../src/lib/loja/imagens.ts";
 import { achatar, ordenar, somar, tomContraAMedia, tomDaVoltaDaLoja, tomDaVoltaDaPlataforma, tomDoVeredito } from "../src/lib/trafego/linhas.ts";
-import { abasDaBarra, nomeDoSetor, ondeEstou, setoresDe } from "../src/lib/painel/setores.ts";
+import { readFileSync, readdirSync } from "node:fs";
+import { falhaPassageira } from "../src/lib/auth/acessos.ts";
+import { SETORES, abasDaBarra, nomeDoSetor, ondeEstou, setoresDe } from "../src/lib/painel/setores.ts";
+import { PECA_VAZIA, lerProducao, montarInfo } from "../src/lib/vendas/producao.ts";
 import { avaliarSaude, diaEHora, haQuantoTempo, resumoDoErro, sinaisDaSaude, type SaudeCrua } from "../src/lib/painel/saude.ts";
 import { REGRAS_DE_PARTIDA, diaPorExtenso, diasDeProducao, diasDesde, lerRegras, proximoMalote, quandoFica, somarDiasUteis } from "../src/lib/vendas/prazos.ts";
 import { DIAS_DE_ATENCAO, DIAS_DE_ATRASO, SEM_FILTRO, diasEntreDatas, esperaEmPalavra, etapaAnterior, filtrarFila, grupoDaEntrega, lerEntrega, lerEspecificacoes, lerEtapa, proximaEtapa, tomDaEspera } from "../src/lib/fabrica/etapas.ts";
@@ -901,6 +904,39 @@ console.log("\nFila da fábrica");
   confere("os grupos de entrega", grupoDaEntrega("CORREIOS SEDEX") === "envio" && grupoDaEntrega("Retire na loja do Shopping Santana") === "retirada" && grupoDaEntrega(null) === null);
 }
 
+console.log("\nVenda por fora na fábrica");
+{
+  const peca = { ...PECA_VAZIA, nome: "Par de Alianças Eternal Love", codigo: "217", aro1: "17", aro2: " 22 ", anel: "16", gravacao: "laser" as const, gravar1: "Rafael  12.06", gravar2: "Te amo <3 & sempre", detalhes: "Anel Forever, caixinha de coração" };
+  const info = montarInfo(peca)!;
+  const lidas = lerEspecificacoes(info);
+  confere("a peça da venda por fora sai no formato da loja, e a fábrica lê igual", lidas.filter((x) => x.tipo === "aro").map((x) => `${x.rotulo}=${x.valor}`).join("|") === "Numeração - Aro 01=17|Numeração - Aro 02=22|Numeração Anel Solitário=16");
+  confere("o texto da gravação chega como foi escrito, com espaço duplo e sinais", lidas.filter((x) => x.tipo === "gravar").map((x) => x.valor).join("|") === "Rafael  12.06|Te amo <3 & sempre");
+  confere("o tipo de gravação e os detalhes vão como informação da peça", lidas.find((x) => x.rotulo === "Modelo de Gravação")?.valor === "Gravação Laser" && lidas.find((x) => x.rotulo === "Detalhes")?.valor === "Anel Forever, caixinha de coração");
+  confere("sem gravação, o texto de gravar não vai", !montarInfo({ ...peca, gravacao: "sem" })!.includes("Gravação"));
+  confere("peça só com o nome não tem informação", montarInfo({ ...PECA_VAZIA, nome: "Corrente" }) === null);
+
+  const retirada = lerProducao({ pecas: [peca], entrega: "retirada", loja: "Shopping Granja Vianna", endereco: "", cidade: "", uf: "" });
+  confere("retirada em loja sai no texto que a fábrica reconhece", retirada.ok && retirada.producao.entrega === "Retire na loja do Shopping Granja Vianna" && lerEntrega(retirada.producao.entrega)?.nome === "Retirada: Shopping Granja Vianna" && retirada.producao.endereco === null);
+  confere("a peça leva o código do catálogo e o resumo vira a descrição da venda", retirada.ok && retirada.producao.pecas[0].produto_tray_id === "217" && retirada.producao.resumo === "1× Par de Alianças Eternal Love");
+  const correios = lerProducao({ pecas: [peca], entrega: "correios", loja: "", endereco: "Rua de Exemplo, 100, 01000-000", cidade: "São Paulo", uf: "sp" });
+  confere("Correios pede endereço, cidade e estado", correios.ok && correios.producao.entrega === "Correios" && correios.producao.uf === "SP" && lerEntrega(correios.producao.entrega)?.tipo === "correios");
+  const erro = (v: unknown) => { const r = lerProducao(v); return r.ok ? "" : r.erro; };
+  confere("Correios sem endereço ou sem estado é recusado com a frase certa", erro({ pecas: [peca], entrega: "correios", endereco: "Rua", cidade: "São Paulo", uf: "SP" }).startsWith("Escreva o endereço") && erro({ pecas: [peca], entrega: "correios", endereco: "Rua de Exemplo, 100", cidade: "", uf: "" }).startsWith("Para os Correios"));
+  confere("moto pede o endereço e aceita ficar sem cidade", lerProducao({ pecas: [peca], entrega: "moto", endereco: "Rua de Exemplo, 100, 01000-000", cidade: "", uf: "" }).ok && lerEntrega("Entrega por Motoboy")?.tipo === "motoboy");
+  confere("retirada sem loja é recusada", erro({ pecas: [peca], entrega: "retirada", loja: "" }) === "Escolha em qual loja o cliente vai retirar.");
+  confere("peça sem produto diz qual peça", erro({ pecas: [peca, { ...PECA_VAZIA }], entrega: "retirada", loja: "X" }) === "Falta dizer qual é o produto da peça 2.");
+  confere("gravação escolhida sem texto, e texto sem gravação escolhida, são recusados", erro({ pecas: [{ ...peca, gravar1: "", gravar2: "" }], entrega: "retirada", loja: "X" }).startsWith("Você escolheu gravação") && erro({ pecas: [{ ...peca, gravacao: "sem" }], entrega: "retirada", loja: "X" }).startsWith("Há texto para gravar"));
+  confere("sem peça, com peça demais ou com lixo, nada passa", erro({ pecas: [], entrega: "retirada", loja: "X" }) !== "" && erro({ pecas: Array.from({ length: 9 }, () => peca), entrega: "retirada", loja: "X" }).startsWith("Cabem até 8") && erro(null) !== "" && erro({ pecas: [peca], entrega: "avião" }) !== "");
+  confere("código que não parece código de produto é descartado", (() => { const r = lerProducao({ pecas: [{ ...peca, codigo: "217; drop" }], entrega: "retirada", loja: "X" }); return r.ok && r.producao.pecas[0].produto_tray_id === null; })());
+
+  const naFila = [
+    { pedido: null, vendedor: "Thiago", dia: "2026-11-13", etapa: "a_produzir" as const, cliente: "Cliente Exemplo", cidade: null, entrega: "Retire na loja do Shopping Granja Vianna", rastreio: null, nota: null, pecas: [{ nome: "Par de Alianças Eternal Love", referencia: null, info }] },
+    { pedido: 20001, dia: "2026-11-13", etapa: "a_produzir" as const, cliente: "Outro Exemplo", cidade: "Osasco", entrega: "CORREIOS SEDEX", rastreio: null, nota: null, pecas: [] },
+  ];
+  const acha = (busca: string) => filtrarFila(naFila, { ...SEM_FILTRO, busca }, "2026-11-14").map((p) => p.pedido ?? "venda").join();
+  confere("a venda por fora é achada por \"por fora\", por quem vendeu e pela gravação", acha("por fora") === "venda" && acha("thiago") === "venda" && acha("te amo") === "venda" && acha("20001") === "20001");
+}
+
 console.log("\nPrazo de entrega");
 {
   // Novembro de 2026: dia 11 é quarta, 12 quinta, 13 sexta, 14 sábado, 16 segunda, 18 quarta.
@@ -994,6 +1030,52 @@ console.log("\nSetores do painel");
   confere("setor sem nenhuma tela some", setoresDe([]).length === 1 && setoresDe(["equipe"]).some((s) => s.id === "sistema") && !setoresDe(["equipe"]).some((s) => s.id === "loja"));
   const frases = tudo.flatMap((s) => [s.nome, s.frase, ...s.itens.flatMap((i) => [i.label, i.desc, i.curto ?? ""])]);
   confere("nenhum nome de setor ou tela com travessão", frases.every((f) => !/[—–]/.test(f)));
+}
+
+console.log("\nSessão");
+{
+  confere("limite de pedidos, serviço fora e falha de rede são falhas passageiras", falhaPassageira({ status: 429 }) && falhaPassageira({ status: 503 }) && falhaPassageira({ name: "AuthRetryableFetchError", status: 0 }));
+  confere("sessão que não existe ou chave inválida não ganham segunda tentativa", !falhaPassageira({ name: "AuthSessionMissingError", status: 400 }) && !falhaPassageira({ status: 401 }) && !falhaPassageira({ status: 403 }) && !falhaPassageira(null));
+}
+
+console.log("\nAcesso de cada tela");
+{
+  // O menu mostra a tela para quem tem a ÁREA dela. A tela precisa conferir a mesma área, senão quem não vê o
+  // item no menu abre pelo endereço. Este teste lê o código de cada página e não deixa as duas regras se separarem.
+  const RAIZ = "src/app/admin/(painel)";
+  const itens = SETORES.flatMap((s) => s.itens).filter((i) => i.href !== "/admin");
+  const pastaDe = (href: string) => `${RAIZ}${href.replace(/^\/admin/, "")}`;
+  const outrasPastas = (href: string) => itens.filter((i) => i.href !== href && i.href.startsWith(`${href}/`)).map((i) => pastaDe(i.href));
+
+  const paginas = (pasta: string, fora: string[]): string[] =>
+    readdirSync(pasta, { withFileTypes: true }).flatMap((e) => {
+      const caminho = `${pasta}/${e.name}`;
+      if (e.isDirectory()) return fora.includes(caminho) ? [] : paginas(caminho, fora);
+      return e.name === "page.tsx" ? [caminho] : [];
+    });
+
+  // Duas exceções, cada uma com o motivo:
+  // - o conector abre para toda a equipe de conteúdo, porque cada pessoa liga o próprio Claude; o que é só de administrador a página esconde por dentro.
+  const EXCECOES = new Set([`${RAIZ}/conector/page.tsx`]);
+
+  const erradas: string[] = [];
+  let conferidas = 0;
+  for (const item of itens) {
+    for (const arquivo of paginas(pastaDe(item.href), outrasPastas(item.href))) {
+      if (EXCECOES.has(arquivo)) continue;
+      conferidas++;
+      const codigo = readFileSync(arquivo, "utf8");
+      // `requireAdmin` é mais fechado que qualquer área, e só vale em tela cuja área é de administrador.
+      const ok = codigo.includes(`requireArea("${item.area}")`) || (codigo.includes("requireAdmin()") && ["equipe", "margem", "custos", "anuncios"].includes(item.area));
+      if (!ok) erradas.push(`${arquivo} deveria pedir a área ${item.area}`);
+    }
+  }
+  if (erradas.length) console.log(erradas.join("\n"));
+  confere("toda tela do menu confere a mesma área que o menu pede", erradas.length === 0 && conferidas >= 40);
+
+  const semDono = paginas(RAIZ, []).filter((a) => a !== `${RAIZ}/page.tsx` && !itens.some((i) => a.startsWith(`${pastaDe(i.href)}/`)));
+  if (semDono.length) console.log(semDono.join("\n"));
+  confere("não existe tela do painel fora do menu", semDono.length === 0);
 }
 
 console.log("\nTudo certo.");

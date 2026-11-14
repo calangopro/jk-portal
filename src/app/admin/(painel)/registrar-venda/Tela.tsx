@@ -1,15 +1,22 @@
 import Link from "next/link";
-import { HandCoins, Receipt, Sun } from "lucide-react";
-import { CANAIS, FORMAS, NOME_DA_FORMA, NOME_DO_CANAL_DE_VENDA, type ResumoPorFora } from "@/lib/vendas/por-fora";
+import { Hammer, HandCoins, Receipt, Sun } from "lucide-react";
+import { NOME_DA_ETAPA, lerEtapa } from "@/lib/fabrica/etapas";
+import { CANAIS, FORMAS, NOME_DA_FORMA, NOME_DO_CANAL_DE_VENDA, type ResumoPorFora, type VendaNaFabrica } from "@/lib/vendas/por-fora";
 import { diaCurto, nomeDoMes, somarDias } from "@/lib/vendas/periodo";
 import { Cartao, Dinheiro, reais } from "../vendas/PainelDeVendas";
 import { BotaoDeAcao } from "../recuperacao/BotaoDeAcao";
 import { FormularioDeVenda } from "./FormularioDeVenda";
+import type { ProdutoDoFormulario } from "./ProducaoDaVenda";
 
 /** A parte da tela de registrar venda que só desenha. Sem `estornar` (na prévia) o botão de estorno não aparece. */
 export function TelaDeRegistrarVenda({
-  mes, vendedores, veTodas, hoje, estornar,
+  mes, vendedores, veTodas, hoje, estornar, naFabrica = {}, produtos, lojas,
 }: {
+  /** A etapa da fábrica das vendas que foram para lá, pelo código da venda. */
+  naFabrica?: Record<string, VendaNaFabrica>;
+  /** O catálogo e as lojas, para a parte do formulário que vai para a fábrica. */
+  produtos?: ProdutoDoFormulario[];
+  lojas?: string[];
   mes: ResumoPorFora | null;
   /** Outras pessoas em nome de quem dá para lançar. Só chega para quem vê todas as vendas. */
   vendedores?: { id: string; nome: string }[];
@@ -51,6 +58,8 @@ export function TelaDeRegistrarVenda({
           canais={CANAIS.filter((c) => c.chave !== "recuperacao").map((c) => ({ ...c }))}
           vendedores={vendedores}
           hoje={hoje}
+          produtos={produtos}
+          lojas={lojas}
         />
       </section>
 
@@ -61,37 +70,58 @@ export function TelaDeRegistrarVenda({
         ) : mes.ultimas.length === 0 ? (
           <p className="mt-3 text-sm text-muted">Nenhuma venda registrada neste mês.</p>
         ) : (
+          // No celular a tabela cabe na tela: as colunas de pagamento e de vendedor somem, e as outras têm largura fixa.
+          // Com a largura mínima de 40 rem valendo também no celular, a página inteira passava a ter 677 px.
           <div className="mt-3 overflow-x-auto">
-            <table className="w-full min-w-[40rem] border-collapse">
+            <table className="w-full table-fixed border-collapse sm:min-w-[40rem] sm:table-auto">
               <thead>
                 <tr className="border-b border-border text-left text-[0.68rem] uppercase tracking-wider text-muted">
-                  <th scope="col" className="py-2 pr-4 font-semibold">Dia</th>
+                  <th scope="col" className="w-[3.1rem] py-2 pr-2 font-semibold sm:w-auto sm:pr-4">Dia</th>
                   <th scope="col" className="py-2 pr-4 font-semibold">Cliente e produto</th>
-                  <th scope="col" className="py-2 pr-4 font-semibold">Pagamento</th>
-                  {veTodas ? <th scope="col" className="py-2 pr-4 font-semibold">Vendedor</th> : null}
-                  <th scope="col" className="py-2 pr-4 text-right font-semibold">Valor</th>
-                  <th scope="col" className="py-2 text-right font-semibold"><span className="sr-only">Ações</span></th>
+                  <th scope="col" className="hidden py-2 pr-4 font-semibold sm:table-cell">Pagamento</th>
+                  {veTodas ? <th scope="col" className="hidden py-2 pr-4 font-semibold sm:table-cell">Vendedor</th> : null}
+                  <th scope="col" className="w-[5.6rem] py-2 text-right font-semibold sm:w-auto sm:pr-4">Valor</th>
+                  <th scope="col" className="hidden py-2 text-right font-semibold sm:table-cell"><span className="sr-only">Ações</span></th>
                 </tr>
               </thead>
               <tbody>
                 {mes.ultimas.map((v) => (
                   <tr key={v.id} className="border-b border-border/50 align-top last:border-0">
-                    <td className="numeros py-2.5 pr-4 text-sm text-ink">{diaCurto(v.dia)}</td>
-                    <td className="max-w-[22rem] py-2.5 pr-4">
+                    <td className="numeros py-2.5 pr-2 text-sm text-ink sm:pr-4">{diaCurto(v.dia)}</td>
+                    <td className="max-w-[22rem] py-2.5 pr-2 sm:pr-4">
                       {/* A ficha abre pelo código da venda: o endereço não leva telefone. Venda sem telefone não tem ficha, e a tela de lá explica. */}
                       <Link href={`/admin/clientes/v${v.id}`} className="block truncate text-sm text-ink underline decoration-ink/20 underline-offset-4 hover:decoration-ink">
                         {v.cliente ?? "Sem nome"}
                       </Link>
                       <span className="block truncate text-xs text-muted">{v.produto ?? "Sem descrição"}</span>
+                      <span className="block truncate text-xs text-muted sm:hidden">
+                        {NOME_DA_FORMA[v.forma] ?? v.forma}
+                        {veTodas ? `, ${v.vendedor}` : ""}
+                      </span>
                       {v.conferir ? <span className="mt-0.5 block text-xs font-semibold" style={{ color: "#b45309" }}>Conferir: {v.conferir}</span> : null}
+                      {naFabrica[v.id] ? (
+                        <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-ink/[0.06] px-2 py-0.5 text-[0.68rem] font-semibold text-ink">
+                          <Hammer size={11} aria-hidden="true" /> Fábrica: {NOME_DA_ETAPA[lerEtapa(naFabrica[v.id].etapa) ?? "a_produzir"].toLowerCase()}
+                          {naFabrica[v.id].rastreio ? `, rastreio ${naFabrica[v.id].rastreio}` : ""}
+                        </span>
+                      ) : null}
                     </td>
-                    <td className="py-2.5 pr-4 text-xs text-muted">
+                    <td className="hidden py-2.5 pr-4 text-xs text-muted sm:table-cell">
                       {NOME_DA_FORMA[v.forma] ?? v.forma}
                       <span className="block">{NOME_DO_CANAL_DE_VENDA[v.canal] ?? v.canal}</span>
                     </td>
-                    {veTodas ? <td className="py-2.5 pr-4 text-sm text-ink">{v.vendedor}</td> : null}
-                    <td className="numeros py-2.5 pr-4 text-right text-sm text-ink">{reais(Number(v.valor))}</td>
-                    <td className="py-2.5 text-right">
+                    {veTodas ? <td className="hidden py-2.5 pr-4 text-sm text-ink sm:table-cell">{v.vendedor}</td> : null}
+                    <td className="numeros py-2.5 text-right text-sm text-ink sm:pr-4">
+                      {reais(Number(v.valor))}
+                      {/* No celular o estorno fica embaixo do valor: uma coluna só para o botão espremia o nome do cliente. */}
+                      {estornar && (veTodas || v.dia >= ontem) ? (
+                        <form action={estornar} className="mt-1.5 sm:hidden">
+                          <input type="hidden" name="id" value={v.id} />
+                          <BotaoDeAcao>Estornar</BotaoDeAcao>
+                        </form>
+                      ) : null}
+                    </td>
+                    <td className="hidden py-2.5 text-right sm:table-cell">
                       {estornar && (veTodas || v.dia >= ontem) ? (
                         <form action={estornar}>
                           <input type="hidden" name="id" value={v.id} />
