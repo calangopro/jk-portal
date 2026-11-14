@@ -1,6 +1,8 @@
 import { requireSessao, ROLE_LABEL } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { signOut } from "@/app/admin/login/actions";
+import { avisosDoMenu } from "@/lib/time/chamados";
+import { lerAvisoDeChamados } from "@/lib/time/dados";
 import { Moldura } from "./Moldura";
 
 /**
@@ -8,13 +10,15 @@ import { Moldura } from "./Moldura";
  * login, que precisa ser acessível sem sessão. O desenho mora em `Moldura.tsx`.
  */
 export default async function PainelLayout({ children }: { children: React.ReactNode }) {
-  // As duas leituras saem juntas: uma não precisa esperar a outra. Sem sessão,
-  // `requireSessao` manda ao login e a contagem volta vazia, sem expor nada.
+  // As leituras saem juntas: uma não precisa esperar a outra. Sem sessão,
+  // `requireSessao` manda ao login e as contagens voltam vazias, sem expor nada.
   const supabase = await createClient();
-  const [profile, { count }] = await Promise.all([
+  const [profile, { count }, chamados] = await Promise.all([
     requireSessao(),
     // Aviso na navegação quando há comentário esperando revisão.
     supabase.from("comments").select("*", { count: "exact", head: true }).eq("status", "pending"),
+    // E quando há chamado esperando a pessoa, ou resposta para um chamado dela.
+    lerAvisoDeChamados(supabase),
   ]);
 
   return (
@@ -23,6 +27,7 @@ export default async function PainelLayout({ children }: { children: React.React
       papel={ROLE_LABEL[profile.role]}
       areas={profile.areas}
       pendentes={count ?? 0}
+      avisos={avisosDoMenu(chamados)}
       sair={signOut}
     >
       {children}

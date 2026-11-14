@@ -8,7 +8,8 @@ import type { Area } from "@/lib/auth/acessos";
 import { comBasePath } from "@/lib/seo/base-path";
 import { nomeDoSetor, ondeEstou, setoresDe } from "@/lib/painel/setores";
 import { BotaoSair } from "./BotaoSair";
-import { AbasDoSetor, BarraDeBaixo, FolhaMais, Lateral, corDoSetor } from "./Navegacao";
+import { useAvisosAoVivo } from "./AvisosAoVivo";
+import { AbasDoSetor, BarraDeBaixo, FolhaMais, Lateral, corDoSetor, type Avisos } from "./Navegacao";
 
 /**
  * A moldura da área protegida: o escritório da JK, por setor.
@@ -25,12 +26,14 @@ import { AbasDoSetor, BarraDeBaixo, FolhaMais, Lateral, corDoSetor } from "./Nav
  * durante o desenvolvimento.
  */
 export function Moldura({
-  nome, papel, areas, pendentes, sair, children, caminhoDaPrevia,
+  nome, papel, areas, pendentes, avisos: avisosDoServidor, sair, children, caminhoDaPrevia,
 }: {
   nome: string;
   papel: string;
   areas: Area[];
   pendentes: number;
+  /** O que espera a pessoa em cada tela, pelo endereço (hoje, os chamados). Continua se atualizando sozinho. */
+  avisos?: Avisos;
   sair: () => Promise<void>;
   children: React.ReactNode;
   /** Só para a prévia de desenvolvimento: desenha como se a pessoa estivesse neste endereço. */
@@ -38,6 +41,8 @@ export function Moldura({
 }) {
   const daBarra = usePathname();
   const caminho = caminhoDaPrevia ?? daBarra;
+  // Na prévia de desenvolvimento não há sessão para perguntar ao servidor: fica o número que veio.
+  const avisos = useAvisosAoVivo(avisosDoServidor, caminhoDaPrevia === undefined);
   const setores = useMemo(() => setoresDe(areas), [areas]);
   const { setor, item } = ondeEstou(setores, caminho);
   const [mais, setMais] = useState(false);
@@ -82,7 +87,7 @@ export function Moldura({
       <aside className="hidden border-r border-ink/[0.07] bg-[rgb(var(--jk-bg-rgb))] lg:sticky lg:top-0 lg:flex lg:h-dvh lg:flex-col">
         <div className="px-5 pb-4 pt-5">{marca}</div>
         <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-4">
-          <Lateral setores={setores} atual={setor} item={item} pendentes={pendentes} />
+          <Lateral setores={setores} atual={setor} item={item} pendentes={pendentes} avisos={avisos} />
         </div>
         <div className="flex items-center gap-3 border-t border-ink/[0.07] px-4 py-3">
           <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-ink text-xs font-bold text-brand-light" aria-hidden="true">
@@ -122,7 +127,7 @@ export function Moldura({
               {iniciais}
             </button>
           </div>
-          {setor ? <AbasDoSetor setor={setor} item={item} pendentes={pendentes} /> : null}
+          {setor ? <AbasDoSetor setor={setor} item={item} pendentes={pendentes} avisos={avisos} /> : null}
 
           {/* Computador: onde a pessoa está, e a saída para o site. */}
           <div className="hidden items-center justify-between gap-4 px-8 py-3 lg:flex">
@@ -157,6 +162,7 @@ export function Moldura({
         atual={setor}
         item={item}
         pendentes={pendentes}
+        avisos={avisos}
         maisAberto={mais}
         onMais={() => setMais((v) => !v)}
       />
@@ -167,6 +173,7 @@ export function Moldura({
         atual={setor}
         item={item}
         pendentes={pendentes}
+        avisos={avisos}
         nome={nome}
         papel={papel}
         sair={sair}
