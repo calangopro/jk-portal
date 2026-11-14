@@ -16,8 +16,9 @@ import {
   type TipoDeFoto,
 } from "@/lib/catalogo/estados";
 import { nomeDeArquivo, paraJpeg } from "@/lib/catalogo/jpeg-no-navegador";
-import { decidir, devolver, dispensar, gravarNaLoja, lerNaLoja, lerProduto, preverNaLoja, registrarFoto } from "./actions";
+import { decidir, devolver, dispensar, gravarNaLoja, lerNaLoja, lerProduto, levarFotosDoProduto, preverFotosDoProduto, preverNaLoja, registrarFoto } from "./actions";
 import { EditarNaLoja } from "./EditarNaLoja";
+import { FotosNaLoja } from "./FotosNaLoja";
 import { digitando, reais, type MargemNaLista } from "./util";
 import { MargemNaGaveta } from "./MargemNaGaveta";
 
@@ -370,6 +371,16 @@ export function Gaveta({
               ))}
             </ul>
           </section>
+        ) : null}
+
+        {/* Só aparece para quem altera a loja, e só quando há foto aprovada esperando. */}
+        {loja && ativas.some((f) => f.status === "aprovada") ? (
+          <FotosNaLoja
+            key={`fotos-${produto.id}`}
+            productId={produto.id}
+            acoes={{ prever: preverFotosDoProduto, levar: levarFotosDoProduto }}
+            onFeito={() => void depois()}
+          />
         ) : null}
 
         {historico.length > 0 ? (
