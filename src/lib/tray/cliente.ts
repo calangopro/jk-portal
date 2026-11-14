@@ -2,11 +2,17 @@ import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 /**
- * Cliente da API da Tray. Somente leitura.
+ * Cliente da API da Tray.
  *
  * A Tray é a fonte de verdade de preço, estoque, disponibilidade e checkout.
- * O portal apenas espelha o catálogo para poder ligar conteúdo a produto e
- * emitir schema com dado real. Nada aqui escreve de volta na loja.
+ * Até 13/11/2026 este cliente só lia. Nesse dia o dono do projeto decidiu que o
+ * painel passa a mexer na loja (produto, estoque, pedido, envio), e o cliente
+ * ganhou `pedir`, que também escreve.
+ *
+ * QUEM ESCREVE NÃO É QUALQUER ARQUIVO. Toda alteração na loja passa por
+ * `lib/loja/alterar.ts`, que confere o acesso, lê o estado antes, grava, lê de
+ * novo e registra em `loja_alteracoes`. Chamar `pedir` com PUT ou POST de
+ * outro lugar é pular o registro e a conferência.
  *
  * Credenciais ficam só no servidor, sem prefixo NEXT_PUBLIC_:
  *   TRAY_API_URL, TRAY_CONSUMER_KEY, TRAY_CONSUMER_SECRET, TRAY_CODE
@@ -218,6 +224,38 @@ export class TrayCliente {
     const resp = await fetch(url.toString(), { cache: "no-store" });
     if (!resp.ok) throw new Error(`Tray respondeu ${resp.status} em ${caminho}.`);
     return (await resp.json()) as T;
+  }
+
+  /**
+   * Uma chamada qualquer à API, sem lançar quando a Tray recusa: quem chama
+   * precisa do status e do motivo para contar à pessoa o que aconteceu. As
+   * causas de um 400 vêm em `causes`.
+   */
+  async pedir(
+    metodo: "GET" | "PUT" | "POST",
+    caminho: string,
+    corpo?: Record<string, unknown>,
+  ): Promise<{ status: number; corpo: Record<string, unknown> | null; causas: string[] }> {
+    const token = await this.autenticar();
+    const url = new URL(`${this.baseUrl}${caminho}`);
+    url.searchParams.set("access_token", token);
+    const resp = await fetch(url.toString(), {
+      method: metodo,
+      headers: corpo ? { "Content-Type": "application/json" } : undefined,
+      body: corpo ? JSON.stringify(corpo) : undefined,
+      cache: "no-store",
+    });
+    const json = (await resp.json().catch(() => null)) as Record<string, unknown> | null;
+    const causas = Array.isArray(json?.causes) ? (json.causes as unknown[]).map((c) => String(c)) : [];
+    return { status: resp.status, corpo: json, causas };
+  }
+
+  /** O produto como a loja tem agora. `null` quando não existe. */
+  async produto(id: string | number): Promise<Record<string, unknown> | null> {
+    const r = await this.pedir("GET", `/products/${id}`);
+    if (r.status === 404) return null;
+    if (r.status !== 200) throw new Error(`Tray respondeu ${r.status} em /products/${id}.`);
+    return (r.corpo?.Product as Record<string, unknown> | undefined) ?? null;
   }
 
   /** Percorre todas as páginas de um recurso. */

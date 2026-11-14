@@ -30,6 +30,7 @@ import { voltaParaEmpatar } from "../src/lib/painel/premissas.ts";
 import { compararComOBanco, pedidoDaApi, ultimaAlteracao } from "../src/lib/vendas/tray-api.ts";
 import { ehRobo, lerChegada, pedidoValido, repeteAAnterior, sessaoValida } from "../src/lib/origem/chegada.ts";
 import { itensQueVenderam, passosDoColetor, vendasPorItem, type Cobertura, type SaudeDoColetor } from "../src/lib/origem/anotado.ts";
+import { diaOuNulo, lerEstado, naoPegaram, prepararEdicao } from "../src/lib/loja/produto.ts";
 
 let falhas = 0;
 function confere(nome: string, ok: boolean, detalhe = "") {
@@ -686,6 +687,54 @@ console.log("\nVenda da loja por anúncio");
   const tudo = passosDoColetor({ ...saudeVazia, chegadas_7d: 900, visitantes_7d: 700, sessoes_7d: 650, com_codigo_de_anuncio_7d: 120 }, { ...cobertura, com_sessao: 18, ligados: 11 });
   confere("tudo ligado: os quatro passos feitos", tudo.every((p) => p.feito));
   confere("nenhuma frase dos passos com travessão", [...semNada, ...soPortal, ...naLoja, ...visto, ...tudo].every((p) => !/[—–]/.test(p.titulo + p.texto)));
+}
+
+console.log("\nEditar produto da loja pelo painel");
+{
+  // O formato é o de GET /products/:id na loja de testes, lido em 13/11/2026.
+  const cru = { id: "93525", name: "Par de alianças de teste", price: "1499.90", promotional_price: "0.00", start_promotion: "0000-00-00", end_promotion: "0000-00-00", stock: "8", available: "1" };
+  const atual = lerEstado(cru)!;
+  confere("lê o produto da Tray no formato do painel", atual.preco === 1499.9 && atual.promocional === null && atual.promocaoDe === null && atual.estoque === 8 && atual.disponivel);
+  confere("produto sem preço ou sem nome não é lido", lerEstado({ ...cru, price: "" }) === null && lerEstado({ ...cru, name: " " }) === null && lerEstado(null) === null);
+  confere("data zerada e data impossível viram nulo", diaOuNulo("0000-00-00") === null && diaOuNulo("2026-02-30") === null && diaOuNulo("2026-11-27") === "2026-11-27");
+
+  const semMudar = prepararEdicao(atual, { nome: atual.nome, estoque: 8 }, { podePreco: false });
+  confere("o que não muda não vai para a Tray", semMudar.ok && semMudar.mudancas.length === 0 && Object.keys(semMudar.corpo).length === 0);
+
+  const estoque = prepararEdicao(atual, { estoque: 3, nome: "  Par de alianças   de teste 4 mm " }, { podePreco: false });
+  confere("gerente muda nome e estoque", estoque.ok && estoque.corpo.stock === 3 && estoque.corpo.name === "Par de alianças de teste 4 mm" && estoque.mudancas.length === 2);
+  confere("gerente não muda preço", !prepararEdicao(atual, { preco: 1399.9 }, { podePreco: false }).ok);
+  confere("gerente não cria promoção", !prepararEdicao(atual, { promocional: 999, promocaoDe: "2026-11-20", promocaoAte: "2026-11-30" }, { podePreco: false }).ok);
+
+  const preco = prepararEdicao(atual, { preco: "1399,90" as unknown as number }, { podePreco: true });
+  confere("administrador muda preço, com vírgula e duas casas", preco.ok && preco.corpo.price === "1399.90" && preco.mudancas[0].antes.includes("1.499,90") && preco.avisos.length === 0);
+  const zeroAMais = prepararEdicao(atual, { preco: 14999 }, { podePreco: true });
+  confere("mudança grande de preço vem com aviso", zeroAMais.ok && zeroAMais.avisos.some((a) => a.includes("sobe") && a.includes("zero")));
+  confere("preço zero ou negativo é recusado", !prepararEdicao(atual, { preco: 0 }, { podePreco: true }).ok && !prepararEdicao(atual, { preco: -5 }, { podePreco: true }).ok);
+
+  const promo = prepararEdicao(atual, { promocional: 1049.93, promocaoDe: "2026-11-20", promocaoAte: "2026-11-30" }, { podePreco: true });
+  confere("promoção com as duas datas", promo.ok && promo.corpo.promotional_price === "1049.93" && promo.corpo.start_promotion === "2026-11-20" && promo.mudancas.length === 3);
+  confere("promoção sem data é recusada", !prepararEdicao(atual, { promocional: 999 }, { podePreco: true }).ok);
+  confere("promoção maior ou igual ao preço é recusada", !prepararEdicao(atual, { promocional: 1499.9, promocaoDe: "2026-11-20", promocaoAte: "2026-11-30" }, { podePreco: true }).ok);
+  confere("promoção que termina antes de começar é recusada", !prepararEdicao(atual, { promocional: 999, promocaoDe: "2026-11-30", promocaoAte: "2026-11-20" }, { podePreco: true }).ok);
+  const metade = prepararEdicao(atual, { promocional: 700, promocaoDe: "2026-11-20", promocaoAte: "2026-11-30" }, { podePreco: true });
+  confere("desconto de metade ou mais vem com aviso", metade.ok && metade.avisos.some((a) => a.includes("53%")));
+
+  const comPromo = lerEstado({ ...cru, promotional_price: "999.00", start_promotion: "2026-11-01", end_promotion: "2026-11-30" })!;
+  const tirar = prepararEdicao(comPromo, { promocional: null }, { podePreco: true });
+  confere("tirar a promoção leva as datas junto", tirar.ok && tirar.final.promocaoDe === null && tirar.corpo.promotional_price === "0.00" && tirar.corpo.start_promotion === "" && tirar.mudancas.length === 3);
+  confere("baixar o preço abaixo da promoção é recusado", !prepararEdicao(comPromo, { preco: 900 }, { podePreco: true }).ok);
+
+  const sair = prepararEdicao(atual, { disponivel: false }, { podePreco: false });
+  confere("tirar da venda avisa que sai da vitrine", sair.ok && sair.corpo.available === 0 && sair.avisos.some((a) => a.includes("vitrine")));
+  const zerado = prepararEdicao(atual, { estoque: 0 }, { podePreco: false });
+  confere("disponível com estoque zero vem com aviso", zerado.ok && zerado.avisos.some((a) => a.includes("estoque zero")));
+  confere("estoque quebrado ou negativo é recusado", !prepararEdicao(atual, { estoque: 2.5 }, { podePreco: false }).ok && !prepararEdicao(atual, { estoque: -1 }, { podePreco: false }).ok);
+  confere("nome curto demais é recusado", !prepararEdicao(atual, { nome: "ab" }, { podePreco: false }).ok);
+
+  confere("confere o que a Tray gravou de verdade", preco.ok && naoPegaram(preco.final, { ...preco.final, preco: 1499.9 }, ["preco"]).join() === "preco" && naoPegaram(preco.final, preco.final, ["preco"]).length === 0);
+  const frases = [estoque, preco, zeroAMais, promo, metade, tirar, sair, zerado].flatMap((r) => (r.ok ? [...r.avisos, ...r.mudancas.map((m) => m.antes + m.depois)] : [r.erro]));
+  confere("nenhuma frase com travessão", frases.every((f) => !/[—–]/.test(f)));
 }
 
 console.log("\nTudo certo.");

@@ -42,9 +42,12 @@ export function Catalogo({
   itens,
   padroes,
   margens = null,
+  loja = null,
 }: {
   itens: ItemDoCatalogo[];
   padroes: Padroes;
+  /** Quem pode alterar a loja pelo painel. Nulo: a edição nem aparece na gaveta. */
+  loja?: { podePreco: boolean } | null;
   /** Só para administrador. Nulo: a coluna e o filtro de margem nem aparecem. */
   margens?: Record<string, MargemNaLista> | null;
 }) {
@@ -334,6 +337,7 @@ export function Catalogo({
           onAndar={andar}
           onEstado={(e) => setAjustes((a) => ({ ...a, [atual.id]: e }))}
           margem={margens ? (margens[atual.id] ?? null) : undefined}
+          loja={loja}
         />
       ) : null}
     </>
