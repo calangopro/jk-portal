@@ -8,11 +8,14 @@ import { Moldura } from "./Moldura";
  * login, que precisa ser acessível sem sessão. O desenho mora em `Moldura.tsx`.
  */
 export default async function PainelLayout({ children }: { children: React.ReactNode }) {
-  const profile = await requireSessao();
-
-  // Aviso na navegação quando há comentário esperando revisão.
+  // As duas leituras saem juntas: uma não precisa esperar a outra. Sem sessão,
+  // `requireSessao` manda ao login e a contagem volta vazia, sem expor nada.
   const supabase = await createClient();
-  const { count } = await supabase.from("comments").select("*", { count: "exact", head: true }).eq("status", "pending");
+  const [profile, { count }] = await Promise.all([
+    requireSessao(),
+    // Aviso na navegação quando há comentário esperando revisão.
+    supabase.from("comments").select("*", { count: "exact", head: true }).eq("status", "pending"),
+  ]);
 
   return (
     <Moldura
