@@ -25,12 +25,14 @@ export const JANELAS = [15, 30, 60];
 const ICONE_DA_ETAPA: Record<Etapa, LucideIcon> = { a_produzir: PackageOpen, em_producao: Hammer, pronto: PackageCheck, enviado: Truck };
 
 export function TelaDaFabrica({
-  fila, etapa, dias, hoje, mover, moverVarios,
+  fila, etapa, dias, hoje, buscaInicial = "", mover, moverVarios,
 }: {
   fila: FilaDaFabrica | null;
   etapa: Etapa;
   dias: number;
   hoje: string;
+  /** O número de pedido que já vem digitado na busca (quem chega de um pedido marcado no chat). */
+  buscaInicial?: string;
   mover: Mover;
   moverVarios: MoverVarios;
 }) {
@@ -102,7 +104,7 @@ export function TelaDaFabrica({
             </nav>
           </div>
 
-          <ListaDaFabrica pedidos={pedidos} etapa={etapa} hoje={hoje} mover={mover} moverVarios={moverVarios} />
+          <ListaDaFabrica pedidos={pedidos} etapa={etapa} hoje={hoje} buscaInicial={buscaInicial} mover={mover} moverVarios={moverVarios} />
 
           <p className="mt-5 max-w-3xl text-[0.7rem] leading-relaxed text-muted">
             A fila mostra os pedidos pagos nos últimos {dias} dias, e pedido que a fábrica já pegou continua nela mesmo

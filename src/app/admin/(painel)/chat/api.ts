@@ -4,7 +4,8 @@ import { createClient } from "@/lib/supabase/client";
 import type { RascunhoDeResposta } from "@/lib/time/biblioteca";
 import { avisarOTime } from "@/lib/time/ao-vivo";
 import {
-  caminhoDaImagem, lerAbertura, lerLidas, lerMensagem, lerMensagens, type Abertura, type Lidas, type Mensagem, type Sala,
+  caminhoDaImagem, lerAbertura, lerLidas, lerMensagem, lerMensagens, lerPedidosAchados, lerPreviaDoPedido,
+  type Abertura, type Lidas, type Mensagem, type PedidoAchado, type PreviaDoPedido, type Sala,
 } from "@/lib/time/chat";
 import { assinarImagens, guardarNaBiblioteca } from "./actions";
 
@@ -46,6 +47,10 @@ export type ApiDoChat = {
   guardarNaBiblioteca: (mensagem: number, r: RascunhoDeResposta) => Promise<Feito<{ id: string }>>;
   /** Avisa o time, pelo canal ao vivo, de que há novidade na sala. */
   avisar: (sala: Sala) => void;
+  /** A busca do "/pedido": pelo número, ou pelo nome do cliente para quem pode ver cliente. */
+  buscarPedidos: (busca: string) => Promise<PedidoAchado[]>;
+  /** A prévia de um pedido marcado, montada pelo banco para quem está olhando. */
+  previaDoPedido: (numero: number) => Promise<PreviaDoPedido | null>;
 };
 
 const BUCKET = "chamados";
@@ -153,4 +158,14 @@ export const apiDoChat: ApiDoChat = {
   },
 
   avisar: avisarOTime,
+
+  async buscarPedidos(busca) {
+    const r = await chamar("chat_buscar_pedidos", { p_busca: busca });
+    return r.error ? [] : lerPedidosAchados(r.data);
+  },
+
+  async previaDoPedido(numero) {
+    const r = await chamar("chat_previa_do_pedido", { p_numero: numero });
+    return r.error ? null : lerPreviaDoPedido(r.data);
+  },
 };
