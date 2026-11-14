@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowRight, Check, Loader2, Store, TriangleAlert } from "lucide-react";
 import type { Previa, Resultado } from "@/lib/loja/alterar";
@@ -16,6 +16,11 @@ import type { Edicao, EstadoNaLoja } from "@/lib/loja/produto";
  *      avisos (preço que muda demais, produto que sai da vitrine);
  *   3. gravar: só então a alteração vai para a loja. Editar e gravar no mesmo
  *      clique é como erro de digitação vira preço errado no ar.
+ *
+ * Com `abrirSozinho` (a aba Dados da gaveta), o primeiro passo acontece sem
+ * clique: a pessoa abriu o produto para ver os dados, então o painel já lê.
+ * Espera um instante antes, para quem está passando de produto em produto com
+ * J e K não disparar uma leitura na Tray a cada tecla.
  *
  * As três ações vêm de fora, como propriedade, para a tela poder ser vista e
  * testada sem sessão.
@@ -40,21 +45,38 @@ const paraForm = (e: EstadoNaLoja): Form => ({
   nome: e.nome, preco: emTexto(e.preco), promocional: emTexto(e.promocional), de: e.promocaoDe ?? "", ate: e.promocaoAte ?? "", estoque: String(e.estoque), disponivel: e.disponivel,
 });
 
-export function EditarNaLoja({ trayId, podePreco, acoes }: { trayId: string; podePreco: boolean; acoes: Acoes }) {
+export function EditarNaLoja({ trayId, podePreco, acoes, abrirSozinho = false }: { trayId: string; podePreco: boolean; acoes: Acoes; abrirSozinho?: boolean }) {
   const router = useRouter();
   const [form, setForm] = useState<Form | null>(null);
   const [previa, setPrevia] = useState<Extract<Previa, { estado: "previa" }> | null>(null);
   const [aviso, setAviso] = useState<{ ok: boolean; texto: string } | null>(null);
+  // A loja ainda não foi autorizada: não é erro de quem está usando, então
+  // ganha uma explicação própria em vez de uma linha vermelha.
+  const [desligada, setDesligada] = useState(false);
   const [ocupado, comecar] = useTransition();
 
   const abrir = () =>
     comecar(async () => {
       setAviso(null);
       const r = await acoes.ler(trayId);
-      if (r.estado === "ok") setForm(paraForm(r.atual));
-      else if (r.estado === "nao_autorizada") setAviso({ ok: false, texto: "A loja ainda não está ligada ao painel para alterações. Isso se faz em Integrações, no cartão da Tray, depois de a Tray homologar o aplicativo." });
+      if (r.estado === "ok") {
+        setDesligada(false);
+        setForm(paraForm(r.atual));
+      } else if (r.estado === "nao_autorizada") setDesligada(true);
       else setAviso({ ok: false, texto: "A Tray não achou este produto. Ele pode ter sido apagado na loja." });
     });
+
+  const jaAbriu = useRef(false);
+  useEffect(() => {
+    if (!abrirSozinho || jaAbriu.current) return;
+    const espera = setTimeout(() => {
+      jaAbriu.current = true;
+      abrir();
+    }, 400);
+    return () => clearTimeout(espera);
+    // Só na chegada: `abrir` muda a cada desenho e não deve disparar de novo.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [abrirSozinho, trayId]);
 
   /** Manda tudo: o servidor compara com a loja e só leva o que mudou. Sem acesso a preço, os campos de preço nem vão. */
   const edicao = (f: Form): Edicao => ({
@@ -99,19 +121,40 @@ export function EditarNaLoja({ trayId, podePreco, acoes }: { trayId: string; pod
   };
 
   return (
-    <section className="mt-6 border-t border-border/60 pt-5" aria-label="Editar na loja">
+    <section className="mt-5" aria-label="Editar na loja">
       <p className="eyebrow flex items-center gap-1.5"><Store size={14} aria-hidden /> Editar na loja</p>
 
-      {form === null ? (
+      {desligada ? (
+        <div className="mt-3 rounded-[12px] bg-[#fcefd9] p-3.5 text-[#6d3505]">
+          <p className="flex items-start gap-2 text-sm font-semibold">
+            <TriangleAlert size={15} className="mt-0.5 shrink-0" aria-hidden /> Ainda não dá para editar por aqui
+          </p>
+          <p className="mt-1.5 text-xs leading-relaxed">
+            Falta a Tray liberar o aplicativo do painel e a loja ser autorizada em Integrações, no cartão da Tray. Até lá,
+            nome, preço e estoque continuam sendo mudados no painel da própria Tray. Quando a loja for ligada, este
+            espaço vira o formulário de edição, sem mais nada a fazer.
+          </p>
+          <button type="button" onClick={abrir} disabled={ocupado} className="mt-3 inline-flex items-center gap-2 rounded-full border border-[#9a4a07]/30 bg-white px-3.5 py-1.5 text-xs font-semibold text-[#6d3505] disabled:opacity-60">
+            {ocupado ? <Loader2 size={13} className="animate-spin" aria-hidden /> : null}
+            {ocupado ? "Conferindo…" : "Conferir de novo"}
+          </button>
+        </div>
+      ) : form === null ? (
         <>
           <p className="mt-2 text-xs leading-relaxed text-muted">
             Muda o produto direto na Tray. O painel lê o produto na loja antes, mostra o antes e depois, e só grava quando
             você confirmar.
           </p>
-          <button type="button" onClick={abrir} disabled={ocupado} className="mt-3 inline-flex items-center gap-2 rounded-full border border-border bg-white px-4 py-2 text-xs font-semibold text-ink transition-colors hover:border-brand/50 disabled:opacity-60">
-            {ocupado ? <Loader2 size={13} className="animate-spin" aria-hidden /> : null}
-            {ocupado ? "Lendo na loja…" : "Abrir para editar"}
-          </button>
+          {abrirSozinho && !aviso ? (
+            <p className="mt-3 inline-flex items-center gap-2 text-xs text-muted">
+              <Loader2 size={13} className="animate-spin" aria-hidden /> Lendo o produto na loja…
+            </p>
+          ) : (
+            <button type="button" onClick={abrir} disabled={ocupado} className="mt-3 inline-flex items-center gap-2 rounded-full border border-border bg-white px-4 py-2 text-xs font-semibold text-ink transition-colors hover:border-brand/50 disabled:opacity-60">
+              {ocupado ? <Loader2 size={13} className="animate-spin" aria-hidden /> : null}
+              {ocupado ? "Lendo na loja…" : "Abrir para editar"}
+            </button>
+          )}
         </>
       ) : (
         <div className="mt-3 space-y-3">
