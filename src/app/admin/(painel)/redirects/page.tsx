@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requireStaff } from "@/lib/auth/session";
+import { requireArea } from "@/lib/auth/session";
 import {
   aceitarSugestao,
   enderecosQuebrados,
@@ -35,7 +35,7 @@ const botao =
  * então link antigo em impresso e link colado no WhatsApp nunca apareciam.
  */
 export default async function RedirectsPage() {
-  await requireStaff();
+  await requireArea("site");
   const [quebrados, redirects] = await Promise.all([enderecosQuebrados(), listarRedirects()]);
 
   return (

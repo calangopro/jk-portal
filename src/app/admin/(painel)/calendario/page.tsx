@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requireStaff } from "@/lib/auth/session";
+import { requireArea } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { FUSO, atrasado, quandoLegivel } from "@/lib/content/agenda";
 import { STATUS_DA_PAUTA_LABEL, type StatusDaPauta } from "@/lib/content/pautas";
@@ -47,7 +47,7 @@ export default async function CalendarioPage({
 }: {
   searchParams: Promise<{ mes?: string }>;
 }) {
-  await requireStaff();
+  await requireArea("conteudo");
   const { mes } = await searchParams;
 
   const hoje = new Date();

@@ -1,5 +1,5 @@
 import { ehAdmin } from "@/lib/auth/acessos";
-import { requireStaff } from "@/lib/auth/session";
+import { requireArea } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { trayConfigurada } from "@/lib/tray/cliente";
 import { listarCatalogo, lerPadroes } from "@/lib/catalogo/fotos";
@@ -39,7 +39,7 @@ function quando(iso: string | null) {
  * navegador, para buscar e trocar de filtro sem esperar o servidor.
  */
 export default async function ProdutosPage() {
-  const perfil = await requireStaff();
+  const perfil = await requireArea("catalogo");
   const supabase = await createClient();
 
   // Custo é da empresa: só quem administra recebe a margem no navegador. Os

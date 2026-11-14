@@ -1,7 +1,7 @@
 import { Fragment } from "react";
 import Link from "next/link";
 import { Link2 as LinkIcon } from "lucide-react";
-import { requireStaff } from "@/lib/auth/session";
+import { requireArea } from "@/lib/auth/session";
 import { listarConteudos, paginasOrfas, STATUS_LABEL, type ContentRow } from "@/lib/data/admin-contents";
 import { atrasado, quandoLegivel } from "@/lib/content/agenda";
 import { duplicarConteudo, mudarStatus, apagarDefinitivo } from "./actions";
@@ -30,7 +30,7 @@ export default async function ConteudosPage({
 }: {
   searchParams: Promise<{ erro?: string }>;
 }) {
-  const perfil = await requireStaff();
+  const perfil = await requireArea("conteudo");
   const { erro } = await searchParams;
   const [itens, orfas] = await Promise.all([listarConteudos(), paginasOrfas()]);
 

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Check, X, Ban, Trash2, MessageCircle, CornerDownRight } from "lucide-react";
-import { requireStaff } from "@/lib/auth/session";
+import { requireArea } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { moderar, apagarComentario, aprovarTodos, apagarResposta } from "./actions";
 import { CaixaDeResposta } from "./CaixaDeResposta";
@@ -53,7 +53,7 @@ export default async function ComentariosPage({
 }: {
   searchParams: Promise<{ status?: string }>;
 }) {
-  const perfil = await requireStaff();
+  const perfil = await requireArea("conteudo");
   const filtro = (await searchParams).status ?? "pending";
   const supabase = await createClient();
 

@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { requireStaff } from "@/lib/auth/session";
+import { requireArea } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { Form, type LojaDados } from "./Form";
 import { Galeria } from "./Galeria";
@@ -12,7 +12,7 @@ export default async function EditarLojaPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  await requireStaff();
+  await requireArea("catalogo");
   const supabase = await createClient();
 
   const { data } = await supabase

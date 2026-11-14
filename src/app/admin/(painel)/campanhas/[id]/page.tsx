@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { requireStaff } from "@/lib/auth/session";
+import { requireArea } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { avaliarItens, lerCampanha } from "@/lib/campanhas/dados";
@@ -16,7 +16,7 @@ export const metadata = { title: "Campanha" };
  */
 export default async function CampanhaPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const perfil = await requireStaff();
+  const perfil = await requireArea("campanhas");
   const admin = ehAdmin(perfil.role);
   const db = await createClient();
 
