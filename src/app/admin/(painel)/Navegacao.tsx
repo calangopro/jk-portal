@@ -77,20 +77,29 @@ function Contador({ n }: { n: number }) {
   );
 }
 
-/** Comentário esperando moderação aparece no item e no setor que o guarda. */
-const pendentesDoItem = (item: ItemDoSetor, pendentes: number) => (item.href === "/admin/comentarios" ? pendentes : 0);
-const pendentesDoSetor = (setor: Setor, pendentes: number) =>
-  setor.itens.some((i) => i.href === "/admin/comentarios") ? pendentes : 0;
+/**
+ * O que espera a pessoa em cada tela, pelo endereço da tela: hoje, os chamados
+ * (`/admin/chamados`). Tela nova que queira o número no menu entra aqui, sem
+ * mexer nas quatro peças de navegação.
+ */
+export type Avisos = Record<string, number>;
+
+/** Comentário esperando moderação e os avisos por tela aparecem no item e no setor que o guarda. */
+const pendentesDoItem = (item: ItemDoSetor, pendentes: number, avisos?: Avisos) =>
+  (item.href === "/admin/comentarios" ? pendentes : 0) + (avisos?.[item.href] ?? 0);
+const pendentesDoSetor = (setor: Setor, pendentes: number, avisos?: Avisos) =>
+  setor.itens.reduce((n, i) => n + pendentesDoItem(i, pendentes, avisos), 0);
 
 // ---------------------------------------------------------------- computador
 
 export function Lateral({
-  setores, atual, item, pendentes,
+  setores, atual, item, pendentes, avisos,
 }: {
   setores: Setor[];
   atual: Setor | null;
   item: ItemDoSetor | null;
   pendentes: number;
+  avisos?: Avisos;
 }) {
   return (
     <nav aria-label="Setores" className="space-y-1">
@@ -112,7 +121,7 @@ export function Lateral({
                 </span>
                 <span className="mt-0.5 block truncate text-[0.7rem] leading-tight text-muted">{s.frase}</span>
               </span>
-              {!aberto ? <Contador n={pendentesDoSetor(s, pendentes)} /> : null}
+              {!aberto || s.itens.length === 1 ? <Contador n={pendentesDoSetor(s, pendentes, avisos)} /> : null}
             </LinkRapido>
 
             {aberto && s.itens.length > 1 ? (
@@ -131,7 +140,7 @@ export function Lateral({
                       >
                         <IconeDoLink Icone={i.Icone} size={15} className="shrink-0" />
                         <span className="min-w-0 flex-1 truncate">{i.label}</span>
-                        <Contador n={pendentesDoItem(i, pendentes)} />
+                        <Contador n={pendentesDoItem(i, pendentes, avisos)} />
                       </LinkRapido>
                     </li>
                   );
@@ -152,7 +161,7 @@ export function Lateral({
  * A aba aberta é trazida para o meio da fila, senão quem entra direto na
  * última tela do setor não vê em que aba está.
  */
-export function AbasDoSetor({ setor, item, pendentes }: { setor: Setor; item: ItemDoSetor | null; pendentes: number }) {
+export function AbasDoSetor({ setor, item, pendentes, avisos }: { setor: Setor; item: ItemDoSetor | null; pendentes: number; avisos?: Avisos }) {
   const fila = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const ativa = fila.current?.querySelector<HTMLElement>('[aria-current="page"]');
@@ -178,7 +187,7 @@ export function AbasDoSetor({ setor, item, pendentes }: { setor: Setor; item: It
           >
             <IconeDoLink Icone={i.Icone} size={14} />
             {i.curto ?? i.label}
-            <Contador n={pendentesDoItem(i, pendentes)} />
+            <Contador n={pendentesDoItem(i, pendentes, avisos)} />
           </LinkRapido>
         );
       })}
@@ -194,12 +203,13 @@ export function AbasDoSetor({ setor, item, pendentes }: { setor: Setor; item: It
  * `backdrop-filter` um `fixed` se ancora no pai, não na janela.
  */
 export function BarraDeBaixo({
-  setores, atual, item, pendentes, maisAberto, onMais,
+  setores, atual, item, pendentes, avisos, maisAberto, onMais,
 }: {
   setores: Setor[];
   atual: Setor | null;
   item: ItemDoSetor | null;
   pendentes: number;
+  avisos?: Avisos;
   maisAberto: boolean;
   onMais: () => void;
 }) {
@@ -208,7 +218,14 @@ export function BarraDeBaixo({
   const algumaAtiva = abas.some((a) => (porSetor ? a.setor === atual?.id : a.href === item?.href));
   // O que ficou de fora da barra mora no "Mais": o aviso de comentário vai junto.
   const foraDaBarra = setores.filter((s) => !abas.some((a) => a.setor === s.id));
-  const pendentesNoMais = foraDaBarra.reduce((n, s) => n + pendentesDoSetor(s, pendentes), 0);
+  const pendentesNoMais = foraDaBarra.reduce((n, s) => n + pendentesDoSetor(s, pendentes, avisos), 0);
+  // O número em cima de cada aba: o do setor inteiro quando a barra é por setor, o da tela quando é por tela.
+  const avisoDaAba = (a: (typeof abas)[number]): number => {
+    if (!avisos) return 0;
+    if (!porSetor) return avisos[a.href] ?? 0;
+    const setor = setores.find((s) => s.id === a.setor);
+    return setor ? setor.itens.reduce((n, i) => n + (avisos[i.href] ?? 0), 0) : 0;
+  };
 
   return (
     <nav aria-label="Setores" className="painel-barra fixed inset-x-0 bottom-0 z-40 lg:hidden">
@@ -222,8 +239,14 @@ export function BarraDeBaixo({
                 aria-current={ativa ? "page" : undefined}
                 className={`painel-toque flex h-[3.6rem] flex-col items-center justify-center gap-0.5 ${ativa ? "painel-tab-ativa" : "text-ink/60"}`}
               >
-                <span className="painel-tab-pilula grid h-7 w-14 place-items-center rounded-full">
+                <span className="painel-tab-pilula relative grid h-7 w-14 place-items-center rounded-full">
                   <IconeDoLink Icone={a.Icone} size={21} />
+                  {avisoDaAba(a) > 0 ? (
+                    <span className="numeros absolute -top-1 right-1.5 min-w-[1.05rem] rounded-full bg-wine px-1 py-0.5 text-center text-[0.6rem] font-bold leading-none text-white">
+                      {avisoDaAba(a) > 99 ? "99+" : avisoDaAba(a)}
+                      <span className="sr-only"> aguardando</span>
+                    </span>
+                  ) : null}
                 </span>
                 <span className={`max-w-full truncate px-1 text-[0.68rem] leading-none ${ativa ? "font-bold" : "font-medium"}`}>{a.label}</span>
               </LinkRapido>
@@ -260,7 +283,7 @@ export function BarraDeBaixo({
  * página, e enquanto está aberta a página de trás não rola.
  */
 export function FolhaMais({
-  aberta, onFechar, setores, atual, item, pendentes, nome, papel, sair,
+  aberta, onFechar, setores, atual, item, pendentes, avisos, nome, papel, sair,
 }: {
   aberta: boolean;
   onFechar: () => void;
@@ -268,6 +291,7 @@ export function FolhaMais({
   atual: Setor | null;
   item: ItemDoSetor | null;
   pendentes: number;
+  avisos?: Avisos;
   nome: string;
   papel: string;
   sair: () => Promise<void>;
@@ -330,7 +354,7 @@ export function FolhaMais({
                   <s.Icone size={14} aria-hidden="true" />
                 </span>
                 <h2 className="text-sm font-bold text-ink">{nomeDoSetor(s)}</h2>
-                <Contador n={pendentesDoSetor(s, pendentes)} />
+                <Contador n={pendentesDoSetor(s, pendentes, avisos)} />
               </div>
               <ul className="mt-2 grid grid-cols-2 gap-2">
                 {s.itens.map((i) => {
@@ -349,7 +373,7 @@ export function FolhaMais({
                           <IconeDoLink Icone={i.Icone} size={17} />
                         </span>
                         <span className="min-w-0 flex-1 text-[0.82rem] font-semibold leading-tight text-ink">{i.label}</span>
-                        <Contador n={pendentesDoItem(i, pendentes)} />
+                        <Contador n={pendentesDoItem(i, pendentes, avisos)} />
                       </LinkRapido>
                     </li>
                   );

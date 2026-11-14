@@ -41,7 +41,9 @@ export type Area =
   /** Alterar a loja na Tray pelo painel (0065). Preço fica mais fechado ainda: ver `lib/loja/produto.ts`. */
   | "loja"
   /** A consulta de quem atende cliente ou despacha peça: produto, pronta entrega e prazo (0073). */
-  | "consulta";
+  | "consulta"
+  /** O setor Time, de todos os níveis: a Biblioteca JK e os chamados entre setores (0071 e 0072). */
+  | "time";
 
 /** Na ordem em que aparecem para quem convida: da empresa para o editorial. */
 export const NIVEIS: { papel: AppRole; nome: string; resumo: string }[] = [

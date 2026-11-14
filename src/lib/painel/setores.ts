@@ -1,7 +1,8 @@
 import type { LucideIcon } from "lucide-react";
 import {
-  Activity, Banknote, BellRing, BookCheck, Bot, CalendarDays, Contact, Crosshair, FileText, Filter, Globe, Hammer, HandCoins, HeartPulse,
-  History, ImageIcon, LayoutDashboard, LayoutTemplate, ListChecks, MapPin, MessageCircle, Milestone, Package, PackageSearch, Palette, PenLine,
+  Activity, Banknote, BellRing, BookCheck, Bot, CalendarDays, Contact, Crosshair, FileText, Filter, Globe, Hammer, HandCoins, Handshake,
+  HeartPulse, History, ImageIcon, LayoutDashboard, LayoutTemplate, LibraryBig, ListChecks, MapPin, MessageCircle, MessagesSquare, Milestone,
+  Package, PackageSearch, Palette, PenLine,
   Percent, Plug, QrCode, RotateCcw, Settings, Smartphone, Star, Store, Table2, Tags, TrendingUp, Trophy, Users,
   UsersRound, Wallet,
 } from "lucide-react";
@@ -11,7 +12,7 @@ import type { Area } from "@/lib/auth/acessos";
  * Os setores do painel: o escritório da JK, sala por sala.
  *
  * O menu antigo era uma lista de vinte e nove telas em cinco grupos, e a pessoa
- * precisava ler tudo para achar o que queria. Agora são oito salas, cada uma
+ * precisava ler tudo para achar o que queria. Agora são nove salas, cada uma
  * com a sua cor, e dentro de cada sala ficam as telas dela. Este arquivo é a
  * ÚNICA lista: dele saem a barra lateral do computador, a barra de baixo do
  * celular, as abas de cada setor e a folha "Mais". Tela nova entra aqui e
@@ -39,7 +40,7 @@ export type ItemDoSetor = {
   desc: string;
 };
 
-export type SetorId = "diretoria" | "vendas" | "trafego" | "loja" | "fabrica" | "conteudo" | "site" | "sistema";
+export type SetorId = "diretoria" | "vendas" | "time" | "trafego" | "loja" | "fabrica" | "conteudo" | "site" | "sistema";
 
 export type Setor = {
   id: SetorId;
@@ -80,6 +81,20 @@ export const SETORES: Setor[] = [
       { href: "/admin/clientes", area: "lancar_venda", label: "Clientes", Icone: Contact, desc: "A ficha de cada cliente" },
       { href: "/admin/vendedores", area: "vendas", label: "Vendedores", Icone: Trophy, desc: "Quanto cada um vendeu" },
       { href: "/admin/recuperacao", area: "recuperacao", label: "Recuperação", curto: "Recuperar", Icone: RotateCcw, desc: "Quem não pagou o pedido" },
+    ],
+  },
+  // O Time é a única sala que TODO nível tem. Fica em terceiro para caber na
+  // barra de baixo do celular de qualquer pessoa: é onde chega o aviso de
+  // chamado, e aviso escondido no "Mais" ninguém vê.
+  {
+    id: "time",
+    nome: "Time",
+    frase: "Respostas da casa e pedidos entre setores",
+    cor: "#8a3aa0",
+    Icone: Handshake,
+    itens: [
+      { href: "/admin/biblioteca", area: "time", label: "Biblioteca JK", curto: "Biblioteca", Icone: LibraryBig, desc: "As respostas da casa, prontas para colar" },
+      { href: "/admin/chamados", area: "time", label: "Chamados", Icone: MessagesSquare, desc: "Pedir uma coisa a outro setor" },
     ],
   },
   {
@@ -217,8 +232,9 @@ export type AbaDaBarra = { href: string; label: string; Icone: LucideIcon; cor: 
  *
  * Quem tem três setores ou mais navega por SETOR: cada aba abre a primeira tela
  * daquele setor, e as outras telas ficam nas abas de cima. Quem tem um ou dois
- * (um vendedor: registrar, recuperar, consultar produto) navega direto pelas
- * TELAS, porque para essa pessoa um nível a mais de menu só atrapalha.
+ * (um autor: início e conteúdo) navega direto pelas TELAS, porque para essa
+ * pessoa um nível a mais de menu só atrapalha. Desde que o Time existe, o
+ * vendedor tem três salas (início, vendas e time) e navega por setor.
  */
 export function abasDaBarra(setores: Setor[]): AbaDaBarra[] {
   if (setores.length >= 3) {
