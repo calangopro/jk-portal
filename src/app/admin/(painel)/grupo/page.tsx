@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Download, RotateCw } from "lucide-react";
-import { requireStaff } from "@/lib/auth/session";
+import { requireArea } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { lerBio } from "@/lib/bio/ler";
@@ -57,7 +57,7 @@ function trintaDiasAtras(): string {
 }
 
 export default async function GrupoPage({ searchParams }: { searchParams: Promise<{ filtro?: string }> }) {
-  const perfil = await requireStaff();
+  const perfil = await requireArea("site");
   const { filtro: bruto } = await searchParams;
   const filtro: Filtro = bruto && bruto in FILTROS ? (bruto as Filtro) : "todos";
 

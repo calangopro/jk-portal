@@ -34,7 +34,8 @@ import { itensQueVenderam, passosDoColetor, vendasPorItem, type Cobertura, type 
 import { diaOuNulo, lerEstado, naoPegaram, prepararEdicao } from "../src/lib/loja/produto.ts";
 import { TETO_DE_BYTES, codigoDaImagem, corpoDasFotos, enderecoAceito, fotosQueNaoEntraram, lerImagens, prepararFotos, type FotoNova } from "../src/lib/loja/imagens.ts";
 import { achatar, ordenar, somar, tomContraAMedia, tomDaVoltaDaLoja, tomDaVoltaDaPlataforma, tomDoVeredito } from "../src/lib/trafego/linhas.ts";
-import { abasDaBarra, nomeDoSetor, ondeEstou, setoresDe } from "../src/lib/painel/setores.ts";
+import { readFileSync, readdirSync } from "node:fs";
+import { SETORES, abasDaBarra, nomeDoSetor, ondeEstou, setoresDe } from "../src/lib/painel/setores.ts";
 import { PECA_VAZIA, lerProducao, montarInfo } from "../src/lib/vendas/producao.ts";
 import { avaliarSaude, diaEHora, haQuantoTempo, resumoDoErro, sinaisDaSaude, type SaudeCrua } from "../src/lib/painel/saude.ts";
 import { REGRAS_DE_PARTIDA, diaPorExtenso, diasDeProducao, diasDesde, lerRegras, proximoMalote, quandoFica, somarDiasUteis } from "../src/lib/vendas/prazos.ts";
@@ -1028,6 +1029,46 @@ console.log("\nSetores do painel");
   confere("setor sem nenhuma tela some", setoresDe([]).length === 1 && setoresDe(["equipe"]).some((s) => s.id === "sistema") && !setoresDe(["equipe"]).some((s) => s.id === "loja"));
   const frases = tudo.flatMap((s) => [s.nome, s.frase, ...s.itens.flatMap((i) => [i.label, i.desc, i.curto ?? ""])]);
   confere("nenhum nome de setor ou tela com travessão", frases.every((f) => !/[—–]/.test(f)));
+}
+
+console.log("\nAcesso de cada tela");
+{
+  // O menu mostra a tela para quem tem a ÁREA dela. A tela precisa conferir a mesma área, senão quem não vê o
+  // item no menu abre pelo endereço. Este teste lê o código de cada página e não deixa as duas regras se separarem.
+  const RAIZ = "src/app/admin/(painel)";
+  const itens = SETORES.flatMap((s) => s.itens).filter((i) => i.href !== "/admin");
+  const pastaDe = (href: string) => `${RAIZ}${href.replace(/^\/admin/, "")}`;
+  const outrasPastas = (href: string) => itens.filter((i) => i.href !== href && i.href.startsWith(`${href}/`)).map((i) => pastaDe(i.href));
+
+  const paginas = (pasta: string, fora: string[]): string[] =>
+    readdirSync(pasta, { withFileTypes: true }).flatMap((e) => {
+      const caminho = `${pasta}/${e.name}`;
+      if (e.isDirectory()) return fora.includes(caminho) ? [] : paginas(caminho, fora);
+      return e.name === "page.tsx" ? [caminho] : [];
+    });
+
+  // Duas exceções, cada uma com o motivo:
+  // - o conector abre para toda a equipe de conteúdo, porque cada pessoa liga o próprio Claude; o que é só de administrador a página esconde por dentro.
+  const EXCECOES = new Set([`${RAIZ}/conector/page.tsx`]);
+
+  const erradas: string[] = [];
+  let conferidas = 0;
+  for (const item of itens) {
+    for (const arquivo of paginas(pastaDe(item.href), outrasPastas(item.href))) {
+      if (EXCECOES.has(arquivo)) continue;
+      conferidas++;
+      const codigo = readFileSync(arquivo, "utf8");
+      // `requireAdmin` é mais fechado que qualquer área, e só vale em tela cuja área é de administrador.
+      const ok = codigo.includes(`requireArea("${item.area}")`) || (codigo.includes("requireAdmin()") && ["equipe", "margem", "custos", "anuncios"].includes(item.area));
+      if (!ok) erradas.push(`${arquivo} deveria pedir a área ${item.area}`);
+    }
+  }
+  if (erradas.length) console.log(erradas.join("\n"));
+  confere("toda tela do menu confere a mesma área que o menu pede", erradas.length === 0 && conferidas >= 40);
+
+  const semDono = paginas(RAIZ, []).filter((a) => a !== `${RAIZ}/page.tsx` && !itens.some((i) => a.startsWith(`${pastaDe(i.href)}/`)));
+  if (semDono.length) console.log(semDono.join("\n"));
+  confere("não existe tela do painel fora do menu", semDono.length === 0);
 }
 
 console.log("\nTudo certo.");

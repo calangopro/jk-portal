@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
-import { requireStaff } from "@/lib/auth/session";
+import { requireArea } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { MENSAGEM_PADRAO, destinoDeFabrica, type DestinoDoQrcode } from "@/lib/qrcode/tipos";
 import { FormularioDoQrcode } from "../FormularioDoQrcode";
@@ -12,7 +12,7 @@ export const metadata = { title: "Novo QR code" };
  * a JK usa nos impressos; a mensagem vem genérica, para a pessoa citar o lugar.
  */
 export default async function NovoQrcodePage() {
-  await requireStaff();
+  await requireArea("site");
   const supabase = await createClient();
   const { data } = await supabase.from("qrcodes").select("whatsapp").eq("slug", "").maybeSingle();
 

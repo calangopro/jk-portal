@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { MapPin, AlertTriangle, ExternalLink } from "lucide-react";
-import { requireStaff } from "@/lib/auth/session";
+import { requireArea } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { criarLoja, mudarStatusLoja } from "./actions";
 
@@ -43,7 +43,7 @@ function pendencias(l: Linha): string[] {
 }
 
 export default async function LojasPage() {
-  await requireStaff();
+  await requireArea("catalogo");
   const supabase = await createClient();
 
   const { data } = await supabase

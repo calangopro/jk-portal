@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requireStaff } from "@/lib/auth/session";
+import { requireArea } from "@/lib/auth/session";
 import { listarFatos } from "./actions";
 import { FormFato } from "./FormFato";
 import { BotaoStatus } from "./BotaoStatus";
@@ -34,7 +34,7 @@ const COR_DO_STATUS: Record<string, string> = {
  * conteúdo sozinha.
  */
 export default async function FatosPage() {
-  await requireStaff();
+  await requireArea("conteudo");
   const fatos = await listarFatos();
 
   const aprovados = fatos.filter((f) => f.status === "aprovado").length;

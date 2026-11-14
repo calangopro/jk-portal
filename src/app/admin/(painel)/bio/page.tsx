@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { requireStaff } from "@/lib/auth/session";
+import { requireArea } from "@/lib/auth/session";
 import { lerBio } from "@/lib/bio/ler";
 import { getPublishedLocations } from "@/lib/data/locations";
 import { categoriasDaLoja } from "@/lib/tray/publico";
@@ -11,11 +11,11 @@ export const metadata: Metadata = { title: "Link da bio" };
 /**
  * Edição do link da bio.
  *
- * `requireStaff`, como a home: montar a vitrine da semana e trocar o texto da
+ * `requireArea("site")`, como a home: montar a vitrine da semana e trocar o texto da
  * oferta é trabalho de quem cuida das redes, não só de administrador.
  */
 export default async function PaginaDoEditorDaBio() {
-  await requireStaff();
+  await requireArea("site");
   const [bio, lojas, categorias] = await Promise.all([lerBio(), getPublishedLocations(), categoriasDaLoja()]);
 
   return (

@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import { TrendingUp, Target, MousePointerClick, Eye, ArrowUpRight } from "lucide-react";
-import { requireStaff } from "@/lib/auth/session";
+import { requireArea } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { snapshotsDoPeriodo, ultimoPeriodo } from "@/lib/data/snapshots";
 import { lerDias } from "@/lib/ga4/visitas";
@@ -42,7 +42,7 @@ export default async function MetricasPage({
 }: {
   searchParams: Promise<{ dias?: string }>;
 }) {
-  await requireStaff();
+  await requireArea("metricas");
   const dias = lerDias((await searchParams).dias);
   const supabase = await createClient();
 
