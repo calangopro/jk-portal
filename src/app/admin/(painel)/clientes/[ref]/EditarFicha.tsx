@@ -121,7 +121,7 @@ export function EditarFicha({
         setErro("Tem data que não deu para entender. Escreva como 12/06 ou 12/06/2024.");
         return;
       }
-      const r = await salvar(refDoCliente, campos);
+      const r = await salvar(refDoCliente, campos).catch(() => ({ ok: false as const, erro: "Não deu para gravar agora. Tente de novo em alguns segundos." }));
       if (!r.ok) {
         setErro(r.erro);
         return;
@@ -139,7 +139,7 @@ export function EditarFicha({
   const decidirSugestao = (s: Sugestao, campo: "data_namoro" | "data_casamento" | null) =>
     comecar(async () => {
       setErro(null);
-      const r = await salvar(refDoCliente, campo ? { [campo]: s.data } : { recusar_data: s.data });
+      const r = await salvar(refDoCliente, campo ? { [campo]: s.data } : { recusar_data: s.data }).catch(() => ({ ok: false as const, erro: "Não deu para gravar agora. Tente de novo em alguns segundos." }));
       if (!r.ok) {
         setErro(r.erro);
         return;

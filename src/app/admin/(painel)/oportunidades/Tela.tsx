@@ -75,15 +75,8 @@ export function TelaDeOportunidades({ dados, dias, marcar }: { dados: Dados | nu
             </div>
           </div>
 
-          {lista.length === 0 ? (
-            <p className="glass mt-5 rounded-[18px] p-6 text-sm text-muted">
-              <span className="font-semibold text-ink">Nenhuma oportunidade nos próximos {dias} dias.</span> A lista cresce
-              conforme as fichas ganham datas (aniversário, começo do namoro, casamento) e conforme as compras completam dez
-              meses e um ano.
-            </p>
-          ) : (
-            <ListaDeOportunidades lista={lista} eu={dados.eu} marcar={marcar} />
-          )}
+          {/* A lista fica montada mesmo vazia: é ela que guarda o "Desfazer" do que foi marcado agora. */}
+          <ListaDeOportunidades lista={lista} eu={dados.eu} dias={dias} marcar={marcar} />
         </>
       )}
 
