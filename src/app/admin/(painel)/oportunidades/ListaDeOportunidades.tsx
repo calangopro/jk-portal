@@ -14,8 +14,9 @@ import { CartaoDaOportunidade, MarcadasAgora, idDaOportunidade, useMarcacao, typ
  * passou da data, o que vence em até sete dias e o que vem depois.
  *
  * O que foi marcado nesta visita fica em cima, com o "Desfazer". É este
- * componente que guarda isso, e por isso ele fica montado mesmo quando a lista
- * do servidor vem vazia (ver `CartaoDaOportunidade.tsx`).
+ * componente que guarda o que foi marcado e reaberto agora, sem esperar o
+ * redesenho da página, e por isso ele fica montado mesmo quando a lista do
+ * servidor vem vazia (ver `CartaoDaOportunidade.tsx`).
  *
  * A ação vem de fora, como propriedade, para a tela poder ser vista sem sessão.
  */
@@ -32,9 +33,9 @@ export function ListaDeOportunidades({
 }) {
   const [tipo, setTipo] = useState<Filtro>("todas");
   const [soMeus, setSoMeus] = useState(false);
-  const { agora, emCurso, erro, decidir, aberta } = useMarcacao(marcar);
+  const { agora, emCurso, erro, decidir, abertasDe } = useMarcacao<OportunidadeDaLista>(marcar);
 
-  const abertas = lista.filter(aberta);
+  const abertas = abertasDe(lista);
   const meus = (o: OportunidadeDaLista) => eu !== null && o.responsavelId === eu;
   const visiveis = abertas.filter((o) => (!soMeus || meus(o)) && (tipo === "todas" || o.tipo === tipo));
   const contar = (t: Filtro) => abertas.filter((o) => (!soMeus || meus(o)) && (t === "todas" || o.tipo === t)).length;

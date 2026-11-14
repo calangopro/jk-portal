@@ -514,6 +514,26 @@ export function oportunidadesDoCliente(c: ClienteParaConta, hoje: string, dias: 
     .sort((a, b) => a.ocorrencia.localeCompare(b.ocorrencia) || a.tipo.localeCompare(b.tipo));
 }
 
+// --------------------------------------------------------- a lista na tela
+
+/**
+ * A lista que vale na tela: a que veio do servidor, SEM o que foi marcado
+ * nesta visita e COM o que foi reaberto nela.
+ *
+ * Existe porque a tela não pode esperar o redesenho da página para se acertar:
+ * o painel reaproveita por 30 segundos a página que já buscou, e dentro desse
+ * intervalo o servidor "ainda devolve" a oportunidade que acabou de ser
+ * marcada, ou "ainda não devolve" a que acabou de ser reaberta. O que a pessoa
+ * fez agora vale mais do que o que o servidor disse há pouco.
+ */
+export function listaQueVale<T extends { ocorrencia: string }>(doServidor: T[], marcadasAgora: T[], reabertasAgora: T[], id: (o: T) => string): T[] {
+  const marcadas = new Set(marcadasAgora.map(id));
+  const jaVieram = new Set(doServidor.map(id));
+  return [...doServidor, ...reabertasAgora.filter((o) => !jaVieram.has(id(o)))]
+    .filter((o) => !marcadas.has(id(o)))
+    .sort((a, b) => a.ocorrencia.localeCompare(b.ocorrencia));
+}
+
 // ------------------------------------------------------------------- o prazo
 
 /** "hoje", "amanhã", "em 12 dias", "ontem", "há 3 dias". */
