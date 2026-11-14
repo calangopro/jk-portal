@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { CornerUpLeft, ImagePlus, MessageCircleQuestion, Send, X } from "lucide-react";
 import { COR_DO_TOM } from "@/lib/painel/tons";
-import { TIPOS_DE_IMAGEM, trechoDe, type Mensagem } from "@/lib/time/chat";
+import { TIPOS_DE_IMAGEM, trechoDe, type Mensagem, type Pessoa } from "@/lib/time/chat";
 import { Miniaturas, type useImagens } from "./Imagens";
+import { ListaDeSugestoes, useSugestoes, type BuscarPedidos } from "./Sugestoes";
 
 /**
  * O campo de escrever do chat.
@@ -16,9 +17,13 @@ import { Miniaturas, type useImagens } from "./Imagens";
  *
  * "PEDIR RESPOSTA" é o que sobrou do chamado: ligado, a mensagem fica com
  * relógio e à vista no topo da sala até alguém responder a ela.
+ *
+ * "@" e "/" abrem sugestões em cima do campo (`Sugestoes.tsx`): marcar uma
+ * pessoa, um setor, um pedido ou a meta. Com a lista aberta, o Enter escolhe o
+ * item em vez de enviar.
  */
 export function Escrever({
-  texto, onTexto, onEnviar, respondendo, onCancelarResposta, pedir, onPedir, imagens, sala, focar,
+  texto, onTexto, onEnviar, respondendo, onCancelarResposta, pedir, onPedir, imagens, sala, focar, pessoas, meuId, podeMeta, buscarPedidos,
 }: {
   texto: string;
   onTexto: (t: string) => void;
@@ -32,8 +37,16 @@ export function Escrever({
   sala: string;
   /** Muda de valor quando o campo deve receber o foco (a pessoa tocou em "Responder"). */
   focar: number;
+  /** Quem dá para marcar com "@". */
+  pessoas: readonly Pessoa[];
+  meuId: string;
+  /** A pessoa pode ver a meta do mês: só então o "/meta" aparece. */
+  podeMeta: boolean;
+  buscarPedidos: BuscarPedidos;
 }) {
   const campo = useRef<HTMLTextAreaElement>(null);
+  const idDaLista = useId();
+  const sugestoes = useSugestoes({ texto, onTexto, campo, pessoas, meuId, podeMeta, buscarPedidos });
   const arquivo = useRef<HTMLInputElement>(null);
   // Teclado de tela: o Enter pula linha. Lido depois de montar, para o servidor e o navegador desenharem igual.
   const [toque, setToque] = useState(false);
@@ -57,7 +70,8 @@ export function Escrever({
   const vazio = texto.trim() === "" && imagens.lista.length === 0;
 
   return (
-    <div className="border-t border-ink/[0.07] bg-white px-2.5 pb-2.5 pt-2 sm:px-4 sm:pb-3">
+    <div className="relative border-t border-ink/[0.07] bg-white px-2.5 pb-2.5 pt-2 sm:px-4 sm:pb-3">
+      <ListaDeSugestoes s={sugestoes} id={idDaLista} />
       {respondendo ? (
         <div className="painel-ramo mb-2 flex items-center gap-2 rounded-r-[10px] bg-ink/[0.04] py-1.5 pl-2.5 pr-1">
           <CornerUpLeft size={13} className="painel-cor shrink-0" aria-hidden="true" />
@@ -108,10 +122,21 @@ export function Escrever({
           <textarea
             ref={campo}
             value={texto}
-            onChange={(e) => onTexto(e.target.value)}
+            onChange={(e) => {
+              sugestoes.aoMoverCursor(e.target);
+              onTexto(e.target.value);
+            }}
+            onSelect={(e) => sugestoes.aoMoverCursor(e.currentTarget)}
             onPaste={imagens.aoColar}
+            role="combobox"
+            aria-autocomplete="list"
+            aria-expanded={sugestoes.aberta}
+            aria-controls={sugestoes.aberta ? idDaLista : undefined}
             onKeyDown={(e) => {
-              if (e.key !== "Enter" || e.shiftKey || toque || e.nativeEvent.isComposing) return;
+              if (e.nativeEvent.isComposing) return;
+              // A lista de sugestões fica com as setas, o Enter, o Tab e o Esc enquanto está aberta.
+              if (sugestoes.aoTeclar(e)) return;
+              if (e.key !== "Enter" || e.shiftKey || toque) return;
               e.preventDefault();
               if (!vazio) onEnviar();
             }}
@@ -153,8 +178,8 @@ export function Escrever({
         {pedir
           ? "Esta mensagem vai pedir resposta: fica no topo da sala, com o tempo de espera, até alguém responder a ela."
           : toque
-            ? "Cole o print direto no texto. Só imagem, até 5 MB."
-            : "Enter envia, Shift+Enter pula linha. Cole o print direto no texto."}
+            ? "Digite @ para marcar alguém ou um setor, e / para marcar um pedido."
+            : "Enter envia, Shift+Enter pula linha. Digite @ para marcar alguém ou um setor, e / para marcar um pedido."}
       </p>
       {pedir ? (
         <p className="mt-1.5 px-1 text-[0.68rem] leading-snug sm:hidden" style={{ color: COR_DO_TOM.atencao.texto }}>

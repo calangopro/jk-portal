@@ -17,6 +17,8 @@ import {
   estaEsperando, horaCurta, iniciais, juntarMensagens, lerAbertura, lerMensagem, lerPresenca, lerResumo, lerSala, limitesPorExtenso, minhasSalas,
   montarLinhas, naoLidasPorSala, partesDoTexto, pedidosEsperando, pessoasComPresenca, primeiraNaoLida, rascunhoDaResposta, rotuloDoDia,
   textoSobreProduto, tituloComAviso, trechoDe,
+  buscaDoPedido, comMarcas, comandosPara, gatilhoNoCursor, lerMarca, lerPedidosAchados, lerPreviaDoPedido, quemFoiMarcado, situacaoDaMeta,
+  situacaoDoPedido, sugestoesDeArroba, textoLimpo, trocarGatilho,
   type Mensagem,
 } from "../src/lib/time/chat.ts";
 import { abasDaBarra, ondeEstou, setoresDe, SETORES } from "../src/lib/painel/setores.ts";
@@ -300,8 +302,8 @@ console.log("\nO aviso do sistema");
   const lido = lerParaAvisar({
     agora: "2026-11-14T18:00:00Z",
     mensagens: [
-      { id: 7, sala: "fabrica", autor_nome: "Caio", trecho: "  Consigo sim, fica pronto na quinta. ", imagens: 0, pede: false, para_mim: true, em: ha(1) },
-      { id: 8, sala: "loja", autor_nome: "Bia", trecho: "", imagens: 2, pede: true, para_mim: false, em: ha(1) },
+      { id: 7, sala: "fabrica", autor_nome: "Caio", trecho: "  Consigo sim, fica pronto na quinta. ", imagens: 0, pede: false, para_mim: true, marcou: null, em: ha(1) },
+      { id: 8, sala: "loja", autor_nome: "Bia", trecho: "", imagens: 2, pede: true, para_mim: false, marcou: null, em: ha(1) },
       { id: 0, sala: "loja" }, { id: 9, sala: "sala que não existe" }, "texto solto",
     ],
   });
@@ -312,14 +314,21 @@ console.log("\nO aviso do sistema");
   confere("resposta a mim diz quem respondeu e onde", a.titulo === "Caio respondeu a você em Fábrica" && a.corpo === "Consigo sim, fica pronto na quinta." && a.sala === "fabrica" && a.mensagem === 7);
   confere("pedido diz que pede resposta, e mensagem só de imagem diz quantas", b.titulo === "Bia pede resposta em Loja" && b.corpo === "2 imagens");
   confere("cada mensagem tem a própria marca, para duas abas não avisarem em dobro", a.marca === "jk-chat-7" && b.marca === "jk-chat-8");
-  const comum = avisosDoSistema([{ id: 3, sala: "geral", autorNome: null, trecho: "", imagens: 1, pede: false, paraMim: false, em: ha(1) }])[0];
+  const comum = avisosDoSistema([{ id: 3, sala: "geral", autorNome: null, trecho: "", imagens: 1, pede: false, paraMim: false, marcou: null, em: ha(1) }])[0];
   confere("mensagem comum: quem e onde; sem nome e só com imagem ainda faz sentido", comum.titulo === "Alguém do time em Geral" && comum.corpo === "Imagem");
 
-  const muitas = [3, 1, 2, 4].map((id) => ({ id, sala: (id % 2 ? "geral" : "fabrica") as "geral" | "fabrica", autorNome: `Pessoa ${id}`, trecho: `Texto ${id}`, imagens: 0, pede: false, paraMim: false, em: ha(1) }));
+  const muitas = [3, 1, 2, 4].map((id) => ({ id, sala: (id % 2 ? "geral" : "fabrica") as "geral" | "fabrica", autorNome: `Pessoa ${id}`, trecho: `Texto ${id}`, imagens: 0, pede: false, paraMim: false, marcou: null, em: ha(1) }));
   const resumo = avisosDoSistema(muitas);
   confere("conversa animada vira UM aviso, com o total, as salas e a última", muitas.length > AVISOS_SEPARADOS && resumo.length === 1 && resumo[0].titulo === "4 mensagens novas no chat do time"
     && resumo[0].corpo === "Em Geral e Fábrica. A última, de Pessoa 4: Texto 4" && resumo[0].mensagem === 4 && resumo[0].sala === "fabrica" && resumo[0].marca === "jk-chat-resumo");
   confere("nenhum texto de aviso com travessão", [a, b, comum, ...resumo].every((x) => !/[—–]/.test(x.titulo + x.corpo)));
+
+  const base = { id: 20, sala: "geral" as const, autorNome: "Caio", trecho: "Olha isso", imagens: 0, pede: true, paraMim: true, em: ha(1) };
+  confere("marcado pelo nome vem antes de tudo no título", avisosDoSistema([{ ...base, marcou: "voce" }])[0].titulo === "Caio marcou você em Geral");
+  confere("resposta a mim vem antes de marcação do setor, e setor antes de pedido", avisosDoSistema([{ ...base, marcou: "fabrica" }])[0].titulo === "Caio respondeu a você em Geral"
+    && avisosDoSistema([{ ...base, paraMim: false, marcou: "fabrica" }])[0].titulo === "Caio marcou Fábrica em Geral");
+  confere("o aviso lê quem foi marcado, e descarta marcação que não entende", lerParaAvisar({ mensagens: [{ id: 1, sala: "geral", marcou: "voce" }, { id: 2, sala: "geral", marcou: "loja" }, { id: 3, sala: "geral", marcou: "geral" }, { id: 4, sala: "geral", marcou: "xyz" }] })
+    .mensagens.map((m) => String(m.marcou)).join() === "voce,loja,null,null");
 
   confere("o estado junta a permissão do navegador com a escolha da pessoa", estadoDoAviso(null, true) === "sem_suporte" && estadoDoAviso("denied", true) === "bloqueado"
     && estadoDoAviso("default", true) === "desligado" && estadoDoAviso("granted", false) === "desligado" && estadoDoAviso("granted", true) === "ligado");
@@ -350,6 +359,61 @@ console.log("\nA conversa em linhas");
   confere("o trecho de uma linha: texto cortado, imagem, ou apagada", trechoDe(mensagem(1, { texto: "a\n b   c" })) === "a b c" && trechoDe(mensagem(1, { texto: "", anexos: ["x"] })) === "Imagem" && trechoDe(mensagem(1, { texto: "", anexos: ["x", "y"] })) === "2 imagens"
     && trechoDe(mensagem(1, { apagada: true, texto: "segredo" })) === "Mensagem apagada" && trechoDe(mensagem(1, { texto: "x".repeat(200) }), 20).length === 20);
   confere("o título da aba ganha e perde o número, sem acumular", tituloComAviso("Chat do time", 3) === "(3) Chat do time" && tituloComAviso("(3) Chat do time", 5) === "(5) Chat do time" && tituloComAviso("(5) Chat do time", 0) === "Chat do time" && tituloComAviso("Vendas", 120) === "(99+) Vendas");
+}
+
+console.log("\nAs marcações");
+{
+  const gente = [{ id: ANA, nome: "Ana Paula", papel: "vendas" }, { id: BIA, nome: "Ana", papel: "gerente" }, { id: CAIO, nome: "Caio Reis", papel: "fabrica" }];
+  const guardado = `Oi ⟦p:${CAIO}|Caio Reis⟧ e ⟦s:fabrica|Fábrica⟧, vejam ⟦o:11389|Pedido 11389⟧. ⟦m:2026-11;25;atras|Meta de novembro: 25%⟧ https://exemplo.test/x.`;
+  const partes = partesDoTexto(guardado);
+  confere("o texto guardado vira texto, marcações e link, na ordem", partes.map((p) => (p.tipo === "marca" ? p.marca.tipo : p.tipo)).join() === "texto,pessoa,texto,setor,texto,pedido,texto,meta,texto,link,texto");
+  const meta = partes.find((p) => p.tipo === "marca" && p.marca.tipo === "meta");
+  confere("a meta guarda o mês, o percentual e a situação, e nenhum valor em reais", meta?.tipo === "marca" && meta.marca.tipo === "meta" && meta.marca.mes === "2026-11" && meta.marca.pct === 25 && meta.marca.situacao === "atras" && !/R\$/.test(guardado));
+  confere("o texto limpo é o que se lê", textoLimpo(guardado) === "Oi @Caio Reis e @Fábrica, vejam Pedido 11389. Meta de novembro: 25% https://exemplo.test/x.");
+  confere("o trecho citado e o de uma linha saem limpos", trechoDe(mensagem(1, { texto: guardado })).startsWith("Oi @Caio Reis e @Fábrica, vejam Pedido 11389."));
+  confere("marcação que não se entende volta a ser texto", lerMarca("p", "não é id", "X") === null && lerMarca("s", "geral", "Geral") === null && lerMarca("s", "financeiro", "F") === null && lerMarca("o", "12a", "P") === null
+    && lerMarca("m", "2026-11;25;voando", "M") === null && lerMarca("x", "1", "Y") === null && partesDoTexto("a ⟦p:torto|Fulano⟧ b").map((p) => (p.tipo === "texto" ? p.valor : "?")).join("") === "a Fulano b");
+  confere("quem foi marcado: pelo nome vence o setor; sem marcação, ninguém", quemFoiMarcado(guardado, CAIO, ["fabrica"]) === "voce" && quemFoiMarcado(guardado, ANA, ["fabrica"]) === "setor" && quemFoiMarcado(guardado, ANA, ["loja"]) === null
+    && quemFoiMarcado("@Caio Reis sem marcação", CAIO, []) === null);
+  confere("a situação da meta tem a cor da Visão geral", situacaoDaMeta("batida").tom === "bom" && situacaoDaMeta("no_ritmo").palavra === "no ritmo" && situacaoDaMeta("atras").tom === "ruim");
+
+  // Ao digitar
+  const g = (t: string, c = t.length) => gatilhoNoCursor(t, c);
+  confere("o @ no começo de palavra abre a lista, com o que vem depois", g("oi @ca")?.tipo === "arroba" && g("oi @ca")?.termo === "ca" && g("oi @ca")?.inicio === 3 && g("@")?.termo === "" && g("@Caio Re")?.termo === "Caio Re");
+  confere("e-mail, endereço e sinal no meio da palavra não abrem", g("fulano@loja") === null && g("https://site.com/x") === null && g("3/4") === null && g("a/pedido") === null);
+  confere("a barra no começo de palavra abre os comandos, e leva a busca junto", g("/")?.tipo === "comando" && g("oi /ped")?.termo === "ped" && g("/pedido maria")?.termo === "pedido maria");
+  confere("espaço logo depois do sinal, dois espaços ou outra linha fecham", g("@ ana") === null && g("@ana  b") === null && g("@ana\nnova linha") === null && g("texto bem comprido " + "x".repeat(50)) === null);
+  confere("vale o cursor, não o fim do texto; frase que seguiu leva o termo inteiro, e a lista some por não achar nada", g("oi @ca e mais", 6)?.termo === "ca" && g("oi @ca e mais")?.termo === "ca e mais"
+    && sugestoesDeArroba("ca e mais", [{ id: CAIO, nome: "Caio Reis", papel: "fabrica" }], ANA).length === 0);
+
+  const papel = (p: string) => p.toUpperCase();
+  const sugestoes = sugestoesDeArroba("an", gente, CAIO, papel);
+  confere("o @ sugere pessoas e setores pelo começo do nome, sem acento", sugestoes.map((x) => x.titulo).join() === "Ana Paula,Ana" && sugestoes[0].visivel === "@Ana Paula" && sugestoes[0].apoio === "VENDAS"
+    && sugestoesDeArroba("fab", gente, ANA).map((x) => x.titulo).join() === "Fábrica" && sugestoesDeArroba("reis", gente, ANA)[0]?.titulo === "Caio Reis");
+  confere("a própria pessoa não aparece para se marcar; sem termo, vem todo mundo e os cinco setores", !sugestoesDeArroba("", gente, ANA).some((x) => x.titulo === "Ana Paula") && sugestoesDeArroba("", gente, ANA).length === 7);
+  confere("/meta só aparece para quem pode ver a meta", comandosPara("", true).map((c) => c.chave).join() === "pedido,meta" && comandosPara("", false).map((c) => c.chave).join() === "pedido" && comandosPara("me", false).length === 0 && comandosPara("pe", true)[0].visivel === "/pedido ");
+  confere("depois de /pedido vem a busca", buscaDoPedido("pedido ") === "" && buscaDoPedido("pedido 113") === "113" && buscaDoPedido("pedido maria silva") === "maria silva" && buscaDoPedido("pedido") === null && buscaDoPedido("ped") === null && buscaDoPedido("meta") === null && buscaDoPedido("pedido 11389 e depois") === null);
+  const trocado = trocarGatilho("oi @ca e mais", { inicio: 3, fim: 6 }, "@Caio Reis ");
+  confere("escolher troca o que foi digitado e põe o cursor depois", trocado.texto === "oi @Caio Reis  e mais" && trocado.cursor === 14);
+
+  // Ao mandar
+  const mandado = comMarcas("Oi @Ana Paula, @ana e @fabrica: #11389, /pedido 11400 e /meta. fulano@loja.com #12 @Ninguem", gente, true);
+  confere("o nome mais comprido é tentado primeiro", mandado.includes(`⟦p:${ANA}|Ana Paula⟧,`) && mandado.includes(`⟦p:${BIA}|Ana⟧ e`));
+  confere("setor sem acento e em minúscula também marca", mandado.includes("⟦s:fabrica|Fábrica⟧:"));
+  confere("#número e /pedido número viram pedido; /meta vira meta", mandado.includes("⟦o:11389|#11389⟧,") && mandado.includes("⟦o:11400|#11400⟧ e") && mandado.includes("⟦m:|meta do mês⟧."));
+  confere("e-mail, número curto e nome que não existe ficam como texto", mandado.endsWith("fulano@loja.com #12 @Ninguem"));
+  confere("sem acesso à meta, /meta continua texto", comMarcas("veja /meta", gente, false) === "veja /meta");
+  confere("o que já é marcação passa intacto, sem marcar dentro dela", comMarcas(`⟦p:${CAIO}|@Ana⟧ e @Ana`, gente, true) === `⟦p:${CAIO}|@Ana⟧ e ⟦p:${BIA}|Ana⟧`);
+  confere("nome colado em outra palavra não marca", comMarcas("@Anabela e x@Ana e /metas", gente, true) === "@Anabela e x@Ana e /metas");
+
+  // O pedido marcado
+  const previa = lerPreviaDoPedido({ numero: 11389, dia: "2026-11-12", situacao: "pago", status_da_loja: "A ENVIAR", etapa: "em_producao", entrega: "Correios", cidade: "Osasco", uf: "SP", rastreio: null,
+    cliente: null, total: null, pecas: [{ nome: "Par de exemplo", quantidade: "2", foto: null }, { quantidade: 1 }], pode: { fabrica: true, ficha: false } });
+  confere("a prévia lê o que o banco manda e descarta peça sem nome", previa !== null && previa.pecas.length === 1 && previa.pecas[0].quantidade === 2 && previa.cliente === null && previa.total === null && previa.pode.fabrica && !previa.pode.ficha);
+  confere("sem número não há prévia", lerPreviaDoPedido(null) === null && lerPreviaDoPedido({ numero: 0 }) === null);
+  confere("a situação do pedido: cancelado, esperando pagamento, etapa da fábrica, enviado", situacaoDoPedido({ situacao: "cancelado", etapa: null }).tom === "ruim" && situacaoDoPedido({ situacao: "aguardando", etapa: null }).palavra === "Esperando pagamento"
+    && situacaoDoPedido({ situacao: "pago", etapa: "em_producao" }).palavra === "Em produção" && situacaoDoPedido({ situacao: "pago", etapa: "enviado" }).tom === "bom" && situacaoDoPedido({ situacao: "pago", etapa: null }).palavra === "Pago");
+  confere("a busca lê os pedidos achados", lerPedidosAchados([{ numero: 11389, dia: "2026-11-12", situacao: "pago", etapa: "a_produzir", cliente: null, peca: "Par", pecas: 2 }, { numero: 0 }, "x"]).length === 1 && lerPedidosAchados(null).length === 0);
 }
 
 console.log("\nTextos e imagem");

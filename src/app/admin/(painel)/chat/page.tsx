@@ -44,6 +44,7 @@ export default async function ChatPage({ searchParams }: { searchParams: Promise
       rascunho={produto ? textoSobreProduto(produto) : ""}
       pedirDeInicio={Boolean(produto) || sp.pedir === "1"}
       destaqueInicial={destaque}
+      podeMeta={perfil.areas.includes("vendas")}
     />
   );
 }

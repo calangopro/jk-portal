@@ -5,10 +5,11 @@ import { BookCheck, BookPlus, Check, CornerUpLeft, Ellipsis, ImageOff, Loader2, 
 import { ROLE_LABEL, type AppRole } from "@/lib/auth/acessos";
 import { COR_DO_TOM } from "@/lib/painel/tons";
 import {
-  esperaDoPedido, estaEsperando, horaCurta, iniciais, partesDoTexto, rotuloDoDia, trechoDe, type Linha, type Mensagem, type Sala,
+  esperaDoPedido, estaEsperando, horaCurta, iniciais, partesDoTexto, quemFoiMarcado, rotuloDoDia, trechoDe, type Linha, type Mensagem, type Sala,
 } from "@/lib/time/chat";
 import { SeloDeTom } from "../Pecas";
 import type { ImagemEscolhida } from "./Imagens";
+import { MarcaNoTexto, type BuscarPrevia } from "./Marcas";
 
 /**
  * A conversa de uma sala, desenhada: o separador de cada dia, a linha "Novas
@@ -21,7 +22,14 @@ import type { ImagemEscolhida } from "./Imagens";
  * O PEDIDO é a mensagem que pede resposta. Ele leva um selo com ícone e
  * palavra (a cor nunca vem sozinha): esperando, parado, atrasado ou
  * respondido, pela mesma régua de `esperaDoPedido`.
+ *
+ * A mensagem que MARCA quem está lendo (pelo nome, ou por um setor a que a
+ * pessoa responde) ganha uma faixa da cor do setor na lateral: é o jeito de
+ * achar, numa sala movimentada, o que foi dito para você.
  */
+
+/** Quem está lendo, para a marcação saber se é para ela, e como buscar a prévia de um pedido marcado. */
+export type Leitor = { meuId: string; meusSetores: readonly string[]; buscarPrevia?: BuscarPrevia };
 
 /** A mensagem que a pessoa mandou e ainda não voltou gravada do banco. */
 export type Pendente = {
@@ -50,11 +58,13 @@ export function Bolinha({ nome, pequena }: { nome: string | null; pequena?: bool
   );
 }
 
-function Texto({ escrito }: { escrito: string }) {
+function Texto({ escrito, leitor }: { escrito: string; leitor: Leitor }) {
   return (
     <p className="whitespace-pre-line break-words text-[0.95rem] leading-relaxed text-ink">
       {partesDoTexto(escrito).map((p, i) =>
-        p.tipo === "link" ? (
+        p.tipo === "marca" ? (
+          <MarcaNoTexto key={i} marca={p.marca} meuId={leitor.meuId} meusSetores={leitor.meusSetores} buscarPrevia={leitor.buscarPrevia} />
+        ) : p.tipo === "link" ? (
           <a
             key={i}
             href={p.valor}
@@ -131,11 +141,12 @@ function Citada({ nome, trecho, onIr }: { nome: string; trecho: string; onIr?: (
 const botaoDeAcao = "painel-toque inline-flex h-8 items-center gap-1 whitespace-nowrap rounded-full border border-ink/12 bg-white px-2.5 text-[0.72rem] font-semibold text-ink disabled:opacity-60";
 
 function Fala({
-  m, cabeca, minha, souAdmin, agora, linkDe, aberta, ocupada, destacada, apagando, onAlternar, onAcao, onIrPara,
+  m, cabeca, minha, leitor, souAdmin, agora, linkDe, aberta, ocupada, destacada, apagando, onAlternar, onAcao, onIrPara,
 }: {
   m: Mensagem;
   cabeca: boolean;
   minha: boolean;
+  leitor: Leitor;
   souAdmin: boolean;
   agora: number;
   linkDe: (anexo: string) => string | null | undefined;
@@ -153,6 +164,8 @@ function Fala({
   const cargo = minha ? null : papel(m.autorPapel);
   const podeApagar = !m.apagada && (minha || souAdmin);
   const podePedir = !m.apagada && (minha || souAdmin) && !estaEsperando(m);
+  // A mensagem de outra pessoa que marca quem lê: pelo nome, ou por um setor a que ela responde.
+  const marcada = !minha && !m.apagada ? quemFoiMarcado(m.texto, leitor.meuId, leitor.meusSetores) : null;
 
   return (
     <li id={`fala-${m.id}`} data-fala={m.id} className={`flex gap-2 ${minha ? "flex-row-reverse" : ""} ${cabeca ? "mt-3" : "mt-0.5"}`}>
@@ -173,8 +186,11 @@ function Fala({
             onClick={m.apagada ? undefined : onAlternar}
             className={`min-w-0 rounded-[16px] px-3 py-2 transition-shadow ${m.apagada ? "" : "cursor-pointer"} ${
               minha ? "rounded-br-[6px] bg-[color-mix(in_srgb,var(--setor)_11%,#fff)]" : "rounded-bl-[6px] border border-ink/[0.07] bg-white"
-            } ${destacada ? "ring-2 ring-[var(--setor)]" : ""}`}
+            } ${destacada ? "ring-2 ring-[var(--setor)]" : ""} ${marcada ? "shadow-[inset_3px_0_0_var(--setor)]" : ""}`}
           >
+            {marcada ? (
+              <p className="painel-cor mb-0.5 text-[0.66rem] font-bold uppercase tracking-wider">{marcada === "voce" ? "Marcou você" : "Marcou o seu setor"}</p>
+            ) : null}
             {m.respondeA && !m.apagada ? (
               <Citada
                 nome={m.respondeA.autorNome ?? "Alguém do time"}
@@ -187,7 +203,7 @@ function Fala({
               <p className="text-sm italic text-muted">Mensagem apagada</p>
             ) : (
               <>
-                {m.texto ? <Texto escrito={m.texto} /> : null}
+                {m.texto ? <Texto escrito={m.texto} leitor={leitor} /> : null}
                 <Imagens anexos={m.anexos} linkDe={linkDe} />
               </>
             )}
@@ -269,13 +285,14 @@ function Fala({
 }
 
 /** A mensagem que está indo: já aparece na conversa, mais clara, e diz se falhou. */
-function Indo({ p, onDeNovo, onDescartar }: { p: Pendente; onDeNovo: () => void; onDescartar: () => void }) {
+function Indo({ p, leitor, onDeNovo, onDescartar }: { p: Pendente; leitor: Leitor; onDeNovo: () => void; onDescartar: () => void }) {
   return (
     <li className="mt-1.5 flex flex-row-reverse gap-2">
       <div className="flex min-w-0 max-w-[86%] flex-col items-end sm:max-w-[72%]">
         <div className={`min-w-0 rounded-[16px] rounded-br-[6px] bg-[color-mix(in_srgb,var(--setor)_11%,#fff)] px-3 py-2 ${p.erro ? "" : "opacity-60"}`}>
           {p.respondeA ? <Citada nome={p.respondeA.autorNome ?? "Alguém do time"} trecho={trechoDe(p.respondeA)} /> : null}
-          {p.texto ? <Texto escrito={p.texto} /> : null}
+          {/* Ainda indo: o texto aparece como foi digitado. A marcação só existe depois que o banco confere. */}
+          {p.texto ? <Texto escrito={p.texto} leitor={{ ...leitor, buscarPrevia: undefined }} /> : null}
           {p.imagens.length > 0 ? (
             <ul className="mt-1.5 flex flex-wrap gap-1.5">
               {p.imagens.map((i, n) => (
@@ -311,11 +328,15 @@ function Indo({ p, onDeNovo, onDescartar }: { p: Pendente; onDeNovo: () => void;
 }
 
 export function Conversa({
-  linhas, pendentes, meuId, souAdmin, agora, linkDe, aberta, ocupada, destaque, apagando, onAlternar, onAcao, onIrPara, onDeNovo, onDescartar,
+  linhas, pendentes, meuId, meusSetores, buscarPrevia, souAdmin, agora, linkDe, aberta, ocupada, destaque, apagando, onAlternar, onAcao, onIrPara, onDeNovo, onDescartar,
 }: {
   linhas: Linha[];
   pendentes: Pendente[];
   meuId: string;
+  /** Os setores a que a pessoa responde: marcação de um deles é para ela. */
+  meusSetores: readonly string[];
+  /** Como buscar a prévia de um pedido marcado. */
+  buscarPrevia: BuscarPrevia;
   souAdmin: boolean;
   agora: number;
   linkDe: (anexo: string) => string | null | undefined;
@@ -332,6 +353,7 @@ export function Conversa({
   onDeNovo: (p: Pendente) => void;
   onDescartar: (p: Pendente) => void;
 }) {
+  const leitor: Leitor = { meuId, meusSetores, buscarPrevia };
   return (
     <ol aria-label="A conversa da sala" className="flex flex-col">
       {linhas.map((l) =>
@@ -353,6 +375,7 @@ export function Conversa({
             m={l.m}
             cabeca={l.cabeca}
             minha={l.m.autor === meuId}
+            leitor={leitor}
             souAdmin={souAdmin}
             agora={agora}
             linkDe={linkDe}
@@ -367,7 +390,7 @@ export function Conversa({
         ),
       )}
       {pendentes.map((p) => (
-        <Indo key={p.chave} p={p} onDeNovo={() => onDeNovo(p)} onDescartar={() => onDescartar(p)} />
+        <Indo key={p.chave} p={p} leitor={leitor} onDeNovo={() => onDeNovo(p)} onDescartar={() => onDescartar(p)} />
       ))}
     </ol>
   );

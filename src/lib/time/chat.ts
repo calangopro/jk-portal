@@ -348,6 +348,8 @@ export type ParaAvisar = {
   pede: boolean;
   /** É resposta a uma mensagem da própria pessoa. */
   paraMim: boolean;
+  /** A mensagem marcou a pessoa pelo nome ("voce") ou marcou um setor a que ela responde. */
+  marcou: "voce" | Setor | null;
   em: string;
 };
 
@@ -368,6 +370,10 @@ export function lerParaAvisar(v: unknown): { agora: string | null; mensagens: Pa
         imagens: Math.max(0, inteiro(m.imagens)),
         pede: m.pede === true,
         paraMim: m.para_mim === true,
+        marcou: m.marcou === "voce" ? "voce" : ((): Setor | null => {
+          const s = lerSala(m.marcou);
+          return s && s !== "geral" ? s : null;
+        })(),
         em: typeof m.em === "string" ? m.em : "",
       };
     })
@@ -397,7 +403,7 @@ const corpoDoAviso = (m: ParaAvisar): string =>
 /**
  * Os avisos do sistema para um lote de mensagens que chegaram. O título diz
  * quem e onde, e o que a mensagem é para a pessoa: resposta a ela, pedido de
- * resposta, ou conversa. O corpo é o começo do texto.
+ * resposta, marcação, ou conversa. O corpo é o começo do texto.
  */
 export function avisosDoSistema(lista: readonly ParaAvisar[]): AvisoDoSistema[] {
   const emOrdem = [...lista].sort((a, b) => a.id - b.id);
@@ -418,7 +424,17 @@ export function avisosDoSistema(lista: readonly ParaAvisar[]): AvisoDoSistema[] 
   return emOrdem.map((m) => {
     const nome = m.autorNome ?? "Alguém do time";
     const sala = NOME_DA_SALA[m.sala];
-    const titulo = m.paraMim ? `${nome} respondeu a você em ${sala}` : m.pede ? `${nome} pede resposta em ${sala}` : `${nome} em ${sala}`;
+    // O que a mensagem é PARA A PESSOA vem primeiro: marcada pelo nome, respondida, marcada pelo setor, pedido, conversa.
+    const titulo =
+      m.marcou === "voce"
+        ? `${nome} marcou você em ${sala}`
+        : m.paraMim
+          ? `${nome} respondeu a você em ${sala}`
+          : m.marcou
+            ? `${nome} marcou ${NOME_DA_SALA[m.marcou]} em ${sala}`
+            : m.pede
+              ? `${nome} pede resposta em ${sala}`
+              : `${nome} em ${sala}`;
     return { marca: `jk-chat-${m.id}`, titulo, corpo: corpoDoAviso(m), sala: m.sala, mensagem: m.id };
   });
 }
@@ -557,14 +573,10 @@ export function montarLinhas(daSalaAberta: readonly Mensagem[], primeiraNova: nu
   return linhas;
 }
 
-export type Parte = { tipo: "texto" | "link"; valor: string };
+export type Parte = { tipo: "texto" | "link"; valor: string } | { tipo: "marca"; marca: Marca };
 
-/**
- * Separa os endereços do resto do texto, para o link da peça sair clicável. Só
- * `http` e `https`. A pontuação grudada no fim ("veja em https://x.com/y.")
- * fica fora do link.
- */
-export function partesDoTexto(escrito: string): Parte[] {
+/** Separa os endereços do resto de um trecho de texto comum. Só `http` e `https`; a pontuação grudada no fim fica fora do link. */
+function partesComLink(escrito: string): Parte[] {
   const partes: Parte[] = [];
   const padrao = /https?:\/\/[^\s<>"']+/g;
   let ultimo = 0;
@@ -579,13 +591,351 @@ export function partesDoTexto(escrito: string): Parte[] {
   return partes;
 }
 
+/**
+ * O texto de uma mensagem em partes, para desenhar: texto comum, endereço (que
+ * sai clicável) e marcação (pessoa, setor, pedido ou meta). Marcação com
+ * formato que não se entende volta a ser texto, pelo rótulo dela.
+ */
+export function partesDoTexto(escrito: string): Parte[] {
+  const partes: Parte[] = [];
+  let ultimo = 0;
+  for (const achado of escrito.matchAll(FORMATO_DA_MARCA)) {
+    const inicio = achado.index ?? 0;
+    if (inicio > ultimo) partes.push(...partesComLink(escrito.slice(ultimo, inicio)));
+    const marca = lerMarca(achado[1], achado[2], achado[3]);
+    if (marca) partes.push({ tipo: "marca", marca });
+    else partes.push({ tipo: "texto", valor: achado[3] });
+    ultimo = inicio + achado[0].length;
+  }
+  if (ultimo < escrito.length) partes.push(...partesComLink(escrito.slice(ultimo)));
+  return partes;
+}
+
 /** O que aparece de uma mensagem numa linha só: o começo do texto, ou "Imagem" quando ela é só imagem. */
 export function trechoDe(m: { texto?: string; trecho?: string; apagada: boolean; imagens?: number; anexos?: readonly string[] }, teto = 90): string {
   if (m.apagada) return "Mensagem apagada";
-  const escrito = (m.texto ?? m.trecho ?? "").replace(/\s+/g, " ").trim();
+  const escrito = textoLimpo(m.texto ?? m.trecho ?? "").replace(/\s+/g, " ").trim();
   if (escrito) return escrito.length > teto ? `${escrito.slice(0, teto - 1).trimEnd()}…` : escrito;
   const imagens = m.imagens ?? m.anexos?.length ?? 0;
   return imagens > 1 ? `${imagens} imagens` : imagens === 1 ? "Imagem" : "";
+}
+
+// ------------------------------------------------------------- as marcações
+
+/**
+ * MARCAR é citar, dentro da mensagem, uma pessoa (@pessoa), um setor inteiro
+ * (@setor), um pedido da loja (/pedido) ou o andamento da meta (/meta).
+ *
+ * A marcação fica guardada DENTRO do texto, num formato que ninguém digita por
+ * acaso: `⟦tipo:alvo|rótulo⟧`. Quem escreve o que vai dentro é o banco
+ * (`chat_normalizar`, 0082): ele confere a pessoa, o pedido e calcula a meta.
+ * O navegador só diz "marquei isto" (`comMarcas`) e depois lê o que voltou
+ * (`partesDoTexto`).
+ *
+ * Na caixa de escrever a pessoa NÃO vê esse formato. Ela vê `@Caio Reis`,
+ * `@Fábrica`, `#11389` e `/meta`, e é isso que vira marcação na hora de
+ * mandar. Por isso não há lista de "marcações escolhidas" para guardar: quem
+ * apaga metade do nome simplesmente deixa de marcar.
+ */
+
+export type SituacaoDaMeta = "batida" | "no_ritmo" | "atras";
+
+/** Os setores que se pode marcar: as salas, menos a geral. */
+export type Setor = Exclude<Sala, "geral">;
+
+export type Marca =
+  | { tipo: "pessoa"; id: string; rotulo: string }
+  | { tipo: "setor"; setor: Setor; rotulo: string }
+  | { tipo: "pedido"; numero: number; rotulo: string }
+  /** A meta como estava na hora da mensagem: o percentual e a situação. Nunca valor em reais. */
+  | { tipo: "meta"; mes: string; pct: number; situacao: SituacaoDaMeta; rotulo: string };
+
+/** O formato guardado: `⟦tipo:alvo|rótulo⟧`. É o mesmo padrão que o banco usa (0082). */
+const FORMATO_DA_MARCA = /⟦([psom]):([^|⟧]*)\|([^⟧]*)⟧/g;
+
+/** Lê uma marcação pelas três partes do formato. `null` quando o alvo não faz sentido: aí ela é desenhada como texto. */
+export function lerMarca(tipo: string, alvo: string, rotulo: string): Marca | null {
+  if (tipo === "p") return UUID.test(alvo) ? { tipo: "pessoa", id: alvo.toLowerCase(), rotulo } : null;
+  if (tipo === "s") {
+    const setor = lerSala(alvo);
+    return setor && setor !== "geral" ? { tipo: "setor", setor, rotulo } : null;
+  }
+  if (tipo === "o") return /^\d{1,12}$/.test(alvo) ? { tipo: "pedido", numero: Number(alvo), rotulo } : null;
+  if (tipo === "m") {
+    const [mes, pct, situacao] = alvo.split(";");
+    if (!/^\d{4}-\d{2}$/.test(mes ?? "") || !/^\d{1,3}$/.test(pct ?? "")) return null;
+    if (situacao !== "batida" && situacao !== "no_ritmo" && situacao !== "atras") return null;
+    return { tipo: "meta", mes, pct: Number(pct), situacao, rotulo };
+  }
+  return null;
+}
+
+/**
+ * O texto sem o formato, do jeito que se lê: "@Nome", "Pedido 123", "Meta de
+ * novembro: 25%". É a mesma troca de `chat_texto_limpo` no banco, e serve ao
+ * trecho citado, ao rascunho da biblioteca e a qualquer lugar de uma linha só.
+ */
+export function textoLimpo(escrito: string): string {
+  return escrito.replace(FORMATO_DA_MARCA, (_tudo, tipo: string, _alvo: string, rotulo: string) => (tipo === "p" || tipo === "s" ? `@${rotulo}` : rotulo));
+}
+
+/** A mensagem marca a pessoa pelo nome ("voce") ou pelo setor dela ("setor")? É o que acende a mensagem na conversa. */
+export function quemFoiMarcado(escrito: string, meuId: string, setores: readonly string[]): "voce" | "setor" | null {
+  let pelosetor = false;
+  for (const p of partesDoTexto(escrito)) {
+    if (p.tipo !== "marca") continue;
+    if (p.marca.tipo === "pessoa" && p.marca.id === meuId.toLowerCase()) return "voce";
+    if (p.marca.tipo === "setor" && setores.includes(p.marca.setor)) pelosetor = true;
+  }
+  return pelosetor ? "setor" : null;
+}
+
+/** A situação da meta em palavra e em cor, a mesma da Visão geral. */
+export function situacaoDaMeta(s: SituacaoDaMeta): { tom: Tom; palavra: string } {
+  if (s === "batida") return { tom: "bom", palavra: "meta batida" };
+  if (s === "no_ritmo") return { tom: "bom", palavra: "no ritmo" };
+  return { tom: "ruim", palavra: "atrás do ritmo" };
+}
+
+/** Minúsculas e sem acento, para a busca achar "fabrica" em "Fábrica". */
+const semAcento = (t: string): string => t.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+
+const ehLetra = (c: string | undefined): boolean => c !== undefined && /[\p{L}\p{N}_]/u.test(c);
+
+// ----- ao digitar
+
+/** O que a pessoa está digitando que pede sugestão: um "@" (pessoa ou setor) ou uma "/" (comando), do começo dele até o cursor. */
+export type Gatilho = { tipo: "arroba" | "comando"; termo: string; inicio: number; fim: number };
+
+/**
+ * Acha o gatilho que termina no cursor. O sinal precisa abrir uma palavra
+ * (começo do texto ou depois de espaço): "fulano@loja.com" e "https://site"
+ * não são gatilho. O termo pode ter espaço, porque nome tem sobrenome e
+ * "/pedido maria" leva a busca junto; quem decide se ainda há o que sugerir é
+ * a lista, que some quando nada bate.
+ */
+export function gatilhoNoCursor(escrito: string, cursor: number): Gatilho | null {
+  const antes = escrito.slice(0, cursor);
+  const linha = antes.slice(antes.lastIndexOf("\n") + 1);
+  const base = antes.length - linha.length;
+  for (let i = linha.length - 1; i >= 0 && linha.length - i <= 42; i--) {
+    const c = linha[i];
+    if (c !== "@" && c !== "/") continue;
+    if (i > 0 && !/\s/.test(linha[i - 1])) continue;
+    const termo = linha.slice(i + 1);
+    // Dois espaços seguidos, ou espaço logo depois do sinal: a pessoa seguiu escrevendo outra coisa.
+    if (/^\s|\s\s/.test(termo)) return null;
+    return { tipo: c === "@" ? "arroba" : "comando", termo, inicio: base + i, fim: cursor };
+  }
+  return null;
+}
+
+export type Sugestao = { chave: string; /** O que entra na caixa de escrever. */ visivel: string; titulo: string; apoio: string };
+
+/** Como cada setor aparece na lista do "@". A ordem é a das salas. */
+const SETORES_PARA_MARCAR: { setor: Setor; nome: string }[] = SALAS.filter((s) => s.chave !== "geral").map((s) => ({ setor: s.chave as Setor, nome: s.nome }));
+
+const bate = (nome: string, termo: string): boolean => {
+  const n = semAcento(nome);
+  const t = semAcento(termo.trim());
+  return t === "" || n.startsWith(t) || n.split(/\s+/).some((palavra) => palavra.startsWith(t));
+};
+
+/** As sugestões do "@": os setores e as pessoas cujo nome começa pelo termo. A própria pessoa não entra. */
+export function sugestoesDeArroba(termo: string, pessoas: readonly Pessoa[], meuId: string, nomeDoPapel: (papel: string) => string = (p) => p): Sugestao[] {
+  const setores: Sugestao[] = SETORES_PARA_MARCAR.filter((s) => bate(s.nome, termo)).map((s) => ({
+    chave: `s:${s.setor}`,
+    visivel: `@${s.nome}`,
+    titulo: s.nome,
+    apoio: "O setor inteiro",
+  }));
+  const gente: Sugestao[] = pessoas
+    .filter((p) => p.id !== meuId && bate(p.nome, termo))
+    .map((p) => ({ chave: `p:${p.id}`, visivel: `@${p.nome}`, titulo: p.nome, apoio: nomeDoPapel(p.papel) }));
+  return [...gente, ...setores].slice(0, 8);
+}
+
+export type Comando = { chave: "pedido" | "meta"; visivel: string; titulo: string; apoio: string };
+
+const COMANDOS: Comando[] = [
+  { chave: "pedido", visivel: "/pedido ", titulo: "/pedido", apoio: "Marcar um pedido da loja: digite o número ou o nome do cliente" },
+  { chave: "meta", visivel: "/meta", titulo: "/meta", apoio: "Mostrar ao time como está a meta do mês, em percentual" },
+];
+
+/** Os comandos que começam pelo termo. `/meta` só aparece para quem pode ver a meta. */
+export function comandosPara(termo: string, podeMeta: boolean): Comando[] {
+  const t = semAcento(termo.trim());
+  return COMANDOS.filter((c) => (c.chave !== "meta" || podeMeta) && c.chave.startsWith(t));
+}
+
+/** Depois de "/pedido " vem a busca. Devolve o que buscar, ou `null` quando o termo não é o comando do pedido. */
+export function buscaDoPedido(termo: string): string | null {
+  const m = /^pedido(?:\s+(.*))?$/i.exec(termo);
+  if (!m) return null;
+  // "/pedido" colado, sem o espaço, ainda é a pessoa escolhendo o comando.
+  if (termo.length <= 6) return null;
+  // Número seguido de mais texto ("/pedido 11389 e depois"): a pessoa já seguiu a frase, não está mais buscando.
+  if (/^\d+\s/.test(m[1] ?? "")) return null;
+  return (m[1] ?? "").trim();
+}
+
+/** Troca o que a pessoa digitou (do sinal até o cursor) pelo que ela escolheu. Devolve o texto novo e onde o cursor fica. */
+export function trocarGatilho(escrito: string, g: Pick<Gatilho, "inicio" | "fim">, novo: string): { texto: string; cursor: number } {
+  const texto = escrito.slice(0, g.inicio) + novo + escrito.slice(g.fim);
+  return { texto, cursor: g.inicio + novo.length };
+}
+
+// ----- ao mandar
+
+/**
+ * Transforma o que a pessoa vê na caixa (`@Caio Reis`, `@Fábrica`, `#11389`,
+ * `/meta`) no formato que o banco confere. Só no começo de palavra, e só o
+ * que bate inteiro com uma pessoa ou um setor: "@" solto continua texto.
+ *
+ * O nome mais comprido é tentado primeiro, para "@Ana Paula" não virar "@Ana"
+ * mais " Paula". Trecho que já é marcação (colado de outra mensagem) passa
+ * intacto: quem decide se ele vale é o banco.
+ */
+export function comMarcas(escrito: string, pessoas: readonly Pessoa[], podeMeta: boolean): string {
+  const candidatos: { nome: string; marca: string }[] = [
+    ...pessoas.map((p) => ({ nome: p.nome, marca: `⟦p:${p.id}|${p.nome.replace(/[⟦⟧|]/g, " ")}⟧` })),
+    ...SETORES_PARA_MARCAR.map((s) => ({ nome: s.nome, marca: `⟦s:${s.setor}|${s.nome}⟧` })),
+  ]
+    .filter((c) => c.nome.trim() !== "")
+    .sort((a, b) => b.nome.length - a.nome.length);
+
+  const converter = (trecho: string): string => {
+    let saida = "";
+    let i = 0;
+    while (i < trecho.length) {
+      const c = trecho[i];
+      const abre = i === 0 || !ehLetra(trecho[i - 1]);
+      if (c === "@" && abre) {
+        const achado = candidatos.find((x) => semAcento(trecho.slice(i + 1, i + 1 + x.nome.length)) === semAcento(x.nome) && !ehLetra(trecho[i + 1 + x.nome.length]));
+        if (achado) {
+          saida += achado.marca;
+          i += 1 + achado.nome.length;
+          continue;
+        }
+      }
+      if (c === "#" && abre) {
+        const numero = /^\d{3,12}/.exec(trecho.slice(i + 1))?.[0];
+        if (numero && !ehLetra(trecho[i + 1 + numero.length])) {
+          saida += `⟦o:${numero}|#${numero}⟧`;
+          i += 1 + numero.length;
+          continue;
+        }
+      }
+      if (c === "/" && (i === 0 || /\s/.test(trecho[i - 1]))) {
+        if (podeMeta && trecho.slice(i + 1, i + 5).toLowerCase() === "meta" && !ehLetra(trecho[i + 5])) {
+          saida += "⟦m:|meta do mês⟧";
+          i += 5;
+          continue;
+        }
+        // "/pedido 123" mandado por extenso, sem escolher na lista, também marca o pedido.
+        const porExtenso = /^pedido\s+#?(\d{3,12})(?![\p{L}\p{N}_])/iu.exec(trecho.slice(i + 1));
+        if (porExtenso) {
+          saida += `⟦o:${porExtenso[1]}|#${porExtenso[1]}⟧`;
+          i += 1 + porExtenso[0].length;
+          continue;
+        }
+      }
+      saida += c;
+      i += 1;
+    }
+    return saida;
+  };
+
+  let saida = "";
+  let ultimo = 0;
+  for (const achado of escrito.matchAll(FORMATO_DA_MARCA)) {
+    const inicio = achado.index ?? 0;
+    saida += converter(escrito.slice(ultimo, inicio)) + achado[0];
+    ultimo = inicio + achado[0].length;
+  }
+  return saida + converter(escrito.slice(ultimo));
+}
+
+// ----- o pedido marcado
+
+export const NOME_DA_ETAPA: Record<string, string> = { a_produzir: "A produzir", em_producao: "Em produção", pronto: "Pronto", enviado: "Enviado" };
+
+/** O pedido na lista da busca do "/pedido". Sem valor; o cliente só vem para quem já vê cliente em outra tela. */
+export type PedidoAchado = { numero: number; dia: string; situacao: string; etapa: string | null; cliente: string | null; peca: string | null; pecas: number };
+
+export function lerPedidosAchados(v: unknown): PedidoAchado[] {
+  return (Array.isArray(v) ? v : [])
+    .map(objeto)
+    .filter((p): p is Record<string, unknown> => p !== null && inteiro(p.numero) > 0)
+    .map((p) => ({
+      numero: inteiro(p.numero),
+      dia: typeof p.dia === "string" ? p.dia : "",
+      situacao: typeof p.situacao === "string" ? p.situacao : "",
+      etapa: texto(p.etapa),
+      cliente: texto(p.cliente),
+      peca: texto(p.peca),
+      pecas: Math.max(0, inteiro(p.pecas)),
+    }));
+}
+
+/**
+ * A prévia de um pedido marcado, montada pelo banco PARA QUEM OLHA: as peças,
+ * a etapa, a entrega e a cidade vêm para todos; o cliente e o valor, só para
+ * quem tem o acesso. `pode` diz para onde a pessoa consegue ir a partir dali.
+ */
+export type PreviaDoPedido = {
+  numero: number;
+  dia: string;
+  situacao: string;
+  statusDaLoja: string | null;
+  etapa: string | null;
+  entrega: string | null;
+  cidade: string | null;
+  uf: string | null;
+  rastreio: string | null;
+  cliente: string | null;
+  total: number | null;
+  pecas: { nome: string; quantidade: number; foto: string | null }[];
+  pode: { fabrica: boolean; ficha: boolean };
+};
+
+export function lerPreviaDoPedido(v: unknown): PreviaDoPedido | null {
+  const l = objeto(v);
+  if (!l || inteiro(l.numero) <= 0) return null;
+  const pode = objeto(l.pode);
+  const total = l.total === null || l.total === undefined ? null : Number(l.total);
+  return {
+    numero: inteiro(l.numero),
+    dia: typeof l.dia === "string" ? l.dia : "",
+    situacao: typeof l.situacao === "string" ? l.situacao : "",
+    statusDaLoja: texto(l.status_da_loja),
+    etapa: texto(l.etapa),
+    entrega: texto(l.entrega),
+    cidade: texto(l.cidade),
+    uf: texto(l.uf),
+    rastreio: texto(l.rastreio),
+    cliente: texto(l.cliente),
+    total: total !== null && Number.isFinite(total) ? total : null,
+    pecas: (Array.isArray(l.pecas) ? l.pecas : [])
+      .map(objeto)
+      .filter((p): p is Record<string, unknown> => p !== null && typeof p.nome === "string")
+      .map((p) => ({ nome: String(p.nome), quantidade: Math.max(1, inteiro(p.quantidade)), foto: texto(p.foto) })),
+    pode: { fabrica: pode?.fabrica === true, ficha: pode?.ficha === true },
+  };
+}
+
+/** Em que pé está o pedido, em palavra e em cor: cancelado, esperando pagamento, ou a etapa da fábrica. */
+export function situacaoDoPedido(p: Pick<PreviaDoPedido, "situacao" | "etapa">): { tom: Tom; palavra: string } {
+  if (p.situacao === "cancelado") return { tom: "ruim", palavra: "Cancelado" };
+  if (p.situacao !== "pago") return { tom: "atencao", palavra: "Esperando pagamento" };
+  if (p.etapa === "enviado") return { tom: "bom", palavra: "Enviado" };
+  return { tom: "neutro", palavra: NOME_DA_ETAPA[p.etapa ?? ""] ?? "Pago" };
+}
+
+/** "14/11", do dia que o banco manda como "2026-11-14". */
+export function diaCurto(dia: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(dia);
+  return m ? `${m[3]}/${m[2]}` : "";
 }
 
 // ------------------------------------------------------------ os textos
@@ -607,10 +957,10 @@ export function textoSobreProduto(p: { nome: string; codigo?: string | null; url
 export function rascunhoDaResposta(pergunta: Pick<Mensagem, "id" | "texto" | "autor">, mensagens: readonly Mensagem[]): { pergunta: string; explicacao: string } {
   const explicacao = mensagens
     .filter((m) => m.respondeA?.id === pergunta.id && !m.apagada && m.autor !== pergunta.autor && m.texto.trim() !== "")
-    .map((m) => m.texto.trim())
+    .map((m) => textoLimpo(m.texto).trim())
     .join("\n")
     .slice(0, 4000);
-  return { pergunta: pergunta.texto.replace(/\s+/g, " ").trim().slice(0, 300), explicacao };
+  return { pergunta: textoLimpo(pergunta.texto).replace(/\s+/g, " ").trim().slice(0, 300), explicacao };
 }
 
 /** Onde o rascunho que vem de outra tela (o tutor) fica guardado até o chat abrir. Não vai no endereço: endereço fica em histórico. */

@@ -258,17 +258,19 @@ function Filtro({ ativo, onClick, children, numero, tom }: { ativo: boolean; onC
 }
 
 export function ListaDaFabrica({
-  pedidos, etapa, hoje, mover, moverVarios,
+  pedidos, etapa, hoje, buscaInicial = "", mover, moverVarios,
 }: {
   /** Todos os pedidos da janela, de todas as etapas: a busca procura em todos. */
   pedidos: PedidoDaFabrica[];
   etapa: Etapa;
   hoje: string;
+  /** O que já vem digitado na busca. */
+  buscaInicial?: string;
   mover: Mover;
   moverVarios: MoverVarios;
 }) {
   const router = useRouter();
-  const [filtro, setFiltro] = useState<FiltroDaFila>(SEM_FILTRO);
+  const [filtro, setFiltro] = useState<FiltroDaFila>(() => (buscaInicial ? { ...SEM_FILTRO, busca: buscaInicial } : SEM_FILTRO));
   const [escolhendo, setEscolhendo] = useState(false);
   const [marcados, setMarcados] = useState<Set<string>>(() => new Set());
   const [destino, setDestino] = useState<Etapa | null>(null);

@@ -15,10 +15,12 @@ export const metadata = { title: "Fila da fábrica" };
  * move. A fila vem de uma função do banco que não devolve preço nem custo: a
  * fábrica não tem leitura do faturamento. O desenho mora em `Tela.tsx`.
  */
-export default async function FabricaPage({ searchParams }: { searchParams: Promise<{ etapa?: string; dias?: string }> }) {
+export default async function FabricaPage({ searchParams }: { searchParams: Promise<{ etapa?: string; dias?: string; busca?: string }> }) {
   await requireArea("fabrica");
   const sp = await searchParams;
   const dias = JANELAS.includes(Number(sp.dias)) ? Number(sp.dias) : JANELAS[0];
   const fila = await lerFilaDaFabrica(await createClient(), dias);
-  return <TelaDaFabrica fila={fila} etapa={lerEtapa(sp.etapa) ?? "a_produzir"} dias={dias} hoje={hojeEmSaoPaulo()} mover={moverPedido} moverVarios={moverVarios} />;
+  // `?busca=<número>` é por onde chega quem clicou num pedido marcado no chat do time: só número, nunca texto digitado.
+  const busca = sp.busca && /^[0-9]{1,12}$/.test(sp.busca) ? sp.busca : "";
+  return <TelaDaFabrica fila={fila} etapa={lerEtapa(sp.etapa) ?? "a_produzir"} dias={dias} hoje={hojeEmSaoPaulo()} buscaInicial={busca} mover={moverPedido} moverVarios={moverVarios} />;
 }

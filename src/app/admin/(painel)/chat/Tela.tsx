@@ -6,7 +6,7 @@ import { ArrowDown, ArrowLeft, Check, ChevronDown, ChevronUp, CornerUpLeft, Load
 import { COR_DO_TOM } from "@/lib/painel/tons";
 import { aoAvisar, avisarAqui, useLigacao, type Ligacao } from "@/lib/time/ao-vivo";
 import {
-  CHAVE_DO_RASCUNHO, NOME_DA_SALA, SALAS, daSala, desdeQuandoSincronizar, esperaDoPedido, juntarMensagens, lerSala, limitesPorExtenso, minhasSalas,
+  CHAVE_DO_RASCUNHO, NOME_DA_SALA, SALAS, comMarcas, daSala, desdeQuandoSincronizar, esperaDoPedido, juntarMensagens, lerSala, limitesPorExtenso, minhasSalas,
   montarLinhas, naoLidasPorSala, pedidosEsperando, pessoasComPresenca, primeiraNaoLida, rascunhoDaResposta, trechoDe,
   type Abertura, type EstadoDoAviso, type Lidas, type Mensagem, type Sala,
 } from "@/lib/time/chat";
@@ -52,6 +52,8 @@ type Props = {
   pedirDeInicio: boolean;
   /** `?m=`: a mensagem para onde ir (o link que a biblioteca guarda da conversa). */
   destaqueInicial: number | null;
+  /** A pessoa pode ver a meta do mês (área de vendas): só ela consegue marcar a meta com "/meta". Quem confere de verdade é o banco. */
+  podeMeta: boolean;
   api?: ApiDoChat;
   /** Só a prévia de desenvolvimento: uma ligação de mentira, com gente online. */
   ligacaoDaPrevia?: Ligacao;
@@ -92,7 +94,7 @@ export function TelaDoChat(p: Props) {
 }
 
 function Chat({
-  abertura, meuId, souAdmin, salaInicial, rascunho, pedirDeInicio, destaqueInicial, api = apiDoChat, ligacaoDaPrevia, avisoDaPrevia,
+  abertura, meuId, souAdmin, salaInicial, rascunho, pedirDeInicio, destaqueInicial, podeMeta, api = apiDoChat, ligacaoDaPrevia, avisoDaPrevia,
 }: Props & { abertura: Abertura }) {
   const ligacaoReal = useLigacao();
   const ligacao = ligacaoDaPrevia ?? ligacaoReal;
@@ -432,7 +434,8 @@ function Chat({
         if (!subidas.ok) return falhar(subidas.erro);
         enviadas = subidas.imagens;
       }
-      const r = await api.enviar({ sala: p.sala, texto: p.texto, respondeA: p.respondeA?.id ?? null, pede: p.pede, imagens: enviadas });
+      // O que a pessoa escreveu como "@Nome", "#123" e "/meta" vai ao banco como marcação. Ele confere e devolve o texto pronto.
+      const r = await api.enviar({ sala: p.sala, texto: comMarcas(p.texto, abertura.pessoas, podeMeta), respondeA: p.respondeA?.id ?? null, pede: p.pede, imagens: enviadas });
       if (!r.ok) return falhar(r.erro);
       p.imagens.forEach((i) => URL.revokeObjectURL(i.previa));
       setPendentes((l) => l.filter((x) => x.chave !== p.chave));
@@ -442,7 +445,7 @@ function Chat({
       // A mensagem respondida mudou (ganhou uma resposta, e o pedido pode ter sido atendido).
       if (p.respondeA) agendar();
     },
-    [api, meuId, receber, agendar],
+    [api, meuId, receber, agendar, abertura.pessoas, podeMeta],
   );
 
   const enviar = () => {
@@ -775,6 +778,8 @@ function Chat({
                     linhas={linhas}
                     pendentes={pendentesDaSala}
                     meuId={meuId}
+                    meusSetores={abertura.setores}
+                    buscarPrevia={api.previaDoPedido}
                     souAdmin={souAdmin}
                     agora={agora}
                     linkDe={linkDe}
@@ -829,6 +834,10 @@ function Chat({
               imagens={imagens}
               sala={nomeDaSala}
               focar={focar}
+              pessoas={abertura.pessoas}
+              meuId={meuId}
+              podeMeta={podeMeta}
+              buscarPedidos={api.buscarPedidos}
             />
           </>
         )}
