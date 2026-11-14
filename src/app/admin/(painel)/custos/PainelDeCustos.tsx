@@ -199,7 +199,7 @@ export function PainelDeCustos({
       {despesas === null ? (
         <p className="glass mt-8 rounded-[18px] p-6 text-sm text-muted">
           <span className="font-semibold text-ink">Não deu para ler os custos agora.</span> Recarregue a página em alguns
-          segundos. Se continuar, o banco está fora do ar ou a migration 0055 não foi aplicada.
+          segundos. Se continuar, avise quem cuida do painel.
         </p>
       ) : (
         <>

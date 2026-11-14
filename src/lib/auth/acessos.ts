@@ -39,7 +39,9 @@ export type Area =
   | "lancar_venda"
   | "trafego"
   /** Alterar a loja na Tray pelo painel (0065). Preço fica mais fechado ainda: ver `lib/loja/produto.ts`. */
-  | "loja";
+  | "loja"
+  /** A consulta de quem atende cliente ou despacha peça: produto, pronta entrega e prazo (0073). */
+  | "consulta";
 
 /** Na ordem em que aparecem para quem convida: da empresa para o editorial. */
 export const NIVEIS: { papel: AppRole; nome: string; resumo: string }[] = [
@@ -47,8 +49,8 @@ export const NIVEIS: { papel: AppRole; nome: string; resumo: string }[] = [
   { papel: "gm", nome: "GM", resumo: "Vê e faz tudo" },
   { papel: "gerente", nome: "Gerente", resumo: "Quase tudo, menos custos, margem e acessos" },
   { papel: "trafego", nome: "Tráfego", resumo: "Gasto de anúncio, retorno, vendas, métricas e campanhas" },
-  { papel: "vendas", nome: "Vendas", resumo: "Registrar venda, fila de recuperação e consulta de produto" },
-  { papel: "fabrica", nome: "Fábrica", resumo: "Só a área da fábrica" },
+  { papel: "vendas", nome: "Vendas", resumo: "Consulta de produto e prazo, registrar venda e fila de recuperação" },
+  { papel: "fabrica", nome: "Fábrica", resumo: "A fila da fábrica e a consulta de produto e prazo" },
   { papel: "editor", nome: "Editor", resumo: "Conteúdo, site, produtos e campanhas" },
   { papel: "reviewer", nome: "Revisor", resumo: "Conteúdo e métricas" },
   { papel: "author", nome: "Autor", resumo: "Conteúdo e métricas" },

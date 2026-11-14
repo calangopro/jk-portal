@@ -54,6 +54,14 @@ export const getSessionProfile = cache(async function getSessionProfile(): Promi
   };
 });
 
+/**
+ * Para onde vai quem tentou abrir uma tela que o acesso dele não abre. O
+ * parâmetro faz a Visão geral dizer isso por escrito: sem ele, a pessoa clicava
+ * num link, caía no início e não sabia se tinha errado o clique ou se o painel
+ * estava quebrado.
+ */
+export const SEM_ACESSO = "/admin?sem=acesso";
+
 /** Exige sessão de qualquer pessoa ATIVA, de qualquer nível; caso contrário, manda ao login. */
 export async function requireSessao(): Promise<Profile> {
   const profile = await getSessionProfile();
@@ -68,20 +76,20 @@ export async function requireSessao(): Promise<Profile> {
  */
 export async function requireStaff(): Promise<Profile> {
   const profile = await requireSessao();
-  if (!ehEquipeDeConteudo(profile.role)) redirect("/admin");
+  if (!ehEquipeDeConteudo(profile.role)) redirect(SEM_ACESSO);
   return profile;
 }
 
 /** Exige uma área liberada para o nível da pessoa (vendas, recuperação, fábrica). */
 export async function requireArea(area: Area): Promise<Profile> {
   const profile = await requireSessao();
-  if (!profile.areas.includes(area)) redirect("/admin");
+  if (!profile.areas.includes(area)) redirect(SEM_ACESSO);
   return profile;
 }
 
 /** Exige administrador, dono ou GM: os três têm o mesmo acesso. */
 export async function requireAdmin(): Promise<Profile> {
   const profile = await requireSessao();
-  if (!ehAdmin(profile.role)) redirect("/admin");
+  if (!ehAdmin(profile.role)) redirect(SEM_ACESSO);
   return profile;
 }

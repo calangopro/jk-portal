@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireStaff } from "@/lib/auth/session";
 import { criarChaveManual, revogarChave } from "@/lib/conector/chaves";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { ehAdmin } from "@/lib/auth/acessos";
 
 export type EstadoDaChave = { erro?: string; chave?: string; nome?: string };
 
@@ -30,7 +31,7 @@ export async function desligarAcesso(form: FormData): Promise<void> {
   const perfil = await requireStaff();
   const id = String(form.get("id") ?? "");
   if (!/^[0-9a-f-]{36}$/i.test(id)) return;
-  if (perfil.role !== "admin") {
+  if (!ehAdmin(perfil.role)) {
     const { data } = await createAdminClient().from("conector_chaves").select("profile_id").eq("id", id).maybeSingle();
     if (data?.profile_id !== perfil.id) return;
   }

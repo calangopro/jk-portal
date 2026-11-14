@@ -35,7 +35,8 @@ import { diaOuNulo, lerEstado, naoPegaram, prepararEdicao } from "../src/lib/loj
 import { TETO_DE_BYTES, codigoDaImagem, corpoDasFotos, enderecoAceito, fotosQueNaoEntraram, lerImagens, prepararFotos, type FotoNova } from "../src/lib/loja/imagens.ts";
 import { achatar, ordenar, somar, tomContraAMedia, tomDaVoltaDaLoja, tomDaVoltaDaPlataforma, tomDoVeredito } from "../src/lib/trafego/linhas.ts";
 import { abasDaBarra, nomeDoSetor, ondeEstou, setoresDe } from "../src/lib/painel/setores.ts";
-import { DIAS_DE_ATENCAO, DIAS_DE_ATRASO, diasEntreDatas, esperaEmPalavra, etapaAnterior, lerEntrega, lerEspecificacoes, lerEtapa, proximaEtapa, tomDaEspera } from "../src/lib/fabrica/etapas.ts";
+import { REGRAS_DE_PARTIDA, diaPorExtenso, diasDeProducao, diasDesde, lerRegras, proximoMalote, quandoFica, somarDiasUteis } from "../src/lib/vendas/prazos.ts";
+import { DIAS_DE_ATENCAO, DIAS_DE_ATRASO, SEM_FILTRO, diasEntreDatas, esperaEmPalavra, etapaAnterior, filtrarFila, grupoDaEntrega, lerEntrega, lerEspecificacoes, lerEtapa, proximaEtapa, tomDaEspera } from "../src/lib/fabrica/etapas.ts";
 
 let falhas = 0;
 function confere(nome: string, ok: boolean, detalhe = "") {
@@ -878,6 +879,51 @@ console.log("\nFila da fábrica");
   confere("retirada em loja diz qual loja", lerEntrega("Retire na loja do Shopping Plaza - Osasco")?.nome === "Retirada: Shopping Plaza - Osasco" && lerEntrega("Retire na loja do Shopping Granja Viana")?.tipo === "retirada");
   confere("motoboy e Correios são reconhecidos", lerEntrega("Entrega por Motoboy")?.tipo === "motoboy" && lerEntrega("CORREIOS SEDEX")?.nome === "Correios SEDEX" && lerEntrega("CORREIOS PAC")?.nome === "Correios PAC");
   confere("frete que o painel não conhece sai com o nome da loja", lerEntrega("Frete Grátis Sudeste")?.tipo === "envio" && lerEntrega("Frete Grátis Sudeste")?.nome === "Frete Grátis Sudeste" && lerEntrega("") === null && lerEntrega(null) === null);
+
+  // Busca e filtros da fila. Nomes inventados.
+  const peca = (nome: string, referencia: string, gravar: string) => ({ nome, referencia, info: `Numeração - Aro 01: 17<br />Gravação - Aro 01: ${gravar}<br />` });
+  const fila = [
+    { pedido: 20001, dia: "2026-10-31", etapa: "a_produzir" as const, cliente: "Rafael Exemplo", cidade: "Barueri", entrega: "Retire na loja do Shopping União - Osasco", rastreio: null, nota: "avisar no WhatsApp", pecas: [peca("Par de Alianças Eternal Love", "JK9001A", "Rafael 12.06")] },
+    { pedido: 20002, dia: "2026-11-12", etapa: "a_produzir" as const, cliente: "Bianca Modelo", cidade: "São Paulo", entrega: "Entrega por Motoboy", rastreio: null, nota: null, pecas: [peca("Par de Alianças Elegance", "JK9015A", "Bianca")] },
+    { pedido: 20003, dia: "2026-11-01", etapa: "enviado" as const, cliente: "Caio Teste", cidade: "Recife", entrega: "Frete Grátis Nordeste", rastreio: "AA123456789BR", nota: null, pecas: [peca("Anel Solitário Forever", "JK7000", "Caio")] },
+  ];
+  const achados = (f: Partial<typeof SEM_FILTRO>) => filtrarFila(fila, { ...SEM_FILTRO, ...f }, "2026-11-14").map((p) => p.pedido).join();
+  confere("sem filtro a fila sai inteira", achados({}) === "20001,20002,20003");
+  confere("a busca acha pelo número do pedido", achados({ busca: "20002" }) === "20002");
+  confere("a busca não liga para acento nem maiúscula", achados({ busca: "sao paulo" }) === "20002" && achados({ busca: "ALIANCAS" }) === "20001,20002");
+  confere("a busca acha pelo texto da gravação, pela referência e pelo rastreio", achados({ busca: "12.06" }) === "20001" && achados({ busca: "jk9015a" }) === "20002" && achados({ busca: "aa123456789br" }) === "20003");
+  confere("com duas palavras, as duas precisam aparecer", achados({ busca: "osasco eternal" }) === "20001" && achados({ busca: "osasco elegance" }) === "");
+  confere("a busca não casa com a marcação do campo da loja", achados({ busca: "br" }) === "20003");
+  confere("o filtro de entrega separa retirada, motoboy e envio", achados({ entrega: "retirada" }) === "20001" && achados({ entrega: "motoboy" }) === "20002" && achados({ entrega: "envio" }) === "20003");
+  confere("atrasado é o que passou do prazo e ainda não saiu", achados({ soAtrasados: true }) === "20001");
+  confere("dá para ver só os pedidos com anotação", achados({ soComNota: true }) === "20001");
+  confere("os grupos de entrega", grupoDaEntrega("CORREIOS SEDEX") === "envio" && grupoDaEntrega("Retire na loja do Shopping Santana") === "retirada" && grupoDaEntrega(null) === null);
+}
+
+console.log("\nPrazo de entrega");
+{
+  // Novembro de 2026: dia 11 é quarta, 12 quinta, 13 sexta, 14 sábado, 16 segunda, 18 quarta.
+  {
+    confere("lê os dias úteis do texto da loja", diasDeProducao("Disponível em 2 dias úteis") === 2 && diasDeProducao("Disponível em 1 dia útil") === 1 && diasDeProducao("Disponível em 10 dias úteis") === 10);
+    confere("pronta entrega e imediato são zero dias, e texto sem prazo não é chutado", diasDeProducao("Pronta entrega") === 0 && diasDeProducao("Imediata") === 0 && diasDeProducao("Sob consulta") === null && diasDeProducao(null) === null);
+  }
+  confere("o dia do pedido não conta: quarta com 2 dias úteis fica pronta na sexta", somarDiasUteis("2026-11-11", 2) === "2026-11-13");
+  confere("o fim de semana não conta", somarDiasUteis("2026-11-12", 2) === "2026-11-16" && somarDiasUteis("2026-11-13", 1) === "2026-11-16" && somarDiasUteis("2026-11-14", 2) === "2026-11-17");
+  confere("com zero dias vale o próprio dia útil, ou o próximo", somarDiasUteis("2026-11-11", 0) === "2026-11-11" && somarDiasUteis("2026-11-14", 0) === "2026-11-16");
+  confere("o malote é o primeiro de quarta ou sexta, o próprio dia incluído", proximoMalote("2026-11-13", REGRAS_DE_PARTIDA) === "2026-11-13" && proximoMalote("2026-11-14", REGRAS_DE_PARTIDA) === "2026-11-18" && proximoMalote("2026-11-12", REGRAS_DE_PARTIDA) === "2026-11-13");
+  const retirada = quandoFica({ hoje: "2026-11-11", diasUteis: 2, caminho: "retirada", regras: REGRAS_DE_PARTIDA });
+  confere("retirada: pedido de quarta com 2 dias chega na loja na sexta, depois das 20h", retirada.pronta === "2026-11-13" && retirada.chegada === "2026-11-13" && retirada.frase === "Chega na loja em sexta, 13/11, depois das 20h.");
+  confere("a conta da retirada vem com os passos, e manda combinar a partir do dia seguinte", retirada.conta.length === 3 && retirada.conta[2].includes("sábado, 14/11"));
+  const quinta = quandoFica({ hoje: "2026-11-12", diasUteis: 2, caminho: "retirada", regras: REGRAS_DE_PARTIDA });
+  confere("retirada: pedido de quinta com 2 dias só pega o malote da quarta seguinte", quinta.pronta === "2026-11-16" && quinta.chegada === "2026-11-18");
+  const correios = quandoFica({ hoje: "2026-11-12", diasUteis: 2, caminho: "correios", regras: REGRAS_DE_PARTIDA });
+  confere("Correios: a resposta é o dia da postagem, e não promete o prazo dos Correios", correios.chegada === "2026-11-16" && correios.frase.includes("segunda, 16/11") && correios.frase.includes("prazo dos Correios"));
+  const moto = quandoFica({ hoje: "2026-11-14", diasUteis: 0, caminho: "moto", regras: REGRAS_DE_PARTIDA });
+  confere("moto: sai no dia em que fica pronta, e a frase diz que o cliente paga", moto.chegada === "2026-11-16" && moto.frase.includes("O cliente paga a corrida"));
+  confere("o dia por extenso", diaPorExtenso("2026-11-13") === "sexta, 13/11" && diaPorExtenso("2026-11-15") === "domingo, 15/11");
+  confere("regra gravada é conferida, e lixo volta para a regra de partida", lerRegras({ diasDoMalote: [5, 2, 2], horaDoMalote: 19, confirmadas: true }).diasDoMalote.join() === "2,5" && lerRegras({ diasDoMalote: [], horaDoMalote: 19 }) === REGRAS_DE_PARTIDA && lerRegras({ diasDoMalote: [3], horaDoMalote: 99 }) === REGRAS_DE_PARTIDA && lerRegras(null) === REGRAS_DE_PARTIDA);
+  confere("as regras de partida não nascem confirmadas", REGRAS_DE_PARTIDA.confirmadas === false && lerRegras({ diasDoMalote: [3, 5], horaDoMalote: 20 }).confirmadas === false);
+  confere("a idade do aviso é contada no dia de São Paulo", diasDesde("2026-11-14T02:30:00Z", "2026-11-14") === 1 && diasDesde("2026-11-14T15:00:00Z", "2026-11-14") === 0 && diasDesde("2026-11-06T15:00:00Z", "2026-11-14") === 8);
 }
 
 console.log("\nSetores do painel");

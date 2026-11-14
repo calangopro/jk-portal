@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { requireStaff } from "@/lib/auth/session";
 import { gerarSlug, slugDisponivel, obterConteudo } from "@/lib/data/admin-contents";
 import { acharModelo } from "@/lib/editor/modelos";
+import { ehAdmin } from "@/lib/auth/acessos";
 
 /** Cria um rascunho e abre o editor. Com modelo, já vem estruturado. */
 export async function criarConteudo(formData?: FormData) {
@@ -116,7 +117,7 @@ export async function mudarStatus(formData: FormData) {
 /** Remoção definitiva. Só admin, e só a partir de conteúdo já arquivado. */
 export async function apagarDefinitivo(formData: FormData) {
   const perfil = await requireStaff();
-  if (perfil.role !== "admin") return;
+  if (!ehAdmin(perfil.role)) return;
 
   const id = String(formData.get("id") ?? "");
   const atual = await obterConteudo(id);

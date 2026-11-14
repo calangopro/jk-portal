@@ -6,6 +6,7 @@ import { listarConteudos, paginasOrfas, STATUS_LABEL, type ContentRow } from "@/
 import { atrasado, quandoLegivel } from "@/lib/content/agenda";
 import { duplicarConteudo, mudarStatus, apagarDefinitivo } from "./actions";
 import { NovoConteudo } from "./NovoConteudo";
+import { ehAdmin } from "@/lib/auth/acessos";
 
 export const metadata = { title: "Conteúdos" };
 
@@ -224,7 +225,7 @@ export default async function ConteudosPage({
                               <input type="hidden" name="status" value="draft" />
                               <button type="submit" className={botao}>Restaurar</button>
                             </form>
-                            {perfil.role === "admin" ? (
+                            {ehAdmin(perfil.role) ? (
                               <form action={apagarDefinitivo}>
                                 <input type="hidden" name="id" value={c.id} />
                                 <button

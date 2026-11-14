@@ -21,6 +21,7 @@ import {
   type StatusDaCampanha,
 } from "@/lib/campanhas/dados";
 import type { PedidoDePromocao } from "@/lib/catalogo/planilha-tray";
+import { ehAdmin } from "@/lib/auth/acessos";
 
 type Resposta<T = object> = ({ ok: true } & T) | { ok: false; erro: string };
 
@@ -101,7 +102,7 @@ export async function remover(id: string, productIds: string[]): Promise<Respost
 export async function ajustarAoMaximo(id: string): Promise<Resposta<{ ajustados: number }>> {
   const perfil = await requireStaff();
   return tentar(id, async () => {
-    if (perfil.role !== "admin") throw new ErroDeCampanha("Só administrador vê o desconto máximo.");
+    if (!ehAdmin(perfil.role)) throw new ErroDeCampanha("Só administrador vê o desconto máximo.");
     const db = await createClient();
     const lida = await lerCampanha(db, id);
     if (!lida) throw new ErroDeCampanha("Campanha não encontrada.");
@@ -125,7 +126,7 @@ export async function mudarEstado(id: string, para: StatusDaCampanha, nota?: str
     const lida = await lerCampanha(db, id);
     if (!lida) throw new ErroDeCampanha("Campanha não encontrada.");
     const de = lida.campanha.status;
-    const admin = perfil.role === "admin";
+    const admin = ehAdmin(perfil.role);
 
     if ((para === "aprovada" || de === "aprovada") && !admin) {
       throw new ErroDeCampanha("Só administrador aprova ou reabre campanha.");

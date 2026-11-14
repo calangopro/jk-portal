@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { miniaturaDaTray } from "@/lib/catalogo/fotos";
 import { lerEtapa, type Etapa } from "./etapas";
 
 /**
@@ -10,7 +11,16 @@ import { lerEtapa, type Etapa } from "./etapas";
  * pessoa logada, e não o de serviço: é a sessão dela que a função confere.
  */
 
-export type PecaDoPedido = { nome: string; quantidade: number; referencia: string | null; info: string | null };
+export type PecaDoPedido = {
+  nome: string;
+  quantidade: number;
+  referencia: string | null;
+  info: string | null;
+  /** A foto principal do produto na loja, inteira. `null` em peça que saiu do catálogo. */
+  foto: string | null;
+  /** A mesma foto na miniatura que a Tray gera, para a lista. */
+  miniatura: string | null;
+};
 
 export type PedidoDaFabrica = {
   pedido: number;
@@ -63,9 +73,30 @@ export async function lerFilaDaFabrica(db: SupabaseClient, dias: number): Promis
       quantidade: Number(i.quantidade) || 1,
       referencia: texto(i.referencia),
       info: texto(i.info),
+      foto: texto(i.foto),
+      miniatura: miniaturaDaTray(texto(i.foto)),
     })),
   }));
   return { dias: Number(cru.dias ?? dias), pedidos };
+}
+
+/**
+ * Move vários pedidos de uma vez para a mesma etapa (0068). Serve para pôr a
+ * fila em dia: marcar como enviado, de uma vez, o que já saiu. Pedido que não
+ * está pago fica de fora e é contado em `fora`.
+ */
+export async function moverPedidosDaFabrica(
+  db: SupabaseClient,
+  a: { pedidos: number[]; etapa: Etapa },
+): Promise<{ ok: true; movidos: number; fora: number } | { ok: false; erro: string }> {
+  const { data, error } = await db.rpc("mover_pedidos_da_fabrica", { p_pedidos: a.pedidos, p_etapa: a.etapa });
+  if (!error) {
+    const r = (data ?? {}) as { movidos?: number; fora?: unknown[] };
+    return { ok: true, movidos: Number(r.movidos ?? 0), fora: Array.isArray(r.fora) ? r.fora.length : 0 };
+  }
+  console.error("[fabrica] mover_pedidos_da_fabrica:", error.message);
+  const conhecida = /fábrica|Etapa|pedidos/i.test(error.message);
+  return { ok: false, erro: conhecida ? error.message : "Não deu para mover os pedidos agora. Tente de novo em alguns segundos." };
 }
 
 /**

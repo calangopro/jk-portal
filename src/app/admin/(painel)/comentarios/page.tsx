@@ -4,6 +4,7 @@ import { requireStaff } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { moderar, apagarComentario, aprovarTodos, apagarResposta } from "./actions";
 import { CaixaDeResposta } from "./CaixaDeResposta";
+import { ehAdmin } from "@/lib/auth/acessos";
 
 export const metadata = { title: "Comentários" };
 
@@ -197,7 +198,7 @@ export default async function ComentariosPage({
                   <p className="mt-1.5 whitespace-pre-wrap text-sm leading-relaxed text-foreground">
                     {r.body}
                   </p>
-                  {perfil.role === "admin" ? (
+                  {ehAdmin(perfil.role) ? (
                     <form action={apagarResposta} className="mt-2">
                       <input type="hidden" name="id" value={r.id} />
                       <input type="hidden" name="slug" value={c.contents?.slug ?? ""} />
@@ -214,7 +215,7 @@ export default async function ComentariosPage({
 
               {/* Responder é só de admin, e a policy do banco recusa de novo:
                   a tela some para editor, e nem por chamada direta ele passa. */}
-              {perfil.role === "admin" && c.status !== "spam" ? (
+              {ehAdmin(perfil.role) && c.status !== "spam" ? (
                 <CaixaDeResposta comentarioId={c.id} slug={c.contents?.slug ?? ""} />
               ) : null}
 
@@ -259,7 +260,7 @@ export default async function ComentariosPage({
                       <Ban size={12} /> Spam
                     </button>
                   </form>
-                ) : perfil.role === "admin" ? (
+                ) : ehAdmin(perfil.role) ? (
                   <form action={apagarComentario}>
                     <input type="hidden" name="id" value={c.id} />
                     <button type="submit" className="flex items-center gap-1.5 rounded-full border border-wine/30 px-3 py-1.5 text-xs font-semibold text-wine transition-colors hover:bg-wine hover:text-white">

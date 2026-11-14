@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { requireStaff } from "@/lib/auth/session";
 import { SITE } from "@/lib/seo/site";
+import { ehAdmin } from "@/lib/auth/acessos";
 
 type Status = "pending" | "approved" | "spam" | "rejected";
 
@@ -25,7 +26,7 @@ export async function moderar(formData: FormData) {
 /** Remoção definitiva. Só admin, e só do que já está marcado como spam. */
 export async function apagarComentario(formData: FormData) {
   const perfil = await requireStaff();
-  if (perfil.role !== "admin") return;
+  if (!ehAdmin(perfil.role)) return;
 
   const id = String(formData.get("id") ?? "");
   if (!id) return;
@@ -73,7 +74,7 @@ export async function responder(
   formData: FormData,
 ): Promise<ResponderState> {
   const perfil = await requireStaff();
-  if (perfil.role !== "admin") {
+  if (!ehAdmin(perfil.role)) {
     return { erro: "Só administrador responde comentário." };
   }
 
@@ -135,7 +136,7 @@ export async function responder(
  */
 export async function apagarResposta(formData: FormData) {
   const perfil = await requireStaff();
-  if (perfil.role !== "admin") return;
+  if (!ehAdmin(perfil.role)) return;
 
   const id = String(formData.get("id") ?? "");
   const slug = String(formData.get("slug") ?? "");
