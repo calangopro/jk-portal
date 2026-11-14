@@ -127,10 +127,13 @@ CPF.
 **Fase 2, o que falta.** Descrição, categoria, marca, peso e medidas, e
 cadastrar produto novo. As fotos e o histórico já estão feitos.
 
-**Fase 3, pedido, fábrica e envio.** Fila da fábrica com o pedido pago e o que
-produzir (o item traz a informação adicional, como aro e gravação), mudar o
-status, pôr código e link de rastreio, cancelar. Depende de a API estar ligada
-na loja da JK, e de a JK dizer por quais etapas um pedido passa na fábrica.
+**Fase 3, pedido, fábrica e envio.** A fila da fábrica está feita
+(`/admin/fabrica`, migration 0067): quatro etapas, do pedido pago ao envio, com
+a numeração e a gravação de cada peça em destaque. Ela não depende da API:
+lê os pedidos que o painel já importa. **Falta** a volta para a loja: mudar o
+status na Tray, mandar o código e o link de rastreio e cancelar. Isso depende
+de a API estar ligada na loja da JK, e a escrita em pedido ainda não foi
+testada.
 
 **Fase 4, onde tem estoque.** A Tray guarda um número de estoque por produto ou
 variação. O estoque por local não respondeu na API da loja de testes. Antes de

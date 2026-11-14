@@ -196,8 +196,8 @@ export default async function AdminDashboard() {
 
       {semNada ? (
         <p className="glass mt-9 rounded-[18px] p-6 text-sm text-muted">
-          <span className="font-semibold text-ink">Ainda não há nada liberado para o seu acesso.</span> A área da fábrica
-          está sendo construída. Quando ela entrar no ar, aparece aqui e no menu ao lado.
+          <span className="font-semibold text-ink">Seu trabalho fica nos setores acima.</span> Aqui aparecem os avisos do
+          que pede atenção, conforme o seu acesso.
         </p>
       ) : null}
     </div>
