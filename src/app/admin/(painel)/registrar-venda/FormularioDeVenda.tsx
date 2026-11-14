@@ -1,8 +1,9 @@
 "use client";
 
-import { useActionState, useEffect, useRef } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { CircleAlert, CircleCheck, Loader2 } from "lucide-react";
 import { registrarVenda, type EstadoDaVenda } from "./actions";
+import { ProducaoDaVenda, type ProdutoDoFormulario } from "./ProducaoDaVenda";
 
 type Opcao = { chave: string; nome: string };
 
@@ -15,10 +16,14 @@ const rotulo = "block text-[0.68rem] font-semibold uppercase tracking-wider text
  * continuam preenchidos e aparece o botão de lançar mesmo assim.
  */
 export function FormularioDeVenda({
-  formas, canais, vendedores, hoje,
+  formas, canais, vendedores, hoje, produtos, lojas,
 }: {
   formas: Opcao[];
   canais: Opcao[];
+  /** O catálogo, para escolher a peça que vai para a fábrica. Sem ele, a parte da fábrica não aparece. */
+  produtos?: ProdutoDoFormulario[];
+  /** As lojas de retirada, pelo nome. */
+  lojas?: string[];
   /** Só chega para quem pode lançar em nome de outra pessoa. */
   vendedores?: { id: string; nome: string }[];
   hoje: string;
@@ -26,9 +31,15 @@ export function FormularioDeVenda({
   const [estado, enviar, enviando] = useActionState<EstadoDaVenda, FormData>(registrarVenda, {});
   const formulario = useRef<HTMLFormElement>(null);
 
+  // A parte da fábrica guarda o próprio estado. Trocar a chave é o jeito de ela recomeçar vazia depois de uma venda gravada.
+  const [rodada, setRodada] = useState(0);
+
   // Venda gravada: limpa os campos para a próxima. Se parece repetida, mantém tudo.
   useEffect(() => {
-    if (estado.ok) formulario.current?.reset();
+    if (estado.ok) {
+      formulario.current?.reset();
+      setRodada((n) => n + 1);
+    }
   }, [estado]);
 
   return (
@@ -78,6 +89,8 @@ export function FormularioDeVenda({
         <label className={rotulo} htmlFor="venda-obs">Observação</label>
         <input id="venda-obs" name="observacao" maxLength={500} className={campo} />
       </div>
+
+      {produtos && lojas ? <ProducaoDaVenda key={rodada} produtos={produtos} lojas={lojas} /> : null}
 
       <div className="flex flex-wrap items-center gap-3 sm:col-span-2">
         <button

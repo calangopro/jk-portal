@@ -35,8 +35,11 @@ import { AcoesDoPedido } from "./AcoesDoPedido";
  * sessão durante o desenvolvimento.
  */
 
-export type Mover = (pedido: number, etapa: string, extras?: { rastreio?: string; nota?: string }) => Promise<{ ok: true } | { ok: false; erro: string }>;
-export type MoverVarios = (pedidos: number[], etapa: string) => Promise<{ ok: true; movidos: number; fora: number } | { ok: false; erro: string }>;
+export type Mover = (ref: string, etapa: string, extras?: { rastreio?: string; nota?: string }) => Promise<{ ok: true } | { ok: false; erro: string }>;
+export type MoverVarios = (refs: string[], etapa: string) => Promise<{ ok: true; movidos: number; fora: number } | { ok: false; erro: string }>;
+
+/** Como o trabalho se chama no cartão: o número do pedido da loja, ou "Venda por fora". */
+const nomeDoTrabalho = (p: PedidoDaFabrica) => (p.pedido !== null ? `Pedido ${p.pedido}` : "Venda por fora");
 
 const ICONE_DA_ENTREGA: Record<Entrega["tipo"], LucideIcon> = { retirada: Store, motoboy: Bike, correios: Truck, envio: Truck };
 const GRUPOS: GrupoDeEntrega[] = ["retirada", "motoboy", "envio"];
@@ -125,7 +128,7 @@ function CartaoDoPedido({
           type="button"
           role="checkbox"
           aria-checked={marcado}
-          aria-label={`Escolher o pedido ${p.pedido}`}
+          aria-label={`Escolher: ${nomeDoTrabalho(p)}${p.pedido === null && p.cliente ? `, ${p.cliente}` : ""}`}
           onClick={onMarcar}
           className="absolute inset-0 z-10 rounded-[16px]"
         />
@@ -142,11 +145,15 @@ function CartaoDoPedido({
             </span>
           ) : null}
           <div className="min-w-0">
-            <p className="numeros text-base font-bold leading-tight text-ink">Pedido {p.pedido}</p>
+            <p className="numeros text-base font-bold leading-tight text-ink">{nomeDoTrabalho(p)}</p>
             <p className="mt-0.5 break-words text-xs text-muted">
               {p.cliente ?? "Cliente sem nome"}
               {p.cidade ? `, ${p.cidade}${p.uf ? ` (${p.uf})` : ""}` : ""}
             </p>
+            {/* Venda por fora não está na loja: a dúvida da fábrica vai para quem vendeu. */}
+            {p.origem === "por_fora" ? (
+              <p className="mt-0.5 text-xs font-semibold text-[var(--setor)]">{p.vendedor ? `Vendida por ${p.vendedor}, fora da loja` : "Vendida fora da loja"}</p>
+            ) : null}
           </div>
         </div>
         <SeloDeTom tom={tom} titulo={`Pago em ${diaCurto(p.dia)}`}>
@@ -206,6 +213,11 @@ function CartaoDoPedido({
         })}
       </ul>
 
+      {p.endereco ? (
+        <p className="mt-3 break-words rounded-[10px] border border-ink/10 bg-white p-2.5 text-xs leading-relaxed text-ink">
+          <span className="font-bold">Entregar em:</span> {p.endereco}
+        </p>
+      ) : null}
       {p.nota ? (
         <p className="mt-3 rounded-[10px] bg-[#fcefd9] p-2.5 text-xs leading-relaxed text-[#6d3505]">
           <span className="font-bold">Anotação:</span> {p.nota}
@@ -222,7 +234,7 @@ function CartaoDoPedido({
         {peloLoja ? (
           <p className="text-xs text-muted">A loja já marcou este pedido como {(p.statusDaLoja ?? "").toLowerCase()}.</p>
         ) : escolhendo ? null : (
-          <AcoesDoPedido pedido={p.pedido} etapa={p.etapa} nota={p.nota} rastreio={p.rastreio} mover={mover} />
+          <AcoesDoPedido pedido={p.ref} etapa={p.etapa} nota={p.nota} rastreio={p.rastreio} mover={mover} />
         )}
       </div>
     </li>
@@ -258,7 +270,7 @@ export function ListaDaFabrica({
   const router = useRouter();
   const [filtro, setFiltro] = useState<FiltroDaFila>(SEM_FILTRO);
   const [escolhendo, setEscolhendo] = useState(false);
-  const [marcados, setMarcados] = useState<Set<number>>(() => new Set());
+  const [marcados, setMarcados] = useState<Set<string>>(() => new Set());
   const [destino, setDestino] = useState<Etapa | null>(null);
   const [ocupado, comecar] = useTransition();
   const [aviso, setAviso] = useState<{ tom: "bom" | "ruim"; texto: string } | null>(null);
@@ -301,14 +313,14 @@ export function ListaDaFabrica({
   }, [zoom]);
 
   const moveis = visiveis.filter((p) => !saiuPelaLoja(p));
-  const escolhidos = moveis.filter((p) => marcados.has(p.pedido));
+  const escolhidos = moveis.filter((p) => marcados.has(p.ref));
   const temFiltro = buscando || filtro.entrega !== "todas" || filtro.soAtrasados || filtro.soComNota;
 
-  const alternar = (pedido: number) =>
+  const alternar = (ref: string) =>
     setMarcados((antes) => {
       const depois = new Set(antes);
-      if (depois.has(pedido)) depois.delete(pedido);
-      else depois.add(pedido);
+      if (depois.has(ref)) depois.delete(ref);
+      else depois.add(ref);
       return depois;
     });
 
@@ -321,7 +333,7 @@ export function ListaDaFabrica({
   const moverEscolhidos = (para: Etapa) =>
     comecar(async () => {
       setAviso(null);
-      const r = await moverVarios(escolhidos.map((p) => p.pedido), para);
+      const r = await moverVarios(escolhidos.map((p) => p.ref), para);
       if (!r.ok) {
         setAviso({ tom: "ruim", texto: r.erro });
         return;
@@ -408,7 +420,7 @@ export function ListaDaFabrica({
                 </p>
                 <div className="flex shrink-0 gap-1.5">
                   {moveis.length > 0 && escolhidos.length < moveis.length ? (
-                    <button type="button" onClick={() => setMarcados(new Set(moveis.map((p) => p.pedido)))} className={botaoClaro}>
+                    <button type="button" onClick={() => setMarcados(new Set(moveis.map((p) => p.ref)))} className={botaoClaro}>
                       Todos os {moveis.length}
                     </button>
                   ) : null}
@@ -474,14 +486,14 @@ export function ListaDaFabrica({
         <ul className="mt-3 grid gap-3 lg:grid-cols-2">
           {visiveis.map((p) => (
             <CartaoDoPedido
-              key={p.pedido}
+              key={p.ref}
               p={p}
               hoje={hoje}
               mover={mover}
               mostrarEtapa={buscando}
               escolhendo={escolhendo}
-              marcado={marcados.has(p.pedido) && !saiuPelaLoja(p)}
-              onMarcar={() => alternar(p.pedido)}
+              marcado={marcados.has(p.ref) && !saiuPelaLoja(p)}
+              onMarcar={() => alternar(p.ref)}
               onZoom={setZoom}
             />
           ))}
