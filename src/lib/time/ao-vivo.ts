@@ -46,7 +46,9 @@ export type Aviso =
   /** O canal entrou (ou voltou depois de cair): pode ter passado coisa sem aviso. */
   | { tipo: "voltou" }
   /** Esta aba leu mensagens: o número do menu precisa ser refeito. Não sai da aba. */
-  | { tipo: "lida" };
+  | { tipo: "lida" }
+  /** A pessoa clicou num aviso do sistema com a tela do chat aberta: ir até a mensagem. Não sai da aba. */
+  | { tipo: "abrir"; sala: string; mensagem: number };
 
 const SEM_NINGUEM: ReadonlyMap<string, Presenca> = new Map();
 const DESLIGADA: Ligacao = { estado: "desligada", presenca: SEM_NINGUEM };
@@ -97,8 +99,8 @@ export function aoAvisar(f: (a: Aviso) => void): () => void {
   };
 }
 
-/** O cliente do Supabase do navegador, buscado na primeira vez em que a ligação precisa dele. */
-async function pegarCliente(): Promise<SupabaseClient> {
+/** O cliente do Supabase do navegador, buscado na primeira vez em que a ligação (ou o aviso do sistema) precisa dele. */
+export async function pegarCliente(): Promise<SupabaseClient> {
   if (!cliente) cliente = (await import("@/lib/supabase/client")).createClient();
   return cliente;
 }
