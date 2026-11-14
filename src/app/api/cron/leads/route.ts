@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { cronAutorizado } from "@/lib/cron/autorizar";
+import { registrarPulso } from "@/lib/cron/pulso";
 import { lerChaves } from "@/lib/leads/chaves";
 import { repassarLead } from "@/lib/leads/repassar";
 import type { Lead } from "@/lib/leads/tipos";
@@ -42,5 +43,6 @@ export async function POST(request: Request) {
     resolvidos += r.filter((envios) => !Object.values(envios).some((s) => s?.status === "erro")).length;
   }
 
+  await registrarPulso(supabase, "leads", true, `${lista.length} na fila, ${resolvidos} entregues`);
   return NextResponse.json({ tentados: lista.length, resolvidos });
 }
