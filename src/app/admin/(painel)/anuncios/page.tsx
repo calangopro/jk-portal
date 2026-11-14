@@ -39,7 +39,7 @@ export default async function AnunciosPage() {
   return (
     <div data-painel-largo>
       <header>
-        <p className="eyebrow">Loja</p>
+        <p className="eyebrow">Tráfego</p>
         <h1 className="font-display mt-2 text-4xl text-ink">Anúncios</h1>
         <p className="mt-3 max-w-3xl text-muted">
           Quanto cada produto aguenta pagar de anúncio por venda sem ficar abaixo da margem mínima. É o número para o

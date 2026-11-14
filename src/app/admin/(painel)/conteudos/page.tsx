@@ -54,7 +54,7 @@ export default async function ConteudosPage({
     <>
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="eyebrow">Editorial</p>
+          <p className="eyebrow">Conteúdo</p>
           <h1 className="font-display mt-2 text-4xl text-ink">Conteúdos</h1>
           <p className="mt-3 text-muted">
             Posts do site. Cada peça nasce como rascunho e só vai ao

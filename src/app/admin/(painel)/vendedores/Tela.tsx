@@ -27,7 +27,7 @@ export function TelaDeVendedores({
   return (
     <div data-painel-largo>
       <header>
-        <p className="eyebrow">Loja</p>
+        <p className="eyebrow">Vendas</p>
         <h1 className="font-display mt-2 text-4xl text-ink">Vendedores</h1>
         <p className="mt-3 max-w-3xl text-muted">
           Quanto cada pessoa vendeu por fora da loja, pelo que foi registrado em{" "}

@@ -1633,3 +1633,163 @@ h4 {
     }
   }
 }
+
+/* ---------------------------------------------------------------------------
+ * Painel como aplicativo (admin/(painel)/Moldura.tsx e Navegacao.tsx)
+ *
+ * O painel se organiza por setor, e cada setor tem a sua cor. A cor desce pela
+ * variável `--setor` (posta em linha por `corDoSetor`), então nenhuma regra
+ * daqui sabe qual setor está pintando. `--sobre-setor` é a cor do que vai por
+ * cima da cor cheia: branco, menos na Diretoria, que é carvão com dourado.
+ * ------------------------------------------------------------------------- */
+
+/* Cartão do painel é SÓLIDO, sem desfoque.
+
+   `backdrop-filter` é a operação mais cara que o navegador faz ao rolar, e uma
+   tela do painel tem dezenas de cartões: no celular a rolagem engasgava. O
+   vidro continua sendo a assinatura do site público; aqui dentro o que conta é
+   a tela responder ao dedo. De quebra some a armadilha do `fixed` preso dentro
+   do cartão.
+
+   Fica FORA de @layer de propósito: `.glass` também está fora, e regra em
+   layer perderia para ela. O que sai por portal para o `body` (gaveta do
+   produto, folhas) não está dentro de `.painel-app` e segue como era. */
+.painel-app .glass {
+  background: #fff;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: 1px solid rgb(23 21 18 / 0.07);
+  box-shadow:
+    0 1px 2px rgb(23 21 18 / 0.04),
+    0 10px 28px -20px rgb(23 21 18 / 0.28);
+}
+
+.painel-app .glass-sutil {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+@layer components {
+  .painel-app {
+    background: rgb(var(--jk-bg-rgb));
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Barra de topo: quase opaca e sem desfoque, pelo mesmo motivo dos cartões. */
+  .painel-topo {
+    background: rgb(var(--jk-bg-rgb) / 0.97);
+    border-bottom: 1px solid rgb(23 21 18 / 0.07);
+    padding-top: env(safe-area-inset-top);
+  }
+
+  /* Barra de baixo do celular. O respiro de baixo é a faixa do gesto de
+     voltar para casa do iPhone (só existe com `viewport-fit=cover`). */
+  .painel-barra {
+    background: #fff;
+    border-top: 1px solid rgb(23 21 18 / 0.08);
+    box-shadow: 0 -10px 26px -20px rgb(23 21 18 / 0.4);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .painel-selo {
+    background: color-mix(in srgb, var(--setor) 12%, #fff);
+    color: var(--setor);
+  }
+  .painel-selo-ativo {
+    background: var(--setor);
+    color: var(--sobre-setor, #fff);
+  }
+  .painel-cor,
+  .painel-icone-do-setor {
+    color: var(--setor);
+  }
+  .painel-ponto {
+    background: var(--setor);
+  }
+  .painel-ramo {
+    border-left: 2px solid color-mix(in srgb, var(--setor) 22%, transparent);
+  }
+  .painel-item-ativo {
+    background: color-mix(in srgb, var(--setor) 12%, #fff);
+    color: var(--setor);
+  }
+  .painel-aba-ativa {
+    background: var(--setor);
+    color: var(--sobre-setor, #fff);
+  }
+  .painel-tab-ativa {
+    color: var(--setor);
+  }
+  .painel-tab-pilula {
+    transition: background-color 160ms ease;
+  }
+  .painel-tab-ativa .painel-tab-pilula {
+    background: color-mix(in srgb, var(--setor) 14%, #fff);
+  }
+  .painel-cartao-ativo {
+    border: 1.5px solid var(--setor);
+    background: color-mix(in srgb, var(--setor) 6%, #fff);
+  }
+
+  /* Tudo o que se toca: sem os 300 ms de espera do toque duplo, e com um
+     afundar curto que diz "peguei" antes de a página responder. */
+  .painel-toque {
+    touch-action: manipulation;
+    transition:
+      transform 120ms ease,
+      background-color 160ms ease,
+      color 160ms ease;
+  }
+  .painel-toque:active {
+    transform: scale(0.96);
+  }
+
+  /* Fila de abas que rola de lado, sem barra de rolagem à vista. */
+  .painel-fila {
+    scrollbar-width: none;
+    overscroll-behavior-x: contain;
+  }
+  .painel-fila::-webkit-scrollbar {
+    display: none;
+  }
+
+  .painel-folha {
+    animation: painel-subir 240ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  }
+  .painel-fundo,
+  .painel-entrada {
+    animation: painel-aparecer 160ms ease-out both;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .painel-folha,
+    .painel-fundo,
+    .painel-entrada {
+      animation: none;
+    }
+    .painel-toque:active {
+      transform: none;
+    }
+  }
+}
+
+/* A página entra só por opacidade. Com `transform`, a página viraria bloco de
+   contenção durante a animação e uma gaveta `fixed` aberta na chegada (o link
+   direto de produto abre uma) nasceria presa nela. */
+@keyframes painel-aparecer {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes painel-subir {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: none;
+  }
+}

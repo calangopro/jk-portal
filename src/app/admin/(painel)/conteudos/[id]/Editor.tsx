@@ -1140,7 +1140,7 @@ export function Editor({
     <div data-painel-largo className="grid gap-8 lg:grid-cols-[1fr_23rem]">
       <div className="min-w-0">
         {/* Barra de ações */}
-        <div className="glass sticky top-20 z-30 mb-6 flex flex-wrap items-center justify-between gap-3 rounded-[16px] px-4 py-3">
+        <div className="glass sticky top-[calc(var(--painel-topo,3.5rem)+0.5rem)] z-30 mb-6 flex flex-wrap items-center justify-between gap-3 rounded-[16px] px-4 py-3">
           <div className="flex items-center gap-3 text-xs">
             <Link href="/admin/conteudos" className="text-muted hover:text-brand-nav">← Conteúdos</Link>
             <span className={`rounded-full px-2.5 py-1 font-semibold ${status === "published" ? "bg-brand/15 text-brand-strong" : "bg-ink/10 text-ink/70"}`}>

@@ -114,7 +114,7 @@ export function TelaDeGargalos({
   return (
     <div data-painel-largo>
       <header>
-        <p className="eyebrow">Resultado</p>
+        <p className="eyebrow">Diretoria</p>
         <h1 className="font-display mt-2 text-3xl text-ink sm:text-4xl">Gargalos</h1>
         <p className="mt-2 max-w-3xl text-sm text-muted sm:text-base">
           Onde o dinheiro vaza, do anúncio até o pagamento, cruzando a loja, o GA4 e as plataformas de anúncio.

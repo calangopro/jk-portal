@@ -148,7 +148,7 @@ export default async function CalendarioPage({
   return (
     <>
       <header>
-        <p className="eyebrow">Editorial</p>
+        <p className="eyebrow">Conteúdo</p>
         <h1 className="font-display mt-2 text-4xl text-ink">Calendário</h1>
         <p className="mt-3 max-w-2xl text-muted">
           O que já foi ao ar e o que está marcado para ir. A grade existe para os

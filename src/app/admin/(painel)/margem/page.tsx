@@ -32,7 +32,7 @@ export default async function MargemPage() {
   return (
     <div data-painel-largo>
       <header>
-        <p className="eyebrow">Loja</p>
+        <p className="eyebrow">Diretoria</p>
         <h1 className="font-display mt-2 text-4xl text-ink">Margem</h1>
         <p className="mt-3 max-w-2xl text-muted">
           Quanto sobra em cada peça e até quanto dá para dar de desconto. Só administradores veem esta tela.

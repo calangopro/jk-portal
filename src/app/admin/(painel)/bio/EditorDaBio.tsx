@@ -419,7 +419,7 @@ export function EditorDaBio({
   return (
     <div data-painel-largo className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_410px]">
       <div className="min-w-0">
-        <div className="glass sticky top-20 z-20 mb-6 flex flex-wrap items-center gap-3 rounded-[18px] p-4">
+        <div className="glass sticky top-[calc(var(--painel-topo,3.5rem)+0.5rem)] z-20 mb-6 flex flex-wrap items-center gap-3 rounded-[18px] p-4">
           <button
             type="button"
             onClick={publicar}

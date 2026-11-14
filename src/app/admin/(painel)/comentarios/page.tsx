@@ -103,7 +103,7 @@ export default async function ComentariosPage({
     <>
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="eyebrow">Comunidade</p>
+          <p className="eyebrow">Conteúdo</p>
           <h1 className="font-display mt-2 text-4xl text-ink">Comentários</h1>
           <p className="mt-3 max-w-2xl text-muted">
             Comentário real deixa a página viva e traz dúvida de cliente que vira

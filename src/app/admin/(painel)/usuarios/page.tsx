@@ -50,7 +50,7 @@ export default async function UsuariosPage() {
   return (
     <>
       <header>
-        <p className="eyebrow">Equipe</p>
+        <p className="eyebrow">Sistema</p>
         <h1 className="font-display mt-2 text-4xl text-ink">Usuários</h1>
         <p className="mt-3 max-w-2xl text-muted">
           O acesso é somente por convite, sem cadastro público. Defina o

@@ -188,7 +188,7 @@ export function PainelDeCustos({
   return (
     <div data-painel-largo>
       <header>
-        <p className="eyebrow">Loja</p>
+        <p className="eyebrow">Diretoria</p>
         <h1 className="font-display mt-2 text-4xl text-ink">Custos da empresa</h1>
         <p className="mt-3 max-w-3xl text-muted">
           O que a loja gasta para funcionar: pessoas, anúncios, plataformas, aluguel e embalagem, com o comprovante
