@@ -264,7 +264,8 @@ export function Catalogo({
       {modo === "fotos" ? (
         <>
         {/* Resumo que também é filtro: o número já é o botão. */}
-        <section className="mt-8 grid gap-5 xl:grid-cols-[minmax(0,1fr)_22rem]">
+        {/* `items-start`: sem ele o cartão do progresso estica até a altura do vizinho e fica com um vazio embaixo. */}
+        <section className="mt-8 grid gap-5 xl:grid-cols-[minmax(0,1fr)_22rem] xl:items-start">
           <div className="glass rounded-[20px] p-5">
             <div className="flex flex-wrap items-baseline justify-between gap-2">
               <p className="text-sm font-semibold text-ink">Fotos novas</p>
