@@ -16,6 +16,7 @@ import { SITE } from "@/lib/seo/site";
 import { comBasePath } from "@/lib/seo/base-path";
 import { ConfigDoGrupo } from "./ConfigDoGrupo";
 import { reenviarContato } from "./actions";
+import { ehAdmin } from "@/lib/auth/acessos";
 
 export const metadata = { title: "Grupo de ofertas" };
 
@@ -172,7 +173,7 @@ export default async function GrupoPage({ searchParams }: { searchParams: Promis
             </span>
           ))}
           .{" "}
-          {perfil.role === "admin" ? (
+          {ehAdmin(perfil.role) ? (
             <Link href="/admin/integracoes" className="font-semibold text-brand-nav hover:underline">
               Configurar em Integrações
             </Link>
@@ -278,7 +279,7 @@ export default async function GrupoPage({ searchParams }: { searchParams: Promis
         ) : null}
       </section>
 
-      {perfil.role === "admin" && entrada ? (
+      {ehAdmin(perfil.role) && entrada ? (
         <section className="glass mt-10 rounded-[18px] p-5">
           <h2 className="font-medium text-ink">Aviso de entrada no grupo</h2>
           <p className="mt-1 max-w-3xl text-xs leading-relaxed text-muted">

@@ -90,7 +90,7 @@ function Ligacao({ c }: { c: Conexao }) {
       ? "Falta colar o token do Meta em Integrações."
       : c.configurada
         ? "Ainda não houve leitura. Use o botão abaixo para testar."
-        : "Falta a conta de serviço do Google neste deploy.");
+        : "Falta ligar a conta do Google que lê os anúncios. Quem cuida do painel resolve.");
   return (
     <li className="py-3">
       <p className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">

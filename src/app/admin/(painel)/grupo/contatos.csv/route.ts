@@ -41,6 +41,8 @@ function celula(v: string): string {
 export async function GET(request: NextRequest) {
   const perfil = await getSessionProfile();
   if (!perfil?.isActive) return new NextResponse("Entre no painel para baixar.", { status: 401 });
+  // A mesma área da tela do grupo. Antes bastava estar logado, e a lista inteira de contatos saía para qualquer nível.
+  if (!perfil.areas.includes("site")) return new NextResponse("Seu acesso não inclui os contatos do grupo.", { status: 403 });
 
   const filtro = request.nextUrl.searchParams.get("filtro") ?? "todos";
   const supabase = await createClient();

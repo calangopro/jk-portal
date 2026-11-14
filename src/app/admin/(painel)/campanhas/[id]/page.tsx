@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { avaliarItens, lerCampanha } from "@/lib/campanhas/dados";
 import { listarCatalogo } from "@/lib/catalogo/fotos";
 import { EditorDeCampanha, type ProdutoParaAdicionar } from "./EditorDeCampanha";
+import { ehAdmin } from "@/lib/auth/acessos";
 
 export const metadata = { title: "Campanha" };
 
@@ -16,7 +17,7 @@ export const metadata = { title: "Campanha" };
 export default async function CampanhaPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const perfil = await requireStaff();
-  const admin = perfil.role === "admin";
+  const admin = ehAdmin(perfil.role);
   const db = await createClient();
 
   const lida = await lerCampanha(db, id).catch(() => null);

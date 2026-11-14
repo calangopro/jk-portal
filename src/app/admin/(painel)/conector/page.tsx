@@ -9,6 +9,7 @@ import { quandoLegivel } from "@/lib/content/agenda";
 import { BotaoCopiar } from "../bio/LinksParaDivulgar";
 import { NovaChave } from "./NovaChave";
 import { desligarAcesso } from "./actions";
+import { ehAdmin } from "@/lib/auth/acessos";
 
 export const metadata = { title: "Conector do Claude" };
 export const dynamic = "force-dynamic";
@@ -79,7 +80,7 @@ const pessoa = (p: Acesso["profiles"]) => {
 
 export default async function ConectorPage() {
   const perfil = await requireStaff();
-  const admin = perfil.role === "admin";
+  const admin = ehAdmin(perfil.role);
   const db = createAdminClient();
   const base = `${origemDosCabecalhos(await headers())}${BASE_PATH}`;
   const mcp = `${base}/api/mcp`;
