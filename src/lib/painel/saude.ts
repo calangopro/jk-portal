@@ -14,6 +14,11 @@
  *    dela. A de pedidos tolera a noite inteira, porque só roda das 8h às 23h.
  * 3. Destino sem chave não é erro, é ligação que nunca foi feita: aparece como
  *    "desligada", com quantos contatos estão esperando.
+ * 4. Duas rotinas NÃO rodam por relógio: o reenvio de contatos e a publicação
+ *    agendada só chamam a rota quando há o que fazer. Para elas, silêncio com
+ *    a fila vazia é o normal. Só estão paradas quando há fila esperando e
+ *    nenhuma rodada boa recente (0078). Julgar as duas pelo tempo daria
+ *    alarme falso a cada madrugada quieta.
  *
  * Arquivo puro, para o teste rodar sem banco.
  */
@@ -50,6 +55,8 @@ export type SaudeCrua = {
     fora_da_fila: number;
   }[];
   contatos: number;
+  /** O que espera por uma rotina que só roda quando há o que fazer. */
+  pendencias?: { leads_esperando: number; agendados_vencidos: number };
 };
 
 type Rotina = {
@@ -62,6 +69,8 @@ type Rotina = {
   /** Minutos sem rodada boa a partir dos quais a rotina é dada como parada. */
   tolerancia: number;
   seParar: string;
+  /** Rotina que só roda quando há fila: diz qual fila olhar e como chamar o que espera. */
+  sobDemanda?: { fila: "leads_esperando" | "agendados_vencidos"; um: string; varios: string };
 };
 
 const HORA = 60;
@@ -77,8 +86,14 @@ export const ROTINAS: Rotina[] = [
   },
   { chave: "gasto-meta", origem: "leitura", id: "anuncios_meta", nome: "Gasto do Meta", paraQue: "Lê quanto foi gasto em anúncio no Meta, de hora em hora.", tolerancia: 4 * HORA, seParar: "Confira o token do Meta em Integrações." },
   { chave: "gasto-google", origem: "leitura", id: "anuncios_google", nome: "Gasto do Google Ads", paraQue: "Lê quanto foi gasto em anúncio no Google, de hora em hora.", tolerancia: 4 * HORA, seParar: AVISAR },
-  { chave: "leads", origem: "pulso", id: "leads", nome: "Reenvio de contatos", paraQue: "Tenta de novo, a cada 10 minutos, o contato que não chegou ao destino.", tolerancia: HORA, seParar: AVISAR },
-  { chave: "publicar", origem: "pulso", id: "publicar", nome: "Publicação agendada", paraQue: "Publica o conteúdo agendado, olhando a cada 5 minutos.", tolerancia: 45, seParar: AVISAR },
+  {
+    chave: "leads", origem: "pulso", id: "leads", nome: "Reenvio de contatos", paraQue: "Tenta de novo, a cada 10 minutos, o contato que não chegou ao destino.", tolerancia: HORA, seParar: AVISAR,
+    sobDemanda: { fila: "leads_esperando", um: "contato espera reenvio", varios: "contatos esperam reenvio" },
+  },
+  {
+    chave: "publicar", origem: "pulso", id: "publicar", nome: "Publicação agendada", paraQue: "Publica o conteúdo agendado, olhando a cada 5 minutos.", tolerancia: 45, seParar: AVISAR,
+    sobDemanda: { fila: "agendados_vencidos", um: "conteúdo agendado já passou da hora", varios: "conteúdos agendados já passaram da hora" },
+  },
   { chave: "avaliacoes", origem: "pulso", id: "avaliacoes", nome: "Avaliações do Google", paraQue: "Relê as avaliações das lojas uma vez por dia.", tolerancia: 36 * HORA, seParar: "Confira a ligação com o Google em Integrações." },
   { chave: "search-console", origem: "pulso", id: "search-console", nome: "Search Console", paraQue: "Importa as buscas do Google toda segunda de manhã.", tolerancia: 8 * DIA + 12 * HORA, seParar: AVISAR },
 ];
@@ -146,10 +161,23 @@ function avaliarRotina(r: Rotina, cru: SaudeCrua, agora: number): Ligacao {
     }
   }
 
-  if (!ultima) return { ...base, estado: "sem_registro", frase: "Ainda sem registro. Aparece depois da primeira rodada.", oQueFazer: null };
-
   const semBoa = minutosEntre(ultimaBoa, agora);
   const motivo = resumoDoErro(erro);
+
+  // Rotina que só roda quando há fila: silêncio com a fila vazia é o normal.
+  if (r.sobDemanda) {
+    const esperando = Number(cru.pendencias?.[r.sobDemanda.fila] ?? 0);
+    if (esperando === 0) {
+      return { ...base, estado: "ok", frase: `Nada na fila. Esta rotina só roda quando há o que fazer${ultimaBoa ? `; a última rodada foi ${haQuantoTempo(semBoa)}` : ""}.`, oQueFazer: null };
+    }
+    if (semBoa > r.tolerancia) {
+      const fila = `${esperando} ${esperando === 1 ? r.sobDemanda.um : r.sobDemanda.varios}`;
+      return { ...base, estado: "ruim", frase: `${fila} e a rotina ${ultimaBoa ? `não roda bem ${haQuantoTempo(semBoa)}` : "nunca rodou bem"}.${motivo ? ` Último erro: ${motivo}.` : ""}`, oQueFazer: r.seParar };
+    }
+  }
+
+  if (!ultima) return { ...base, estado: "sem_registro", frase: "Ainda sem registro. Aparece depois da primeira rodada.", oQueFazer: null };
+
   if (semBoa > r.tolerancia) {
     const desde = ultimaBoa ? `Parada ${haQuantoTempo(semBoa)}.` : "Nunca rodou bem.";
     return { ...base, estado: "ruim", frase: `${desde}${motivo ? ` Último erro: ${motivo}.` : ""}`, oQueFazer: r.seParar };
