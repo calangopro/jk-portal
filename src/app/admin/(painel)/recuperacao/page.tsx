@@ -24,8 +24,8 @@ export default async function RecuperacaoPage({
 }: {
   searchParams: Promise<{ dias?: string }>;
 }) {
-  await requireArea("recuperacao");
+  const profile = await requireArea("recuperacao");
   const janela = lerJanela((await searchParams).dias);
   const fila = await lerFilaDeRecuperacao(await createClient(), janela);
-  return <PainelDeRecuperacao fila={fila} janela={janela} acao={marcarCaso} />;
+  return <PainelDeRecuperacao fila={fila} janela={janela} acao={marcarCaso} comFicha={profile.areas.includes("lancar_venda")} />;
 }

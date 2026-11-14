@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { HandCoins, Receipt, Sun } from "lucide-react";
 import { CANAIS, FORMAS, NOME_DA_FORMA, NOME_DO_CANAL_DE_VENDA, type ResumoPorFora } from "@/lib/vendas/por-fora";
 import { diaCurto, nomeDoMes, somarDias } from "@/lib/vendas/periodo";
@@ -77,7 +78,10 @@ export function TelaDeRegistrarVenda({
                   <tr key={v.id} className="border-b border-border/50 align-top last:border-0">
                     <td className="numeros py-2.5 pr-4 text-sm text-ink">{diaCurto(v.dia)}</td>
                     <td className="max-w-[22rem] py-2.5 pr-4">
-                      <span className="block truncate text-sm text-ink">{v.cliente ?? "Sem nome"}</span>
+                      {/* A ficha abre pelo código da venda: o endereço não leva telefone. Venda sem telefone não tem ficha, e a tela de lá explica. */}
+                      <Link href={`/admin/clientes/v${v.id}`} className="block truncate text-sm text-ink underline decoration-ink/20 underline-offset-4 hover:decoration-ink">
+                        {v.cliente ?? "Sem nome"}
+                      </Link>
                       <span className="block truncate text-xs text-muted">{v.produto ?? "Sem descrição"}</span>
                       {v.conferir ? <span className="mt-0.5 block text-xs font-semibold" style={{ color: "#b45309" }}>Conferir: {v.conferir}</span> : null}
                     </td>
