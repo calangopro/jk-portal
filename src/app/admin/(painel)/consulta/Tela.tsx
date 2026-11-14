@@ -1,10 +1,11 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  ArrowLeft, Bike, Check, CircleAlert, Clock, Copy, ExternalLink, Loader2, MapPin, MessageCircle, PackageSearch, Phone, Search, Store,
-  TriangleAlert, Truck, X,
+  ArrowLeft, Bike, Check, CircleAlert, Clock, Copy, ExternalLink, Loader2, MapPin, MessageCircle, MessagesSquare, PackageSearch, Phone, Search,
+  Store, TriangleAlert, Truck, X,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { Aviso, LojaDaConsulta, ProdutoDaConsulta } from "@/lib/consulta/dados";
@@ -372,6 +373,13 @@ function Detalhe({
             <LinhaDaLoja key={`${l.id}:${porLoja.get(l.id)?.em ?? ""}`} loja={l} aviso={porLoja.get(l.id)} produto={p} hoje={hoje} informar={informar} />
           ))}
         </ul>
+        {/* Ninguém informou e a resposta depende de outra pessoa: vira chamado, com a peça já citada. */}
+        <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-ink/[0.07] pt-3">
+          <p className="min-w-0 flex-1 basis-48 text-xs leading-relaxed text-muted">Não achou a resposta aqui? Pergunte por um chamado: ele chega no setor certo e fica com dono.</p>
+          <Link href={`/admin/chamados?novo=estoque_prazo&produto=${p.id}`} className={botaoClaro}>
+            <MessagesSquare size={14} aria-hidden="true" /> Perguntar ao time sobre esta peça
+          </Link>
+        </div>
       </section>
     </div>
   );

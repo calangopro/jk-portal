@@ -5,16 +5,17 @@
   "scripts": {
     "dev": "next dev",
     "dev:turbo": "next dev --turbopack",
-    "build": "next build && npm run verificar:tokens && npm run verificar:precos && npm run verificar:planilha && npm run verificar:margem && npm run verificar:pedidos && npm run verificar:clientes",
+    "build": "next build && npm run verificar:tokens && npm run verificar:precos && npm run verificar:planilha && npm run verificar:margem && npm run verificar:pedidos && npm run verificar:clientes && npm run verificar:biblioteca",
     "start": "next start",
     "lint": "next lint",
-    "build:seguro": "BUILD_DIR=.next-build next build && BUILD_DIR=.next-build npm run verificar:tokens && npm run verificar:precos && npm run verificar:planilha && npm run verificar:margem && npm run verificar:pedidos && npm run verificar:clientes",
+    "build:seguro": "BUILD_DIR=.next-build next build && BUILD_DIR=.next-build npm run verificar:tokens && npm run verificar:precos && npm run verificar:planilha && npm run verificar:margem && npm run verificar:pedidos && npm run verificar:clientes && npm run verificar:biblioteca",
     "verificar:tokens": "node scripts/verificar-tokens.mjs",
     "verificar:precos": "node --experimental-strip-types --disable-warning=ExperimentalWarning scripts/teste-precos.mts",
     "verificar:planilha": "node --experimental-strip-types --disable-warning=ExperimentalWarning --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/teste-planilha-tray.mts",
     "verificar:margem": "node --experimental-strip-types --disable-warning=ExperimentalWarning --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/teste-margem.mts",
     "verificar:pedidos": "node --experimental-strip-types --disable-warning=ExperimentalWarning --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/teste-pedidos-tray.mts",
     "verificar:clientes": "node --experimental-strip-types --disable-warning=ExperimentalWarning --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/teste-clientes.mts",
+    "verificar:biblioteca": "node --experimental-strip-types --disable-warning=ExperimentalWarning --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/teste-biblioteca.mts",
     "vendas:importar": "node --experimental-strip-types --disable-warning=ExperimentalWarning --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/importar-pedidos-tray.mts"
   },
   "dependencies": {
