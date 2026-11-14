@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { CalendarDays, Check, Loader2, MessageCircle, Undo2, X } from "lucide-react";
 import { LinkRapido } from "@/components/ui/LinkRapido";
 import {
-  NOME_DO_TIPO, dataPorExtenso, prazoEmPalavra, tomDoPrazo, type Decisao, type Oportunidade,
+  NOME_DO_TIPO, dataPorExtenso, listaQueVale, prazoEmPalavra, tomDoPrazo, type Decisao, type Oportunidade,
 } from "@/lib/clientes/oportunidades";
 import { SeloDeTom } from "../Pecas";
 
@@ -14,15 +14,20 @@ import { SeloDeTom } from "../Pecas";
  * decisões ("já falei" e "não vale"). Serve à lista de oportunidades e à ficha
  * do cliente.
  *
- * QUEM GUARDA O "DESFAZER" É A LISTA, NÃO O CARTÃO. Marcar grava no banco e
- * manda a página se redesenhar, e a oportunidade marcada deixa de vir do
- * servidor: o cartão dela some. Na primeira versão o "Desfazer" morava dentro
- * do cartão, e no ar aconteceram as duas coisas erradas: na lista ele sumia
- * junto, e na ficha o botão ficava travado para sempre, esperando um redesenho
- * que tirava o próprio cartão de baixo dele. Por isso a marcação mora em
- * `useMarcacao`, usado por quem FICA na tela (a lista), no mesmo padrão do
- * salvar da ficha: espera a ação, guarda o que foi marcado e só então pede o
- * redesenho.
+ * QUEM MANDA NA LISTA É O QUE FOI FEITO NESTA VISITA, NÃO O REDESENHO DA
+ * PÁGINA. O painel reaproveita por 30 segundos a página que já buscou
+ * (`staleTimes` do `next.config.ts`), e um redesenho pedido dentro desse
+ * intervalo não muda o que está na tela. Medido no ar em 14/11/2026: marcar e
+ * desfazer com 12 segundos de distância deixava a tela no estado do meio (a
+ * oportunidade fora da lista e sem o "Desfazer"); com 36 segundos, funcionava.
+ * Antes disso, com o "Desfazer" dentro do cartão, era pior: na lista ele sumia
+ * junto com o cartão, e na ficha o botão ficava desligado para sempre.
+ *
+ * Por isso a marcação mora em `useMarcacao`, usado por quem FICA na tela, e
+ * guarda as duas coisas: o que foi marcado agora (sai da lista e ganha o
+ * "Desfazer") e o que foi reaberto agora (volta para a lista, mesmo que o
+ * servidor ainda não a devolva). O redesenho é pedido do mesmo jeito, para o
+ * resto da página se acertar quando ele valer, mas nada aqui espera por ele.
  *
  * O botão do WhatsApp só ABRE a conversa. O painel não escreve nem manda
  * mensagem para cliente.
@@ -42,63 +47,72 @@ export type OportunidadeNaTela = Oportunidade & {
 
 type Fechada = Exclude<Decisao, "reaberta">;
 
-export type MarcadaAgora = { o: OportunidadeNaTela; decisao: Fechada };
-
 export const idDaOportunidade = (o: Pick<OportunidadeNaTela, "ref" | "tipo" | "ocorrencia">) => `${o.ref}|${o.tipo}|${o.ocorrencia}`;
 
 const DECISAO_EM_PALAVRA: Record<Fechada, string> = { falei: "já falei", nao_vale: "não vale" };
 
 /**
- * A marcação de oportunidades de uma lista: o que foi marcado NESTA visita
- * (para oferecer o "Desfazer"), qual está indo ao servidor e o último erro.
+ * A marcação de oportunidades de uma lista: o que foi marcado e o que foi
+ * reaberto NESTA visita, qual está indo ao servidor e o último erro.
+ *
+ * `abertasDe` devolve a lista que vale agora: a do servidor, sem o que foi
+ * marcado e com o que foi reaberto.
  *
  * A ação vem de fora, como propriedade de quem usa, para a tela poder ser
  * vista sem sessão.
  */
-export function useMarcacao(marcar: Marcar) {
+export function useMarcacao<T extends OportunidadeNaTela>(marcar: Marcar) {
   const router = useRouter();
-  const [agora, setAgora] = useState<MarcadaAgora[]>([]);
+  const [agora, setAgora] = useState<{ o: T; decisao: Fechada }[]>([]);
+  const [reabertas, setReabertas] = useState<T[]>([]);
   const [emCurso, setEmCurso] = useState<string | null>(null);
   const [erro, setErro] = useState<{ id: string; texto: string } | null>(null);
-  const [, comecar] = useTransition();
 
-  const decidir = (o: OportunidadeNaTela, decisao: Decisao) => {
+  /**
+   * Função comum, SEM `useTransition`: o estado "indo ao servidor" é nosso
+   * (`emCurso`) e volta sozinho quando a ação responde. Com a transição do
+   * React, o `isPending` ficou preso no ar quando o redesenho da página não
+   * entrou, e o botão nunca mais aceitou toque.
+   */
+  const decidir = async (o: T, decisao: Decisao) => {
     const id = idDaOportunidade(o);
     setEmCurso(id);
     setErro(null);
-    comecar(async () => {
-      // Rede caindo no meio não pode deixar os botões travados nem derrubar a tela.
-      const r = await marcar(o.ref, o.tipo, o.ocorrencia, decisao).catch(() => ({ ok: false as const, erro: "Não deu para marcar agora. Tente de novo em alguns segundos." }));
-      setEmCurso(null);
-      if (!r.ok) {
-        setErro({ id, texto: r.erro });
-        return;
-      }
-      setAgora((lista) => {
-        const semEla = lista.filter((m) => idDaOportunidade(m.o) !== id);
-        return decisao === "reaberta" ? semEla : [...semEla, { o, decisao }];
-      });
-      // Só agora a página é redesenhada: o que foi marcado já está guardado aqui.
-      router.refresh();
-    });
+    // Rede caindo no meio não pode deixar os botões travados nem derrubar a tela.
+    const r = await marcar(o.ref, o.tipo, o.ocorrencia, decisao).catch(() => ({ ok: false as const, erro: "Não deu para marcar agora. Tente de novo em alguns segundos." }));
+    setEmCurso(null);
+    if (!r.ok) {
+      setErro({ id, texto: r.erro });
+      return;
+    }
+    const semEla = <X extends { o: T } | T>(lista: X[]) => lista.filter((m) => idDaOportunidade("o" in m ? m.o : m) !== id);
+    if (decisao === "reaberta") {
+      setAgora((lista) => semEla(lista));
+      setReabertas((lista) => [...semEla(lista), o]);
+    } else {
+      setAgora((lista) => [...semEla(lista), { o, decisao }]);
+      setReabertas((lista) => semEla(lista));
+    }
+    // O resto da página se acerta quando o redesenho valer. Nada aqui espera por ele.
+    router.refresh();
   };
 
-  /** A oportunidade ainda está aberta, ou seja, não foi marcada nesta visita. */
-  const aberta = (o: OportunidadeNaTela) => !agora.some((m) => idDaOportunidade(m.o) === idDaOportunidade(o));
+  /** A lista que vale agora: a do servidor, sem o que foi marcado e com o que foi reaberto nesta visita. */
+  const abertasDe = (doServidor: T[]): T[] => listaQueVale(doServidor, agora.map((m) => m.o), reabertas, idDaOportunidade);
 
-  return { agora, emCurso, erro, decidir, aberta };
+  return { agora, emCurso, erro, decidir, abertasDe };
 }
 
 const botao = "painel-toque inline-flex h-10 items-center justify-center gap-1.5 rounded-full px-4 text-xs font-semibold disabled:opacity-60";
 
 /** O que foi marcado nesta visita, com o "Desfazer": dedo erra de botão. */
-export function MarcadasAgora({
+export function MarcadasAgora<T extends OportunidadeNaTela>({
   marcadas, emCurso, erro, aoDesfazer,
 }: {
-  marcadas: MarcadaAgora[];
+  marcadas: { o: T; decisao: Fechada }[];
   emCurso: string | null;
   erro: { id: string; texto: string } | null;
-  aoDesfazer: (o: OportunidadeNaTela) => void;
+  aoDesfazer: (o: T) => void;
 }) {
   if (marcadas.length === 0) return null;
   return (
@@ -123,14 +137,14 @@ export function MarcadasAgora({
   );
 }
 
-export function CartaoDaOportunidade({
+export function CartaoDaOportunidade<T extends OportunidadeNaTela>({
   o, emCurso, erro, aoDecidir,
 }: {
-  o: OportunidadeNaTela;
+  o: T;
   /** A oportunidade que está indo ao servidor agora. Enquanto houver uma, nenhum botão aceita toque. */
   emCurso: string | null;
   erro: { id: string; texto: string } | null;
-  aoDecidir: (o: OportunidadeNaTela, decisao: Fechada) => void;
+  aoDecidir: (o: T, decisao: Fechada) => void;
 }) {
   const id = idDaOportunidade(o);
   const ocupado = emCurso !== null;

@@ -6,17 +6,16 @@ import { CartaoDaOportunidade, MarcadasAgora, idDaOportunidade, useMarcacao, typ
  * "Para chamar agora", na ficha: o que vence para este cliente e o que foi
  * marcado nesta visita.
  *
- * É este componente que fica na tela quando a página se redesenha depois de
- * uma marcação, e por isso é ele que guarda o "Desfazer" (ver
- * `CartaoDaOportunidade.tsx`). Fica montado mesmo sem nenhuma oportunidade:
- * marcada a última, a lista do servidor vem vazia, e o "Desfazer" não pode
- * sumir junto.
+ * É este componente que fica na tela, e por isso é ele que guarda o que foi
+ * marcado e reaberto nesta visita (ver `CartaoDaOportunidade.tsx`). Fica
+ * montado mesmo sem nenhuma oportunidade: marcada a última, a lista do
+ * servidor vem vazia, e o "Desfazer" não pode sumir junto.
  *
  * A ação vem de fora, como propriedade, para a tela poder ser vista sem sessão.
  */
 export function OportunidadesDaFicha({ oportunidades, marcar }: { oportunidades: OportunidadeNaTela[]; marcar: Marcar }) {
-  const { agora, emCurso, erro, decidir, aberta } = useMarcacao(marcar);
-  const abertas = oportunidades.filter(aberta);
+  const { agora, emCurso, erro, decidir, abertasDe } = useMarcacao<OportunidadeNaTela>(marcar);
+  const abertas = abertasDe(oportunidades);
   if (abertas.length === 0 && agora.length === 0) return null;
 
   return (
