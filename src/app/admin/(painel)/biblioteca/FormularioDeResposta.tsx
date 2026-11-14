@@ -7,8 +7,8 @@ import { botaoCheio, botaoClaro, campo, type Feito } from "./pecas";
 
 /**
  * O formulário de uma resposta da biblioteca. Serve a três lugares: sugerir
- * uma resposta nova, editar uma que existe e transformar um chamado em
- * resposta. Quem chama diz o que acontece ao salvar.
+ * uma resposta nova, editar uma que existe e transformar uma conversa do chat
+ * em resposta. Quem chama diz o que acontece ao salvar.
  *
  * A pergunta e a explicação são obrigatórias; a frase pronta e a origem, não.
  * A conferência roda aqui antes de ir ao servidor, que confere de novo.
@@ -17,7 +17,7 @@ export function FormularioDeResposta({
   inicial, comOrigem = true, rotuloDoBotao, aviso, onSalvar, onCancelar,
 }: {
   inicial?: Partial<RascunhoDeResposta>;
-  /** A origem some quando a resposta nasce de um chamado: quem escreve é o banco. */
+  /** A origem some quando a resposta nasce de uma conversa do chat: quem escreve é o banco. */
   comOrigem?: boolean;
   rotuloDoBotao: string;
   aviso?: React.ReactNode;

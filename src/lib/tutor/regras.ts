@@ -5,7 +5,7 @@
  * O PRINCÍPIO: o tutor não sabe nada sozinho. Ele só repete, com as palavras
  * certas para o caso, o que a casa já escreveu na Biblioteca JK e o que o
  * catálogo diz de um produto. Dúvida que a biblioteca não cobre recebe "ainda
- * não tem resposta", e vira chamado. Modelo de linguagem que completa regra de
+ * não tem resposta", e vira pergunta no chat do time. Modelo de linguagem que completa regra de
  * joalheria por conta própria (preço, prazo, garantia) é pior que nenhum.
  *
  * Por isso a saída passa por `conferirSaida`: resposta que diz ter respondido
@@ -95,7 +95,7 @@ export const INSTRUCAO_DA_RESPOSTA = [
   "4. Resposta marcada A CONFIRMAR ainda não foi confirmada pela JK. Pode usar, mas diga em para_o_vendedor que falta a JK confirmar.",
   "5. Se duas respostas da casa se contradizem, não escolha: diga ao vendedor que existem duas versões e que ele precisa perguntar ao time.",
   "6. Dado de PRODUTO (nome, preço de hoje, link e a data que a conta do painel dá) pode ir na frase para o cliente, escrito em linguagem natural. Nunca copie a linha do produto com as barras. Se houver mais de um produto possível, diga ao vendedor que ele precisa confirmar qual é, e não despeje a lista para o cliente.",
-  "7. Não ofereça ação que as respostas da casa não oferecem: reservar, separar a peça, dar desconto, antecipar a produção. Se a data que o cliente quer não bate com a conta do painel, diga isso ao vendedor e sugira abrir um chamado para a fábrica.",
+  "7. Não ofereça ação que as respostas da casa não oferecem: reservar, separar a peça, dar desconto, antecipar a produção. Se a data que o cliente quer não bate com a conta do painel, diga isso ao vendedor e sugira perguntar no chat do time, na sala da fábrica.",
   "8. Português do Brasil. Nunca use travessão. Não invente nome de cliente nem de pessoa da loja.",
 ].join("\n");
 
@@ -162,7 +162,7 @@ export function conferirSaida(saida: SaidaDoModelo, fontes: FonteDoTutor[], temP
 /** A resposta fixa para quando nada na biblioteca nem no catálogo trata da dúvida. Não gasta chamada ao modelo. */
 export const SEM_RESPOSTA: RespostaDoTutor = {
   respondeu: false,
-  paraOVendedor: "A Biblioteca JK ainda não tem resposta para isso. Abra um chamado: a resposta do time pode virar item da biblioteca, e a próxima pessoa já encontra.",
+  paraOVendedor: "A Biblioteca JK ainda não tem resposta para isso. Pergunte no chat do time: a resposta pode virar item da biblioteca, e a próxima pessoa já encontra.",
   fraseParaOCliente: null,
   fontes: [],
   temFonteAConfirmar: false,

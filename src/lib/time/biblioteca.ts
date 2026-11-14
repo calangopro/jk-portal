@@ -68,8 +68,8 @@ export type Resposta = {
   confirmadoPorNome: string | null;
   confirmadoEm: string | null;
   atualizadoEm: string;
-  /** O número do chamado de que a resposta nasceu, quando nasceu de um. */
-  chamado: number | null;
+  /** A conversa do chat de que a resposta nasceu, quando nasceu de uma: a sala e o número da mensagem. */
+  conversa: { sala: string; mensagem: number } | null;
 };
 
 /** Minúsculas e sem acento: "Polimento é grátis" e "polimento e gratis" são a mesma busca. */

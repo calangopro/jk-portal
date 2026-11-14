@@ -17,7 +17,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
  * arquivam: por isso a ação de mudar estado só desce para eles. O desenho mora
  * em `Tela.tsx`.
  *
- * `?r=<id>` é o link que um chamado deixa para a resposta que nasceu dele.
+ * `?r=<id>` é o link que uma conversa do chat deixa para a resposta que nasceu dela.
  */
 export default async function BibliotecaPage({ searchParams }: { searchParams: Promise<{ r?: string }> }) {
   const perfil = await requireArea("time");

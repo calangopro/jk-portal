@@ -1054,7 +1054,7 @@ console.log("\nTutor do vendedor");
   const deCabeca = conferirSaida({ responde: true, para_o_vendedor: "Parcelamos em 12x.", frase_para_o_cliente: "Parcelamos em 12x sem juros.", usou: [] }, fontes, false);
   confere("\"respondi\" sem citar fonte nem produto vira \"não respondi\", e a frase para o cliente some", !deCabeca.respondeu && deCabeca.fraseParaOCliente === null && deCabeca.fontes.length === 0);
   confere("com produto na mão, responder sem fonte da biblioteca vale", conferirSaida({ responde: true, para_o_vendedor: "O preço de hoje é este.", frase_para_o_cliente: "Custa R$ 399,90.", usou: [] }, fontes, true).respondeu);
-  confere("sem nada na biblioteca, a resposta fixa manda abrir chamado", !SEM_RESPOSTA.respondeu && SEM_RESPOSTA.paraOVendedor.includes("chamado") && !/[—–]/.test(SEM_RESPOSTA.paraOVendedor));
+  confere("sem nada na biblioteca, a resposta fixa manda perguntar no chat do time", !SEM_RESPOSTA.respondeu && SEM_RESPOSTA.paraOVendedor.includes("chat do time") && !/[—–]/.test(SEM_RESPOSTA.paraOVendedor));
 
   const mensagem = montarPergunta({ duvida: "tem custo?", leitura: { eConversa: true, pergunta: "A aliança escureceu, tem garantia?", produto: null, detalhes: "comprou há 5 meses" }, fontes, produtos: [{ codigo: "217", nome: "Par Eternal Love", preco: 399.9, url: "https://x/eternal", diasUteis: 2, prazo: { retirada: "Chega na loja em quarta.", correios: "Postada na terça." } }] });
   confere("a mensagem ao modelo diz o estado de cada resposta da casa", mensagem.includes("[a1] (A CONFIRMAR)") && mensagem.includes("[b2] (CONFIRMADA)") && mensagem.includes("DETALHES DO PRINT: comprou há 5 meses"));

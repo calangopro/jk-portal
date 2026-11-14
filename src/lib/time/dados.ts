@@ -4,26 +4,30 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import {
   lerEstado, lerTema, respostasProximas, type Estado, type Resposta, type RespostaProxima, type Tema,
 } from "./biblioteca";
-import {
-  lerEstadoDoChamado, lerSetor, lerTipo, type Chamado, type ChamadoInteiro, type Imagem, type Mensagem, type SetorDoChamado,
-  type TipoDeChamado,
-} from "./chamados";
+import { SEM_RESUMO, lerAbertura, lerResumo, type Abertura, type ResumoDoChat } from "./chat";
 
 /**
- * Leitura e escrita do setor Time: a Biblioteca JK (0071) e os chamados entre
- * setores (0072).
+ * Leitura e escrita do setor Time NO SERVIDOR: a Biblioteca JK (0071) e o que
+ * o chat (0079) precisa do servidor.
  *
  * Tudo passa por função do banco, chamada com o cliente da SESSÃO: é a função
  * que confere a área `time`, guarda o autor e traz o nome das pessoas (que
  * mora em `profiles`, tabela que vendas e fábrica não leem).
  *
- * A única coisa feita com o cliente de serviço é assinar o link do print. O
- * bucket `chamados` não tem policy de leitura para o print dos outros, de
- * propósito: o link só sai DEPOIS de a função `chamado_detalhe` devolver o
- * chamado para a sessão de quem pediu.
+ * A conversa em si (mandar, sincronizar, marcar como lida) NÃO passa por aqui:
+ * a tela chama as mesmas funções direto do navegador, com a sessão da pessoa
+ * (`app/admin/(painel)/chat/api.ts`), porque num chat uma ida ao banco a menos
+ * aparece. O servidor fica com três coisas: a primeira leitura da tela, o
+ * número do menu e o link assinado da imagem.
+ *
+ * A única coisa feita com o cliente de serviço é assinar o link da imagem. O
+ * bucket não tem policy de leitura para a imagem dos outros, de propósito: o
+ * link só sai DEPOIS de a função `chat_caminhos` devolver o caminho para a
+ * sessão de quem pediu.
  */
 
-export const BUCKET_DOS_CHAMADOS = "chamados";
+/** O bucket privado das imagens. Nasceu com os chamados (0072) e bucket não muda de nome. */
+export const BUCKET_DO_CHAT = "chamados";
 
 /** Link assinado vale uma hora: dá para abrir o print, não para guardar o endereço. */
 const VALIDADE_DO_LINK_S = 3600;
@@ -53,6 +57,15 @@ function lerResultado<T extends object>(onde: string, r: { data: unknown; error:
 
 // ------------------------------------------------------------------ biblioteca
 
+/** A conversa do chat de que a resposta nasceu: a sala e o número da mensagem. */
+function lerConversa(v: unknown): Resposta["conversa"] {
+  if (!v || typeof v !== "object") return null;
+  const c = v as Record<string, unknown>;
+  const sala = typeof c.sala === "string" ? c.sala : "";
+  const mensagem = numero(c.mensagem);
+  return sala && mensagem > 0 ? { sala, mensagem } : null;
+}
+
 function lerResposta(l: Record<string, unknown>): Resposta | null {
   const tema = lerTema(l.tema);
   const estado = lerEstado(l.estado);
@@ -71,7 +84,7 @@ function lerResposta(l: Record<string, unknown>): Resposta | null {
     confirmadoPorNome: texto(l.confirmado_por_nome),
     confirmadoEm: texto(l.confirmado_em),
     atualizadoEm: String(l.atualizado_em ?? ""),
-    chamado: l.chamado == null ? null : numero(l.chamado),
+    conversa: lerConversa(l.conversa),
   };
 }
 
@@ -92,8 +105,8 @@ export async function lerBiblioteca(db: SupabaseClient): Promise<Resposta[] | nu
  *
  * O tutor NÃO deve tratar "a confirmar" como regra: o estado vem junto para
  * ele dizer ao vendedor que a JK ainda não confirmou aquilo. Lista vazia quer
- * dizer que a casa ainda não respondeu a pergunta, e a saída certa é abrir um
- * chamado, não inventar.
+ * dizer que a casa ainda não respondeu a pergunta, e a saída certa é perguntar
+ * no chat do time, não inventar.
  *
  * Recebe o cliente da sessão de quem perguntou: a função do banco confere a
  * área `time` e não devolve resposta arquivada para quem não é da diretoria.
@@ -133,221 +146,88 @@ export async function definirEstadoDaResposta(db: SupabaseClient, id: string, es
   return lerResultado("definir_estado_da_resposta", r);
 }
 
-// -------------------------------------------------------------------- chamados
+// ------------------------------------------------------------------------ chat
 
-function lerChamadoDaLista(l: Record<string, unknown>): Chamado | null {
-  const tipo = lerTipo(l.tipo);
-  const estado = lerEstadoDoChamado(l.estado);
-  if (!tipo || !estado || typeof l.id !== "string") return null;
-  const ultima = l.ultima && typeof l.ultima === "object" ? (l.ultima as Record<string, unknown>) : null;
-  return {
-    id: l.id,
-    numero: numero(l.numero),
-    tipo,
-    texto: String(l.texto ?? ""),
-    paraSetor: lerSetor(l.para_setor),
-    paraPessoa: texto(l.para_pessoa),
-    paraPessoaNome: texto(l.para_pessoa_nome),
-    abertoPor: texto(l.aberto_por),
-    abertoPorNome: texto(l.aberto_por_nome),
-    estado,
-    precisoAte: texto(l.preciso_ate),
-    produto: texto(l.produto),
-    aguardandoDesde: String(l.aguardando_desde ?? ""),
-    criadoEm: String(l.criado_em ?? ""),
-    atualizadoEm: String(l.atualizado_em ?? ""),
-    mensagens: numero(l.mensagens),
-    anexos: numero(l.anexos),
-    ultima: ultima ? { autor: texto(ultima.autor), texto: String(ultima.texto ?? ""), em: String(ultima.em ?? "") } : null,
-    naBiblioteca: l.na_biblioteca === true,
-  };
-}
-
-/** Os chamados em andamento e os resolvidos dos últimos 30 dias. `null` quando a leitura falhou. */
-export async function lerChamados(db: SupabaseClient): Promise<Chamado[] | null> {
-  const { data, error } = await db.rpc("chamados_listar");
+/**
+ * A primeira leitura da tela do chat: as últimas mensagens de cada sala, os
+ * pedidos que esperam, até onde a pessoa leu e quem é do time. `null` quando a
+ * leitura falhou ou a sessão não tem a área.
+ */
+export async function lerAberturaDoChat(db: SupabaseClient): Promise<Abertura | null> {
+  const { data, error } = await db.rpc("chat_abrir");
   if (error) {
-    console.error("[time] chamados_listar:", error.message);
+    console.error("[time] chat_abrir:", error.message);
     return null;
   }
-  return (Array.isArray(data) ? (data as Record<string, unknown>[]) : []).map(lerChamadoDaLista).filter((c): c is Chamado => c !== null);
+  return lerAbertura(data);
 }
-
-/** Os setores a que a pessoa responde nos chamados. Vazio se a leitura falhar: ela ainda vê tudo, só não tem "para mim". */
-export async function lerMeusSetores(db: SupabaseClient): Promise<SetorDoChamado[]> {
-  const { data, error } = await db.rpc("meus_setores");
-  if (error) {
-    console.error("[time] meus_setores:", error.message);
-    return [];
-  }
-  return (Array.isArray(data) ? data : []).map(lerSetor).filter((s): s is SetorDoChamado => s !== null);
-}
-
-export type Pessoa = { id: string; nome: string; papel: string };
-
-/** As pessoas ativas, para escolher a quem mandar um chamado. */
-export async function lerPessoas(db: SupabaseClient): Promise<Pessoa[]> {
-  const { data, error } = await db.rpc("pessoas_do_time");
-  if (error) {
-    console.error("[time] pessoas_do_time:", error.message);
-    return [];
-  }
-  return (Array.isArray(data) ? (data as Record<string, unknown>[]) : [])
-    .filter((p) => typeof p.id === "string")
-    .map((p) => ({ id: String(p.id), nome: texto(p.nome) ?? "Sem nome", papel: String(p.papel ?? "") }));
-}
-
-export type AvisoDeChamados = { paraResponder: number; respondidos: number };
 
 /**
- * O número do menu: quantos chamados abertos esperam a pessoa (no nome dela ou
- * no setor dela) e quantos chamados dela já têm resposta. Zeros se a leitura
- * falhar: aviso que não chega é melhor do que painel que não abre.
+ * O número do menu e da Visão geral: o que a pessoa não leu e os pedidos que
+ * esperam o setor dela. Zeros se a leitura falhar: aviso que não chega é
+ * melhor do que painel que não abre.
  */
-export async function lerAvisoDeChamados(db: SupabaseClient): Promise<AvisoDeChamados> {
-  const { data, error } = await db.rpc("chamados_para_mim");
+export async function lerResumoDoChat(db: SupabaseClient): Promise<ResumoDoChat> {
+  const { data, error } = await db.rpc("chat_resumo");
   if (error) {
-    console.error("[time] chamados_para_mim:", error.message);
-    return { paraResponder: 0, respondidos: 0 };
+    console.error("[time] chat_resumo:", error.message);
+    return SEM_RESUMO;
   }
-  const d = (data ?? {}) as Record<string, unknown>;
-  return { paraResponder: numero(d.abertos), respondidos: numero(d.respondidos) };
+  return lerResumo(data);
 }
 
-type AnexoCru = { id: string; caminho: string; nome: string | null };
-
-const lerAnexos = (v: unknown): AnexoCru[] =>
-  (Array.isArray(v) ? (v as Record<string, unknown>[]) : [])
-    .filter((a) => typeof a.id === "string" && typeof a.caminho === "string")
-    .map((a) => ({ id: String(a.id), caminho: String(a.caminho), nome: texto(a.nome) }));
-
 /**
- * Um chamado inteiro, pelo número, com o link assinado de cada print.
+ * O link assinado de cada imagem pedida, pelo id.
  *
- * `null` quando o chamado não existe OU quando a sessão não tem a área: a
- * função do banco devolve nada nos dois casos, e por isso o link assinado
- * nunca é emitido para quem não poderia ver o chamado.
+ * Quem decide o que a pessoa pode ver é a função do banco, chamada com a
+ * SESSÃO dela: ela só devolve o caminho de imagem de mensagem que existe, que
+ * não foi apagada, e para quem tem a área. Só depois o cliente de serviço
+ * assina. Imagem sem link fica de fora do resultado, e a tela mostra o aviso.
  */
-export async function lerChamado(db: SupabaseClient, n: number): Promise<ChamadoInteiro | null> {
-  const { data, error } = await db.rpc("chamado_detalhe", { p_numero: n });
+export async function linksDasImagensDoChat(db: SupabaseClient, anexos: string[]): Promise<Record<string, string>> {
+  if (anexos.length === 0) return {};
+  const { data, error } = await db.rpc("chat_caminhos", { p_anexos: anexos });
   if (error) {
-    console.error("[time] chamado_detalhe:", error.message);
-    return null;
+    console.error("[time] chat_caminhos:", error.message);
+    return {};
   }
-  const l = (data ?? null) as Record<string, unknown> | null;
-  if (!l || typeof l.id !== "string") return null;
-  const tipo = lerTipo(l.tipo);
-  const estado = lerEstadoDoChamado(l.estado);
-  if (!tipo || !estado) return null;
-
-  const daAbertura = lerAnexos(l.anexos);
-  const mensagensCruas = (Array.isArray(l.mensagens) ? (l.mensagens as Record<string, unknown>[]) : []).map((m) => ({ m, anexos: lerAnexos(m.anexos) }));
-
-  // Todos os links de uma vez. Sem a chave de serviço (ambiente de teste), o chamado abre sem as imagens.
-  const caminhos = [...daAbertura, ...mensagensCruas.flatMap((x) => x.anexos)].map((a) => a.caminho);
-  const links = new Map<string, string>();
-  if (caminhos.length > 0) {
-    try {
-      const { data: assinados } = await createAdminClient().storage.from(BUCKET_DOS_CHAMADOS).createSignedUrls(caminhos, VALIDADE_DO_LINK_S);
-      for (const a of assinados ?? []) if (a.path && a.signedUrl) links.set(a.path, a.signedUrl);
-    } catch (e) {
-      console.error("[time] link assinado:", e instanceof Error ? e.message : e);
+  const caminhos = (Array.isArray(data) ? (data as Record<string, unknown>[]) : [])
+    .filter((a) => typeof a.id === "string" && typeof a.caminho === "string")
+    .map((a) => ({ id: String(a.id), caminho: String(a.caminho) }));
+  if (caminhos.length === 0) return {};
+  const links: Record<string, string> = {};
+  try {
+    const { data: assinados } = await createAdminClient().storage.from(BUCKET_DO_CHAT).createSignedUrls(caminhos.map((c) => c.caminho), VALIDADE_DO_LINK_S);
+    const porCaminho = new Map((assinados ?? []).filter((a) => a.path && a.signedUrl).map((a) => [a.path as string, a.signedUrl]));
+    for (const c of caminhos) {
+      const link = porCaminho.get(c.caminho);
+      if (link) links[c.id] = link;
     }
+  } catch (e) {
+    // Sem a chave de serviço (ambiente de teste), a conversa abre sem as imagens.
+    console.error("[time] link assinado:", e instanceof Error ? e.message : e);
   }
-  const comLink = (a: AnexoCru): Imagem => ({ id: a.id, nome: a.nome, link: links.get(a.caminho) ?? null });
-
-  const produto = l.produto && typeof l.produto === "object" ? (l.produto as Record<string, unknown>) : null;
-  const mensagens: Mensagem[] = mensagensCruas.map(({ m, anexos }) => ({
-    id: numero(m.id),
-    autor: texto(m.autor),
-    autorNome: texto(m.autor_nome),
-    autorPapel: texto(m.autor_papel),
-    texto: String(m.texto ?? ""),
-    em: String(m.em ?? ""),
-    imagens: anexos.map(comLink),
-  }));
-
-  return {
-    id: l.id,
-    numero: numero(l.numero),
-    tipo,
-    texto: String(l.texto ?? ""),
-    paraSetor: lerSetor(l.para_setor),
-    paraPessoa: texto(l.para_pessoa),
-    paraPessoaNome: texto(l.para_pessoa_nome),
-    abertoPor: texto(l.aberto_por),
-    abertoPorNome: texto(l.aberto_por_nome),
-    abertoPorPapel: texto(l.aberto_por_papel),
-    estado,
-    precisoAte: texto(l.preciso_ate),
-    produto: produto && typeof produto.id === "string"
-      ? { id: produto.id, nome: String(produto.nome ?? "Produto"), url: texto(produto.url), codigo: produto.codigo == null ? null : String(produto.codigo) }
-      : null,
-    aguardandoDesde: String(l.aguardando_desde ?? ""),
-    criadoEm: String(l.criado_em ?? ""),
-    resolvidoEm: texto(l.resolvido_em),
-    resolvidoPorNome: texto(l.resolvido_por_nome),
-    podeResolver: l.pode_resolver === true,
-    respostaDaBiblioteca: texto(l.resposta_da_biblioteca),
-    imagens: daAbertura.map(comLink),
-    mensagens,
-  };
+  return links;
 }
 
-/** A imagem que o navegador já subiu para o bucket, pronta para ser presa ao chamado. */
-export type ImagemEnviada = { caminho: string; nome: string };
-
-export type NovoChamado = {
-  tipo: TipoDeChamado;
-  texto: string;
-  paraSetor: SetorDoChamado | null;
-  paraPessoa: string | null;
-  /** Já com o fuso: ver `lerPrecisoAte`. */
-  precisoAte: string | null;
-  produto: string | null;
-  imagens: ImagemEnviada[];
-};
-
-export async function abrirChamado(db: SupabaseClient, a: NovoChamado): Promise<Resultado<{ numero: number }>> {
-  const r = await db.rpc("abrir_chamado", {
-    p_tipo: a.tipo,
-    p_texto: a.texto,
-    p_para_setor: a.paraSetor,
-    p_para_pessoa: a.paraPessoa,
-    p_preciso_ate: a.precisoAte,
-    p_produto: a.produto,
-    p_anexos: a.imagens,
-  });
-  return lerResultado("abrir_chamado", r, (d) => ({ numero: numero(d.numero) }));
-}
-
-export async function responderChamado(db: SupabaseClient, chamado: string, mensagem: string, imagens: ImagemEnviada[]): Promise<Resultado> {
-  const r = await db.rpc("responder_chamado", { p_chamado: chamado, p_texto: mensagem, p_anexos: imagens });
-  return lerResultado("responder_chamado", r);
-}
-
-export async function resolverChamado(db: SupabaseClient, chamado: string): Promise<Resultado> {
-  const r = await db.rpc("resolver_chamado", { p_chamado: chamado });
-  return lerResultado("resolver_chamado", r);
-}
-
+/** "Guardar na biblioteca": a mensagem do chat que já tem resposta de outra pessoa vira uma resposta "a confirmar". */
 export async function virarResposta(
   db: SupabaseClient,
-  chamado: string,
+  mensagem: number,
   a: Omit<TextosDaResposta, "origem">,
 ): Promise<Resultado<{ id: string }>> {
-  const r = await db.rpc("chamado_virar_resposta", {
-    p_chamado: chamado,
+  const r = await db.rpc("chat_virar_resposta", {
+    p_mensagem: mensagem,
     p_tema: a.tema,
     p_pergunta: a.pergunta,
     p_explicacao: a.explicacao,
     p_frase: a.frase || null,
   });
-  return lerResultado("chamado_virar_resposta", r, (d) => ({ id: String(d.id ?? "") }));
+  return lerResultado("chat_virar_resposta", r, (d) => ({ id: String(d.id ?? "") }));
 }
 
-/** O nome, o código e o link de uma peça, para o chamado que nasce na consulta. `products` abre leitura do que está ativo. */
-export async function lerProdutoDoChamado(db: SupabaseClient, id: string): Promise<{ id: string; nome: string; codigo: string | null; url: string | null } | null> {
+/** O nome, o código e o link de uma peça, para a pergunta que nasce na consulta. `products` abre leitura do que está ativo. */
+export async function lerProdutoDoChat(db: SupabaseClient, id: string): Promise<{ id: string; nome: string; codigo: string | null; url: string | null } | null> {
   const { data, error } = await db.from("products").select("id, name, tray_id, url").eq("id", id).maybeSingle();
   if (error || !data) return null;
   return { id: String(data.id), nome: texto(data.name) ?? "Produto", codigo: data.tray_id == null ? null : String(data.tray_id), url: texto(data.url) };

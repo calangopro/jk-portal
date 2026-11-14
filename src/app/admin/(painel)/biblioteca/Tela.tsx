@@ -59,7 +59,7 @@ function CartaoDaResposta({
   const pode = oQuePode({ admin: admin && Boolean(definirEstado), souAutor: r.criadoPor === meuId, estado: r.estado });
   const podeEditar = pode.editar;
 
-  // Quem chega pelo link de um chamado cai em cima da resposta dele.
+  // Quem chega pelo link de uma conversa do chat cai em cima da resposta que nasceu dela.
   useEffect(() => {
     if (destaque) caixa.current?.scrollIntoView({ block: "center" });
   }, [destaque]);
@@ -138,9 +138,9 @@ function CartaoDaResposta({
               : null}
             {r.origem ? `De onde veio: ${r.origem}. ` : null}
             {r.criadoPorNome ? `Sugerida por ${r.criadoPorNome} em ${dia(r.criadoEm)}. ` : null}
-            {r.chamado ? (
-              <Link href={`/admin/chamados/${r.chamado}`} className="font-semibold text-ink underline decoration-ink/25 underline-offset-2">
-                Ver o chamado {r.chamado}
+            {r.conversa ? (
+              <Link href={`/admin/chat?sala=${r.conversa.sala}&m=${r.conversa.mensagem}`} className="font-semibold text-ink underline decoration-ink/25 underline-offset-2">
+                Ver a conversa no chat
               </Link>
             ) : null}
           </p>
@@ -205,7 +205,7 @@ export function TelaDaBiblioteca({
   /** Administrador, dono ou GM: confirma, edita e arquiva. */
   admin: boolean;
   meuId: string;
-  /** A resposta para onde o link de um chamado aponta. */
+  /** A resposta para onde o link de uma conversa do chat aponta. */
   destaque?: string;
   sugerir: Sugerir;
   editar: Editar;
@@ -394,11 +394,11 @@ export function TelaDaBiblioteca({
               <div className="glass mt-3 rounded-[16px] p-4">
                 <p className="text-sm font-semibold text-ink">Não achou a resposta?</p>
                 <p className="mt-1 text-xs leading-relaxed text-muted">
-                  Pergunte ao time por um chamado: ele chega no setor certo e fica com dono. Quando a resposta vier, ela pode virar uma entrada
-                  aqui, e a próxima pessoa já encontra.
+                  Pergunte no chat do time, na sala do setor que sabe, e ligue &quot;Pedir resposta&quot; para a pergunta ficar à vista. Quando a
+                  resposta vier, ela pode virar uma entrada aqui, e a próxima pessoa já encontra.
                 </p>
                 <div className="mt-3 flex flex-wrap gap-2">
-                  <Link href="/admin/chamados?novo=duvida" className={botaoCheio}>
+                  <Link href="/admin/chat?pedir=1" className={botaoCheio}>
                     <MessagesSquare size={14} aria-hidden="true" /> Perguntar ao time
                   </Link>
                   <button type="button" onClick={abrirSugestao} className={botaoClaro}>

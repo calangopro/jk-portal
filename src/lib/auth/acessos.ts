@@ -42,7 +42,7 @@ export type Area =
   | "loja"
   /** A consulta de quem atende cliente ou despacha peça: produto, pronta entrega e prazo (0073). */
   | "consulta"
-  /** O setor Time, de todos os níveis: a Biblioteca JK e os chamados entre setores (0071 e 0072). */
+  /** O setor Time, de todos os níveis: o tutor, a Biblioteca JK e o chat do time (0071, 0077 e 0079). */
   | "time";
 
 /** Na ordem em que aparecem para quem convida: da empresa para o editorial. */

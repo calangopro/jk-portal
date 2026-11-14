@@ -12,8 +12,8 @@ import { andamentoDaMeta, diasDoMes, type Andamento } from "@/lib/painel/meta";
 import { sinaisDaSaude } from "@/lib/painel/saude";
 import { lerSaude } from "@/lib/painel/saude-dados";
 import { calcularSinais, type EntradaDosSinais } from "@/lib/painel/sinais";
-import { oQueEsperaPorMim } from "@/lib/time/chamados";
-import { lerChamados, lerMeusSetores } from "@/lib/time/dados";
+import { SEM_RESUMO, esperandoPorMim as esperandoNoChat } from "@/lib/time/chat";
+import { lerResumoDoChat } from "@/lib/time/dados";
 import { lerResumoDeGasto } from "@/lib/trafego/dados";
 import { retornoPorPlataforma } from "@/lib/trafego/retorno";
 import { lerResumoDeVendas, ultimaImportacao } from "@/lib/vendas/dados";
@@ -21,7 +21,7 @@ import { agruparPorCanal } from "@/lib/vendas/origem";
 import { hojeEmSaoPaulo, primeiroDoMes, somarDias } from "@/lib/vendas/periodo";
 import { lerResumoPorFora } from "@/lib/vendas/por-fora";
 import { lerFilaDeRecuperacao } from "@/lib/vendas/recuperacao";
-import { ChamadosParaMim } from "./ChamadosParaMim";
+import { ChatParaMim } from "./ChatParaMim";
 import { definirMeta } from "./meta-actions";
 import { MetaDoMes } from "./MetaDoMes";
 import { OportunidadesDaSemana } from "./OportunidadesDaSemana";
@@ -165,21 +165,18 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
   const filaDaFabrica = profile.areas.includes("fabrica") ? lerFilaDaFabrica(await createClient(), 15) : null;
   // A saúde das ligações só responde a administrador, dono e GM. Também começa já.
   const saude = ehAdmin(profile.role) ? lerSaude(await createClient()) : null;
-  // Os chamados que esperam a pessoa, e os dela que já têm resposta. Também começa já.
-  const chamadosDoTime = profile.areas.includes("time")
-    ? createClient().then((db) => Promise.all([lerChamados(db), lerMeusSetores(db)]))
-    : null;
+  // O que espera a pessoa no chat do time: o que ela não leu e os pedidos do setor dela. Também começa já.
+  const chatDoTime = profile.areas.includes("time") ? createClient().then(lerResumoDoChat) : null;
   const [{ vendas, sinais, andamento, hoje, porForaNoMes, resultado, salas, podeVerMeta, oportunidades }, conteudo] = await Promise.all([
     lerPainel(profile),
     profile.areas.includes("conteudo") ? lerConteudo() : null,
   ]);
-  const [chamados, meusSetores] = (await chamadosDoTime) ?? [null, []];
-  const meusChamados = oQueEsperaPorMim(chamados ?? [], { id: profile.id, setores: meusSetores });
-  const esperandoPorMim = meusChamados.paraResponder.length + meusChamados.respondidos.length;
+  const chat = (await chatDoTime) ?? SEM_RESUMO;
+  const esperandoPorMim = esperandoNoChat(chat);
   if (esperandoPorMim > 0) {
     salas.time = {
       valor: esperandoPorMim.toLocaleString("pt-BR"),
-      apoio: esperandoPorMim === 1 ? "chamado esperando você" : "chamados esperando você",
+      apoio: esperandoPorMim === 1 ? "mensagem esperando você no chat" : "mensagens esperando você no chat",
     };
   }
   const semNada = !vendas && sinais.length === 0 && !conteudo && oportunidades.length === 0 && !saude && esperandoPorMim === 0;
@@ -228,7 +225,7 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
 
       <Salas areas={profile.areas} numeros={salas} />
 
-      <ChamadosParaMim paraResponder={meusChamados.paraResponder} respondidos={meusChamados.respondidos} agora={Date.now()} />
+      <ChatParaMim resumo={chat} agora={Date.now()} />
 
       <OportunidadesDaSemana lista={oportunidades} />
 
