@@ -3,7 +3,7 @@ import {
   Activity, Banknote, BellRing, BookCheck, Bot, CalendarDays, Contact, Crosshair, FileText, Filter, Globe, Hammer, HandCoins, Handshake,
   HeartPulse, History, ImageIcon, LayoutDashboard, LayoutTemplate, LibraryBig, ListChecks, MapPin, MessageCircle, MessagesSquare, Milestone,
   Package, PackageSearch, Palette, PenLine,
-  Percent, Plug, QrCode, RotateCcw, Settings, Smartphone, Store, Table2, Tags, TrendingUp, Trophy, Users,
+  Percent, Plug, QrCode, RotateCcw, Settings, Smartphone, Star, Store, Table2, Tags, TrendingUp, Trophy, Users,
   UsersRound, Wallet,
 } from "lucide-react";
 import type { Area } from "@/lib/auth/acessos";
@@ -120,6 +120,7 @@ export const SETORES: Setor[] = [
       { href: "/admin/campanhas", area: "campanhas", label: "Campanhas de desconto", curto: "Descontos", Icone: Tags, desc: "Descontos com aprovação" },
       { href: "/admin/alteracoes-na-loja", area: "loja", label: "Alterações na loja", curto: "Alterações", Icone: History, desc: "Quem mudou o quê na Tray" },
       { href: "/admin/lojas", area: "catalogo", label: "Lojas físicas", curto: "Lojas", Icone: MapPin, desc: "Endereço e horário" },
+      { href: "/admin/avaliacoes", area: "catalogo", label: "Avaliações do Google", curto: "Avaliações", Icone: Star, desc: "Responder e trazer o horário das lojas" },
     ],
   },
   {

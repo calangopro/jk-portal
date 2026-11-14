@@ -55,6 +55,8 @@ type Local = {
   title?: string;
   storefrontAddress?: Endereco;
   metadata?: { mapsUri?: string; newReviewUri?: string; placeId?: string };
+  /** O horário de funcionamento, como o Google guarda (0076). */
+  regularHours?: unknown;
 };
 type Avaliacao = {
   name: string;
@@ -148,7 +150,7 @@ export async function sincronizarAvaliacoes(): Promise<UltimaSincronizacao> {
     const vistos = new Set<string>();
     for (const conta of contas) {
       const locais = await listarTudo<Local>(
-        `${INFORMACOES}/${conta.name}/locations?readMask=name,title,storefrontAddress,metadata&pageSize=100`,
+        `${INFORMACOES}/${conta.name}/locations?readMask=name,title,storefrontAddress,metadata,regularHours&pageSize=100`,
         "locations",
         token,
       );
@@ -208,6 +210,8 @@ export async function sincronizarAvaliacoes(): Promise<UltimaSincronizacao> {
         location_id: lojaPorCid.get(cidDoMaps(local.metadata?.mapsUri) ?? "") ?? null,
         nota_media: nota,
         total_avaliacoes: total,
+        // Vem na mesma chamada da lista de lojas. Só vai para a página da loja quando alguém manda, na tela de avaliações.
+        horario: local.regularHours ?? null,
         sincronizado_em: marca,
       };
       return { loja, linhas };
@@ -222,7 +226,12 @@ export async function sincronizarAvaliacoes(): Promise<UltimaSincronizacao> {
     let lojas = 0;
     let avaliacoes = 0;
     for (const { loja, linhas } of lidas) {
-      const { error: erroLocal } = await supabase.from("google_locais").upsert(loja, { onConflict: "name" });
+      let { error: erroLocal } = await supabase.from("google_locais").upsert(loja, { onConflict: "name" });
+      // Banco sem a 0076 ainda: grava sem o horário em vez de perder a leitura.
+      if (erroLocal && /horario/.test(erroLocal.message)) {
+        const { horario: _horario, ...semHorario } = loja;
+        ({ error: erroLocal } = await supabase.from("google_locais").upsert(semHorario, { onConflict: "name" }));
+      }
       if (erroLocal) throw new Error(`Não deu para gravar a loja ${loja.titulo}: ${erroLocal.message}`);
 
       if (linhas.length) {
