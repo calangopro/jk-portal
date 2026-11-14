@@ -46,7 +46,7 @@ function Periodos({ atual }: { atual: Janela }) {
           aria-current={d === atual ? "page" : undefined}
           className={
             d === atual
-              ? "rounded-full bg-brand px-3.5 py-1.5 text-xs font-semibold text-ink"
+              ? "painel-aba-ativa rounded-full px-3.5 py-1.5 text-xs font-semibold"
               : "rounded-full px-3.5 py-1.5 text-xs font-semibold text-muted hover:text-ink"
           }
         >

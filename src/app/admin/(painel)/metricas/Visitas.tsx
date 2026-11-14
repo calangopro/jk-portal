@@ -45,7 +45,7 @@ function Periodos({ dias }: { dias: Dias }) {
           aria-current={d === dias ? "page" : undefined}
           className={
             d === dias
-              ? "rounded-full bg-brand px-3.5 py-1.5 text-xs font-semibold text-ink"
+              ? "painel-aba-ativa rounded-full px-3.5 py-1.5 text-xs font-semibold"
               : "rounded-full px-3.5 py-1.5 text-xs font-semibold text-muted hover:text-ink"
           }
         >

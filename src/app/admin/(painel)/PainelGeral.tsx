@@ -245,8 +245,11 @@ export function PainelGeral({ vendas, sinais }: { vendas: DadosDeVendas | null; 
         </details>
       </section>
 
+      {/* `min-w-0` nos dois cartões: item de grade tem largura mínima igual ao
+          conteúdo, e o selo de variação não quebra linha. Sem isto a grade
+          esticava 22 px além da tela no celular. */}
       <section className="mt-6 grid gap-5 lg:grid-cols-2">
-        <div className="glass rounded-[18px] p-5">
+        <div className="glass min-w-0 rounded-[18px] p-5">
           <p className="eyebrow">O que acontece com cada pedido criado</p>
           <p className="mt-1 text-xs text-muted">{inteiro(criados)} pedidos criados no período.</p>
           {criados > 0 ? (
@@ -273,7 +276,7 @@ export function PainelGeral({ vendas, sinais }: { vendas: DadosDeVendas | null; 
           ) : null}
         </div>
 
-        <div className="glass rounded-[18px] p-5">
+        <div className="glass min-w-0 rounded-[18px] p-5">
           <p className="eyebrow">De onde vieram as vendas</p>
           <p className="mt-1 text-xs text-muted">Faturamento pago por canal, com a variação sobre o período anterior.</p>
           <ul className="mt-4 space-y-3">
