@@ -17,7 +17,8 @@
     "verificar:clientes": "node --experimental-strip-types --disable-warning=ExperimentalWarning --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/teste-clientes.mts",
     "verificar:biblioteca": "node --experimental-strip-types --disable-warning=ExperimentalWarning --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/teste-biblioteca.mts",
     "verificar:redes": "node --experimental-strip-types --disable-warning=ExperimentalWarning --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/teste-redes.mts",
-    "vendas:importar": "node --experimental-strip-types --disable-warning=ExperimentalWarning --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/importar-pedidos-tray.mts"
+    "vendas:importar": "node --experimental-strip-types --disable-warning=ExperimentalWarning --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/importar-pedidos-tray.mts",
+    "vendas:historico": "node --experimental-strip-types --disable-warning=ExperimentalWarning --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/trazer-historico-da-tray.mts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

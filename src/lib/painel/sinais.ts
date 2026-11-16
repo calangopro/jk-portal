@@ -97,6 +97,9 @@ export function porDiaDaSemana(porDia: { dia: string; valor_pago: number }[]): {
  */
 export const HORAS_ATE_A_LEITURA_ATRASAR = 3;
 
+/** Os mesmos de `SO_DA_CHEGADA`, em `vendas/origem.ts`. Repetidos aqui porque este arquivo não importa código. */
+const SO_DA_CHEGADA = ["google_organico", "busca", "youtube", "indicacao", "direto"];
+
 export function calcularSinais(e: EntradaDosSinais): Sinal[] {
   const s: Sinal[] = [];
   const t = e.atual.totais;
@@ -215,15 +218,20 @@ export function calcularSinais(e: EntradaDosSinais): Sinal[] {
     s.push({
       chave: "sem-etiqueta", gravidade: "atencao", peso: semEtiqueta.valor,
       titulo: `${pct(semEtiqueta.valor / faturamento)} do faturamento chega sem origem`,
-      texto: `${reais(semEtiqueta.valor)} vieram de busca do Google, acesso direto ou link sem etiqueta, e a Tray não separa um do outro. Etiquetar os links de anúncio e de rede social mostra o que realmente vende.`,
+      texto: `${reais(semEtiqueta.valor)} vieram de pedido sem etiqueta da Tray e sem chegada anotada pela loja. Nos pedidos de antes de 13/11/2026 isso inclui busca do Google e acesso direto, que a Tray não separa. Etiquetar os links de anúncio e de rede social mostra o que realmente vende.`,
     });
   }
 
   // 8. Canal crescendo ou caindo.
   if (e.anterior) {
     const antes = new Map(e.anterior.canais.map((c) => [c.canal, c]));
+    // Canais que só a chegada anotada pela loja separa (13/11/2026 em diante). Se o período anterior
+    // é de antes dela, "Busca do Google começou a vender" seria só a troca de quem conta.
+    const antesTinhaChegada = e.anterior.canais.some((c) => SO_DA_CHEGADA.includes(c.canal) && c.valor > 0);
     for (const c of canais) {
-      if (c.canal === "sem_etiqueta" || c.canal === "outro") continue;
+      // Sem etiqueta, outros e acesso direto não são canal em que dê para agir.
+      if (c.canal === "sem_etiqueta" || c.canal === "outro" || c.canal === "direto") continue;
+      if (SO_DA_CHEGADA.includes(c.canal) && !antesTinhaChegada) continue;
       const d = variacao(c.valor, antes.get(c.canal)?.valor ?? 0);
       if (d === null) {
         if (c.valor >= 1000) {
