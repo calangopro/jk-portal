@@ -2,7 +2,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { TrayCliente } from "@/lib/tray/cliente";
 import { LOJAS, PROVEDOR_DO_APLICATIVO, clienteDaLoja, type Loja } from "@/lib/tray/lojas";
-import { compararComOBanco, pedidoDaApi, ultimaAlteracao, type LinhaDoBanco } from "./tray-api";
+import { alteradosEm, compararComOBanco, pedidoDaApi, semOsJaLidos, ultimaAlteracao, type LinhaDoBanco } from "./tray-api";
 import { situacaoDoStatus, type ItemDoPedido, type PedidoDaTray } from "./tray-csv";
 
 /**
@@ -15,6 +15,12 @@ import { situacaoDoStatus, type ItemDoPedido, type PedidoDaTray } from "./tray-c
  * instante do último como ponto de partida da próxima. Pedido novo e pedido que
  * mudou de status chegam pelo mesmo caminho, então não existe "reimportar os
  * últimos trinta dias" como na exportação.
+ *
+ * O FILTRO INCLUI O INSTANTE PEDIDO. Partindo do instante do último pedido
+ * lido, a Tray devolve esse pedido de novo. Por isso a rodada guarda, junto do
+ * ponto de partida, QUAIS pedidos ela já leu naquele instante
+ * (`pedidos_no_ate`), e a seguinte pula esses. Sem isso cada rodada regravava
+ * um pedido igual e deixava uma linha no registro, de dez em dez minutos.
  *
  * DOIS MODOS.
  *   conferir  lê e COMPARA com o que as exportações já gravaram. Não grava
@@ -53,15 +59,25 @@ export type Leitura = {
   semFormato: number;
   /** O instante de alteração do último pedido lido: ponto de partida da próxima rodada. */
   ate: string | null;
+  /** Os pedidos desta rodada alterados exatamente em `ate`: a próxima rodada pula esses. */
+  noAte: number[];
 };
 
-export async function lerPedidosDaApi(cliente: TrayCliente, desde: string, maximo = MAXIMO_POR_RODADA): Promise<Leitura> {
+/**
+ * `jaLidos` são os pedidos que a rodada anterior leu no instante `desde`. O
+ * filtro da Tray inclui esse instante, então eles voltam na lista e são pulados
+ * antes de qualquer chamada ao pedido completo.
+ */
+export async function lerPedidosDaApi(cliente: TrayCliente, desde: string, maximo = MAXIMO_POR_RODADA, jaLidos: number[] = []): Promise<Leitura> {
   const lista: Record<string, unknown>[] = [];
   let total = 0;
+  let pulados = 0;
   for (let pagina = 1; lista.length < maximo; pagina++) {
     const r = await cliente.paginaDePedidos({ modified: desde, sort: "modified_asc", limit: POR_PAGINA, page: pagina });
     total = r.total;
-    lista.push(...r.pedidos);
+    const novos = semOsJaLidos(r.pedidos, desde, jaLidos);
+    pulados += r.pedidos.length - novos.length;
+    lista.push(...novos);
     if (r.pedidos.length < POR_PAGINA) break;
   }
   const fila = lista.slice(0, maximo);
@@ -79,7 +95,8 @@ export async function lerPedidosDaApi(cliente: TrayCliente, desde: string, maxim
   );
 
   const pedidos = completos.map((c) => pedidoDaApi(c, situacaoDoStatus)).filter((p): p is PedidoComItens => p !== null);
-  return { pedidos, total, semFormato: fila.length - pedidos.length, ate: ultimaAlteracao(fila) };
+  const ate = ultimaAlteracao(fila);
+  return { pedidos, total: Math.max(total - pulados, 0), semFormato: fila.length - pedidos.length, ate, noAte: alteradosEm(fila, ate) };
 }
 
 export type ResultadoDaApi =
@@ -89,7 +106,16 @@ export type ResultadoDaApi =
   | { estado: "conferido"; desde: string; mudaram: number; comparacao: ReturnType<typeof compararComOBanco> }
   | { estado: "ok"; desde: string; ate: string | null; lidos: number; novos: number; mudaram: number; restam: number };
 
-type Meta = { api_address?: string; code?: string; autorizada_em?: string; pedidos_ate?: string; pedidos_lidos_em?: string };
+type Meta = {
+  api_address?: string;
+  code?: string;
+  autorizada_em?: string;
+  /** O instante de alteração do último pedido gravado: de onde a próxima rodada parte. */
+  pedidos_ate?: string;
+  /** Os pedidos já gravados que foram alterados exatamente em `pedidos_ate`. */
+  pedidos_no_ate?: number[];
+  pedidos_lidos_em?: string;
+};
 
 async function lerMeta(db: SupabaseClient, provedor: string): Promise<Meta> {
   const { data } = await db.from("integration_tokens").select("meta").eq("provider", provedor).maybeSingle();
@@ -130,10 +156,11 @@ export async function sincronizarPedidosDaTray(
   const inicio = new Date();
   const meta = await lerMeta(db, loja.provedor);
   const desde = meta.pedidos_ate ?? diasAtras(DIAS_DA_PRIMEIRA_LEITURA);
+  const jaLidos = meta.pedidos_ate && Array.isArray(meta.pedidos_no_ate) ? meta.pedidos_no_ate : [];
   let resultado: ResultadoDaApi;
   let lidos = 0;
   try {
-    const lido = await lerPedidosDaApi(cliente, desde, maximo);
+    const lido = await lerPedidosDaApi(cliente, desde, maximo, jaLidos);
     let novos = 0;
     let mudaram = 0;
     for (let i = 0; i < lido.pedidos.length; i += 100) {
@@ -147,9 +174,12 @@ export async function sincronizarPedidosDaTray(
     // O ponto de partida só anda depois de tudo gravado. A linha é relida antes,
     // porque a renovação do token pode ter mexido nela no meio do caminho.
     const atual = await lerMeta(db, loja.provedor);
+    const ate = lido.ate ?? desde;
+    // Se o ponto de partida não andou (rodada vazia, ou tudo no mesmo segundo), o que já estava pulado continua pulado.
+    const noAte = ate === desde ? [...new Set([...jaLidos, ...lido.noAte])] : lido.noAte;
     await db
       .from("integration_tokens")
-      .update({ meta: { ...atual, pedidos_ate: lido.ate ?? desde, pedidos_lidos_em: new Date().toISOString() } })
+      .update({ meta: { ...atual, pedidos_ate: ate, pedidos_no_ate: noAte, pedidos_lidos_em: new Date().toISOString() } })
       .eq("provider", loja.provedor);
     resultado = { estado: "ok", desde, ate: lido.ate, lidos, novos, mudaram, restam: Math.max(lido.total - lido.pedidos.length - lido.semFormato, 0) };
   } catch (e) {

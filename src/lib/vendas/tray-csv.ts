@@ -65,6 +65,16 @@ export type PedidoDaTray = {
 export class ArquivoDaTrayInvalido extends Error {}
 
 /**
+ * O teto do texto que o cliente preenche em cada item: numeração de cada aro,
+ * tipo e texto da gravação, caixinha. Era 300, e não cabia: em 16/11/2026, 75
+ * de 499 itens estavam cortados exatamente em 300 caracteres, 54 deles em
+ * pedido pago dos últimos trinta dias. O que se perde no corte é o FIM do
+ * texto, que é onde fica a gravação do segundo aro, e é a fábrica quem lê.
+ * O leitor da API (`tray-api.ts`) usa o mesmo número.
+ */
+export const INFO_MAXIMA = 2000;
+
+/**
  * Pedido criado não é venda. O que decide é o status que a Tray dá depois:
  * cancelado (pela loja ou sozinho, por falta de pagamento), ainda esperando
  * pagamento, ou seguindo o caminho de quem pagou.
@@ -253,7 +263,7 @@ export function lerProdutosVendidos(bytes: Uint8Array): Map<number, ItemDoPedido
       quantidade: Number.isFinite(quantidade) && quantidade > 0 ? quantidade : 1,
       preco: dinheiro(col(l, "Preço venda")),
       custo: dinheiro(col(l, "Preço custo")),
-      info: texto(col(l, "Informação adicional"), 300),
+      info: texto(col(l, "Informação adicional"), INFO_MAXIMA),
     });
     porPedido.set(numero, itens);
   }

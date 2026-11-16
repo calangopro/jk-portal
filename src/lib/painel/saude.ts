@@ -11,7 +11,9 @@
  * 1. Rotina é julgada pela última rodada BOA, e não pela última rodada. Rota
  *    que responde erro de cinco em cinco minutos está rodando e está quebrada.
  * 2. Cada rotina tem a própria tolerância, perto de três vezes o intervalo
- *    dela. A de pedidos tolera a noite inteira, porque só roda das 8h às 23h.
+ *    dela. A da origem dos pedidos (a exportação, que roda no Mac) tolera um
+ *    dia inteiro: desde 16/11/2026 quem traz o pedido é a API, e a exportação
+ *    parada só atrasa a origem.
  * 3. Destino sem chave não é erro, é ligação que nunca foi feita: aparece como
  *    "desligada", com quantos contatos estão esperando.
  * 4. Duas rotinas NÃO rodam por relógio: o reenvio de contatos e a publicação
@@ -80,9 +82,14 @@ const AVISAR = "Avise quem cuida do painel.";
 export const ROTINAS: Rotina[] = [
   { chave: "catalogo", origem: "leitura", id: "tray", nome: "Catálogo da loja", paraQue: "Traz preço e disponibilidade dos produtos da Tray, de 15 em 15 minutos.", tolerancia: 90, seParar: AVISAR },
   {
-    chave: "pedidos", origem: "leitura", id: "tray_pedidos", nome: "Pedidos da loja",
-    paraQue: "Traz os pedidos da Tray de hora em hora, das 8h às 23h. Roda no Mac do Filipe.",
-    tolerancia: 14 * HORA, seParar: "Confira se o Mac está ligado, o Chrome aberto e a Tray logada.",
+    chave: "pedidos", origem: "pulso", id: "pedidos-api", nome: "Pedidos da loja",
+    paraQue: "Lê pela API da Tray os pedidos novos e os que mudaram de situação, de 10 em 10 minutos.",
+    tolerancia: 60, seParar: "Abra o cartão da Tray em Integrações. Se a loja aparecer como não autorizada, o aplicativo foi tirado da loja e precisa ser autorizado de novo.",
+  },
+  {
+    chave: "pedidos-origem", origem: "leitura", id: "tray_pedidos", nome: "Origem dos pedidos",
+    paraQue: "Traz de onde veio cada pedido, que a API da Tray não informa, pela exportação do painel da loja. Roda no Mac do Filipe.",
+    tolerancia: 26 * HORA, seParar: "Os pedidos continuam entrando pela API, só a origem fica para trás. Confira se o Mac está ligado, o Chrome aberto e a Tray logada.",
   },
   { chave: "gasto-meta", origem: "leitura", id: "anuncios_meta", nome: "Gasto do Meta", paraQue: "Lê quanto foi gasto em anúncio no Meta, de hora em hora.", tolerancia: 4 * HORA, seParar: "Confira o token do Meta em Integrações." },
   { chave: "gasto-google", origem: "leitura", id: "anuncios_google", nome: "Gasto do Google Ads", paraQue: "Lê quanto foi gasto em anúncio no Google, de hora em hora.", tolerancia: 4 * HORA, seParar: AVISAR },

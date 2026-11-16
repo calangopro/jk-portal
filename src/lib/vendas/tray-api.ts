@@ -13,16 +13,39 @@
  * devolve nulo. Por isso quem grava NUNCA troca uma origem já lida por nulo
  * (`importar_pedidos_tray`, migration 0063).
  *
+ * O QUE PRECISOU SER IGUALADO. Em 16/11/2026, com a loja da JK autorizada, 60
+ * pedidos foram lidos pela API e comparados campo por campo com o que as
+ * exportações tinham gravado. Três coisas vinham escritas de outro jeito, e as
+ * três são tratadas aqui, para uma porta não desfazer a outra a cada rodada:
+ *   1. o nome do item chega com um `<br />` no fim, que a exportação não traz;
+ *   2. o texto vem com os espaços repetidos que o cliente digitou, e o leitor
+ *      das exportações junta espaço repetido num só;
+ *   3. pedido sem pagamento vem sem a lista `Payment`, e a exportação escreve
+ *      valor pago zero, nunca vazio.
+ * Forma de pagamento, frete, canal, cupom, cliente e totais vieram idênticos.
+ *
  * Arquivo puro, para o teste rodar sem rede.
  */
 import type { ItemDoPedido, PedidoDaTray, Situacao } from "./tray-csv.ts";
 
 type Cru = Record<string, unknown>;
 
+/** Espaço repetido vira um só, igual ao leitor das exportações: é o que deixa as duas portas gravarem o mesmo texto. */
 const texto = (v: unknown, max = 300): string | null => {
-  const s = v == null ? "" : String(v).trim();
+  const s = v == null ? "" : String(v).replace(/\s+/g, " ").trim();
   return s ? s.slice(0, max) : null;
 };
+
+/**
+ * O teto do texto que o cliente preenche em cada item (numeração, gravação,
+ * caixinha). O mesmo número de `INFO_MAXIMA` em `tray-csv.ts`: este arquivo é
+ * puro e não importa valor do vizinho, e o teste confere que os dois cortam
+ * igual. Era 300, e cortava o fim da gravação em um de cada sete itens.
+ */
+const INFO_MAXIMA = 2000;
+
+/** A API fecha o nome do item com `<br />`. A exportação não traz, e a tela mostraria a marca como texto. */
+const semQuebraNoFim = (v: unknown): string => String(v ?? "").replace(/(?:\s*<br\s*\/?>\s*)+$/i, "");
 
 const dinheiro = (v: unknown): number | null => {
   if (v == null || v === "") return null;
@@ -68,12 +91,12 @@ export function itensDaApi(o: Cru): ItemDoPedido[] {
       const quantidade = Number(String(p.quantity ?? "").replace(",", "."));
       return {
         produto_tray_id: texto(p.product_id, 40),
-        nome: texto(p.name ?? p.original_name, 300) ?? "Sem nome",
+        nome: texto(semQuebraNoFim(p.name ?? p.original_name), 300) ?? "Sem nome",
         referencia: texto(p.reference, 120),
         quantidade: Number.isFinite(quantidade) && quantidade > 0 ? quantidade : 1,
         preco: dinheiro(p.price),
         custo: dinheiro(p.cost_price),
-        info: texto(p.additional_information, 300),
+        info: texto(p.additional_information, INFO_MAXIMA),
       };
     });
 }
@@ -123,7 +146,8 @@ export function pedidoDaApi(o: Cru, situacaoDoStatus: (status: string) => Situac
     pagamento_tipo: texto(o.payment_method, 120),
     pagamento_em: diaValido(o.payment_date),
     forma_paga: texto(o.payment_form ?? pagos[0]?.method, 120),
-    valor_pago: pagos.length ? dinheiro(pagos.reduce((s, p) => s + (Number(p.value) || 0), 0)) : null,
+    // Sem pagamento a lista vem vazia. A exportação escreve zero nesse caso, nunca vazio.
+    valor_pago: pagos.length ? dinheiro(pagos.reduce((s, p) => s + (Number(p.value) || 0), 0)) : 0,
     canal: texto(o.point_sale, 60),
     parceiro: parceiro === "0" ? null : parceiro,
     utm_source: origem(o),
@@ -145,6 +169,32 @@ export function ultimaAlteracao(pedidos: Cru[]): string | null {
     if (m && m.slice(0, 4) !== "0000" && (!maior || m > maior)) maior = m;
   }
   return maior;
+}
+
+/**
+ * O filtro `modified` da Tray INCLUI o instante pedido (medido em 16/11/2026 na
+ * loja da JK: pedir a partir do instante do último pedido devolve o próprio
+ * pedido; um segundo depois, nada). Como cada rodada parte do instante do
+ * último pedido lido, sem este corte ela releria esse pedido para sempre.
+ *
+ * Somar um segundo ao ponto de partida não serve: a loja altera vários pedidos
+ * no MESMO segundo (o cancelamento automático da madrugada chegou a onze), e se
+ * a rodada parasse no meio do grupo o resto se perderia. Então o ponto de
+ * partida continua inclusivo, e o que já foi lido naquele instante é pulado.
+ */
+export function semOsJaLidos(pedidos: Cru[], desde: string, jaLidos: number[]): Cru[] {
+  if (jaLidos.length === 0) return pedidos;
+  const lidos = new Set(jaLidos);
+  return pedidos.filter((p) => !(String(p.modified ?? "") === desde && lidos.has(Number(p.id))));
+}
+
+/** Os pedidos da lista alterados exatamente em `instante`: é o que a rodada seguinte precisa pular. */
+export function alteradosEm(pedidos: Cru[], instante: string | null): number[] {
+  if (!instante) return [];
+  return pedidos
+    .filter((p) => String(p.modified ?? "") === instante)
+    .map((p) => Number(p.id))
+    .filter((n) => Number.isInteger(n) && n > 0);
 }
 
 export type LinhaDoBanco = { pedido: number; status: string; situacao: Situacao; total: number; utm_source: string | null };
