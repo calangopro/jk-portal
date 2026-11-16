@@ -197,6 +197,8 @@ export function TelaDeCampanhas({
   const fator = d && d.totais.valor > 0 ? loja.valor / d.totais.valor : null;
 
   const linhas = d ? achatar(d.campanhas, anotado?.itens ?? {}) : [];
+  // Pedidos pagos com clique em anúncio comprovado pela UTM: a soma das campanhas (cada pedido está em uma só).
+  const utmPagos = linhas.filter((l) => l.nivel === "campanha").reduce((n, l) => n + (l.loja?.pagos ?? 0), 0);
   const gasto = d?.totais.gasto ?? 0;
   const empate = voltaParaEmpatar();
   const voltaDaLoja = gasto > 0 ? loja.valor / gasto : null;
@@ -256,16 +258,21 @@ export function TelaDeCampanhas({
             />
             <Indicador
               Icone={Store}
-              rotulo="Loja recebeu, pago"
+              rotulo="Loja, pelo canal inteiro"
               valor={reais(loja.valor)}
-              apoio={`${loja.pagos} pagos de ${loja.criados} pedidos com a etiqueta do ${nome}`}
+              apoio={
+                (plataforma === "meta"
+                  ? `${loja.pagos} pagos de ${loja.criados} pedidos que chegaram pelo Instagram ou Facebook, anúncio e link da bio juntos`
+                  : `${loja.pagos} pagos de ${loja.criados} pedidos com a etiqueta do ${nome}`) +
+                `. Com clique em anúncio comprovado pela UTM: ${utmPagos}`
+              }
             />
             <Indicador
               Icone={Target}
-              rotulo="Volta na loja"
+              rotulo="Volta pelo canal"
               valor={voltaDaLoja === null ? "·" : vezes(voltaDaLoja)}
               tom={tomDaVoltaDaLoja(voltaDaLoja, empate)}
-              apoio={`venda paga por R$ 1 gasto. Empate em ${vezes(empate)}, pela premissa de margem de ${porcento(MARGEM_DE_REFERENCIA)}`}
+              apoio={`venda paga do canal inteiro por R$ 1 gasto. Empate em ${vezes(empate)}, pela premissa de margem de ${porcento(MARGEM_DE_REFERENCIA)}`}
             />
             <Indicador
               Icone={Megaphone}
