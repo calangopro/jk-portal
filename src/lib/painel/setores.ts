@@ -3,7 +3,7 @@ import {
   Activity, Banknote, BellRing, BookCheck, Bot, CalendarDays, Cable, Contact, Crosshair, FileText, Filter, Flame, Globe, Hammer, HandCoins, Handshake,
   HeartPulse, History, ImageIcon, LayoutDashboard, LayoutTemplate, LibraryBig, LifeBuoy, Lightbulb, ListChecks, MapPin, MessageCircle, MessageSquareText, MessagesSquare, Milestone,
   Package, PackageSearch, Palette, PenLine,
-  Percent, Plug, QrCode, RotateCcw, Send, Settings, Share2, Smartphone, Sparkles, Star, Store, Table2, Tags, TrendingUp, Trophy, Users,
+  Percent, Plug, QrCode, RotateCcw, Route, Send, Settings, Share2, Smartphone, Sparkles, Star, Store, Table2, Tags, TrendingUp, Trophy, Users,
   UsersRound, Wallet, Workflow,
 } from "lucide-react";
 import type { Area } from "@/lib/auth/acessos";
@@ -109,6 +109,7 @@ export const SETORES: Setor[] = [
     itens: [
       { href: "/admin/trafego", area: "trafego", label: "Gasto e retorno", curto: "Resumo", Icone: Activity, desc: "Quanto saiu e quanto voltou" },
       { href: "/admin/trafego/campanhas", area: "trafego", label: "Campanhas e anúncios", curto: "Anúncios", Icone: Table2, desc: "Campanha, conjunto e anúncio" },
+      { href: "/admin/trafego/origem", area: "trafego", label: "Origem dos pedidos", curto: "Origem", Icone: Route, desc: "De qual anúncio veio cada venda" },
       { href: "/admin/anuncios", area: "anuncios", label: "Limite de anúncio", curto: "Limite", Icone: Crosshair, desc: "Quanto dá para pagar por venda" },
     ],
   },

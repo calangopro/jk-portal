@@ -1,0 +1,111 @@
+import Link from "next/link";
+import { Megaphone, MousePointerClick, Receipt, Target } from "lucide-react";
+import { coberturaDaLista, type PedidoComOrigem } from "@/lib/origem/pedidos";
+import { diaCurto, type ChaveDePeriodo } from "@/lib/vendas/periodo";
+import { Cartao, Dinheiro } from "../../Pecas";
+import { SeletorDePeriodo } from "../../SeletorDePeriodo";
+import { ListaDeOrigem } from "./Lista";
+
+/**
+ * Origem dos pedidos: de qual anúncio veio cada venda, com as UTMs à vista.
+ *
+ * A ORDEM É A DA PERGUNTA. Em cima, quanto do que foi pago o painel consegue
+ * ligar a um anúncio. Embaixo, a lista, que se vira em cinco: por anúncio, por
+ * conjunto, por campanha, pela UTM como ela chegou e pedido a pedido. Clicar
+ * num pedido abre a gaveta dele, com todas as chegadas do visitante.
+ *
+ * O número de cima NÃO é a venda que a plataforma diz ter feito: é o pedido
+ * pago da loja cuja última chegada (que não seja acesso direto, até trinta
+ * dias antes) foi por aquele anúncio.
+ */
+
+const COMECO_DO_COLETOR = "2026-11-13";
+const inteiro = (n: number) => n.toLocaleString("pt-BR");
+
+export function TelaDeOrigem({ pedidos, de, ate, chave }: { pedidos: PedidoComOrigem[] | null; de: string; ate: string; chave: ChaveDePeriodo }) {
+  const lista = pedidos ?? [];
+  const c = coberturaDaLista(lista);
+  const antesDoColetor = de < COMECO_DO_COLETOR;
+  const fatia = (n: number) => (c.pagos > 0 ? `${Math.round((n / c.pagos) * 100)}% dos pagos` : "nenhum pedido pago no período");
+
+  return (
+    <div data-painel-largo>
+      <header>
+        <p className="eyebrow">Tráfego</p>
+        <h1 className="font-display mt-2 text-3xl text-ink sm:text-4xl">Origem dos pedidos</h1>
+        <p className="mt-2 max-w-3xl text-sm text-muted sm:text-base">
+          De qual campanha, conjunto e anúncio veio cada pedido da loja, com as UTMs como chegaram. A ligação é feita pelo
+          número da campanha e pelo nome do conjunto e do anúncio que os anúncios mandam na UTM.
+        </p>
+      </header>
+
+      <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
+        <p className="text-xs text-muted">
+          De {diaCurto(de)} a {diaCurto(ate)}.{" "}
+          <Link href="/admin/trafego/campanhas" className="font-semibold text-brand-nav hover:underline">
+            Ver gasto e veredito de cada anúncio
+          </Link>
+        </p>
+        <SeletorDePeriodo atual={chave} />
+      </div>
+
+      {pedidos === null ? (
+        <p role="alert" className="mt-5 rounded-[12px] border border-wine/30 bg-wine/5 px-4 py-3 text-sm text-ink">
+          Não deu para ler a origem dos pedidos agora. Recarregue a página; se continuar, avise quem cuida do painel.
+        </p>
+      ) : null}
+
+      <div className="mt-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <Cartao Icone={Receipt} rotulo="Pedidos pagos" apoio={`${inteiro(c.pedidos)} criados no período`}>
+          {inteiro(c.pagos)}
+        </Cartao>
+        <Cartao Icone={MousePointerClick} rotulo="Com a chegada anotada" apoio={fatia(c.pagosComChegada)}>
+          {inteiro(c.pagosComChegada)}
+        </Cartao>
+        <Cartao Icone={Megaphone} rotulo="Vieram de anúncio" apoio={c.pagosDeAnuncio > 0 ? <Dinheiro valor={c.valorDeAnuncio} /> : fatia(0)}>
+          {inteiro(c.pagosDeAnuncio)}
+        </Cartao>
+        <Cartao
+          Icone={Target}
+          rotulo="Ligados ao anúncio exato"
+          apoio={c.pagosDeAnuncio > 0 ? `${inteiro(c.pagosComAnuncioExato)} de ${inteiro(c.pagosDeAnuncio)} que vieram de anúncio` : "sem pedido de anúncio no período"}
+        >
+          {inteiro(c.pagosComAnuncioExato)}
+        </Cartao>
+      </div>
+
+      {antesDoColetor ? (
+        <p className="mt-3 max-w-3xl text-xs leading-relaxed text-muted">
+          A loja anota a chegada desde {diaCurto(COMECO_DO_COLETOR)}. Pedido de antes disso aparece na lista sem chegada, e por isso os
+          números de cima só dizem alguma coisa sobre os pedidos de lá para cá.
+        </p>
+      ) : null}
+
+      <ListaDeOrigem pedidos={lista} />
+
+      <section className="glass mt-6 rounded-[18px] p-5">
+        <p className="eyebrow">Como ler</p>
+        <ul className="mt-3 max-w-3xl space-y-2 text-sm leading-relaxed text-muted">
+          <li>
+            <strong className="font-semibold text-ink">O que conta como origem.</strong> A última chegada do visitante que não seja
+            acesso direto, até trinta dias antes do pedido. Quem clicou num anúncio e voltou depois digitando o endereço continua sendo
+            do anúncio.
+          </li>
+          <li>
+            <strong className="font-semibold text-ink">Instagram nem sempre é anúncio.</strong> O link da bio também chega como
+            Instagram. Só conta como anúncio a chegada que bate com uma campanha ou que vem com mídia paga na UTM.
+          </li>
+          <li>
+            <strong className="font-semibold text-ink">Por que um anúncio fica sem identificar.</strong> O anúncio é achado pelo nome que
+            vem em <code>utm_content</code>, e o conjunto pelo de <code>utm_term</code>. Campanha com texto fixo nesses campos, em vez
+            do nome do anúncio, só liga até a campanha. No Google, o endereço só traz a campanha.
+          </li>
+          <li>
+            <strong className="font-semibold text-ink">Não é o número da plataforma.</strong> O Meta e o Google contam venda por
+            critério próprio. Aqui é pedido pago da loja, um por um.
+          </li>
+        </ul>
+      </section>
+    </div>
+  );
+}
