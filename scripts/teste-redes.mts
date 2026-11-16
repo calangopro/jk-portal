@@ -16,6 +16,7 @@ import {
   permissoesDoToken, postsDaPagina, seriePorDia, valoresDosInsights,
 } from "../src/lib/redes/plataformas/meta-forma.ts";
 import { INFO_DA_LIGACAO } from "../src/lib/redes/ligacao.ts";
+import { enderecoAssinado } from "../src/lib/redes/s3.ts";
 import { SETORES } from "../src/lib/painel/setores.ts";
 import type { Peca } from "../src/lib/redes/tipos.ts";
 
@@ -202,6 +203,20 @@ console.log("\nResumo das redes");
   confere("número compacto", compacto(1234) === "1.234" && compacto(12345) === "12,3 mil" && compacto(1234567) === "1,2 mi" && compacto(null) === "sem dado" && compacto(0) === "0");
   const agora = Date.parse("2026-01-10T12:00:00Z");
   confere("há quanto tempo", haQuanto("2026-01-10T11:48:00Z", agora) === "há 12 minutos" && haQuanto("2026-01-10T09:00:00Z", agora) === "há 3 horas" && haQuanto("2026-01-08T12:00:00Z", agora) === "há 2 dias" && haQuanto(null, agora) === null);
+}
+
+console.log("\nEndereço assinado (S3 e R2)");
+{
+  // O exemplo publicado na documentação da AWS ("Authenticating Requests: Using Query Parameters"), com as chaves de exemplo dela.
+  const url = enderecoAssinado({
+    metodo: "GET", host: "examplebucket.s3.amazonaws.com", caminho: "/test.txt", chaveDeAcesso: "AKIAIOSFODNN7EXAMPLE",
+    chaveSecreta: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY", regiao: "us-east-1", validade: 86400, agora: new Date("2013-05-24T00:00:00Z"),
+  });
+  confere("a assinatura bate com o exemplo da documentação da AWS", url.endsWith("X-Amz-Signature=aeeed9bbccd4d02ee5c0109b86d86835f995330da4c265957d157751f604d404"), url);
+  confere("a credencial vai codificada e a data no formato certo", url.includes("X-Amz-Credential=AKIAIOSFODNN7EXAMPLE%2F20130524%2Fus-east-1%2Fs3%2Faws4_request") && url.includes("X-Amz-Date=20130524T000000Z"));
+  const comEspaco = enderecoAssinado({ metodo: "PUT", host: "c.r2.cloudflarestorage.com", caminho: "/balde/2026/11/a b.jpg", chaveDeAcesso: "id", chaveSecreta: "segredo", regiao: "auto", validade: 60, agora: new Date("2026-01-01T00:00:00Z") });
+  confere("caminho com espaço é codificado e a barra fica", comEspaco.startsWith("https://c.r2.cloudflarestorage.com/balde/2026/11/a%20b.jpg?"));
+  confere("a chave secreta não aparece no endereço", !comEspaco.includes("segredo"));
 }
 
 console.log("\nSegredo fora da tela");

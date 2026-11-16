@@ -11,6 +11,17 @@ Tudo aqui foi tirado da documentação oficial de cada rede em 16/11/2026. As re
 - **Token e chave ficam cifrados** (`redes_credenciais`, AES-GCM) e nunca voltam para a tela. Ligar e desligar conta é de administrador, dono e GM, em **Integrações**, seção Redes sociais.
 - **Nada sai para fora sem pessoa.** Publicar e responder têm autor e confirmação.
 
+## Publicar e agendar
+
+Em **Redes, Publicar e agendar**. Monta-se o post uma vez (formato, mídia, texto), escolhe-se para quais contas vai e se sai agora ou numa hora marcada.
+
+- Cada rede escolhida diz na hora o que não cabe (legenda longa demais, vídeo deitado, imagem fora da proporção). São as mesmas regras que o servidor confere de novo.
+- **Nada sai sem o último passo**, que repete por escrito para onde vai e quando, e grava quem mandou.
+- O mesmo post anda separado em cada rede: pode sair no Instagram e falhar no Facebook. A lista mostra o estado de cada uma, com o motivo do erro por extenso.
+- **Editar um post agendado tira ele da fila.** Ele volta a rascunho e precisa ser agendado de novo.
+- Se uma publicação for interrompida no meio, o painel **não tenta de novo sozinho**: avisa para conferir na rede, porque repetir poderia publicar em dobro.
+- A mídia sobe do navegador direto para o armazenamento. Imagem vira JPEG (o Instagram só aceita JPEG).
+
 ## Rede por rede
 
 | Rede | Perfil da JK | Métricas | Publicar e agendar | Story | Comentários | Directs | Situação |
@@ -64,11 +75,15 @@ Não confirmado na documentação: que o token de usuário do sistema serve em t
 
 ### 3. Armazenamento de vídeo (R2)
 
-O Storage do Supabase aceita 50 MB por arquivo. Para vídeo maior, o R2 da Cloudflare, que em 16/11 **não estava ativado** na conta.
+O Storage do Supabase aceita 50 MB por arquivo. Para vídeo maior, o R2 da Cloudflare, ativado em 16/11. Já existem o balde `jk-redes`, a regra de CORS (só o painel envia) e o endereço público `midia.jkaliancas.com.br`.
 
-1. Painel da Cloudflare, conta da JK, **R2**: ativar (pede cartão; o plano gratuito cobre 10 GB e não cobra saída de dados).
-2. **Gerenciar tokens de API** do R2: criar um token de leitura e escrita de objetos. Ele mostra o ID da chave de acesso e a chave secreta uma vez só.
-3. Colar os dois no cartão de armazenamento em Integrações (entra com o compositor).
+Falta só a chave:
+
+1. Painel da Cloudflare, **R2, Gerenciar tokens de API, Criar token de API**: permissão de **leitura e escrita de objetos**, restrita ao balde `jk-redes`.
+2. No fim ele mostra o **ID da chave de acesso** e a **chave de acesso secreta**, uma vez só.
+3. No painel, **Integrações**, cartão **Armazenamento de foto e vídeo dos posts**: colar o ID da conta da Cloudflare (aparece na página do R2), as duas chaves, e clicar em **Conferir e ligar o R2**. O painel sobe um arquivo de teste, lê pelo endereço público e apaga antes de aceitar.
+
+Sem as chaves, tudo funciona pelo Supabase, com o limite de 50 MB.
 
 ### 4. Decisões
 
@@ -88,6 +103,9 @@ O Storage do Supabase aceita 50 MB por arquivo. Para vídeo maior, o R2 da Cloud
 | Regras de cada formato | `src/lib/redes/regras.ts` |
 | Cofre das credenciais | `src/lib/redes/cofre.ts` |
 | Rotina de leitura | `src/lib/redes/leitura.ts`, `src/app/api/cron/redes` |
+| Posts: criar, liberar, cancelar | `src/lib/redes/posts.ts` |
+| Fila de publicação | `src/lib/redes/fila.ts`, `src/app/api/cron/redes-fila` |
+| Armazenamento (Supabase ou R2) | `src/lib/redes/armazenamento.ts`, `src/lib/redes/s3.ts` |
 | Ligar pelo login da rede | `src/app/api/redes/[acao]/[rede]` |
 | Telas | `src/app/admin/(painel)/redes/` |
 | Teste | `scripts/teste-redes.mts` (`npm run verificar:redes`) |
