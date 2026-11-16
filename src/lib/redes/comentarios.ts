@@ -1,5 +1,6 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { rodarAutomacoes } from "./automacoes";
 import { contaDaLinha, credenciaisAtivas, marcarExpirada } from "./contas";
 import { modulo } from "./plataformas";
 import { nomeDaRede, type RedeId } from "./redes";
@@ -94,6 +95,9 @@ export async function lerComentariosDaConta(db: SupabaseClient, conta: Conta, m:
   }
   // A conta respondeu por outro caminho (aplicativo, outra ferramenta)? Fecha o que ficou respondido.
   if (fila.length) await db.rpc("redes_fechar_respondidos", { p_conta: conta.id });
+  // Só depois disso as regras ligadas olham o que sobrou sem resposta. Roda em toda leitura, porque um
+  // comentário lido na rodada passada pode ter cumprido a espera agora.
+  await rodarAutomacoes(db, conta, m, credenciais, ate);
   return gravados;
 }
 

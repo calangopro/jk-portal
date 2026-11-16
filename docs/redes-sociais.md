@@ -32,6 +32,20 @@ Em **Redes, Comentários das redes**. Abre no que espera resposta, do mais novo 
 - "Não precisa de resposta" só muda o painel. "Ocultar" esconde o comentário na rede (Instagram e Facebook).
 - O painel guarda de cada comentário o texto, o nome público e a data, e apaga o que passa de 90 dias.
 
+## Automações
+
+Em **Redes, Automações**. Uma regra diz: quando alguém comentar tal palavra nesta conta (ou só neste post), a JK responde embaixo com este texto. A resposta sai em público.
+
+- **Toda regra nasce desligada.** Ligar é de administrador, dono ou GM, e a tela mostra o texto exato antes. Fica gravado quem ligou.
+- **Editar uma regra ligada desliga:** quem ligou aprovou o texto de antes.
+- Só responde comentário escrito **depois** de a regra ser ligada, de primeiro nível, e que ninguém da conta respondeu durante a espera (meia hora por padrão).
+- Cada comentário recebe **no máximo uma** resposta automática. Resposta que falhou não é tentada de novo: o comentário fica na fila para uma pessoa.
+- Há teto por hora, para um post que viraliza não virar centenas de respostas iguais.
+- **ManyChat:** uma palavra que o ManyChat já responde não deve ter regra ligada aqui. O painel enxerga a resposta pública dele (e desiste), mas não a que ele manda por direct.
+- Mandar direct para quem comentou não existe ainda: depende de a Meta aprovar o aplicativo.
+
+Nenhuma regra está ligada. Ligar a primeira é decisão do Filipe.
+
 ## Pelo Claude
 
 O conector do Claude tem a área `redes`. O caminho é: `redes.contas` (o que está ligado), `redes.regras`, `redes.enviar_midia` para cada arquivo (por link), `redes.criar_post` (nasce rascunho) e, com o sim de quem pediu, `redes.agendar` ou `redes.publicar`. Os números saem por `redes.metricas` e `redes.publicacoes`.
@@ -126,6 +140,7 @@ Sem as chaves, tudo funciona pelo Supabase, com o limite de 50 MB.
 | Posts: criar, liberar, cancelar | `src/lib/redes/posts.ts` |
 | Fila de publicação | `src/lib/redes/fila.ts`, `src/app/api/cron/redes-fila` |
 | Comentários: ler, responder, ocultar | `src/lib/redes/comentarios.ts` |
+| Automações: regras e o motor | `src/lib/redes/automacoes.ts`, `src/lib/redes/automacoes-regra.ts` |
 | Operações do conector | `src/lib/conector/operacoes/redes.ts` |
 | Armazenamento (Supabase ou R2) | `src/lib/redes/armazenamento.ts`, `src/lib/redes/s3.ts` |
 | Ligar pelo login da rede | `src/app/api/redes/[acao]/[rede]` |
