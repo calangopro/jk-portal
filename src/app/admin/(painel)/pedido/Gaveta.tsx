@@ -292,6 +292,9 @@ export function Historico({ h, recarregar }: { h: HistoricoDoPedido; recarregar:
                   ) : null}
                 </span>
               ) : null}
+              {h.pode.marcar && !h.vendedor && h.situacao === "pago" ? (
+                <span className="mt-1.5 block text-xs text-muted">Entra no ranking de Vendedores.</span>
+              ) : null}
               {erro ? (
                 <span role="alert" className="mt-1.5 block text-xs font-semibold" style={{ color: COR_DO_TOM.ruim.texto }}>
                   {erro}
