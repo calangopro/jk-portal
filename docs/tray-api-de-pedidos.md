@@ -247,17 +247,117 @@ homologação.
 - **O token** vale três horas e o painel renova sozinho pelo refresh token, que
   vale trinta dias a partir de cada renovação.
 
+## O histórico, trazido em 16/11/2026
+
+O painel tinha os pedidos de 12/05 a 10/08 e de 01/09 em diante, com buracos:
+as exportações nunca cobriram maio a agosto por inteiro (de 11 a 31/08 não
+havia pedido nenhum), e só os pedidos de 14/10 em diante tinham os itens.
+
+A rotina não alcança isso, porque anda pela lista de pedidos alterados, e a
+lista não mostra pedido fechado há mais de uns três meses. O que resolve é
+`scripts/trazer-historico-da-tray.mts` (`npm run vendas:historico`): o número
+do pedido é sequencial, só ímpares, e a loja responde qualquer pedido pedido
+pelo número. O script percorre os números, pede o que o painel não tem e o que
+nunca foi lido pela API, e grava pelo mesmo conversor e pela mesma função do
+banco que a rotina usa. Tem modo `--simular`, que só conta.
+
+O que ele fez, a partir de 01/05/2026:
+
+- 2.385 pedidos pedidos à loja em 21 minutos, todos respondidos, perto de 110
+  chamadas por minuto (o limite é 180 e a rotina divide o mesmo limite).
+- **800 pedidos novos no painel**: 172 de maio, 158 de junho, 78 de julho e 392
+  de agosto. De setembro em diante não faltava nenhum.
+- **1.577 pedidos completados** com os itens e a sessão.
+- Nenhum com status diferente do que o painel já tinha, e nenhum número sem
+  pedido: de 6181 a 11771 a numeração não tem buraco.
+
+Como ficou:
+
+| Mês | Pedidos antes | Pedidos depois | Pagos antes | Pagos depois |
+| --- | --- | --- | --- | --- |
+| Maio | 198 | 370 | 115 | 250 |
+| Junho | 367 | 525 | 187 | 345 |
+| Julho | 368 | 446 | 221 | 299 |
+| Agosto | 131 | 523 | 58 | 283 |
+| Setembro | 439 | 439 | 256 | 256 |
+| Outubro | 302 | 302 | 190 | 190 |
+
+- O painel passou de 1.996 para 2.796 pedidos, todos com itens.
+- Clientes com pedido pago: de 1.132 para 1.708. Com dois ou mais pedidos
+  pagos: de 18 para 36.
+- **A fila da fábrica não mudou**: nenhum dos pedidos novos é dos últimos
+  sessenta dias, que é a maior janela dela.
+- 279 pedidos continuam sem sessão. São pedidos que a própria API devolve sem
+  ela (criados fora da vitrine), e o script pede esses de novo a cada vez que
+  roda, sem prejuízo.
+
+Para ler os números dos meses passados: **maio a agosto subiram porque o dado
+ficou completo, não porque a loja vendeu mais**. Qualquer comparação feita
+antes de 16/11 com esses meses estava olhando metade dos pedidos.
+
+## Webhook e carrinho abandonado: o que existe e o que não
+
+Pesquisado em 16/11/2026 na documentação da Tray (`developers.tray.com.br`,
+seções "APIs de carrinho de compra", "API de listagem de carrinho" e "APIs de
+sistema de notificação (webhook)").
+
+**Mudança de status o painel já tem**, sem webhook: a rotina lê o que foi
+ALTERADO, então pedido que muda de situação chega em até dez minutos.
+
+**Webhook o aplicativo não tem.** O que a documentação diz:
+
+- A URL de notificação é cadastrada **por chamado**, no aplicativo (vale para
+  todas as lojas em que ele está instalado), em "TRAY DESENVOLVEDORES",
+  "INTEGRAÇÕES API", informando o nome do aplicativo e a URL. Não existe rota
+  de API para isso, e a documentação trata como chamado próprio de "aplicativo
+  que já esteja credenciado", não como homologação nova.
+- O escopo de pedido (`order`) vem liberado. Os outros (`product`,
+  `product_price`, `product_stock`, `variant`, `customer`, `store_config`) se
+  pedem no mesmo chamado. **Não existe escopo de carrinho.**
+- O aviso é um POST de formulário com `seller_id`, `scope_id`, `scope_name`,
+  `act` e `app_code`: traz só o número, e o dado se busca depois na API.
+- Resposta diferente de 200 gera nova tentativa, com intervalo crescente, por
+  cerca de vinte dias. A rota precisa responder 200 rápido e trabalhar depois.
+- O ganho seria o pedido aparecer na hora, em vez de em até dez minutos. A
+  rotina continuaria existindo: é ela que cobre aviso perdido.
+
+A rota `/api/tray/webhook` que existe no repositório é outra coisa: é do
+catálogo (dispara a sincronização de produtos), nunca foi cadastrada na Tray e
+está desligada sem a variável `TRAY_WEBHOOK_SECRET`.
+
+**Carrinho abandonado o painel não tem.** A fila de Recuperação é de quem
+CRIOU pedido e não pagou, que é um passo depois do carrinho. O que a API
+oferece:
+
+- `GET /carts` lista carrinhos, com filtro de data (`date_time`), de cliente
+  identificado (`has_customer`), de nome e de e-mail. Devolve só o
+  `session_id` de cada um.
+- `GET /carts/:session_id` devolve os produtos, o `customer_id` e o **e-mail**.
+  Telefone não vem em nenhum retorno de carrinho.
+- Não existe campo que diga "abandonado": carrinho abandonado seria o carrinho
+  de dias atrás cuja sessão não virou pedido. A sessão é a mesma do pedido
+  (`tray_pedidos.sessao`), então o painel consegue fazer essa conta.
+- Em 13/11 o aplicativo leu um carrinho pela sessão na loja de testes, então a
+  API não barrou. A lista (`GET /carts`) não foi testada.
+
+Nenhuma dessas rotas está entre as sete mostradas na homologação. A
+documentação não diz se rota nova, usada depois, pede homologação outra vez.
+**Antes de usar: gerar a evidência na loja de testes e perguntar à Tray**, no
+mesmo chamado do webhook se ele for pedido.
+
+O carrinho abandonado da JK hoje é tratado em dois lugares que não passam pelo
+painel: a tela "Marketing, Carrinho Abandonado" da própria Tray e o funil de
+recuperação da Kommo.
+
 ## O que falta
 
-- **O histórico.** O painel não tem 602 pedidos que a loja tem na lista, quase
-  todos de maio a outubro (419 pagos e nunca fechados na loja), porque as
-  exportações nunca cobriram esses períodos por inteiro: de 11/08 a 31/08 não
-  há pedido nenhum no painel. E 1.630 pedidos antigos estão sem os itens. A
-  lista da API traz os 602; os outros vêm um a um pelo número, que é
-  sequencial. Não foi feito em 16/11: muda os números dos meses passados e
-  pode pôr pedido antigo na fila da fábrica, então é decisão de quem usa.
-- **A exportação.** Ela precisa voltar a rodar para a origem (UTM Source), e
-  pode rodar menos vezes por dia.
+- **O histórico de antes de 01/05/2026.** A loja responde pedido pelo número
+  desde bem antes (o mais antigo da lista é de 13/11/2025). Trazer é rodar
+  `npm run vendas:historico -- --desde=AAAA-MM-DD`. Não foi pedido.
+- **A exportação** voltou a rodar sozinha em 16/11 às 19h09 e hoje só serve
+  para a etiqueta de origem da Tray, que desde a 0111 nem é mais a única fonte
+  (`docs/origem-do-pedido.md`). Pode rodar menos vezes por dia, ou ser
+  aposentada quando a chegada anotada pela loja tiver algumas semanas.
 - **Estoque e variações.** O espelho do catálogo continua sem estoque, porque
   vem da busca pública. `GET /products/{id}` traz o estoque do produto e está
   entre as rotas homologadas; variações pedem rota nova, e rota nova pede

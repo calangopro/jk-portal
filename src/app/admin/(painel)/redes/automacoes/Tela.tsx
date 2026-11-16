@@ -289,7 +289,7 @@ export function TelaDeAutomacoes({
     <div data-painel-largo>
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div className="min-w-0">
-          <p className="eyebrow">Redes</p>
+          <p className="eyebrow">Social Media</p>
           <h1 className="font-display mt-2 text-3xl text-ink sm:text-4xl">Automações</h1>
           <p className="mt-2 max-w-2xl text-sm text-muted sm:text-base">
             Resposta pronta a comentário: quando alguém comenta uma palavra, a JK responde embaixo com um texto escolhido antes. Toda regra nasce desligada.

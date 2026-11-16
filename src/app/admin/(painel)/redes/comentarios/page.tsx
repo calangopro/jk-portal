@@ -20,12 +20,13 @@ const ABAS: FiltroDeComentarios[] = ["novos", "respondidos", "vistos"];
  * A leitura usa a chave de serviço, depois de a área ser conferida, para
  * trazer o nome de quem respondeu.
  */
-export default async function ComentariosDasRedesPage({ searchParams }: { searchParams: Promise<{ aba?: string; rede?: string }> }) {
+export default async function ComentariosDasRedesPage({ searchParams }: { searchParams: Promise<{ aba?: string; rede?: string; ver?: string }> }) {
   await requireArea("redes");
-  const { aba: pedida, rede: redePedida } = await searchParams;
+  const { aba: pedida, rede: redePedida, ver: verPedido } = await searchParams;
+  const ver = verPedido === "post" ? "post" : "lista";
   const aba = ABAS.includes(pedida as FiltroDeComentarios) ? (pedida as FiltroDeComentarios) : "novos";
   const rede = ehRede(redePedida) ? redePedida : undefined;
   const admin = createAdminClient();
-  const [comentarios, contagem] = await Promise.all([listarComentarios(admin, aba, { rede }), contarComentarios(admin)]);
-  return <TelaDeComentarios aba={aba} rede={rede ?? null} comentarios={comentarios} contagem={contagem} agora={Date.now()} acoes={{ responder, marcar, ocultar }} />;
+  const [comentarios, contagem] = await Promise.all([listarComentarios(admin, aba, { rede, limite: ver === "post" ? 150 : 60 }), contarComentarios(admin)]);
+  return <TelaDeComentarios aba={aba} rede={rede ?? null} ver={ver} comentarios={comentarios} contagem={contagem} agora={Date.now()} acoes={{ responder, marcar, ocultar }} />;
 }

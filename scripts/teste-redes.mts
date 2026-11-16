@@ -19,6 +19,7 @@ import { INFO_DA_LIGACAO } from "../src/lib/redes/ligacao.ts";
 import { enderecoAssinado } from "../src/lib/redes/s3.ts";
 import { conferirRegra, deveResponder, lerPalavras, normalizar, palavraQueCasa } from "../src/lib/redes/automacoes-regra.ts";
 import { SETORES } from "../src/lib/painel/setores.ts";
+import { analisarConteudos, fatorEmPalavra, grupoDoFormato, mediana, ordenarConteudos, type PublicacaoCrua as PublicacaoDoConteudo } from "../src/lib/redes/conteudos.ts";
 import type { Peca } from "../src/lib/redes/tipos.ts";
 
 let falhas = 0;
@@ -235,6 +236,48 @@ console.log("\nResumo das redes");
   confere("número compacto", compacto(1234) === "1.234" && compacto(12345) === "12,3 mil" && compacto(1234567) === "1,2 mi" && compacto(null) === "sem dado" && compacto(0) === "0");
   const agora = Date.parse("2026-01-10T12:00:00Z");
   confere("há quanto tempo", haQuanto("2026-01-10T11:48:00Z", agora) === "há 12 minutos" && haQuanto("2026-01-10T09:00:00Z", agora) === "há 3 horas" && haQuanto("2026-01-08T12:00:00Z", agora) === "há 2 dias" && haQuanto(null, agora) === null);
+}
+
+console.log("\nEm alta: comparado com o normal da própria conta");
+{
+  const pub = (id: string, a: Partial<PublicacaoDoConteudo>): PublicacaoDoConteudo => ({
+    id, conta_id: "ig", rede: "instagram", id_na_rede: id, formato: "video_curto", legenda: "Legenda inventada", link: null, miniatura_url: null, publicado_em: "2026-01-09T12:00:00Z",
+    curtidas: null, comentarios: null, salvos: null, compartilhamentos: null, alcance: null, visualizacoes: null, metricas_em: null, ...a,
+  });
+  confere("mediana de lista par, ímpar e vazia", mediana([3, 1, 2]) === 2 && mediana([4, 1, 3, 2]) === 2.5 && mediana([]) === null);
+  confere("o tipo de cada formato", grupoDoFormato("video_curto") === "video" && grupoDoFormato("carrossel") === "foto" && grupoDoFormato("story") === "story" && grupoDoFormato(null) === "texto");
+
+  // Seis Reels de 1.000 e um de 5.000 no Instagram; três vídeos no YouTube, um com 40.
+  const reels = [1, 2, 3, 4, 5, 6].map((i) => pub(`r${i}`, { visualizacoes: 1000, curtidas: 50, comentarios: 5 }));
+  const lista = [
+    ...reels,
+    pub("viral", { visualizacoes: 5000, curtidas: 400, comentarios: 30, salvos: 20, compartilhamentos: 50 }),
+    pub("y1", { conta_id: "yt", rede: "youtube", visualizacoes: 10 }),
+    pub("y2", { conta_id: "yt", rede: "youtube", visualizacoes: 12 }),
+    pub("y3", { conta_id: "yt", rede: "youtube", visualizacoes: 40 }),
+    pub("foto", { formato: "post", alcance: 300, curtidas: 30 }),
+    pub("pouco", { formato: "post", alcance: 20, curtidas: 10 }),
+  ];
+  const a = analisarConteudos(lista);
+  const viral = a.find((c) => c.id === "viral")!;
+  confere("o normal é a mediana do mesmo tipo e da mesma conta", Math.abs((viral.fator ?? 0) - 5) < 1e-9 && viral.acima);
+  confere("post comum não fica acima do normal", a.filter((c) => c.id.startsWith("r")).every((c) => c.fator === 1 && !c.acima));
+  confere("grupo com menos de 5 não tem normal", a.filter((c) => c.conta_id === "yt").every((c) => c.fator === null && !c.acima));
+  confere("foto não é comparada com vídeo", a.find((c) => c.id === "foto")!.fator === null);
+  confere("interações somam o que a rede informou", viral.interacoes === 500 && a.find((c) => c.id === "y1")!.interacoes === null);
+  confere("taxa de engajamento sobre quem viu", Math.abs((viral.taxa ?? 0) - 10) < 1e-9);
+  confere("sem visualização, quem viu é o alcance", a.find((c) => c.id === "foto")!.vistos === 300);
+  confere("taxa de poucos vistos não aparece", a.find((c) => c.id === "pouco")!.taxa === null);
+  confere("ordenar põe o maior primeiro e quem não tem número no fim", ordenarConteudos(a, "visualizacoes")[0].id === "viral" && ordenarConteudos(a, "salvos")[0].id === "viral");
+  const soPeriodo = analisarConteudos([lista[6]], lista);
+  confere("o normal pode vir de um período maior que o mostrado", soPeriodo.length === 1 && Math.abs((soPeriodo[0].fator ?? 0) - 5) < 1e-9);
+  confere("fator em palavra", fatorEmPalavra(2.44) === "2,4×" && fatorEmPalavra(12.3) === "12×");
+  // O caso da primeira leitura de verdade: cinco posts só com interações e um com visualizações já lidas.
+  const misturado = analisarConteudos([
+    ...[1, 2, 3, 4, 5].map((i) => pub(`i${i}`, { conta_id: "fb", rede: "facebook", formato: "post", curtidas: 10 })),
+    pub("lido", { conta_id: "fb", rede: "facebook", formato: "post", visualizacoes: 4770, curtidas: 12 }),
+  ]);
+  confere("régua diferente não se compara (visualização contra curtida)", misturado.find((c) => c.id === "lido")!.fator === null && misturado.find((c) => c.id === "i1")!.fator === 1);
 }
 
 console.log("\nEndereço assinado (S3 e R2)");
