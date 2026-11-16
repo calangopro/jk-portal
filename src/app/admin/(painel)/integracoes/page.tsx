@@ -185,8 +185,9 @@ export default async function IntegracoesPage({
         <p className="eyebrow">Loja</p>
         <h2 className="font-display mt-2 text-2xl text-ink">De onde vêm os pedidos</h2>
         <p className="mt-2 max-w-3xl text-sm text-muted">
-          Os pedidos da loja alimentam Vendas, Recuperação, Tráfego e Gargalos. Hoje eles entram pela exportação do
-          painel da Tray, de hora em hora. A leitura pela API tira essa dependência de um computador ligado.
+          Os pedidos da loja alimentam Vendas, Recuperação, Fábrica, Tráfego e Gargalos. Eles são lidos pela API da
+          Tray, de 10 em 10 minutos, sem depender de um computador ligado. A exportação do painel da loja continua só
+          para trazer de onde veio cada pedido, que a API não informa.
         </p>
         <div className="mt-6 grid gap-5 lg:grid-cols-2">
           <CartaoDaTray estado={estadoDaTray} />

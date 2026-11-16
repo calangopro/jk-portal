@@ -102,19 +102,28 @@ export async function lerResumoDeVendas(
   return { ...VAZIO, ...(data as Partial<ResumoDeVendas> | null) };
 }
 
-export type UltimaImportacao = { quando: string; ok: boolean; erro: string | null } | null;
+/**
+ * `quando` é a última leitura BOA, por qualquer das duas portas (a API, de dez
+ * em dez minutos, ou a exportação do painel da loja). `erro` é o da última
+ * tentativa, quando ela falhou: uma rodada ruim no meio de várias boas não
+ * atrasa os números, então quem decide o aviso é a idade de `quando`.
+ */
+export type UltimaImportacao = { quando: string; ok: boolean; erro: string | null; fonte: "api" | "exportacao" } | null;
 
-/** Quando os pedidos foram trazidos da Tray pela última vez. */
+/**
+ * Quando os pedidos foram lidos da Tray pela última vez. A conta mora no banco
+ * (`ultima_leitura_de_pedidos`, 0100) porque o pulso das rotinas só abre para
+ * administrador, e esta resposta também serve a quem tem a área de vendas.
+ */
 export async function ultimaImportacao(db: SupabaseClient): Promise<UltimaImportacao> {
-  const { data } = await db
-    .from("sync_logs")
-    .select("finished_at, status, error")
-    .eq("source", "tray_pedidos")
-    .order("finished_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  if (!data?.finished_at) return null;
-  return { quando: data.finished_at as string, ok: data.status === "success", erro: (data.error as string | null) ?? null };
+  const { data, error } = await db.rpc("ultima_leitura_de_pedidos");
+  if (error) {
+    console.error("[vendas] ultima_leitura_de_pedidos:", error.message);
+    return null;
+  }
+  const l = data as { quando?: string | null; fonte?: string | null; erro?: string | null } | null;
+  if (!l?.quando) return null;
+  return { quando: l.quando, ok: !l.erro, erro: l.erro ?? null, fonte: l.fonte === "api" ? "api" : "exportacao" };
 }
 
 export type VendasDaTela = {

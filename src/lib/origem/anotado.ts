@@ -145,7 +145,7 @@ export function passosDoColetor(saude: SaudeDoColetor, cobertura: Cobertura | nu
             : saude.sessoes_7d === 0
               ? "Depende do script na loja: sem ele, não há chegada para ligar ao pedido."
               : (cobertura?.com_sessao ?? 0) === 0
-                ? "Nenhum pedido passou pela página de compra desde que o script entrou na loja. O outro caminho, pela sessão da Tray, depende da API de pedidos, que espera a homologação do aplicativo."
+                ? "Nenhum pedido passou pela página de compra desde que o script entrou na loja. O outro caminho é a sessão da Tray, que vem na leitura pela API de pedidos: nenhum pedido do período chegou com ela ainda."
                 : "Os pedidos já vêm com a sessão, mas nenhuma delas foi vista pelo script ainda.",
     },
   ];
