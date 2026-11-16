@@ -2,6 +2,7 @@ import "server-only";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { estadoDoArmazenamento, guardarArquivo } from "@/lib/redes/armazenamento";
+import { listarAutomacoes } from "@/lib/redes/automacoes";
 import { contarComentarios, listarComentarios, marcarComentario, responderComentario } from "@/lib/redes/comentarios";
 import { listarContas } from "@/lib/redes/contas";
 import { processarFila } from "@/lib/redes/fila";
@@ -487,6 +488,35 @@ export const OPERACOES_REDES = [
       if (!r.ok) return falhar(r.erro);
       revalidatePath("/admin/redes/comentarios");
       return { ok: true as const };
+    },
+  }),
+  operacao({
+    nome: "redes.automacoes",
+    resumo: "As regras de resposta automática a comentário: palavras, o texto exato da resposta, se está ligada e quantas respostas deu em 30 dias.",
+    detalhe: "Só leitura. Criar, editar e, principalmente, LIGAR uma regra é no painel: ligar é de administrador, com o texto na frente. Você não liga nem desliga automação.",
+    entrada: z.object({}),
+    retorno: "{ regras: Array<{ nome, rede, conta, palavras: string[], resposta, onde, espera_min, limite_por_hora, ligada, ligada_em, respostas_30_dias, falhas_30_dias }>, painel }",
+    risco: "leitura",
+    async executar(_a, ctx) {
+      await exigirArea(ctx);
+      const regras = await listarAutomacoes(ctx.db);
+      return {
+        regras: regras.map((r) => ({
+          nome: r.nome,
+          rede: nomeDaRede(r.rede),
+          conta: r.conta,
+          palavras: r.palavras,
+          resposta: r.resposta,
+          onde: r.publicacao ? `só na publicação "${r.publicacao}"` : "qualquer publicação da conta",
+          espera_min: r.esperaMin,
+          limite_por_hora: r.limitePorHora,
+          ligada: r.ativa,
+          ligada_em: quando(r.ativadaEm),
+          respostas_30_dias: r.respondidas,
+          falhas_30_dias: r.falhas,
+        })),
+        painel: painel(ctx, "/redes/automacoes"),
+      };
     },
   }),
 ];

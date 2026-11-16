@@ -4,7 +4,7 @@ import { contaDaLinha, credenciaisAtivas, marcarExpirada } from "./contas";
 import { modulo } from "./plataformas";
 import { pecaPara } from "./posts";
 import { nomeDaRede, type Formato } from "./redes";
-import { ErroDaRede, type Midia } from "./tipos";
+import { ErroDaRede, type Midia, type ModuloDaRede } from "./tipos";
 
 /**
  * A fila das redes: publica os envios que venceram, cada um pelo módulo da sua
@@ -60,10 +60,10 @@ async function falhar(db: SupabaseClient, envio: LinhaDoEnvio, motivo: string): 
   return { envio: envio.id, rede: envio.rede, estado: "erro" };
 }
 
-async function publicarUm(db: SupabaseClient, envio: LinhaDoEnvio, post: LinhaDoPost | undefined): Promise<ResultadoDoEnvio> {
+async function publicarUm(db: SupabaseClient, envio: LinhaDoEnvio, post: LinhaDoPost | undefined, acharModulo: AcharModulo): Promise<ResultadoDoEnvio> {
   const nome = nomeDaRede(envio.rede);
   if (!post) return falhar(db, envio, "O post deste envio não existe mais.");
-  const m = modulo(envio.rede);
+  const m = acharModulo(envio.rede);
   if (!m?.publicar) return falhar(db, envio, `${nome} ainda não publica pelo painel.`);
 
   const { data: linhaDaConta } = await db
@@ -150,7 +150,14 @@ async function publicarUm(db: SupabaseClient, envio: LinhaDoEnvio, post: LinhaDo
  * publica. Envios de redes diferentes rodam ao mesmo tempo; a função de pegar
  * garante que duas rodadas não peguem o mesmo.
  */
-export async function processarFila(db: SupabaseClient, opcoes: { limite?: number; postId?: string } = {}): Promise<ResultadoDoEnvio[]> {
+type AcharModulo = (rede: string) => ModuloDaRede | null;
+
+/**
+ * `acharModulo` existe para o ensaio: deixa trocar o módulo de uma rede por um
+ * de mentira e rodar a fila inteira contra o banco sem publicar em lugar
+ * nenhum. Fora do ensaio ninguém passa, e vale o registro de verdade.
+ */
+export async function processarFila(db: SupabaseClient, opcoes: { limite?: number; postId?: string; acharModulo?: AcharModulo } = {}): Promise<ResultadoDoEnvio[]> {
   const { data, error } = await db.rpc("redes_pegar_envios", { p_limite: opcoes.limite ?? 4, p_post: opcoes.postId ?? null });
   if (error) throw new Error(`redes_pegar_envios: ${error.message}`);
   const envios = (data ?? []) as LinhaDoEnvio[];
@@ -158,5 +165,5 @@ export async function processarFila(db: SupabaseClient, opcoes: { limite?: numbe
 
   const { data: posts } = await db.from("redes_posts").select("id, titulo, legenda, formato, midias, opcoes").in("id", [...new Set(envios.map((e) => e.post_id))]);
   const porId = new Map(((posts ?? []) as LinhaDoPost[]).map((p) => [p.id, p]));
-  return Promise.all(envios.map((e) => publicarUm(db, e, porId.get(e.post_id))));
+  return Promise.all(envios.map((e) => publicarUm(db, e, porId.get(e.post_id), opcoes.acharModulo ?? modulo)));
 }

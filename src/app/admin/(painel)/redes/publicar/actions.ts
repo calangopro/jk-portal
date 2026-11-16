@@ -59,7 +59,11 @@ export async function salvarRascunho(id: string | null, dados: DadosDoPost): Pro
  * resposta. Se essa rodada falhar por qualquer motivo, o relógio pega no
  * minuto seguinte.
  */
-export async function salvarELiberar(id: string | null, dados: DadosDoPost, quando: string | null): Promise<Resposta<{ id: string; quando: string; contas: string[] }>> {
+export async function salvarELiberar(
+  id: string | null,
+  dados: DadosDoPost,
+  quando: string | null,
+): Promise<{ ok: true; id: string; quando: string; contas: string[] } | { ok: false; erro: string; id?: string }> {
   const perfil = await requireArea("redes");
   const db = createAdminClient();
   const quem = { id: perfil.id, origem: "painel" as const };
@@ -77,8 +81,9 @@ export async function salvarELiberar(id: string | null, dados: DadosDoPost, quan
   const hora = quando ? new Date(quando) : null;
   const r = await liberarPost(db, quem, postId, hora);
   atualizar();
-  // O rascunho já está salvo mesmo se a liberação for recusada: a pessoa conserta e manda de novo.
-  if (!r.ok) return { ok: false, erro: r.erro };
+  // O rascunho já está salvo mesmo se a liberação for recusada: a pessoa conserta e manda de novo. O id volta
+  // junto, senão a tela, que ainda não o conhece, criaria OUTRO rascunho na tentativa seguinte.
+  if (!r.ok) return { ok: false, erro: r.erro, id: postId };
   if (!hora) {
     const post = postId;
     after(async () => {

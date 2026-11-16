@@ -32,7 +32,7 @@ export type AcoesDoCompositor = {
   prepararSubida: (arquivo: { mime: string; tamanho: number }) => Promise<Resposta<{ envio: EnvioPreparado }>>;
   confirmarSubida: (url: string) => Promise<Resposta<{ tamanho: number }>>;
   salvarRascunho: (id: string | null, dados: DadosDoPost) => Promise<Resposta<{ id: string }>>;
-  salvarELiberar: (id: string | null, dados: DadosDoPost, quando: string | null) => Promise<Resposta<{ id: string; quando: string; contas: string[] }>>;
+  salvarELiberar: (id: string | null, dados: DadosDoPost, quando: string | null) => Promise<{ ok: true; id: string; quando: string; contas: string[] } | { ok: false; erro: string; id?: string }>;
 };
 
 type Item = {
@@ -263,6 +263,11 @@ export function Compositor({
     setOcupado(null);
     if (!r.ok) {
       setConfirmando(false);
+      // O rascunho pode ter sido criado antes da recusa: guarda o id, para a próxima tentativa salvar NELE.
+      if (r.id && !id) {
+        setId(r.id);
+        window.history.replaceState(null, "", window.location.pathname.replace(/\/novo$/, `/${r.id}`));
+      }
       return setAviso({ tom: "ruim", texto: r.erro });
     }
     router.push(`/admin/redes/publicar?aba=fila&saiu=${modo === "agendar" ? "agendado" : "agora"}`);

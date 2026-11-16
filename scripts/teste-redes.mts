@@ -17,6 +17,7 @@ import {
 } from "../src/lib/redes/plataformas/meta-forma.ts";
 import { INFO_DA_LIGACAO } from "../src/lib/redes/ligacao.ts";
 import { enderecoAssinado } from "../src/lib/redes/s3.ts";
+import { conferirRegra, deveResponder, lerPalavras, normalizar, palavraQueCasa } from "../src/lib/redes/automacoes-regra.ts";
 import { SETORES } from "../src/lib/painel/setores.ts";
 import type { Peca } from "../src/lib/redes/tipos.ts";
 
@@ -217,6 +218,39 @@ console.log("\nEndereço assinado (S3 e R2)");
   const comEspaco = enderecoAssinado({ metodo: "PUT", host: "c.r2.cloudflarestorage.com", caminho: "/balde/2026/11/a b.jpg", chaveDeAcesso: "id", chaveSecreta: "segredo", regiao: "auto", validade: 60, agora: new Date("2026-01-01T00:00:00Z") });
   confere("caminho com espaço é codificado e a barra fica", comEspaco.startsWith("https://c.r2.cloudflarestorage.com/balde/2026/11/a%20b.jpg?"));
   confere("a chave secreta não aparece no endereço", !comEspaco.includes("segredo"));
+}
+
+console.log("\nRegra de automação");
+{
+  confere("normaliza acento, maiúscula e espaço", normalizar("  Preço   ÓTIMO ") === "preco otimo");
+  confere("lê palavras separadas por vírgula, ponto e vírgula e linha", JSON.stringify(lerPalavras("preço, valor; quanto custa\n#catalogo")) === '["preço","valor","quanto custa","catalogo"]');
+  confere("tira repetida (mesmo com acento diferente), curta e vazia", JSON.stringify(lerPalavras("preço, PRECO, a, , valor")) === '["preço","valor"]');
+  confere("no máximo 12 palavras", lerPalavras(Array.from({ length: 20 }, (_, i) => `palavra${i}`).join(",")).length === 12);
+  confere("casa sem ligar para acento e maiúscula", palavraQueCasa("Qual o PRECO dessa?", ["preço"]) === "preço");
+  confere("casa no começo, no fim e com pontuação colada", palavraQueCasa("preço?", ["preço"]) !== null && palavraQueCasa("me passa o preço", ["preço"]) !== null && palavraQueCasa("(preço)", ["preço"]) !== null);
+  confere("não casa pedaço de palavra", palavraQueCasa("tenho muito apreço por vocês", ["preço"]) === null && palavraQueCasa("valorizo demais", ["valor"]) === null);
+  confere("casa expressão de duas palavras", palavraQueCasa("Quanto   custa a de 4 mm?", ["quanto custa"]) === "quanto custa" && palavraQueCasa("quanto que custa", ["quanto custa"]) === null);
+  confere("palavra com sinal de expressão regular não quebra", palavraQueCasa("quero o kit (2)", ["kit (2)"]) === "kit (2)" && palavraQueCasa("qualquer coisa", [".*"]) === null);
+  confere("comentário vazio não casa", palavraQueCasa("", ["preço"]) === null && palavraQueCasa("   ", ["preço"]) === null);
+
+  const regra = { nome: "Preço", palavras: ["preço"], resposta: "O preço de cada modelo está no site.", esperaMin: 30, limitePorHora: 20 };
+  confere("regra boa passa", conferirRegra(regra) === null);
+  confere("regra sem palavra é recusada", /pelo menos uma palavra/.test(conferirRegra({ ...regra, palavras: [] }) ?? ""));
+  confere("resposta com travessão é recusada", /travessão/.test(conferirRegra({ ...regra, resposta: "Preço — no site" }) ?? ""));
+  confere("resposta de 501 caracteres é recusada", /500/.test(conferirRegra({ ...regra, resposta: "a".repeat(501) }) ?? ""));
+  confere("espera abaixo de 10 minutos é recusada", /10 minutos/.test(conferirRegra({ ...regra, esperaMin: 5 }) ?? ""));
+  confere("limite acima de 60 por hora é recusado", /1 a 60/.test(conferirRegra({ ...regra, limitePorHora: 61 }) ?? ""));
+
+  const agora = Date.parse("2026-01-10T12:00:00Z");
+  const ligada = { palavras: ["preço"], ativadaEm: "2026-01-10T08:00:00Z", esperaMin: 30 };
+  const c = (a: Partial<Parameters<typeof deveResponder>[0]>) => ({ texto: "qual o preço?", quando: "2026-01-10T11:00:00Z", nosso: false, ehResposta: false, estado: "novo", ...a });
+  confere("comentário novo, de terceiro, com a espera cumprida: responde", deveResponder(c({}), ligada, agora) === "preço");
+  confere("comentário de antes de a regra ser ligada não é respondido", deveResponder(c({ quando: "2026-01-10T07:59:00Z" }), ligada, agora) === null);
+  confere("comentário mais novo que a espera ainda não é respondido", deveResponder(c({ quando: "2026-01-10T11:45:00Z" }), ligada, agora) === null);
+  confere("comentário já respondido, visto ou oculto não é respondido", ["respondido", "visto", "oculto"].every((e) => deveResponder(c({ estado: e }), ligada, agora) === null));
+  confere("resposta a outro comentário e comentário da própria conta ficam de fora", deveResponder(c({ ehResposta: true }), ligada, agora) === null && deveResponder(c({ nosso: true }), ligada, agora) === null);
+  confere("comentário sem data não é respondido", deveResponder(c({ quando: null }), ligada, agora) === null);
+  confere("comentário que não tem a palavra não é respondido", deveResponder(c({ texto: "que linda" }), ligada, agora) === null);
 }
 
 console.log("\nSegredo fora da tela");
