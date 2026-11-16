@@ -16,6 +16,7 @@ import type { ApiDoChat } from "./chat/api";
 import type { ApiDoSuporte } from "./suporte/api";
 import { useAvisosAoVivo, useTituloComAviso } from "./AvisosAoVivo";
 import { BotaoDoChatNoTopo, ChatFlutuante, useChatFlutuante } from "./ChatFlutuante";
+import { HistoricoDoPedidoNaMoldura } from "./pedido/NaMoldura";
 import { AbasDoSetor, BarraDeBaixo, FolhaMais, Lateral, corDoSetor, type Avisos } from "./Navegacao";
 
 /**
@@ -214,6 +215,8 @@ export function Moldura({
         sair={sair}
       />
       {meuId ? <ChatFlutuante f={flutuante} chat={numeroDoChat} suporte={numeroDoSuporte} temSuporte={temSuporte} meuId={meuId} souAdmin={souAdmin} podeMeta={areas.includes("vendas")} apiDaPrevia={apiDoChatDaPrevia} apiDoSuporteDaPrevia={apiDoSuporteDaPrevia} /> : null}
+      {/* O histórico do pedido abre por cima de qualquer tela, inclusive da janela do chat (`pedido/abrir.tsx`). */}
+      <HistoricoDoPedidoNaMoldura />
     </div>
   );
 }

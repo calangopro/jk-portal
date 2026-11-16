@@ -12,6 +12,7 @@ import {
   rascunhoDaBiblioteca, telefoneDoCliente, telefoneLegivel, type Caso,
 } from "../src/lib/suporte/casos.ts";
 import { TEMAS } from "../src/lib/time/biblioteca.ts";
+import { lerHistorico, lerNumeroDoPedido, pessoasDoPedido, textoDoEvento, type EventoDoPedido } from "../src/lib/pedidos/historico.ts";
 import { SETORES, setoresDe } from "../src/lib/painel/setores.ts";
 
 let falhas = 0;
@@ -148,6 +149,53 @@ console.log("\nO aviso do sistema");
   const fechado = avisoDoSuporte(l.casos[1]);
   confere("caso resolvido avisa quem passou", fechado.titulo === "Seu caso foi resolvido: Troca" && fechado.marca === "jk-suporte-3-resolvido");
   confere("o aviso não leva dado de cliente", !/Cliente Inventado|5511/.test(JSON.stringify([novo, fechado])));
+}
+
+console.log("\nO histórico do pedido (0103)");
+{
+  confere("sem acesso: nulo vira sem acesso", lerHistorico(null, 5).tipo === "sem_acesso");
+  confere("número que o painel não conhece", JSON.stringify(lerHistorico({ encontrado: false, numero: 5 }, 5)) === JSON.stringify({ tipo: "nao_achado", numero: 5 }));
+  const bruto = {
+    encontrado: true, numero: 123, dia: "2026-11-10", feito_em: ha(600), situacao: "pago", status: "A ENVIAR", etapa: "em_producao",
+    total: null, cliente: { nome: "Cliente Inventado", telefone: null, ref: "p123" }, pecas: [{ nome: "Par de Alianças de Exemplo", quantidade: "1", foto: null }],
+    origem: { utm_source: null, parceiro: null, canal_anotado: "meta", chegou_em: ha(700), plataforma: "meta", campanha: "Campanha de exemplo" },
+    vendedor: { id: "00000000-0000-4000-a000-000000000009", nome: "Pessoa Vendedora", por_nome: "Pessoa Vendedora", em: ha(10), proprio: true },
+    vendas_por_fora: [], pode: { marcar: true, atribuir: false, fabrica: false, ficha: true, suporte: true }, vendedores: null, eu: null,
+    eventos: [
+      { tipo: "chat", em: ha(5), sala: "vendas", mensagem: 9, quem: "Pessoa Vendedora", texto: "Olha o pedido" },
+      { tipo: "suporte", em: ha(20), caso: 3, assunto: "pedra", de: "na_fila", para: "com_suporte", nota: null, quem: "Gerente Inventado" },
+      { tipo: "suporte", em: ha(30), caso: 3, assunto: "pedra", de: null, para: "na_fila", nota: null, quem: "Pessoa Vendedora" },
+      { tipo: "fabrica", em: ha(200), de: "a_produzir", para: "em_producao", quem: "Pessoa da Fábrica" },
+      { tipo: "pago", dia: "2026-11-10" },
+      { tipo: "criado", em: ha(600) },
+      { tipo: "chegada", em: ha(700), canal: "meta", plataforma: "meta", campanha: "Campanha de exemplo" },
+      { tipo: "inventado", em: ha(1) },
+    ],
+  };
+  const l = lerHistorico(bruto, 123);
+  const h = l.tipo === "ok" ? l.h : null;
+  confere("lê o histórico e descarta o acontecimento desconhecido", h !== null && h.eventos.length === 7 && h.numero === 123 && h.vendedor?.proprio === true);
+  confere("lista de vendedores ausente vira vazia", h !== null && h.vendedores.length === 0 && h.total === null && h.cliente.telefone === null);
+  const p = h ? pessoasDoPedido(h) : { direcionou: [], atendeu: [] };
+  confere("quem passou ao suporte e quem atendeu, na ordem de chegada", p.direcionou.join(",") === "Pessoa Vendedora" && p.atendeu.join(",") === "Pessoa da Fábrica,Gerente Inventado", JSON.stringify(p));
+  const canal = (c: string) => (c === "meta" ? "Instagram e Facebook" : c);
+  const textos = (h?.eventos ?? []).map((e) => textoDoEvento(e, canal));
+  confere("a chegada diz o canal e a campanha", textos.some((t) => t.titulo === "Chegou ao site por Instagram e Facebook" && t.detalhe === "Anúncio do Meta: Campanha de exemplo"));
+  confere("o suporte diz o assunto e quem passou", textos.some((t) => t.titulo === "Passado para o suporte: Caiu a pedra" && t.quem === "Pessoa Vendedora"));
+  confere("a fábrica diz a etapa nova e a de antes", textos.some((t) => t.titulo === "Fábrica: em produção" && t.detalhe === 'Estava em "a produzir"'));
+  const todos: EventoDoPedido[] = [
+    { tipo: "status", em: ha(1), de: "A ENVIAR", para: "ENVIADO" },
+    { tipo: "envio", dia: "2026-11-12", codigo: "AB123BR" },
+    { tipo: "recuperacao", em: ha(1), estado: "pago_por_fora", nota: "Pagou no Pix", valor: 1500, quem: "Pessoa" },
+    { tipo: "venda_fora", em: ha(1), quem: "Pessoa", forma: "Pix", valor: null },
+    { tipo: "suporte", em: ha(1), caso: 3, assunto: "troca", de: "com_suporte", para: "devolvido", nota: "É venda", quem: "Gerente" },
+    { tipo: "vendedor", em: ha(1), quem: "Pessoa Vendedora", por: "Gerente Inventado", proprio: false },
+  ];
+  const outros = todos.map((e) => textoDoEvento(e, canal));
+  confere("a venda marcada por outra pessoa diz quem marcou", outros[5].titulo === "Venda marcada como de Pessoa" && outros[5].detalhe === "Marcado por Gerente");
+  confere("o valor só aparece quando o banco manda", outros[2].detalhe?.replace(/\s/g, " ") === "R$ 1.500,00. Pagou no Pix" && outros[3].detalhe === "Pix", outros[2].detalhe ?? "");
+  confere("nenhum texto do histórico tem travessão", ![...textos, ...outros].some((t) => /[—–]/.test(`${t.titulo} ${t.detalhe ?? ""}`)));
+  confere("o número do pedido digitado", lerNumeroDoPedido(" #12345 ") === 12345 && lerNumeroDoPedido("12a") === null && lerNumeroDoPedido("0") === null);
 }
 
 console.log("\nO menu");
