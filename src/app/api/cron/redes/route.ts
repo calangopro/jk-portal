@@ -25,13 +25,16 @@ export async function POST(request: Request) {
   if (!(await cronAutorizado(request, supabase))) {
     return NextResponse.json({ erro: "segredo inválido" }, { status: 401 });
   }
-  // A rotina manda corpo vazio. Para encher uma conta recém-ligada de uma vez, o corpo pode trazer `dias` e `paginas`.
-  const corpo = (await request.json().catch(() => ({}))) as { dias?: unknown; paginas?: unknown };
-  const dias = Math.min(Math.max(Math.round(Number(corpo.dias) || 7), 1), 90);
+  // A rotina manda corpo vazio. Para encher a história de uma conta de uma vez, o corpo pode trazer `dias`,
+  // `paginas` e `conta` (o id da linha em `redes_contas`). Sem `conta`, os dias valem para todas: cuidado com o
+  // Instagram, que cobra uma chamada por dia.
+  const corpo = (await request.json().catch(() => ({}))) as { dias?: unknown; paginas?: unknown; conta?: unknown };
+  const dias = Math.min(Math.max(Math.round(Number(corpo.dias) || 7), 1), 180);
   const paginas = Math.min(Math.max(Math.round(Number(corpo.paginas) || 1), 1), 6);
+  const contaId = typeof corpo.conta === "string" && /^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(corpo.conta) ? corpo.conta : undefined;
 
   try {
-    const contas = await lerRedes(supabase, { dias, paginas, prazoMs: 45_000 });
+    const contas = await lerRedes(supabase, { dias, paginas, contaId, prazoMs: 45_000 });
     const boas = contas.filter((c) => c.estado === "ok" || c.estado === "parcial").length;
     const ok = contas.length === 0 || boas > 0;
     const detalhe = contas.length === 0 ? "nenhuma conta ligada" : `${boas} de ${contas.length} ${contas.length === 1 ? "conta lida" : "contas lidas"}`;

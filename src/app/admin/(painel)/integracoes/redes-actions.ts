@@ -69,7 +69,7 @@ export async function ligarRedeComToken(_prev: IntegracaoState, formData: FormDa
 
     // A primeira leitura roda depois da resposta, para o botão não ficar girando.
     after(async () => {
-      for (const id of gravou.ids) await lerRedes(db, { contaId: id, dias: 30, paginas: 3, metricas: 30, prazoMs: 40_000 }).catch((e) => console.error("[redes] primeira leitura", e));
+      for (const id of gravou.ids) await lerRedes(db, { contaId: id, primeira: true, dias: 30, paginas: 3, metricas: 30, prazoMs: 40_000 }).catch((e) => console.error("[redes] primeira leitura", e));
     });
     atualizarTelas();
     const quais = contas.map((c) => `${nomeDaRede(c.rede)} ${c.usuario || c.nome || ""}`.trim()).join(", ");

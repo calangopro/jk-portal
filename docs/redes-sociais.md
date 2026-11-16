@@ -60,9 +60,9 @@ O conector do Claude tem a área `redes`. O caminho é: `redes.contas` (o que es
 
 | Rede | Perfil da JK | Métricas | Publicar e agendar | Story | Comentários | Directs | Situação |
 |---|---|---|---|---|---|---|---|
-| Instagram | @jkaliancas | sim | sim | sim, sem figurinha de link | sim, por consulta | só com App Review da Meta | módulo pronto, esperando o token |
-| Facebook | jkaliancasoficial | sim | sim | sim | sim | só com App Review | módulo pronto, esperando o token |
-| YouTube | @jk.aliancas | sim, com 2 a 3 dias de atraso | sim, vídeo e Shorts | não existe | sim | não existe | módulo pronto, esperando o Google Cloud e o login |
+| Instagram | @jkaliancas | sim | sim | sim, sem figurinha de link | sim, por consulta | só com App Review da Meta | aplicativo e usuário do sistema prontos (16/11), esperando o Filipe gerar e colar o token |
+| Facebook | jkaliancasoficial | sim | sim | sim | sim | só com App Review | o mesmo token do Instagram |
+| YouTube | @jkaliancas1 (ligado) e @jk.aliancas | sim, com 2 a 3 dias de atraso | sim, vídeo e Shorts | não existe | sim | não existe | **ligado em 16/11/2026** (canal @jkaliancas1, da conta jkaliancasmkt) |
 | Threads | @jkaliancas (11,8 mil) | sim | sim | não existe | sim (respostas) | não existe | a construir |
 | TikTok | @jkaliancas | sim | sim | não | sim | revisão de segurança de 2 a 4 semanas | depende do cadastro no TikTok API for Business |
 | Pinterest | jkaliancas | sim | sim | não | não existe | não existe | depende de aplicativo e vídeo de demonstração |
@@ -87,25 +87,33 @@ Agendamento nativo quase nenhuma rede tem. Quem agenda é a fila do painel, em t
 
 O token é de **usuário do sistema** do portfólio da JK. É um token NOVO: o que lê o gasto de anúncio (`painel-leitura`) continua só lendo gasto.
 
-1. Em **Configurações do negócio** do Meta (portfólio da JK), **Usuários, Usuários do sistema**: criar um usuário só para isto, por exemplo `painel-redes`, com função de administrador.
-2. Em **Adicionar ativos**, atribuir a esse usuário a **Página** do Facebook da JK e a **conta do Instagram**, as duas com controle total.
-3. Conferir que o Instagram é conta profissional e está ligado à Página (na Página: Configurações, Contas vinculadas).
-4. **Gerar token**, aplicativo **JK Alianças Painel Compras**, validade **Nunca**, com estas permissões:
-   `pages_show_list`, `pages_read_engagement`, `business_management`, `read_insights`, `pages_manage_posts`, `pages_read_user_content`, `pages_manage_engagement`, `instagram_basic`, `instagram_manage_insights`, `instagram_content_publish`, `instagram_manage_comments`.
-5. O pedido vira uma solicitação que **outro administrador** do portfólio aprova (Configurações do negócio, Solicitações; da última vez foi o Erick). Aprovado, o token aparece no próprio usuário do sistema, **uma vez só**.
-6. No painel, **Integrações**, seção Redes sociais, cartão do **Instagram**: colar o token e clicar em **Conferir e ligar**. O painel confere antes de guardar e diz quais contas o token alcança.
+**Feito em 16/11/2026, pelo Chrome do Filipe:**
 
-Se a permissão não aparecer na lista ao gerar o token, falta adicionar o produto ao aplicativo (no painel de desenvolvedor do Meta, no aplicativo JK Alianças Painel Compras: casos de uso de Instagram e de Páginas).
+- Aplicativo **JK Alianças Painel Redes** criado no portfólio da JK, com os casos de uso de Página, Instagram e Threads. Em cada caso de uso, as permissões abaixo foram adicionadas (ficam "Pronto para teste"). O aplicativo `JK Alianças Painel Compras` não serve: o Filipe não é desenvolvedor dele.
+- Usuário do sistema **`painel-redes`**, função Employee, com três ativos: a **Página** JK Alianças e a conta do **Instagram** `jkaliancas` (as duas só com Conteúdo, Atividade da comunidade e Insights, sem mensagens nem anúncios) e o **aplicativo** novo (Desenvolver app).
+
+**Falta, e é do Filipe:**
+
+1. Em **Configurações do negócio, Usuários, Usuários do sistema**, `painel-redes`, **Gerar token**: aplicativo **JK Alianças Painel Redes**, validade **Nunca**, com estas permissões:
+   `pages_show_list`, `pages_read_engagement`, `business_management`, `read_insights`, `pages_manage_posts`, `pages_read_user_content`, `pages_manage_engagement`, `instagram_basic`, `instagram_manage_insights`, `instagram_content_publish`, `instagram_manage_comments`.
+2. Se o pedido virar uma solicitação, **outro administrador** do portfólio aprova (Configurações do negócio, Solicitações; da última vez foi o Erick). O token aparece **uma vez só**.
+3. No painel, **Integrações**, seção Redes sociais, cartão do **Instagram**: colar o token e clicar em **Conferir e ligar**. O painel confere antes de guardar e diz quais contas o token alcança.
+
+A área de usuários do sistema pede a chave de acesso (passkey) de quem está logado. A lista de permissões do assistente tem busca: digitar o nome e marcar é mais seguro do que rolar.
 
 Não confirmado na documentação: que o token de usuário do sistema serve em todos os endpoints do Instagram. A primeira ligação é o teste. Se o Instagram recusar, o caminho de reserva é o Login do Facebook para Empresas, que pede a chave secreta do aplicativo e um endereço de volta.
 
 ### 2. YouTube
 
-1. **Google Cloud**, projeto `jk-portal-509621`, **APIs e serviços, Biblioteca**: ativar a **YouTube Data API v3** e a **YouTube Analytics API**.
-2. **Google Auth Platform, Clientes**, cliente **JK Alianças Portal**: em URIs de redirecionamento autorizados, acrescentar
+**Ligado em 16/11/2026**, canal `@jkaliancas1` (dono: a conta jkaliancasmkt). O que foi feito, para o dia em que precisar ligar outro canal:
+
+1. **Google Cloud**, projeto `jk-portal-509621`, **APIs e serviços, Biblioteca**: ativadas a **YouTube Data API v3** e a **YouTube Analytics API**.
+2. **Google Auth Platform, Clientes**, cliente **Portal JK - avaliacoes do Google** (o mesmo do Perfil da Empresa): em URIs de redirecionamento autorizados entrou
    `https://www.jkaliancas.com.br/guias/api/redes/retorno/youtube`
-3. **Google Auth Platform, Acesso a dados**: acrescentar os quatro escopos do YouTube (`youtube.upload`, `youtube.readonly`, `youtube.force-ssl`, `yt-analytics.readonly`).
-4. No painel, **Integrações**, cartão do **YouTube**: **Ligar com o Google**, entrando com a conta que é **dona do canal** (convidado pelo YouTube Studio não serve) e deixando todas as caixas marcadas. Vai aparecer a tela de "aplicativo não verificado": é esperado, e segue por Avançado.
+3. Os escopos do YouTube **não** foram declarados em "Acesso a dados", e não precisam: a tela está vazia e o Perfil da Empresa já funcionava assim. Declarar escopo sensível ali só serve para pedir a verificação do Google.
+4. No painel, **Integrações**, cartão do **YouTube**: **Ligar com o Google**, com a conta que é **dona do canal** (convidado pelo YouTube Studio não serve) e todas as caixas marcadas. Aparece a tela de "o Google não verificou este app": é esperado, e segue por "Acessar jkaliancas.com.br".
+
+**A JK tem dois canais.** `@jkaliancas1` (o ligado, 102 vídeos e 51 inscritos em 16/11) e `@jk.aliancas` (17 vídeos e 15 inscritos), que é o endereço que o site anuncia no `sameAs`. O segundo pertence a outra conta do Google. Qual é o oficial é decisão da JK; o painel aceita os dois ligados ao mesmo tempo.
 
 ### 3. Armazenamento de vídeo (R2)
 

@@ -69,6 +69,8 @@ const dadosDoItem = (m: Midia): Record<string, string> =>
 export const instagram: ModuloDaRede = {
   id: "instagram",
   provedorDoAplicativo: null,
+  // Uma chamada por dia, em lotes de quatro: 60 dias bastam para comparar 28 e ainda cabem na rodada.
+  historico: 60,
   recursos: {
     metricas: ["instagram_manage_insights"],
     publicar: ["instagram_content_publish"],

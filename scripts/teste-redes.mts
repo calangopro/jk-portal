@@ -165,9 +165,10 @@ console.log("\nResumo das redes");
       conta("a", {
         seguidores: 1100, seguidores_antes: 1000,
         serie: [dia("2026-01-09", { seguidores: 1090, alcance: 500, visualizacoes: 900, interacoes: 40 }), dia("2026-01-10", { seguidores: 1100, alcance: 700, visualizacoes: 1100, interacoes: 60 })],
-        anterior: { alcance: 1000, visualizacoes: 1000, interacoes: 50, visitas_ao_perfil: null, cliques_no_link: null },
+        anterior: { alcance: 1000, visualizacoes: 1000, interacoes: 50, visitas_ao_perfil: null, cliques_no_link: null, dias: { alcance: 7, visualizacoes: 7, interacoes: 7, visitas_ao_perfil: 0, cliques_no_link: 0 } },
         posts: { quantos: 3, curtidas: 80, comentarios: 10, salvos: 5, compartilhamentos: 5, alcance: 1100, visualizacoes: 1900 },
         posts_antes: { quantos: 2, curtidas: 30, comentarios: 5, alcance: 900, visualizacoes: 950 },
+        primeira_publicacao: "2025-06-01T12:00:00Z",
       }),
       // YouTube: sem alcance nem números por dia. Os totais saem dos vídeos do período.
       conta("b", { rede: "youtube", usuario: "@canal", seguidores: 500, seguidores_antes: null, posts: { quantos: 1, curtidas: 20, comentarios: 2, salvos: null, compartilhamentos: null, alcance: null, visualizacoes: 3000 }, posts_antes: null }),
@@ -198,6 +199,30 @@ console.log("\nResumo das redes");
   confere("taxa só com base mínima de pessoas", r.melhores.find((p) => p.id === "p1")!.taxa !== null && r.melhores.find((p) => p.id === "p4")!.taxa === null);
   confere("post leva o nome da conta", r.melhores[0].conta === "@exemplo");
   confere("conta ligada sem leitura avisa", montarResumo({ dias: 7, hoje: "2026-01-10", contas: [conta("z", { lida_em: null })], publicacoes: [] }).semLeitura && !r.semLeitura);
+  confere("contagem de posts compara quando a lista alcança o período anterior", Math.abs((a.publicacoes.variacao ?? 0) - 0.5) < 1e-9);
+
+  // O caso que a primeira conta de verdade mostrou: 30 dias lidos, visão de 28, período anterior com 2 dias de número.
+  const semDia = { alcance: null, visualizacoes: null, interacoes: null, visitas_ao_perfil: null, cliques_no_link: null };
+  const serie28 = Array.from({ length: 28 }, (_, i) => dia(`2026-01-${String(i + 1).padStart(2, "0")}`, { visualizacoes: 10, interacoes: 1 }));
+  const meio = (lidos: number, a: Partial<ContaCrua> = {}) =>
+    montarResumo({
+      dias: 28, hoje: "2026-01-28",
+      contas: [conta("m", { rede: "youtube", serie: serie28, anterior: { ...semDia, visualizacoes: 13, interacoes: 0, dias: { visualizacoes: lidos, interacoes: lidos } }, posts: { quantos: 1, curtidas: 2, comentarios: 0, alcance: null, visualizacoes: 40 }, posts_antes: { quantos: 31, curtidas: 9, comentarios: 1, alcance: null, visualizacoes: 900 }, ...a })],
+      publicacoes: [],
+    }).contas[0];
+  confere("período anterior lido pela metade não compara", meio(2).visualizacoes.valor === 280 && meio(2).visualizacoes.variacao === null && meio(2).interacoes.variacao === null);
+  confere("período anterior quase inteiro compara", meio(24).visualizacoes.variacao !== null && meio(23).visualizacoes.variacao === null);
+  confere("resposta antiga do banco, sem a contagem de dias, não compara", montarResumo({ dias: 28, hoje: "2026-01-28", contas: [conta("m", { serie: serie28, anterior: { ...semDia, visualizacoes: 13 } })], publicacoes: [] }).contas[0].visualizacoes.variacao === null);
+  confere("sem post mais antigo que o período anterior, a contagem de posts não compara", meio(28).publicacoes.variacao === null && meio(28, { primeira_publicacao: "2025-12-20T12:00:00Z" }).publicacoes.variacao === null);
+  confere("com história de posts, a queda na contagem aparece", Math.abs((meio(28, { primeira_publicacao: "2025-03-01T12:00:00Z" }).publicacoes.variacao ?? 0) - (1 - 31) / 31) < 1e-9);
+  const soPosts = (primeira: string | null) =>
+    montarResumo({
+      dias: 28, hoje: "2026-01-28",
+      contas: [conta("p", { rede: "youtube", serie: [], anterior: { ...semDia, dias: {} }, posts: { quantos: 2, curtidas: 20, comentarios: 0, alcance: null, visualizacoes: 600 }, posts_antes: { quantos: 2, curtidas: 10, comentarios: 0, alcance: null, visualizacoes: 300 }, primeira_publicacao: primeira })],
+      publicacoes: [],
+    }).contas[0];
+  confere("rede sem número por dia compara pela soma dos posts, se a lista alcança", Math.abs((soPosts("2025-01-01T00:00:00Z").visualizacoes.variacao ?? 0) - 1) < 1e-9 && soPosts(null).visualizacoes.variacao === null);
+
   const vazio = montarResumo({ dias: 28, hoje: "2026-01-10", contas: [], publicacoes: [] });
   confere("sem conta nenhuma o resumo sai vazio e sem erro", vazio.contas.length === 0 && vazio.total.seguidores.valor === null && !vazio.semLeitura);
 
