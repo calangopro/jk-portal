@@ -19,7 +19,21 @@ O setor se chama **Social Media** na tela. As telas, na ordem do menu:
 - **Posts e stories:** a fila, os rascunhos, o que saiu e o que deu erro.
 - **Em alta:** cada publicação comparada com o normal da própria conta (a mediana de 90 dias, da mesma conta, do mesmo tipo e pela mesma régua). Ordena por visualizações, interações, engajamento, comentários, compartilhamentos ou salvos. Cada post abre uma página com os números e os comentários dele.
 - **Comentários:** um por um ou agrupados por post.
+- **Calendário:** o mês inteiro, com o que saiu (inclusive o que foi postado pelo aplicativo, fora do painel), o que está na fila e as ideias com dia. Tocar num dia mostra o que tem nele e cria post ou story já na data, no melhor horário pelo histórico da conta.
+- **Ideias:** guardar uma ideia, tirar das sugestões (o que rendeu acima do normal, as perguntas dos comentários, as campanhas da bio e as datas do comércio dos próximos 60 dias) e "Virar post". O rascunho fica ligado à ideia, e ela anda sozinha para Agendadas e Publicadas.
 - **Automações** e **Contas ligadas.**
+
+### Sequência de stories
+
+No compositor, escolha **Story** e ponha várias fotos e vídeos de uma vez (até 10). Cada um vira um story, na ordem da lista (as setas mudam a ordem). Duas opções: **um logo depois do outro**, ou **espaçados** a cada 15 minutos, 30 minutos, 1, 2 ou 3 horas, a partir da hora marcada.
+
+- Um story nunca sai antes do anterior, na mesma conta: se um story de vídeo demorar para a rede preparar, os seguintes esperam. Quem garante é o banco, não a hora.
+- Cada story é um item da fila, com o próprio link. Se um der erro, os seguintes saem do mesmo jeito, e a tela mostra o buraco.
+- "Tirar a sequência inteira" cancela o que ainda não saiu. O que já saiu continua no ar.
+
+### Horários sugeridos
+
+As sugestões de hora do calendário e do compositor saem do histórico da própria conta: cada post comparado com o normal dela, em faixas de três horas. A faixa com a mediana mais alta é a sugerida, e a tela diz em quantos posts ela se apoia. É o que rendeu mais até aqui, não uma regra: muda conforme a conta posta.
 
 Quem cuida das redes entra como **Editor** por enquanto (vê também Conteúdo, Site e Produtos). Um nível só de redes depende de mexer na trava do conector do Claude, que hoje deixa entrar só a equipe de conteúdo.
 
