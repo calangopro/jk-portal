@@ -1,10 +1,11 @@
 import "server-only";
+import { randomUUID } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { apagarMidias, ehEnderecoNosso } from "./armazenamento";
 import { listarContas } from "./contas";
 import { modulo } from "./plataformas";
 import { nomeDaRede, type Formato, type RedeId } from "./redes";
-import { temTravessao } from "./regras";
+import { INTERVALOS_DA_SEQUENCIA, temTravessao } from "./regras";
 import type { Conta, Midia, Peca } from "./tipos";
 
 /**
@@ -76,7 +77,7 @@ function lerMidias(bruto: unknown): Midia[] {
   return saida;
 }
 
-const OPCOES_CONHECIDAS = ["primeiro_comentario", "colaboradores", "fora_do_feed", "capa_ms", "visibilidade", "categoria", "tags", "feito_com_ia", "link"] as const;
+const OPCOES_CONHECIDAS = ["primeiro_comentario", "colaboradores", "fora_do_feed", "capa_ms", "visibilidade", "categoria", "tags", "feito_com_ia", "link", "intervalo_min"] as const;
 
 function lerOpcoes(bruto: unknown): Record<string, unknown> {
   const o = bruto && typeof bruto === "object" && !Array.isArray(bruto) ? (bruto as Record<string, unknown>) : {};
@@ -251,12 +252,12 @@ export async function salvarPost(db: SupabaseClient, id: string, bruto: DadosDoP
   return erro ? falha(erro) : { ok: true };
 }
 
-type LinhaDoPost = { id: string; titulo: string | null; legenda: string; formato: Formato; midias: Midia[]; opcoes: Record<string, unknown>; status: string };
+type LinhaDoPost = { id: string; titulo: string | null; legenda: string; formato: Formato; midias: Midia[]; opcoes: Record<string, unknown>; status: string; origem: string; criado_por: string | null };
 type LinhaDoEnvio = { id: string; conta_id: string; rede: string; legenda: string | null; titulo: string | null; status: string };
 
 async function lerParaLiberar(db: SupabaseClient, id: string): Promise<{ post: LinhaDoPost; envios: LinhaDoEnvio[] } | null> {
   const [{ data: post }, { data: envios }] = await Promise.all([
-    db.from("redes_posts").select("id, titulo, legenda, formato, midias, opcoes, status").eq("id", id).maybeSingle(),
+    db.from("redes_posts").select("id, titulo, legenda, formato, midias, opcoes, status, origem, criado_por").eq("id", id).maybeSingle(),
     db.from("redes_envios").select("id, conta_id, rede, legenda, titulo, status").eq("post_id", id),
   ]);
   if (!post) return null;
@@ -300,6 +301,8 @@ export async function liberarPost(db: SupabaseClient, quem: Quem, id: string, qu
   if (problemas.length) return falha(emFrase(problemas));
 
   const hora = (quando ?? new Date(agora)).toISOString();
+  if (dados.formato === "story" && dados.midias.length > 1) return partirSequencia(db, quem, post, pendentes, dados.midias, hora, contas);
+
   const { error } = await db
     .from("redes_envios")
     .update({ status: "agendado", agendado_para: hora, proxima_tentativa: null, tentativas: 0, erro: null, avisos: [], pego_em: null, processando_desde: null, atualizado_em: new Date().toISOString() })
@@ -313,6 +316,87 @@ export async function liberarPost(db: SupabaseClient, quem: Quem, id: string, qu
     return `${nomeDaRede(e.rede)}${c?.usuario ? ` ${c.usuario}` : ""}`;
   });
   return { ok: true, quando: hora, contas: nomes };
+}
+
+/**
+ * Story com várias mídias é uma SEQUÊNCIA. Ao liberar, a peça vira um post
+ * por story, todos com a mesma `sequencia` e a `ordem` de cada um: este post
+ * fica com a primeira mídia, e um post novo nasce para cada uma das outras,
+ * com as mesmas contas, o mesmo texto e a mesma pessoa como autora.
+ *
+ * O primeiro sai na hora pedida e os seguintes a cada `intervalo_min` minutos
+ * (zero: um logo depois do outro). A ordem não depende da hora: o banco não
+ * entrega um story enquanto o anterior, na mesma conta, não terminou (0088).
+ */
+async function partirSequencia(
+  db: SupabaseClient,
+  quem: Quem,
+  post: LinhaDoPost,
+  pendentes: LinhaDoEnvio[],
+  midias: Midia[],
+  hora: string,
+  contas: Conta[],
+): Promise<Resultado<{ quando: string; contas: string[] }>> {
+  const sequencia = randomUUID();
+  const pedido = Number(post.opcoes?.intervalo_min ?? 0);
+  const intervalo = INTERVALOS_DA_SEQUENCIA.includes(pedido) ? pedido : 0;
+  const inicio = Date.parse(hora);
+  const quandoDe = (i: number) => new Date(inicio + i * intervalo * 60_000).toISOString();
+  const agora = () => new Date().toISOString();
+
+  // O primeiro story é este post, com a primeira mídia.
+  const primeiro = await db
+    .from("redes_posts")
+    .update({ midias: [midias[0]], sequencia, ordem: 1, agendado_para: hora, liberado_por: quem.id, liberado_em: agora(), atualizado_em: agora() })
+    .eq("id", post.id);
+  if (primeiro.error) return falha(primeiro.error.message);
+  const envios = await db
+    .from("redes_envios")
+    .update({ status: "agendado", agendado_para: hora, proxima_tentativa: null, tentativas: 0, erro: null, avisos: [], pego_em: null, processando_desde: null, atualizado_em: agora() })
+    .in("id", pendentes.map((e) => e.id));
+  if (envios.error) return falha(envios.error.message);
+  await db.from("redes_envios_andamento").delete().in("envio_id", pendentes.map((e) => e.id));
+
+  // Um post novo para cada uma das outras mídias.
+  for (let i = 1; i < midias.length; i++) {
+    const quando = quandoDe(i);
+    const { data, error } = await db
+      .from("redes_posts")
+      .insert({
+        titulo: post.titulo, legenda: post.legenda, formato: "story", midias: [midias[i]], opcoes: post.opcoes ?? {}, origem: post.origem === "conector" ? "conector" : "painel",
+        criado_por: post.criado_por ?? quem.id, sequencia, ordem: i + 1, agendado_para: quando, liberado_por: quem.id, liberado_em: agora(),
+      })
+      .select("id")
+      .single();
+    if (error || !data) return falha(`Os ${i} primeiros stories entraram na fila, mas o ${i + 1}º não foi gravado: ${error?.message ?? "erro"}. Confira a fila antes de tentar de novo.`);
+    const linhas = pendentes.map((e) => ({ post_id: data.id as string, conta_id: e.conta_id, rede: e.rede, legenda: e.legenda, titulo: e.titulo, status: "agendado", agendado_para: quando, tentativas: 0 }));
+    const gravou = await db.from("redes_envios").insert(linhas);
+    if (gravou.error) return falha(`O ${i + 1}º story foi criado, mas não entrou na fila: ${gravou.error.message}. Confira a fila antes de tentar de novo.`);
+  }
+
+  const nomes = pendentes.map((e) => {
+    const c = contas.find((x) => x.id === e.conta_id);
+    return `${nomeDaRede(e.rede)}${c?.usuario ? ` ${c.usuario}` : ""}`;
+  });
+  return { ok: true, quando: hora, contas: nomes };
+}
+
+/** Cancela o que falta sair de uma sequência de stories inteira. O que já saiu fica. */
+export async function cancelarSequencia(db: SupabaseClient, sequencia: string): Promise<Resultado<{ cancelados: number }>> {
+  if (!/^[0-9a-f-]{36}$/.test(sequencia)) return falha("Sequência desconhecida.");
+  const { data: posts } = await db.from("redes_posts").select("id").eq("sequencia", sequencia);
+  const ids = ((posts ?? []) as { id: string }[]).map((p) => p.id);
+  if (!ids.length) return falha("Sequência não encontrada.");
+  const { data, error } = await db
+    .from("redes_envios")
+    .update({ status: "cancelado", proxima_tentativa: null, pego_em: null, atualizado_em: new Date().toISOString() })
+    .in("post_id", ids)
+    .in("status", ["agendado", "processando", "erro"])
+    .select("id");
+  if (error) return falha(error.message);
+  if (!data?.length) return falha("Nada desta sequência estava marcado para sair.");
+  await db.from("redes_envios_andamento").delete().in("envio_id", data.map((e) => e.id as string));
+  return { ok: true, cancelados: data.length };
 }
 
 /** Tira o post da fila. O que já saiu fica; o que estava marcado para sair é cancelado. */
@@ -380,19 +464,23 @@ export type PostNaTela = {
   liberadoPor: string | null;
   criadoEm: string;
   envios: EnvioNaTela[];
+  /** Sequência de stories: a posição deste e quantos são. Nulo: post solto. */
+  sequencia: { id: string; ordem: number; total: number } | null;
 };
 
 type PostCru = {
   id: string; titulo: string | null; legenda: string; formato: string; midias: unknown; opcoes: Record<string, unknown> | null; status: string;
   agendado_para: string | null; publicado_em: string | null; origem: string; criado_por: string | null; liberado_por: string | null; criado_em: string;
+  sequencia: string | null; ordem: number | null;
   redes_envios: { id: string; conta_id: string; rede: string; status: string; agendado_para: string | null; proxima_tentativa: string | null; url_publicada: string | null; erro: string | null; avisos: string[] | null; publicado_em: string | null; legenda: string | null; titulo: string | null; redes_contas: { nome: string | null; usuario: string | null } | null }[];
 };
 
 const SELECAO =
-  "id, titulo, legenda, formato, midias, opcoes, status, agendado_para, publicado_em, origem, criado_por, liberado_por, criado_em, redes_envios(id, conta_id, rede, status, agendado_para, proxima_tentativa, url_publicada, erro, avisos, publicado_em, legenda, titulo, redes_contas(nome, usuario))";
+  "id, titulo, legenda, formato, midias, opcoes, status, agendado_para, publicado_em, origem, criado_por, liberado_por, criado_em, sequencia, ordem, redes_envios(id, conta_id, rede, status, agendado_para, proxima_tentativa, url_publicada, erro, avisos, publicado_em, legenda, titulo, redes_contas(nome, usuario))";
 
-function postNaTela(p: PostCru, nomes: Map<string, string>): PostNaTela {
+function postNaTela(p: PostCru, nomes: Map<string, string>, totais: Map<string, number> = new Map()): PostNaTela {
   return {
+    sequencia: p.sequencia && p.ordem ? { id: p.sequencia, ordem: p.ordem, total: totais.get(p.sequencia) ?? p.ordem } : null,
     id: p.id,
     titulo: p.titulo,
     legenda: p.legenda,
@@ -451,8 +539,18 @@ export async function listarPosts(admin: SupabaseClient, filtro: FiltroDePosts, 
     return [];
   }
   const posts = (data ?? []) as unknown as PostCru[];
-  const nomes = await nomesDe(admin, posts.flatMap((p) => [p.criado_por, p.liberado_por]));
-  return posts.map((p) => postNaTela(p, nomes));
+  const [nomes, totais] = await Promise.all([nomesDe(admin, posts.flatMap((p) => [p.criado_por, p.liberado_por])), totaisDasSequencias(admin, posts)]);
+  return posts.map((p) => postNaTela(p, nomes, totais));
+}
+
+/** Quantos stories tem cada sequência da lista, para a tela dizer "story 2 de 5". */
+async function totaisDasSequencias(admin: SupabaseClient, posts: { sequencia: string | null }[]): Promise<Map<string, number>> {
+  const ids = [...new Set(posts.map((p) => p.sequencia).filter((x): x is string => Boolean(x)))];
+  if (!ids.length) return new Map();
+  const { data } = await admin.from("redes_posts").select("sequencia").in("sequencia", ids).limit(1000);
+  const totais = new Map<string, number>();
+  for (const l of (data ?? []) as { sequencia: string }[]) totais.set(l.sequencia, (totais.get(l.sequencia) ?? 0) + 1);
+  return totais;
 }
 
 export async function lerPost(admin: SupabaseClient, id: string): Promise<PostNaTela | null> {
@@ -460,7 +558,8 @@ export async function lerPost(admin: SupabaseClient, id: string): Promise<PostNa
   const { data } = await admin.from("redes_posts").select(SELECAO).eq("id", id).maybeSingle();
   if (!data) return null;
   const p = data as unknown as PostCru;
-  return postNaTela(p, await nomesDe(admin, [p.criado_por, p.liberado_por]));
+  const [nomes, totais] = await Promise.all([nomesDe(admin, [p.criado_por, p.liberado_por]), totaisDasSequencias(admin, [p])]);
+  return postNaTela(p, nomes, totais);
 }
 
 /**

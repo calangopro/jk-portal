@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { ArrowDown, ArrowUp, CalendarClock, CircleAlert, CircleCheck, Film, ImagePlus, LoaderCircle, Send, Trash2, X } from "lucide-react";
 import { SeloDaRede } from "@/components/redes/Selo";
 import { NOME_DO_FORMATO, nomeDaRede, nomeDoFormatoNaRede, type Formato, type RedeId } from "@/lib/redes/redes";
-import { FORMATOS_PUBLICAVEIS, LIMITES, temTravessao, validarPeca } from "@/lib/redes/regras";
+import { FORMATOS_PUBLICAVEIS, INTERVALOS_DA_SEQUENCIA, LIMITES, MAX_STORIES_NA_SEQUENCIA, temTravessao, validarPeca } from "@/lib/redes/regras";
 import type { DadosDoPost, PostNaTela } from "@/lib/redes/posts";
 import type { Midia } from "@/lib/redes/tipos";
 import type { Resposta } from "./actions";
@@ -103,6 +103,11 @@ export function Compositor({
   const [titulo, setTitulo] = useState(post?.titulo ?? "");
   const [primeiroComentario, setPrimeiroComentario] = useState(String(post?.opcoes?.primeiro_comentario ?? ""));
   const [visibilidade, setVisibilidade] = useState(String(post?.opcoes?.visibilidade ?? "publico"));
+  // Sequência de stories: minutos entre um story e o seguinte. Zero: um logo depois do outro.
+  const [intervalo, setIntervalo] = useState(() => {
+    const v = Number(post?.opcoes?.intervalo_min ?? 0);
+    return INTERVALOS_DA_SEQUENCIA.includes(v) ? v : 0;
+  });
   const [itens, setItens] = useState<Item[]>(() =>
     (post?.midias ?? []).map((m) => ({ chave: novaChave(), tipo: m.tipo, nome: m.caminho?.split("/").pop() ?? "", previa: m.url, estado: "pronto" as const, progresso: 1, midia: m })),
   );
@@ -211,6 +216,7 @@ export function Compositor({
   const escreverAlt = (chave: string, alt: string) => setItens((l) => l.map((i) => (i.chave === chave && i.midia ? { ...i, midia: { ...i.midia, alt } } : i)));
 
   const midias = useMemo(() => itens.filter((i) => i.estado === "pronto" && i.midia).map((i) => i.midia as Midia), [itens]);
+  const ehSequencia = formato === "story" && itens.filter((i) => i.estado !== "erro").length > 1;
   const subindo = itens.some((i) => i.estado === "preparando" || i.estado === "subindo");
   const semMidia = formato === "texto";
 
@@ -222,8 +228,9 @@ export function Compositor({
     const o: Record<string, unknown> = {};
     if (primeiroComentario.trim() && formato !== "story") o.primeiro_comentario = primeiroComentario.trim();
     if (temYouTube && visibilidade !== "publico") o.visibilidade = visibilidade;
+    if (ehSequencia && intervalo > 0) o.intervalo_min = intervalo;
     return o;
-  }, [primeiroComentario, formato, temYouTube, visibilidade]);
+  }, [primeiroComentario, formato, temYouTube, visibilidade, ehSequencia, intervalo]);
 
   const dados: DadosDoPost = useMemo(
     () => ({ titulo: titulo.trim() || null, legenda, formato, midias: semMidia ? [] : midias, opcoes, contas: escolhidas }),
@@ -340,7 +347,7 @@ export function Compositor({
             {formato === "video_curto"
               ? "Vídeo em pé: sai como Reels no Instagram e no Facebook, e como Shorts no YouTube."
               : formato === "story"
-                ? "Uma imagem ou um vídeo de até 60 segundos, em pé. Sai sem figurinha de link: a rede não deixa pôr pela API."
+                ? `Uma imagem ou um vídeo de até 60 segundos, em pé. Pondo várias (até ${MAX_STORIES_NA_SEQUENCIA}), vira uma sequência: cada uma sai como um story, na ordem da lista. Sai sem figurinha de link: a rede não deixa pôr pela API.`
                 : formato === "carrossel"
                   ? "Carrossel: de 2 a 20 fotos, na ordem da lista (o Instagram aceita vídeo no meio; o Facebook, só foto)."
                   : formato === "texto"
@@ -380,7 +387,8 @@ export function Compositor({
                     </span>
                     <div className="min-w-0 flex-1">
                       <p className="break-words text-xs font-semibold leading-snug text-ink">
-                        {n + 1}. {i.tipo === "video" ? "Vídeo" : "Imagem"}
+                        {ehSequencia ? `Story ${n + 1}` : `${n + 1}. ${i.tipo === "video" ? "Vídeo" : "Imagem"}`}
+                        {ehSequencia ? <span className="font-normal text-muted"> · {i.tipo === "video" ? "vídeo" : "imagem"}</span> : null}
                         {i.midia?.largura && i.midia.altura ? <span className="font-normal text-muted"> · {i.midia.largura} × {i.midia.altura}</span> : null}
                         {i.midia?.tamanho ? <span className="font-normal text-muted"> · {tamanhoEmPalavra(i.midia.tamanho)}</span> : null}
                       </p>
@@ -436,7 +444,7 @@ export function Compositor({
               ref={arquivo}
               type="file"
               accept="image/jpeg,image/png,image/webp,video/mp4,video/quicktime"
-              multiple={formato === "carrossel" || formato === "post"}
+              multiple={formato === "carrossel" || formato === "post" || formato === "story"}
               className="sr-only"
               aria-label="Escolher arquivos de mídia"
               onChange={(e) => {
@@ -457,13 +465,61 @@ export function Compositor({
               className="painel-toque mt-3 flex w-full items-center justify-center gap-2 rounded-[12px] border border-dashed border-ink/25 bg-white/60 px-4 py-4 text-sm font-semibold text-ink hover:border-[var(--setor)]"
             >
               <ImagePlus size={17} aria-hidden="true" />
-              {itens.length ? "Adicionar outra" : "Escolher foto ou vídeo"}
+              {itens.length ? (formato === "story" ? "Adicionar outro story" : "Adicionar outra") : formato === "story" ? "Escolher os stories (um ou vários)" : "Escolher foto ou vídeo"}
             </button>
             <p className="mt-2 text-[0.7rem] leading-relaxed text-muted">
               Imagem em JPEG ou PNG (vira JPEG, que é o que o Instagram aceita). Vídeo em MP4 ou MOV. A capa do vídeo curto é uma imagem posta junto do vídeo.
             </p>
           </section>
         )}
+
+        {/* 2b. A sequência de stories */}
+        {ehSequencia ? (
+          <section className="glass rounded-[18px] p-4 sm:p-5" aria-labelledby="t-sequencia">
+            <h2 id="t-sequencia" className="text-sm font-semibold text-ink">
+              Como os {itens.filter((i) => i.estado !== "erro").length} stories saem
+            </h2>
+            <div role="radiogroup" aria-labelledby="t-sequencia" className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+              {[
+                { v: 0, nome: "Um logo depois do outro", desc: "Saem em seguida, na ordem da lista." },
+                { v: intervalo || 60, nome: "Espaçados ao longo do dia", desc: "Um story a cada intervalo, a partir da hora marcada." },
+              ].map((o) => {
+                const ativo = o.v === 0 ? intervalo === 0 : intervalo > 0;
+                return (
+                  <button
+                    key={o.nome}
+                    type="button"
+                    role="radio"
+                    aria-checked={ativo}
+                    onClick={() => {
+                      setIntervalo(o.v);
+                      setConfirmando(false);
+                    }}
+                    className={"painel-toque rounded-[12px] border px-3.5 py-3 text-left " + (ativo ? "border-[var(--setor)] bg-[var(--setor)]/[0.06]" : "border-ink/12 bg-white")}
+                  >
+                    <span className="block text-sm font-semibold text-ink">{o.nome}</span>
+                    <span className="mt-0.5 block text-xs text-muted">{o.desc}</span>
+                  </button>
+                );
+              })}
+            </div>
+            {intervalo > 0 ? (
+              <label className="mt-3 block">
+                <span className={rotulo}>Um story a cada</span>
+                <select value={intervalo} onChange={(e) => { setIntervalo(Number(e.target.value)); setConfirmando(false); }} className={`${campo} mt-1`}>
+                  {INTERVALOS_DA_SEQUENCIA.filter((v) => v > 0).map((v) => (
+                    <option key={v} value={v}>
+                      {v < 60 ? `${v} minutos` : v === 60 ? "1 hora" : `${v / 60} horas`}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
+            <p className="mt-2 text-[0.7rem] leading-relaxed text-muted">
+              Cada story vira um item na fila, com o próprio link. Um nunca sai antes do anterior: se um story de vídeo demorar na rede, os seguintes esperam. Para mudar a ordem, use as setas da lista de mídias.
+            </p>
+          </section>
+        ) : null}
 
         {/* 3. O texto */}
         <section className="glass rounded-[18px] p-4 sm:p-5" aria-labelledby="t-texto">
@@ -628,7 +684,8 @@ export function Compositor({
               <div>
                 <p className="text-sm font-semibold text-ink">{modo === "agora" ? "Publicar agora?" : "Agendar?"}</p>
                 <p className="mt-1 break-words text-xs leading-relaxed text-ink">
-                  Vai sair {modo === "agora" ? "agora" : problemas.horaMarcada ? `${quando(problemas.horaMarcada)}, horário de Brasília` : ""}, em <strong>{juntar(nomesDasEscolhidas)}</strong>. É público e sai no nome da JK.
+                  {ehSequencia ? `${midias.length} stories, ${intervalo ? `um a cada ${intervalo < 60 ? `${intervalo} minutos` : intervalo === 60 ? "hora" : `${intervalo / 60} horas`}` : "um logo depois do outro"}. ` : ""}
+                  Vai{ehSequencia ? "m" : ""} sair {modo === "agora" ? "agora" : problemas.horaMarcada ? `${quando(problemas.horaMarcada)}, horário de Brasília` : ""}, em <strong>{juntar(nomesDasEscolhidas)}</strong>. É público e sai no nome da JK.
                 </p>
                 <div className="mt-3 flex flex-wrap gap-2">
                   <button type="button" onClick={liberar} disabled={!podeLiberar} className="painel-toque inline-flex items-center gap-2 rounded-full bg-ink px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-50">
@@ -676,7 +733,7 @@ export function Compositor({
       <aside className="sticky top-[calc(var(--painel-topo,4rem)+1rem)] hidden lg:block" aria-label="Prévia">
         <p className="eyebrow">Prévia</p>
         <div className="mt-2 overflow-hidden rounded-[18px] border border-ink/10 bg-white">
-          <div className="grid aspect-[4/5] place-items-center bg-ink/[0.05] text-muted">
+          <div className={"grid place-items-center bg-ink/[0.05] text-muted " + (formato === "story" || formato === "video_curto" ? "aspect-[9/16]" : "aspect-[4/5]")}>
             {itens[0]?.previa && !semMidia ? (
               itens[0].tipo === "video" ? (
                 <video src={itens[0].previa} muted playsInline controls preload="metadata" className="h-full w-full object-contain" />
@@ -691,7 +748,7 @@ export function Compositor({
           <div className="p-3.5">
             {titulo.trim() && (temYouTube || formato === "video") ? <p className="mb-1 break-words text-sm font-semibold text-ink">{titulo}</p> : null}
             <p className="line-clamp-6 whitespace-pre-line break-words text-xs leading-relaxed text-ink">{legenda || <span className="text-muted">A legenda aparece aqui.</span>}</p>
-            {itens.length > 1 && !semMidia ? <p className="mt-2 text-[0.7rem] text-muted">{itens.length} mídias</p> : null}
+            {itens.length > 1 && !semMidia ? <p className="mt-2 text-[0.7rem] text-muted">{ehSequencia ? `Sequência de ${itens.length} stories` : `${itens.length} mídias`}</p> : null}
           </div>
         </div>
         <p className="mt-2 text-[0.68rem] leading-relaxed text-muted">É um rascunho da peça, não a tela da rede: cada rede corta e enquadra do seu jeito.</p>

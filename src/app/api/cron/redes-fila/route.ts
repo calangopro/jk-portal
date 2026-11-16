@@ -25,7 +25,16 @@ export async function POST(request: Request) {
     return NextResponse.json({ erro: "segredo inválido" }, { status: 401 });
   }
   try {
-    const feitos = await processarFila(supabase, { limite: 4 });
+    // Mais de uma volta por chamada: numa sequência de stories o banco só entrega o story seguinte depois
+    // que o anterior saiu, e com uma volta só cada story esperaria o próximo minuto do relógio. Para
+    // quando nada saiu nem deu erro na volta (fila vazia, ou só vídeo sendo preparado pela rede).
+    const feitos: Awaited<ReturnType<typeof processarFila>> = [];
+    const prazo = Date.now() + 35_000;
+    for (let volta = 0; volta < 6 && Date.now() < prazo; volta++) {
+      const desta = await processarFila(supabase, { limite: 4 });
+      feitos.push(...desta);
+      if (!desta.some((f) => f.estado === "publicado" || f.estado === "erro")) break;
+    }
     const conta = (estado: string) => feitos.filter((f) => f.estado === estado).length;
     // Envio que deu erro não é a ROTINA parada: o motivo fica no próprio envio, e a tela de publicar mostra.
     await registrarPulso(supabase, "redes-fila", true, `${conta("publicado")} publicados, ${conta("processando")} preparando, ${conta("erro") + conta("de_novo")} com erro`);
