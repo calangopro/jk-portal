@@ -152,12 +152,16 @@ export async function credenciaisAtivas(db: SupabaseClient, conta: Conta, modulo
         await db.from("redes_contas").update({ expira_em: novo.expiraEm, status: "ativa", ultimo_erro: null, atualizado_em: new Date().toISOString() }).eq("id", conta.id);
       }
     } catch (e) {
+      // Só a própria rede dizendo que o acesso foi retirado marca a conta como vencida.
       if (e instanceof ErroDaRede && e.tokenMorto) throw e;
-      // Já venceu e não renovou: não adianta seguir com token morto.
-      if (Number.isFinite(vence) && vence < Date.now()) {
-        throw new ErroDaRede("O acesso venceu e a renovação falhou. Ligue a conta de novo em Integrações.", { tokenMorto: true });
-      }
       console.error("[redes] renovar", conta.rede, e instanceof Error ? e.message : e);
+      // O acesso já venceu e a renovação falhou por outro motivo (rede fora, erro 5xx): não adianta seguir
+      // com ele, mas TAMBÉM não é caso de mandar ligar de novo. A rodada larga esta conta e a seguinte tenta
+      // renovar outra vez. O acesso do Google vale uma hora, então isto acontece em toda falha passageira:
+      // tratar como acesso morto tiraria o canal do ar por um soluço do servidor deles.
+      if (Number.isFinite(vence) && vence < Date.now()) {
+        throw new ErroDaRede("Não deu para renovar o acesso agora. A próxima rodada tenta de novo.", { parar: true });
+      }
     }
   }
   return credenciais;
