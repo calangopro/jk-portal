@@ -1,10 +1,10 @@
 import type { LucideIcon } from "lucide-react";
 import {
-  Activity, Banknote, BellRing, BookCheck, Bot, CalendarDays, Contact, Crosshair, FileText, Filter, Globe, Hammer, HandCoins, Handshake,
-  HeartPulse, History, ImageIcon, LayoutDashboard, LayoutTemplate, LibraryBig, ListChecks, MapPin, MessageCircle, MessagesSquare, Milestone,
+  Activity, Banknote, BellRing, BookCheck, Bot, CalendarDays, Cable, Contact, Crosshair, FileText, Filter, Globe, Hammer, HandCoins, Handshake,
+  HeartPulse, History, ImageIcon, LayoutDashboard, LayoutTemplate, LibraryBig, ListChecks, MapPin, MessageCircle, MessageSquareText, MessagesSquare, Milestone,
   Package, PackageSearch, Palette, PenLine,
-  Percent, Plug, QrCode, RotateCcw, Settings, Smartphone, Sparkles, Star, Store, Table2, Tags, TrendingUp, Trophy, Users,
-  UsersRound, Wallet,
+  Percent, Plug, QrCode, RotateCcw, Send, Settings, Share2, Smartphone, Sparkles, Star, Store, Table2, Tags, TrendingUp, Trophy, Users,
+  UsersRound, Wallet, Workflow,
 } from "lucide-react";
 import type { Area } from "@/lib/auth/acessos";
 
@@ -12,7 +12,7 @@ import type { Area } from "@/lib/auth/acessos";
  * Os setores do painel: o escritório da JK, sala por sala.
  *
  * O menu antigo era uma lista de vinte e nove telas em cinco grupos, e a pessoa
- * precisava ler tudo para achar o que queria. Agora são nove salas, cada uma
+ * precisava ler tudo para achar o que queria. Agora são dez salas, cada uma
  * com a sua cor, e dentro de cada sala ficam as telas dela. Este arquivo é a
  * ÚNICA lista: dele saem a barra lateral do computador, a barra de baixo do
  * celular, as abas de cada setor e a folha "Mais". Tela nova entra aqui e
@@ -40,7 +40,7 @@ export type ItemDoSetor = {
   desc: string;
 };
 
-export type SetorId = "diretoria" | "vendas" | "time" | "trafego" | "loja" | "fabrica" | "conteudo" | "site" | "sistema";
+export type SetorId = "diretoria" | "vendas" | "time" | "trafego" | "redes" | "loja" | "fabrica" | "conteudo" | "site" | "sistema";
 
 export type Setor = {
   id: SetorId;
@@ -108,6 +108,24 @@ export const SETORES: Setor[] = [
       { href: "/admin/trafego", area: "trafego", label: "Gasto e retorno", curto: "Resumo", Icone: Activity, desc: "Quanto saiu e quanto voltou" },
       { href: "/admin/trafego/campanhas", area: "trafego", label: "Campanhas e anúncios", curto: "Anúncios", Icone: Table2, desc: "Campanha, conjunto e anúncio" },
       { href: "/admin/anuncios", area: "anuncios", label: "Limite de anúncio", curto: "Limite", Icone: Crosshair, desc: "Quanto dá para pagar por venda" },
+    ],
+  },
+  // As redes sociais da JK. A cor (azul ultramar) foi medida como as outras:
+  // 9,3:1 sobre o marfim, 10,3:1 sobre branco e 8,3:1 sobre ela mesma a 12%,
+  // e é a mais distante das cores que já existiam (as vizinhas são Vendas e
+  // Tráfego). Tela nova das redes entra aqui quando existir, nunca antes.
+  {
+    id: "redes",
+    nome: "Redes",
+    frase: "Instagram, Facebook, YouTube e as outras",
+    cor: "#24339e",
+    Icone: Share2,
+    itens: [
+      { href: "/admin/redes", area: "redes", label: "Todas as redes", curto: "Resumo", Icone: Share2, desc: "Os números de cada rede, lado a lado" },
+      { href: "/admin/redes/publicar", area: "redes", label: "Publicar e agendar", curto: "Publicar", Icone: Send, desc: "Montar o post, mandar agora ou marcar a hora" },
+      { href: "/admin/redes/comentarios", area: "redes", label: "Comentários das redes", curto: "Comentários", Icone: MessageSquareText, desc: "O que comentaram, e a resposta da JK" },
+      { href: "/admin/redes/automacoes", area: "redes", label: "Automações", Icone: Workflow, desc: "Resposta pronta a comentário, por palavra" },
+      { href: "/admin/redes/contas", area: "redes", label: "Contas ligadas", curto: "Contas", Icone: Cable, desc: "O que está ligado e o que falta" },
     ],
   },
   {

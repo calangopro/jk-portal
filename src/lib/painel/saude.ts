@@ -58,7 +58,7 @@ export type SaudeCrua = {
   }[];
   contatos: number;
   /** O que espera por uma rotina que só roda quando há o que fazer. */
-  pendencias?: { leads_esperando: number; agendados_vencidos: number };
+  pendencias?: { leads_esperando: number; agendados_vencidos: number; redes_vencidos?: number };
 };
 
 type Rotina = {
@@ -72,7 +72,7 @@ type Rotina = {
   tolerancia: number;
   seParar: string;
   /** Rotina que só roda quando há fila: diz qual fila olhar e como chamar o que espera. */
-  sobDemanda?: { fila: "leads_esperando" | "agendados_vencidos"; um: string; varios: string };
+  sobDemanda?: { fila: "leads_esperando" | "agendados_vencidos" | "redes_vencidos"; um: string; varios: string };
 };
 
 const HORA = 60;
@@ -103,6 +103,16 @@ export const ROTINAS: Rotina[] = [
   },
   { chave: "avaliacoes", origem: "pulso", id: "avaliacoes", nome: "Avaliações do Google", paraQue: "Relê as avaliações das lojas uma vez por dia.", tolerancia: 36 * HORA, seParar: "Confira a ligação com o Google em Integrações." },
   { chave: "search-console", origem: "pulso", id: "search-console", nome: "Search Console", paraQue: "Importa as buscas do Google toda segunda de manhã.", tolerancia: 8 * DIA + 12 * HORA, seParar: AVISAR },
+  {
+    chave: "redes", origem: "pulso", id: "redes", nome: "Leitura das redes sociais",
+    paraQue: "Lê seguidores, alcance e posts das redes ligadas, de meia em meia hora.",
+    tolerancia: 2 * HORA, seParar: "Confira as contas em Redes, Contas ligadas: uma conta com o acesso vencido precisa ser ligada de novo.",
+  },
+  {
+    chave: "redes-fila", origem: "pulso", id: "redes-fila", nome: "Publicação nas redes sociais",
+    paraQue: "Publica nas redes o que foi agendado, olhando de minuto em minuto.", tolerancia: 30, seParar: AVISAR,
+    sobDemanda: { fila: "redes_vencidos", um: "post agendado para as redes já passou da hora", varios: "posts agendados para as redes já passaram da hora" },
+  },
 ];
 
 const DESTINOS: Record<string, { nome: string; paraQue: string }> = {

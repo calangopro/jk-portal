@@ -21,6 +21,10 @@ export async function lerSaude(db: SupabaseClient): Promise<Ligacao[] | null> {
     leituras: Array.isArray(cru.leituras) ? cru.leituras : [],
     destinos: Array.isArray(cru.destinos) ? cru.destinos.map((d) => ({ ...d, ok: Number(d.ok) || 0, erro: Number(d.erro) || 0, sem_chave: Number(d.sem_chave) || 0, ignorado: Number(d.ignorado) || 0, fora_da_fila: Number(d.fora_da_fila) || 0 })) : [],
     contatos: Number(cru.contatos) || 0,
-    pendencias: { leads_esperando: Number(cru.pendencias?.leads_esperando) || 0, agendados_vencidos: Number(cru.pendencias?.agendados_vencidos) || 0 },
+    pendencias: {
+      leads_esperando: Number(cru.pendencias?.leads_esperando) || 0,
+      agendados_vencidos: Number(cru.pendencias?.agendados_vencidos) || 0,
+      redes_vencidos: Number(cru.pendencias?.redes_vencidos) || 0,
+    },
   });
 }
