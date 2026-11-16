@@ -16,8 +16,8 @@ import { MAXIMO_DE_IMAGENS, conferirImagem } from "@/lib/time/chat";
 
 export type ImagemEscolhida = { chave: string; arquivo: File; previa: string };
 
-/** As imagens escolhidas para a próxima mensagem: juntar (do arquivo ou da colagem), tirar, limpar e soltar. */
-export function useImagens() {
+/** As imagens escolhidas para a próxima mensagem: juntar (do arquivo ou da colagem), tirar, limpar e soltar. `maximo` muda o teto (o caso de suporte leva até 4). */
+export function useImagens(maximo = MAXIMO_DE_IMAGENS) {
   const [lista, setLista] = useState<ImagemEscolhida[]>([]);
   const [erro, setErro] = useState<string | null>(null);
   const atual = useRef<ImagemEscolhida[]>([]);
@@ -36,15 +36,15 @@ export function useImagens() {
           setErro(problema);
           continue;
         }
-        if (novas.length >= MAXIMO_DE_IMAGENS) {
-          setErro(`Dá para mandar até ${MAXIMO_DE_IMAGENS} imagens por vez.`);
+        if (novas.length >= maximo) {
+          setErro(`Dá para mandar até ${maximo} imagens por vez.`);
           break;
         }
         novas.push({ chave: crypto.randomUUID(), arquivo, previa: URL.createObjectURL(arquivo) });
       }
       return novas;
     });
-  }, []);
+  }, [maximo]);
 
   const tirar = useCallback((chave: string) => {
     setErro(null);

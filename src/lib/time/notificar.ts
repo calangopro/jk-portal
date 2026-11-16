@@ -4,6 +4,7 @@ import { useEffect, useRef, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import { comBasePath } from "@/lib/seo/base-path";
 import { aoAvisar, avisarAqui, pegarCliente } from "./ao-vivo";
+import { avisoDoSuporte, lerSuporteParaAvisar, type SuporteParaAvisar } from "@/lib/suporte/casos";
 import { avisosDoSistema, estadoDoAviso, lerParaAvisar, lerSala, type AvisoDoSistema, type EstadoDoAviso, type Sala } from "./chat";
 
 /**
@@ -119,27 +120,64 @@ export function useAvisoDoSistema(): EstadoDoAviso {
 
 const emSegundoPlano = () => document.visibilityState !== "visible" || !document.hasFocus();
 
+export type OpcoesDoAviso = {
+  /** Fora da tela do chat, o clique abre a janela flutuante do chat na mensagem, sem trocar de página. */
+  naJanela?: (sala: Sala, mensagem: number) => void;
+  /** A pessoa passa ou atende caso de suporte: o caso novo (para quem atende) e o caso que fechou (para quem passou) também viram aviso. */
+  suporte?: boolean;
+  /** O clique no aviso do suporte abre a janela flutuante no suporte. Sem isto, leva à tela do suporte. */
+  abrirSuporte?: () => void;
+};
+
 /**
  * Mostra o aviso do sistema quando chega mensagem para a pessoa e o painel
  * está em segundo plano. A moldura do painel liga isto em toda tela.
  *
  * `noChat`: a tela aberta é a do chat. Aí o clique no aviso leva até a
- * mensagem sem trocar de página. `naJanela`: fora da tela do chat, o clique
- * abre a janela flutuante do chat na mensagem, também sem trocar de página.
+ * mensagem sem trocar de página.
+ *
+ * O suporte pós-venda (0102) entra na mesma rotina, com a própria função do
+ * banco (`suporte_para_avisar`): é o que faz o caso novo não ficar esquecido
+ * na fila quando o gerente está em outra janela.
  */
-export function useNotificarMensagens(ligado: boolean, noChat: boolean, naJanela?: (sala: Sala, mensagem: number) => void) {
+export function useNotificarMensagens(ligado: boolean, noChat: boolean, opcoes: OpcoesDoAviso = {}) {
   const router = useRouter();
   const estado = useAvisoDoSistema();
   const estouNoChat = useRef(noChat);
   estouNoChat.current = noChat;
-  const abrirNaJanela = useRef(naJanela);
-  abrirNaJanela.current = naJanela;
+  const abrirNaJanela = useRef(opcoes.naJanela);
+  abrirNaJanela.current = opcoes.naJanela;
+  const abrirSuporte = useRef(opcoes.abrirSuporte);
+  abrirSuporte.current = opcoes.abrirSuporte;
+  const comSuporte = Boolean(opcoes.suporte);
 
   useEffect(() => {
     if (!ligado || estado !== "ligado") return;
     let vivo = true;
     let desde: string | null = null;
     const avisadas = new Set<number>();
+    let desdeNoSuporte: string | null = null;
+    const avisadosNoSuporte = new Set<string>();
+
+    const mostrarSuporte = (c: SuporteParaAvisar) => {
+      const a = avisoDoSuporte(c);
+      try {
+        const n = new Notification(a.titulo, { body: a.corpo, tag: a.marca, icon: ICONE, lang: "pt-BR" });
+        n.onclick = () => {
+          try {
+            window.focus();
+          } catch {
+            // Alguns navegadores não deixam a página se pôr na frente: a pessoa clica na aba.
+          }
+          n.close();
+          if (abrirSuporte.current) abrirSuporte.current();
+          else router.push("/admin/suporte");
+        };
+      } catch {
+        semSuporteAqui = true;
+        emitir();
+      }
+    };
     let ocupado = false;
     let pedidoNaFila = false;
     let espera: ReturnType<typeof setTimeout> | null = null;
@@ -178,14 +216,26 @@ export function useNotificarMensagens(ligado: boolean, noChat: boolean, naJanela
       ocupado = true;
       try {
         const db = await pegarCliente();
-        const { data, error } = await db.rpc("chat_para_avisar", { p_desde: desde });
-        if (error || !vivo) return;
-        const r = lerParaAvisar(data);
-        if (r.agora) desde = r.agora;
-        const novas = r.mensagens.filter((m) => !avisadas.has(m.id));
-        novas.forEach((m) => avisadas.add(m.id));
-        // Confere de novo na hora de mostrar: a pessoa pode ter voltado enquanto o banco respondia.
-        if (avisar && emSegundoPlano()) avisosDoSistema(novas).forEach(mostrar);
+        const [chat, suporte] = await Promise.all([
+          db.rpc("chat_para_avisar", { p_desde: desde }),
+          comSuporte ? db.rpc("suporte_para_avisar", { p_desde: desdeNoSuporte }) : null,
+        ]);
+        if (!vivo) return;
+        if (!chat.error) {
+          const r = lerParaAvisar(chat.data);
+          if (r.agora) desde = r.agora;
+          const novas = r.mensagens.filter((m) => !avisadas.has(m.id));
+          novas.forEach((m) => avisadas.add(m.id));
+          // Confere de novo na hora de mostrar: a pessoa pode ter voltado enquanto o banco respondia.
+          if (avisar && emSegundoPlano()) avisosDoSistema(novas).forEach(mostrar);
+        }
+        if (suporte && !suporte.error) {
+          const r = lerSuporteParaAvisar(suporte.data);
+          if (r.agora) desdeNoSuporte = r.agora;
+          const novos = r.casos.filter((c) => !avisadosNoSuporte.has(avisoDoSuporte(c).marca));
+          novos.forEach((c) => avisadosNoSuporte.add(avisoDoSuporte(c).marca));
+          if (avisar && emSegundoPlano()) novos.slice(0, 3).forEach(mostrarSuporte);
+        }
       } catch {
         // Sem rede: o próximo aviso do canal, ou a volta do relógio, tenta de novo.
       } finally {
@@ -228,5 +278,5 @@ export function useNotificarMensagens(ligado: boolean, noChat: boolean, naJanela
       clearInterval(relogio);
       if (espera) clearTimeout(espera);
     };
-  }, [ligado, estado, router]);
+  }, [ligado, estado, router, comSuporte]);
 }

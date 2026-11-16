@@ -14,6 +14,8 @@ import { lerSaude } from "@/lib/painel/saude-dados";
 import { calcularSinais, type EntradaDosSinais } from "@/lib/painel/sinais";
 import { SEM_RESUMO, esperandoPorMim as esperandoNoChat } from "@/lib/time/chat";
 import { lerResumoDoChat } from "@/lib/time/dados";
+import { SEM_RESUMO_DO_SUPORTE } from "@/lib/suporte/casos";
+import { lerResumoDoSuporteNoServidor } from "@/lib/suporte/dados";
 import { lerResumoDeGasto } from "@/lib/trafego/dados";
 import { retornoPorPlataforma } from "@/lib/trafego/retorno";
 import { lerResumoDeVendas, ultimaImportacao } from "@/lib/vendas/dados";
@@ -28,6 +30,7 @@ import { OportunidadesDaSemana } from "./OportunidadesDaSemana";
 import { PainelGeral, type DadosDeVendas } from "./PainelGeral";
 import { ResultadoDoMes, type Resultado } from "./ResultadoDoMes";
 import { Salas, type NumerosDasSalas } from "./Salas";
+import { SuporteParaMim } from "./SuporteParaMim";
 
 /** Quantos dias o painel compara: os últimos 30 contra os 30 anteriores. */
 const DIAS = 30;
@@ -167,11 +170,14 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
   const saude = ehAdmin(profile.role) ? lerSaude(await createClient()) : null;
   // O que espera a pessoa no chat do time: o que ela não leu e os pedidos do setor dela. Também começa já.
   const chatDoTime = profile.areas.includes("time") ? createClient().then(lerResumoDoChat) : null;
+  // E o suporte pós-venda: caso sem dono para quem atende, caso que fechou para quem passou. Também começa já.
+  const suporteDoTime = profile.areas.includes("lancar_venda") || profile.areas.includes("suporte") ? createClient().then(lerResumoDoSuporteNoServidor) : null;
   const [{ vendas, sinais, andamento, hoje, porForaNoMes, resultado, salas, podeVerMeta, oportunidades }, conteudo] = await Promise.all([
     lerPainel(profile),
     profile.areas.includes("conteudo") ? lerConteudo() : null,
   ]);
   const chat = (await chatDoTime) ?? SEM_RESUMO;
+  const suporte = (await suporteDoTime) ?? SEM_RESUMO_DO_SUPORTE;
   const esperandoPorMim = esperandoNoChat(chat);
   if (esperandoPorMim > 0) {
     salas.time = {
@@ -179,7 +185,7 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
       apoio: esperandoPorMim === 1 ? "mensagem esperando você no chat" : "mensagens esperando você no chat",
     };
   }
-  const semNada = !vendas && sinais.length === 0 && !conteudo && oportunidades.length === 0 && !saude && esperandoPorMim === 0;
+  const semNada = !vendas && sinais.length === 0 && !conteudo && oportunidades.length === 0 && !saude && esperandoPorMim === 0 && suporte.fila + suporte.comigo + suporte.novidades === 0;
   if (conteudo) {
     const [posts, , produtos] = conteudo;
     salas.conteudo = { valor: posts.value.toLocaleString("pt-BR"), apoio: `conteúdos, ${posts.hint}` };
@@ -226,6 +232,8 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
       <Salas areas={profile.areas} numeros={salas} />
 
       <ChatParaMim resumo={chat} agora={Date.now()} />
+
+      <SuporteParaMim resumo={suporte} agora={Date.now()} />
 
       <OportunidadesDaSemana lista={oportunidades} />
 

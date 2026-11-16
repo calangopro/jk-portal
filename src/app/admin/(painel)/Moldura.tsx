@@ -8,10 +8,12 @@ import type { Area } from "@/lib/auth/acessos";
 import { comBasePath } from "@/lib/seo/base-path";
 import { nomeDoSetor, ondeEstou, setoresDe } from "@/lib/painel/setores";
 import { useAoVivo } from "@/lib/time/ao-vivo";
+import { ENDERECO_DO_SUPORTE } from "@/lib/suporte/casos";
 import { ENDERECO_DO_CHAT } from "@/lib/time/chat";
 import { useNotificarMensagens } from "@/lib/time/notificar";
 import { BotaoSair } from "./BotaoSair";
 import type { ApiDoChat } from "./chat/api";
+import type { ApiDoSuporte } from "./suporte/api";
 import { useAvisosAoVivo, useTituloComAviso } from "./AvisosAoVivo";
 import { BotaoDoChatNoTopo, ChatFlutuante, useChatFlutuante } from "./ChatFlutuante";
 import { AbasDoSetor, BarraDeBaixo, FolhaMais, Lateral, corDoSetor, type Avisos } from "./Navegacao";
@@ -31,7 +33,7 @@ import { AbasDoSetor, BarraDeBaixo, FolhaMais, Lateral, corDoSetor, type Avisos 
  * durante o desenvolvimento.
  */
 export function Moldura({
-  nome, papel, areas, pendentes, avisos: avisosDoServidor, meuId, souAdmin = false, sair, children, caminhoDaPrevia, apiDoChatDaPrevia,
+  nome, papel, areas, pendentes, avisos: avisosDoServidor, meuId, souAdmin = false, sair, children, caminhoDaPrevia, apiDoChatDaPrevia, apiDoSuporteDaPrevia,
 }: {
   nome: string;
   papel: string;
@@ -49,6 +51,8 @@ export function Moldura({
   caminhoDaPrevia?: string;
   /** Só para a prévia de desenvolvimento: a conversa de mentira do chat flutuante. Sem ela, a prévia não mostra o chat. */
   apiDoChatDaPrevia?: ApiDoChat;
+  /** Só para a prévia de desenvolvimento: o suporte de mentira da janela flutuante. */
+  apiDoSuporteDaPrevia?: ApiDoSuporte;
 }) {
   const daBarra = usePathname();
   const caminho = caminhoDaPrevia ?? daBarra;
@@ -60,8 +64,15 @@ export function Moldura({
   // O chat flutuante: o botão com o número do menu e a janela que abre por cima da tela, em qualquer tela menos a do próprio chat.
   const flutuante = useChatFlutuante(caminho, Boolean(meuId) && (caminhoDaPrevia === undefined || apiDoChatDaPrevia !== undefined));
   const numeroDoChat = avisos?.[ENDERECO_DO_CHAT] ?? 0;
+  // O suporte pós-venda entra no mesmo botão: passa caso quem vende, atende quem tem a área `suporte`.
+  const temSuporte = areas.includes("lancar_venda") || areas.includes("suporte");
+  const numeroDoSuporte = temSuporte ? (avisos?.[ENDERECO_DO_SUPORTE] ?? 0) : 0;
   // O aviso do sistema (a notificação do computador) também vale em toda tela, para quem ligou no chat. Fora da tela do chat, o clique abre a janela flutuante na mensagem.
-  useNotificarMensagens(caminhoDaPrevia === undefined && Boolean(meuId), caminho.startsWith("/admin/chat"), flutuante.disponivel ? flutuante.abrirNaMensagem : undefined);
+  useNotificarMensagens(caminhoDaPrevia === undefined && Boolean(meuId), caminho.startsWith("/admin/chat"), {
+    naJanela: flutuante.disponivel ? flutuante.abrirNaMensagem : undefined,
+    suporte: temSuporte,
+    abrirSuporte: flutuante.disponivel ? flutuante.abrirSuporte : undefined,
+  });
   const setores = useMemo(() => setoresDe(areas), [areas]);
   const { setor, item } = ondeEstou(setores, caminho);
   const [mais, setMais] = useState(false);
@@ -136,7 +147,7 @@ export function Moldura({
               </div>
             </div>
             <div className="flex shrink-0 items-center gap-2">
-              <BotaoDoChatNoTopo f={flutuante} n={numeroDoChat} />
+              <BotaoDoChatNoTopo f={flutuante} chat={numeroDoChat} suporte={numeroDoSuporte} />
               <button
                 type="button"
                 onClick={() => setMais(true)}
@@ -202,7 +213,7 @@ export function Moldura({
         papel={papel}
         sair={sair}
       />
-      {meuId ? <ChatFlutuante f={flutuante} n={numeroDoChat} meuId={meuId} souAdmin={souAdmin} podeMeta={areas.includes("vendas")} apiDaPrevia={apiDoChatDaPrevia} /> : null}
+      {meuId ? <ChatFlutuante f={flutuante} chat={numeroDoChat} suporte={numeroDoSuporte} temSuporte={temSuporte} meuId={meuId} souAdmin={souAdmin} podeMeta={areas.includes("vendas")} apiDaPrevia={apiDoChatDaPrevia} apiDoSuporteDaPrevia={apiDoSuporteDaPrevia} /> : null}
     </div>
   );
 }

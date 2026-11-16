@@ -2,6 +2,8 @@ import { ehAdmin } from "@/lib/auth/acessos";
 import { requireSessao, ROLE_LABEL } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { signOut } from "@/app/admin/login/actions";
+import { avisosDoSuporte } from "@/lib/suporte/casos";
+import { lerResumoDoSuporteNoServidor } from "@/lib/suporte/dados";
 import { avisosDoMenu } from "@/lib/time/chat";
 import { lerResumoDoChat } from "@/lib/time/dados";
 import { Moldura } from "./Moldura";
@@ -14,12 +16,14 @@ export default async function PainelLayout({ children }: { children: React.React
   // As leituras saem juntas: uma não precisa esperar a outra. Sem sessão,
   // `requireSessao` manda ao login e as contagens voltam vazias, sem expor nada.
   const supabase = await createClient();
-  const [profile, { count }, chat] = await Promise.all([
+  const [profile, { count }, chat, suporte] = await Promise.all([
     requireSessao(),
     // Aviso na navegação quando há comentário esperando revisão.
     supabase.from("comments").select("*", { count: "exact", head: true }).eq("status", "pending"),
     // E quando há mensagem do chat que a pessoa não leu, ou pedido esperando o setor dela.
     lerResumoDoChat(supabase),
+    // E quando há caso de suporte sem dono (para quem atende) ou caso da pessoa que fechou e ela não viu.
+    lerResumoDoSuporteNoServidor(supabase),
   ]);
 
   return (
@@ -28,7 +32,7 @@ export default async function PainelLayout({ children }: { children: React.React
       papel={ROLE_LABEL[profile.role]}
       areas={profile.areas}
       pendentes={count ?? 0}
-      avisos={avisosDoMenu(chat)}
+      avisos={{ ...avisosDoMenu(chat), ...avisosDoSuporte(suporte) }}
       meuId={profile.areas.includes("time") ? profile.id : null}
       souAdmin={ehAdmin(profile.role)}
       sair={signOut}

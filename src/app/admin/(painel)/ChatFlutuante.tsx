@@ -5,6 +5,7 @@ import { MessagesSquare, X } from "lucide-react";
 import { SETORES } from "@/lib/painel/setores";
 import { ENDERECO_DO_CHAT, type Sala } from "@/lib/time/chat";
 import type { ApiDoChat } from "./chat/api";
+import type { ApiDoSuporte } from "./suporte/api";
 import { Abrindo } from "./chat/MolduraDaJanela";
 import { corDoSetor } from "./Navegacao";
 
@@ -46,12 +47,18 @@ const COR_DO_BOTAO = SETOR_TIME?.cor ?? "#8a3aa0";
 /** A largura em que o painel deixa de ser celular (a mesma do `lg:` das telas). */
 const TELA_LARGA = "(min-width: 64rem)";
 
-export type PedidoDeAbertura = { sala: Sala; mensagem: number; vez: number };
+/** Abrir a janela já num lugar: numa mensagem (o clique no aviso do sistema do chat) ou no suporte (o do suporte). */
+export type PedidoDeAbertura = ({ tipo: "mensagem"; sala: Sala; mensagem: number } | { tipo: "suporte" }) & { vez: number };
 
-function rotuloDoBotao(n: number, aberto: boolean): string {
+/** O número do botão é o do chat mais o do suporte; o texto para leitor de tela diz os dois por extenso. */
+function rotuloDoBotao(chat: number, suporte: number, aberto: boolean): string {
   if (aberto) return "Fechar o chat do time";
-  if (n <= 0) return "Abrir o chat do time";
-  return `Abrir o chat do time: ${n > 99 ? "mais de 99" : n} ${n === 1 ? "mensagem esperando" : "mensagens esperando"} por você`;
+  const partes = [
+    chat > 0 ? `${chat > 99 ? "mais de 99" : chat} ${chat === 1 ? "mensagem" : "mensagens"}` : null,
+    suporte > 0 ? `${suporte} ${suporte === 1 ? "caso de suporte" : "casos de suporte"}` : null,
+  ].filter(Boolean);
+  if (partes.length === 0) return "Abrir o chat do time";
+  return `Abrir o chat do time: ${partes.join(" e ")} esperando por você`;
 }
 
 function Numero({ n }: { n: number }) {
@@ -102,11 +109,17 @@ export function useChatFlutuante(caminho: string, temChat: boolean) {
   /** Abre a janela já na mensagem (o clique num aviso do sistema, com o painel em outra tela). */
   const abrirNaMensagem = useCallback(
     (sala: Sala, mensagem: number) => {
-      setPedido((p) => ({ sala, mensagem, vez: (p?.vez ?? 0) + 1 }));
+      setPedido((p) => ({ tipo: "mensagem", sala, mensagem, vez: (p?.vez ?? 0) + 1 }));
       abrir(null);
     },
     [abrir],
   );
+
+  /** Abre a janela no suporte pós-venda (o clique no aviso do sistema de um caso). */
+  const abrirSuporte = useCallback(() => {
+    setPedido((p) => ({ tipo: "suporte", vez: (p?.vez ?? 0) + 1 }));
+    abrir(null);
+  }, [abrir]);
 
   // Na tela do chat a janela não existe. No celular ela cobre a tela inteira, então trocar de tela (um link dentro da conversa) fecha.
   useEffect(() => {
@@ -117,13 +130,13 @@ export function useChatFlutuante(caminho: string, temChat: boolean) {
     if (!window.matchMedia(TELA_LARGA).matches) setAberto(false);
   }, [caminho, disponivel]);
 
-  return { disponivel, aberto, montada, vezes, pedido, abrir, fechar, abrirNaMensagem, botaoDoTopo, bolha };
+  return { disponivel, aberto, montada, vezes, pedido, abrir, fechar, abrirNaMensagem, abrirSuporte, botaoDoTopo, bolha };
 }
 
 export type ChatFlutuante = ReturnType<typeof useChatFlutuante>;
 
 /** Celular: o ícone do chat na barra de topo, ao lado da conta. */
-export function BotaoDoChatNoTopo({ f, n }: { f: ChatFlutuante; n: number }) {
+export function BotaoDoChatNoTopo({ f, chat, suporte }: { f: ChatFlutuante; chat: number; suporte: number }) {
   if (!f.disponivel) return null;
   return (
     <button
@@ -132,13 +145,13 @@ export function BotaoDoChatNoTopo({ f, n }: { f: ChatFlutuante; n: number }) {
       onClick={(e) => (f.aberto ? f.fechar() : f.abrir(e.currentTarget))}
       onPointerEnter={() => void carregar()}
       onFocus={() => void carregar()}
-      aria-label={rotuloDoBotao(n, f.aberto)}
+      aria-label={rotuloDoBotao(chat, suporte, f.aberto)}
       aria-expanded={f.aberto}
       aria-controls="janela-do-chat"
       className="painel-toque relative grid h-10 w-10 shrink-0 place-items-center rounded-full border border-ink/10 bg-white text-ink"
     >
       <MessagesSquare size={19} aria-hidden="true" />
-      <Numero n={n} />
+      <Numero n={chat + suporte} />
     </button>
   );
 }
@@ -181,15 +194,22 @@ function useTelaLarga(): boolean {
  * uma caixa ao lado da bolha no computador e a tela inteira no celular.
  */
 export function ChatFlutuante({
-  f, n, meuId, souAdmin, podeMeta, apiDaPrevia,
+  f, chat, suporte, temSuporte, meuId, souAdmin, podeMeta, apiDaPrevia, apiDoSuporteDaPrevia,
 }: {
   f: ChatFlutuante;
-  n: number;
+  /** O número do chat no menu. */
+  chat: number;
+  /** O número do suporte pós-venda no menu: caso sem dono, para quem atende, e caso da pessoa que fechou. */
+  suporte: number;
+  /** A pessoa passa ou atende caso de suporte: a janela mostra o suporte na lista. */
+  temSuporte: boolean;
   meuId: string;
   souAdmin: boolean;
   podeMeta: boolean;
   /** Só a prévia de desenvolvimento: uma conversa de mentira, sem sessão. */
   apiDaPrevia?: ApiDoChat;
+  /** Só a prévia de desenvolvimento: um suporte de mentira, sem sessão. */
+  apiDoSuporteDaPrevia?: ApiDoSuporte;
 }) {
   const idTitulo = useId();
   const caixa = useRef<HTMLDivElement>(null);
@@ -225,7 +245,7 @@ export function ChatFlutuante({
         onClick={(e) => (f.aberto ? f.fechar() : f.abrir(e.currentTarget))}
         onPointerEnter={() => void carregar()}
         onFocus={() => void carregar()}
-        aria-label={rotuloDoBotao(n, f.aberto)}
+        aria-label={rotuloDoBotao(chat, suporte, f.aberto)}
         aria-expanded={f.aberto}
         aria-controls="janela-do-chat"
         className="painel-toque fixed bottom-6 right-6 z-30 hidden h-12 items-center gap-2 rounded-full pl-4 pr-5 text-sm font-semibold text-white shadow-[0_14px_34px_-14px_rgba(23,21,18,0.7)] lg:inline-flex"
@@ -233,7 +253,7 @@ export function ChatFlutuante({
       >
         {f.aberto ? <X size={18} aria-hidden="true" /> : <MessagesSquare size={18} aria-hidden="true" />}
         <span aria-hidden="true">{f.aberto ? "Fechar" : "Chat"}</span>
-        {f.aberto ? null : <Numero n={n} />}
+        {f.aberto ? null : <Numero n={chat + suporte} />}
       </button>
 
       {f.montada ? (
@@ -267,6 +287,8 @@ export function ChatFlutuante({
               fechar={() => f.fechar()}
               caixa={caixa as RefObject<HTMLDivElement>}
               api={apiDaPrevia}
+              suporte={temSuporte ? { numero: suporte } : null}
+              apiDoSuporte={apiDoSuporteDaPrevia}
             />
           </Suspense>
         </div>
