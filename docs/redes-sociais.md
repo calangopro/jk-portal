@@ -22,6 +22,15 @@ Em **Redes, Publicar e agendar**. Monta-se o post uma vez (formato, mídia, text
 - Se uma publicação for interrompida no meio, o painel **não tenta de novo sozinho**: avisa para conferir na rede, porque repetir poderia publicar em dobro.
 - A mídia sobe do navegador direto para o armazenamento. Imagem vira JPEG (o Instagram só aceita JPEG).
 
+## Pelo Claude
+
+O conector do Claude tem a área `redes`. O caminho é: `redes.contas` (o que está ligado), `redes.regras`, `redes.enviar_midia` para cada arquivo (por link), `redes.criar_post` (nasce rascunho) e, com o sim de quem pediu, `redes.agendar` ou `redes.publicar`. Os números saem por `redes.metricas` e `redes.publicacoes`.
+
+- O autor do post é quem está logado no conector, e fica gravado, com a marca "pelo Claude" na lista.
+- Só entra quem tem a área `redes` no painel. Vendedor, fábrica, revisor e autor são recusados.
+- Publicar e agendar são operações perigosas: o Claude diz o que vai sair e onde, e espera o sim.
+- O conector não liga conta, não troca token e não mexe em chave.
+
 ## Rede por rede
 
 | Rede | Perfil da JK | Métricas | Publicar e agendar | Story | Comentários | Directs | Situação |

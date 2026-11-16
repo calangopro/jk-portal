@@ -63,6 +63,20 @@ function ipPrivado(ip: string): boolean {
 
 /** Baixa uma imagem de fora sem deixar o servidor virar ponte para a rede interna. */
 export async function baixar(url: string): Promise<{ bytes: Buffer; tipo: string; final: string }> {
+  return baixarDeFora(url, { aceita: (tipo) => tipo.startsWith("image/"), oQue: "imagem", maximo: 20 * 1024 * 1024 });
+}
+
+/**
+ * O mesmo download seguro, para qualquer tipo de arquivo que quem chama aceite
+ * (as redes sociais aceitam vídeo, com teto próprio). As travas são as mesmas:
+ * só https, sem usuário e senha no link, sem endereço de rede interna, e cada
+ * redirecionamento é conferido de novo.
+ */
+export async function baixarDeFora(
+  url: string,
+  o: { aceita: (tipo: string) => boolean; oQue: string; maximo: number },
+): Promise<{ bytes: Buffer; tipo: string; final: string }> {
+  const megas = Math.round(o.maximo / 1024 / 1024);
   let atual = url;
   for (let salto = 0; salto < 4; salto++) {
     const u = new URL(atual);
@@ -71,18 +85,18 @@ export async function baixar(url: string): Promise<{ bytes: Buffer; tipo: string
     const enderecos = isIP(u.hostname) ? [{ address: u.hostname }] : await lookup(u.hostname, { all: true }).catch(() => []);
     if (!enderecos.length) falhar("Não achei esse endereço.");
     if (enderecos.some((e) => ipPrivado(e.address))) falhar("Esse endereço aponta para rede interna.");
-    const r = await fetch(atual, { redirect: "manual", signal: AbortSignal.timeout(15_000), headers: { "user-agent": "JKAliancas-Conector/1.0" } });
+    const r = await fetch(atual, { redirect: "manual", signal: AbortSignal.timeout(o.maximo > 20 * 1024 * 1024 ? 40_000 : 15_000), headers: { "user-agent": "JKAliancas-Conector/1.0" } });
     if (r.status >= 300 && r.status < 400 && r.headers.get("location")) {
       atual = new URL(r.headers.get("location")!, atual).toString();
       continue;
     }
     if (!r.ok) falhar(`O link respondeu ${r.status}.`);
     const tipo = (r.headers.get("content-type") || "").split(";")[0].trim();
-    if (!tipo.startsWith("image/")) falhar(`O link não é imagem (veio ${tipo || "sem tipo"}).`);
+    if (!o.aceita(tipo)) falhar(`O link não é ${o.oQue} (veio ${tipo || "sem tipo"}).`);
     const tamanho = Number(r.headers.get("content-length") || 0);
-    if (tamanho > 20 * 1024 * 1024) falhar("Imagem maior que 20 MB.");
+    if (tamanho > o.maximo) falhar(`Arquivo maior que ${megas} MB.`);
     const bytes = Buffer.from(await r.arrayBuffer());
-    if (bytes.length > 20 * 1024 * 1024) falhar("Imagem maior que 20 MB.");
+    if (bytes.length > o.maximo) falhar(`Arquivo maior que ${megas} MB.`);
     return { bytes, tipo, final: atual };
   }
   return falhar("Redirecionamentos demais.");
