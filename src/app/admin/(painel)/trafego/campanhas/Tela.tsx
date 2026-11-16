@@ -295,11 +295,17 @@ export function TelaDeCampanhas({
             Só entra o que está ligado. Quando a campanha inteira está ruim, os conjuntos e anúncios dela não se repetem aqui.
           </p>
 
-          <TabelaDeAnuncios linhas={linhas} plataforma={plataforma} empate={empate} mediaDaVolta={mediaDaVolta} />
+          <TabelaDeAnuncios linhas={linhas} plataforma={plataforma} empate={empate} mediaDaVolta={mediaDaVolta} periodo={chave} />
+          <p className="mt-2 max-w-4xl text-[0.7rem] leading-relaxed text-muted">
+            <strong className="font-semibold text-ink">Resultado ({nome}) e Resultado (UTM) são contas diferentes.</strong> O do {nome} é o
+            que a plataforma diz, pela regra dela, e conta pedido criado. O da UTM é pedido PAGO da loja cujo cliente clicou no anúncio
+            nos sete dias antes, um pedido para um anúncio só, sem repetir. O número da UTM abre a lista dos pedidos.
+            {de < "2026-11-13" ? " A loja anota a UTM desde 13/11: neste período, a coluna da UTM só enxerga os pedidos de lá para cá, e por isso fica bem abaixo da do " + nome + "." : ""}
+          </p>
           <p className="mt-2 max-w-4xl text-[0.7rem] leading-relaxed text-muted">
             Clique no nome para descer da campanha ao conjunto e do conjunto ao anúncio. O veredito e a cor do custo comparam
-            o item com a média da própria conta para o mesmo objetivo. A volta na loja usa só pedido pago ligado ao item pelo
-            coletor de origem: fica verde do empate para cima e vermelha abaixo de 1.
+            o item com a média da própria conta para o mesmo objetivo. A volta (UTM) usa só pedido pago ligado ao item pela
+            UTM: fica verde do empate para cima e vermelha abaixo de 1.
           </p>
 
           {anotado ? <VendeuDeFato campanhas={d.campanhas} anotado={anotado} nome={nome} /> : null}

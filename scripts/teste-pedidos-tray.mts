@@ -753,6 +753,7 @@ console.log("\nUTM ligada ao anúncio");
 
   const c = coberturaDaLista(todos);
   confere("cobertura: pagos, com chegada, de anúncio e com o anúncio exato", c.pagos === 5 && c.pagosComChegada === 4 && c.pagosDeAnuncio === 2 && c.pagosComCampanha === 2 && c.pagosComAnuncioExato === 1 && c.valorDeAnuncio === 700.1 && c.valorComAnuncioExato === 400.1);
+  confere("a busca acha pelo número do item, que é como a tabela de campanhas manda para cá", filtrarOrigem(todos, "a1").length === 1 && filtrarOrigem(todos, "s2")[0].pedido === 902 && filtrarOrigem(todos, "g1")[0].pedido === 904);
   confere("a busca acha por pedido, por UTM e pelo nome casado, sem acento", filtrarOrigem(todos, "901").length === 1 && filtrarOrigem(todos, "estatico alianca").length === 1 && filtrarOrigem(todos, "link_in_bio").length === 1 && filtrarOrigem(todos, "conjunto unico")[0].pedido === 902 && filtrarOrigem(todos, "").length === 6);
 }
 
@@ -935,6 +936,7 @@ console.log("\nTabela de campanhas e anúncios");
 
   const anuncios = linhas.filter((l) => l.nivel === "anuncio");
   confere("ordena pelo gasto, maior primeiro", ordenar(anuncios, "gasto", "desc")[0].id === "a1" && ordenar(anuncios, "gasto", "asc")[0].id === "a2");
+  confere("ordena pelo resultado da UTM, e item sem pedido ligado fica no fim", ordenar(anuncios, "lojaPagos", "desc")[0].id === "a1" && ordenar(anuncios, "lojaPagos", "asc")[1].id === "a2");
   confere("linha sem valor na coluna vai para o fim nos dois sentidos", ordenar(anuncios, "voltaDaLoja", "desc")[1].id === "a2" && ordenar(anuncios, "voltaDaLoja", "asc")[1].id === "a2");
   confere("ordenar não mexe na lista original", anuncios[0].id === "a1" && ordenar(anuncios, "nome", "desc")[0].id === "a2" && anuncios[0].id === "a1");
   const t = somar(linhas.filter((l) => l.nivel === "campanha"));

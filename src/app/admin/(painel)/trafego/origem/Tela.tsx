@@ -22,7 +22,17 @@ import { ListaDeOrigem } from "./Lista";
 const COMECO_DO_COLETOR = "2026-11-13";
 const inteiro = (n: number) => n.toLocaleString("pt-BR");
 
-export function TelaDeOrigem({ pedidos, de, ate, chave }: { pedidos: PedidoComOrigem[] | null; de: string; ate: string; chave: ChaveDePeriodo }) {
+export function TelaDeOrigem({
+  pedidos, de, ate, chave, busca = "", aba = "anuncio", soPagos = true,
+}: {
+  pedidos: PedidoComOrigem[] | null;
+  de: string;
+  ate: string;
+  chave: ChaveDePeriodo;
+  busca?: string;
+  aba?: "anuncio" | "conjunto" | "campanha" | "utm" | "pedido";
+  soPagos?: boolean;
+}) {
   const lista = pedidos ?? [];
   const c = coberturaDaLista(lista);
   const antesDoColetor = de < COMECO_DO_COLETOR;
@@ -81,15 +91,15 @@ export function TelaDeOrigem({ pedidos, de, ate, chave }: { pedidos: PedidoComOr
         </p>
       ) : null}
 
-      <ListaDeOrigem pedidos={lista} />
+      <ListaDeOrigem pedidos={lista} buscaInicial={busca} abaInicial={aba} soPagosInicial={soPagos} />
 
       <section className="glass mt-6 rounded-[18px] p-5">
         <p className="eyebrow">Como ler</p>
         <ul className="mt-3 max-w-3xl space-y-2 text-sm leading-relaxed text-muted">
           <li>
-            <strong className="font-semibold text-ink">O que conta como origem.</strong> A última chegada do visitante que não seja
-            acesso direto, até trinta dias antes do pedido. Quem clicou num anúncio e voltou depois digitando o endereço continua sendo
-            do anúncio.
+            <strong className="font-semibold text-ink">O que conta como origem.</strong> Se o visitante clicou num anúncio nos sete dias
+            antes do pedido, a venda é do anúncio, mesmo que ele tenha voltado depois pelo Google ou pelo link da bio. Sem clique em
+            anúncio, vale a última chegada que não seja acesso direto, até trinta dias antes. Cada pedido entra em um anúncio só.
           </li>
           <li>
             <strong className="font-semibold text-ink">Instagram nem sempre é anúncio.</strong> O link da bio também chega como

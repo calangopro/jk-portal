@@ -255,14 +255,15 @@ export function coberturaDaLista(pedidos: PedidoComOrigem[]): CoberturaDaLista {
   return { ...c, valorPago: centavos(c.valorPago), valorDeAnuncio: centavos(c.valorDeAnuncio), valorComAnuncioExato: centavos(c.valorComAnuncioExato) };
 }
 
-/** A busca da tela: número do pedido, qualquer pedaço de UTM e os nomes casados, sem acento. */
+/** A busca da tela: número do pedido, qualquer pedaço de UTM, os nomes casados e o número do item, sem acento. */
 export function filtrar(pedidos: PedidoComOrigem[], busca: string): PedidoComOrigem[] {
   const limpo = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
   const palavras = limpo(busca).split(/\s+/).filter(Boolean);
   if (palavras.length === 0) return pedidos;
   return pedidos.filter((p) => {
     const onde = limpo(
-      [p.pedido, p.canal, p.etiqueta, p.source, p.medium, utmLegivel(p.campaign), utmLegivel(p.term), utmLegivel(p.content), p.campanhaNome, p.conjuntoNome, p.anuncioNome, p.entrada, p.status]
+      // Os números dos itens entram na busca: é por eles que a tabela de campanhas manda para cá.
+      [p.pedido, p.canal, p.etiqueta, p.source, p.medium, utmLegivel(p.campaign), utmLegivel(p.term), utmLegivel(p.content), p.campanhaNome, p.conjuntoNome, p.anuncioNome, p.entrada, p.status, p.campanhaId, p.conjuntoId, p.anuncioId]
         .filter(Boolean)
         .join(" "),
     );

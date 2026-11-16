@@ -188,7 +188,7 @@ export function somar(linhas: Linha[]): TotaisDaLista {
 }
 
 export type Coluna =
-  | "nome" | "gasto" | "resultados" | "custo" | "valor" | "retorno" | "lojaValor" | "voltaDaLoja"
+  | "nome" | "gasto" | "resultados" | "lojaPagos" | "custo" | "valor" | "retorno" | "lojaValor" | "voltaDaLoja"
   | "checkouts" | "cliques" | "ctr" | "cpc" | "cpm";
 
 const taxa = (a: number, b: number) => (b > 0 ? a / b : null);
@@ -202,6 +202,7 @@ export function valorDaColuna(l: Linha, c: Coluna): number | string | null {
     case "custo": return l.custo;
     case "valor": return l.valor;
     case "retorno": return l.retorno;
+    case "lojaPagos": return l.loja ? l.loja.pagos : null;
     case "lojaValor": return l.loja ? l.loja.valor : null;
     case "voltaDaLoja": return l.voltaDaLoja;
     case "checkouts": return l.checkouts;
