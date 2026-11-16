@@ -11,6 +11,7 @@ import type { Nivel, Objetivo, Veredito } from "@/lib/trafego/diagnostico";
 import {
   ordenar, somar, tomDaVoltaDaLoja, tomDaVoltaDaPlataforma, tomDoVeredito, type Coluna, type Linha, type Tom,
 } from "@/lib/trafego/linhas";
+import Link from "next/link";
 import { ICONE_DO_TOM } from "../../Pecas";
 
 /**
@@ -116,12 +117,13 @@ function colunasDa(plataforma: "meta" | "google"): Colunas {
   const p = plataforma === "meta" ? "Meta" : "Google";
   return [
     { chave: "gasto", nome: "Gasto", dica: "Quanto o item gastou no período" },
-    { chave: "resultados", nome: "Resultado", dica: "Compras, conversas ou cliques, conforme o objetivo da campanha" },
-    { chave: "custo", nome: "Custo/resultado", dica: "Gasto dividido pelo resultado. A cor compara com a média da conta" },
+    { chave: "resultados", nome: `Resultado (${p})`, dica: `O que o ${p} diz: compras, conversas ou cliques, conforme o objetivo. Compra aqui é pedido criado, pago ou não, pela regra de atribuição dele` },
+    { chave: "lojaPagos", nome: "Resultado (UTM)", dica: "Pedidos PAGOS da loja cujo cliente clicou neste item nos 7 dias antes, pela UTM. Cada pedido entra em um anúncio só" },
+    { chave: "custo", nome: "Custo/resultado", dica: `Gasto dividido pelo resultado que o ${p} informa. A cor compara com a média da conta` },
     { chave: "valor", nome: `Venda (${p})`, dica: `O que o ${p} diz que vendeu. Conta pedido criado, não só o pago` },
+    { chave: "lojaValor", nome: "Venda (UTM)", dica: "O valor dos pedidos PAGOS da loja ligados a este item pela UTM" },
     { chave: "retorno", nome: `Volta (${p})`, dica: `Venda que o ${p} informa por real gasto. A cor compara com a média da conta` },
-    { chave: "lojaValor", nome: "Loja, pago", dica: "Pedidos PAGOS na loja ligados a este item pelo coletor de origem" },
-    { chave: "voltaDaLoja", nome: "Volta na loja", dica: "Venda paga da loja por real gasto. Verde do empate para cima, vermelho abaixo de 1" },
+    { chave: "voltaDaLoja", nome: "Volta (UTM)", dica: "Venda paga da loja, pela UTM, por real gasto. Verde do empate para cima, vermelho abaixo de 1" },
     { chave: "checkouts", nome: "Checkout", dica: "Quantas vezes começaram a compra" },
     { chave: "cliques", nome: "Cliques", dica: "Cliques no link do anúncio" },
     { chave: "ctr", nome: "CTR", dica: "Cliques sobre impressões" },
@@ -131,10 +133,12 @@ function colunasDa(plataforma: "meta" | "google"): Colunas {
 }
 
 export function TabelaDeAnuncios({
-  linhas, plataforma, empate, mediaDaVolta,
+  linhas, plataforma, empate, mediaDaVolta, periodo,
 }: {
   linhas: Linha[];
   plataforma: "meta" | "google";
+  /** O período da tela, para o link dos pedidos de cada item abrir a origem no mesmo intervalo. */
+  periodo: string;
   /** Volta em que a venda paga cobre o anúncio e a margem de referência. */
   empate: number;
   /** Volta média que a plataforma informa nas campanhas de venda. */
@@ -151,6 +155,7 @@ export function TabelaDeAnuncios({
   const [limite, setLimite] = useState(60);
 
   const colunas = useMemo(() => colunasDa(plataforma), [plataforma]);
+  const nomeDaColuna = (c: Coluna) => colunas.find((x) => x.chave === c)?.nome ?? "";
   const gastoDaConta = useMemo(() => linhas.filter((l) => l.nivel === "campanha").reduce((s, l) => s + l.gasto, 0), [linhas]);
 
   // O que a pessoa escolheu descer: a campanha e, dentro dela, o conjunto.
@@ -221,17 +226,20 @@ export function TabelaDeAnuncios({
     l.custo === null || l.objetivo === "engajamento" ? <span className="text-muted">{VAZIO}</span> : <Pintado tom={tomDoVeredito(l.veredito)}>{reais(l.custo)}</Pintado>;
   const volta = (l: Linha) =>
     l.retorno === null ? <span className="text-muted">{VAZIO}</span> : <Pintado tom={tomDaVoltaDaPlataforma(l, mediaDaVolta, gastoDaConta)}>{vezes(l.retorno)}</Pintado>;
-  const lojaPago = (l: Linha) =>
+  // O resultado pela UTM: pedido PAGO da loja ligado ao item. O número abre a lista desses pedidos na tela de origem.
+  const resultadoUtm = (l: Linha) =>
     l.loja ? (
-      <>
-        {reaisCurto(l.loja.valor)}{" "}
-        <span className="text-[0.68rem] text-muted">
-          {l.loja.pagos} de {l.loja.criados}
-        </span>
-      </>
+      <Link
+        href={`/admin/trafego/origem?periodo=${periodo}&aba=pedido&pagos=0&busca=${encodeURIComponent(l.id)}`}
+        title={`${l.loja.pagos} ${l.loja.pagos === 1 ? "pedido pago" : "pedidos pagos"} de ${l.loja.criados} ${l.loja.criados === 1 ? "criado" : "criados"}. Ver os pedidos`}
+        className="painel-cor font-semibold underline decoration-current/30 underline-offset-2 hover:decoration-current"
+      >
+        {l.loja.pagos} <span className="text-[0.68rem] font-normal">{l.loja.pagos === 1 ? "compra" : "compras"}</span>
+      </Link>
     ) : (
-      <span className="text-muted">{VAZIO}</span>
+      <span className="text-muted">0</span>
     );
+  const lojaPago = (l: Linha) => (l.loja && l.loja.valor > 0 ? reaisCurto(l.loja.valor) : <span className="text-muted">{VAZIO}</span>);
   const voltaDaLoja = (l: Linha) =>
     l.voltaDaLoja === null ? <span className="text-muted">{VAZIO}</span> : <Pintado tom={tomDaVoltaDaLoja(l.voltaDaLoja, empate)}>{vezes(l.voltaDaLoja)}</Pintado>;
   const ctr = (l: Linha) => (l.impressoes > 0 ? porcento(l.cliques / l.impressoes) : VAZIO);
@@ -253,7 +261,7 @@ export function TabelaDeAnuncios({
         <p className="numeros flex items-start gap-1.5">
           <Store size={13} className="mt-0.5 shrink-0 text-brand-nav" aria-hidden="true" />
           <span>
-            <span className="font-semibold">Na loja, pago:</span> {reais(l.loja.valor)} em {l.loja.pagos} de {l.loja.criados}{" "}
+            <span className="font-semibold">Pela UTM, na loja:</span> {reais(l.loja.valor)} pagos em {l.loja.pagos} de {l.loja.criados}{" "}
             {l.loja.criados === 1 ? "pedido ligado a ele" : "pedidos ligados a ele"}.
           </span>
         </p>
@@ -476,10 +484,11 @@ export function TabelaDeAnuncios({
                         <td className="px-2 py-2"><SeloDoVeredito v={l.veredito} /></td>
                         <td className="whitespace-nowrap px-2 py-2 text-right font-semibold">{reais(l.gasto)}</td>
                         <td className="whitespace-nowrap px-2 py-2 text-right">{resultado(l)}</td>
+                        <td className="whitespace-nowrap px-2 py-2 text-right">{resultadoUtm(l)}</td>
                         <td className="whitespace-nowrap px-2 py-2 text-right">{custo(l)}</td>
                         <td className="whitespace-nowrap px-2 py-2 text-right">{l.valor ? reaisCurto(l.valor) : <span className="text-muted">{VAZIO}</span>}</td>
-                        <td className="whitespace-nowrap px-2 py-2 text-right">{volta(l)}</td>
                         <td className="whitespace-nowrap px-2 py-2 text-right">{lojaPago(l)}</td>
+                        <td className="whitespace-nowrap px-2 py-2 text-right">{volta(l)}</td>
                         <td className="whitespace-nowrap px-2 py-2 text-right">{voltaDaLoja(l)}</td>
                         <td className="whitespace-nowrap px-2 py-2 text-right">{l.checkouts ? inteiro(l.checkouts) : <span className="text-muted">{VAZIO}</span>}</td>
                         <td className="whitespace-nowrap px-2 py-2 text-right">{inteiro(l.cliques)}</td>
@@ -507,10 +516,11 @@ export function TabelaDeAnuncios({
                   <td />
                   <td className="whitespace-nowrap px-2 py-2.5 text-right">{reais(total.gasto)}</td>
                   <td className="whitespace-nowrap px-2 py-2.5 text-right">{total.compras > 0 ? <>{umaCasa(total.compras)} <span className="text-[0.68rem] font-normal text-muted">compras</span></> : VAZIO}</td>
+                  <td className="whitespace-nowrap px-2 py-2.5 text-right">{total.lojaPagos} <span className="text-[0.68rem] font-normal text-muted">{total.lojaPagos === 1 ? "compra" : "compras"}</span></td>
                   <td className="px-2 py-2.5 text-right">{VAZIO}</td>
                   <td className="whitespace-nowrap px-2 py-2.5 text-right">{total.valor > 0 ? reaisCurto(total.valor) : VAZIO}</td>
-                  <td className="whitespace-nowrap px-2 py-2.5 text-right">{total.valor > 0 && total.gasto > 0 ? vezes(total.valor / total.gasto) : VAZIO}</td>
                   <td className="whitespace-nowrap px-2 py-2.5 text-right">{total.lojaValor > 0 ? reaisCurto(total.lojaValor) : VAZIO}</td>
+                  <td className="whitespace-nowrap px-2 py-2.5 text-right">{total.valor > 0 && total.gasto > 0 ? vezes(total.valor / total.gasto) : VAZIO}</td>
                   <td className="whitespace-nowrap px-2 py-2.5 text-right">{total.lojaValor > 0 && total.gasto > 0 ? vezes(total.lojaValor / total.gasto) : VAZIO}</td>
                   <td className="whitespace-nowrap px-2 py-2.5 text-right">{total.checkouts > 0 ? inteiro(total.checkouts) : VAZIO}</td>
                   <td className="whitespace-nowrap px-2 py-2.5 text-right">{inteiro(total.cliques)}</td>
@@ -551,11 +561,11 @@ export function TabelaDeAnuncios({
                   </p>
                   <dl className="numeros mt-2.5 grid grid-cols-3 gap-x-3 gap-y-2.5 text-sm">
                     <Celula rotulo="Gasto"><span className="font-semibold">{reaisCurto(l.gasto)}</span></Celula>
-                    <Celula rotulo="Resultado">{resultado(l)}</Celula>
+                    <Celula rotulo={nomeDaColuna("resultados")}>{resultado(l)}</Celula>
+                    <Celula rotulo="Resultado (UTM)">{resultadoUtm(l)}</Celula>
                     <Celula rotulo="Custo">{custo(l)}</Celula>
-                    <Celula rotulo={colunas[4].nome}>{volta(l)}</Celula>
-                    <Celula rotulo="Loja, pago">{lojaPago(l)}</Celula>
-                    <Celula rotulo="Volta na loja">{voltaDaLoja(l)}</Celula>
+                    <Celula rotulo={nomeDaColuna("retorno")}>{volta(l)}</Celula>
+                    <Celula rotulo="Volta (UTM)">{voltaDaLoja(l)}</Celula>
                   </dl>
                   <div className="mt-2.5 flex flex-wrap items-center gap-2">
                     {l.filhos > 0 ? (

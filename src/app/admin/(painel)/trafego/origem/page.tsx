@@ -14,12 +14,23 @@ export const metadata = { title: "Origem dos pedidos" };
  * pelo número quando ele vem, e pelo NOME dentro da campanha, que é como os
  * anúncios do Meta mandam o conjunto e o anúncio.
  */
-export default async function OrigemPage({ searchParams }: { searchParams: Promise<{ periodo?: string }> }) {
+export default async function OrigemPage({ searchParams }: { searchParams: Promise<{ periodo?: string; busca?: string; aba?: string; pagos?: string }> }) {
   await requireArea("trafego");
   const sp = await searchParams;
   // Trinta dias é o padrão: a chegada só existe desde 13/11/2026, e em sete dias há pouco pedido para ler.
   const chave = lerPeriodo(sp.periodo ?? "30d");
   const { de, ate } = intervaloDoPeriodo(chave, hojeEmSaoPaulo());
   const pedidos = await lerPedidosComOrigemDoPeriodo(await createClient(), de, ate);
-  return <TelaDeOrigem pedidos={pedidos} de={de} ate={ate} chave={chave} />;
+  // `busca`, `aba` e `pagos` chegam do link de um item na tabela de campanhas: a lista já abre nos pedidos dele.
+  return (
+    <TelaDeOrigem
+      pedidos={pedidos}
+      de={de}
+      ate={ate}
+      chave={chave}
+      busca={(sp.busca ?? "").slice(0, 120)}
+      aba={sp.aba === "pedido" || sp.aba === "conjunto" || sp.aba === "campanha" || sp.aba === "utm" ? sp.aba : "anuncio"}
+      soPagos={sp.pagos !== "0"}
+    />
+  );
 }

@@ -139,6 +139,49 @@ que é um só; para ligar ao anúncio, a UTM dela precisa passar a usar
 endereço só traz o número da campanha (`gad_campaignid`), então é até a
 campanha, a menos que ela tenha um conjunto e um anúncio só.
 
+### O clique em anúncio tem precedência (0113)
+
+A primeira versão dava o pedido à ÚLTIMA chegada que não fosse acesso direto.
+Quem clicava no anúncio, saía, e voltava duas horas depois pela busca do Google
+ou pelo link da bio, virava venda da busca ou da bio, e as colunas da loja na
+tabela de campanhas ficavam vazias. Foi o dono quem viu, no mesmo dia: "queria
+que marcasse aqui, porque aí sim marcaria correto as vendas".
+
+A regra, desde a 0113:
+
+1. Se o visitante clicou num ANÚNCIO nos sete dias antes do pedido, a venda é
+   do anúncio (o clique mais recente), mesmo com chegada orgânica depois. Sete
+   dias é a janela de clique padrão do Meta, o que deixa "Resultado (Meta)" e
+   "Resultado (UTM)" lado a lado sem comparar janelas diferentes.
+2. Sem clique em anúncio nesses sete dias, vale a última chegada que não seja
+   acesso direto, até trinta dias antes.
+
+Cada pedido vai para UM anúncio só. É isso que tira a duplicidade: o Meta e o
+Google contam a mesma venda cada um para si, e aqui ela entra uma vez.
+
+A prova de que a regra antiga errava: o pedido 11735, de 14/11, teve clique em
+anúncio do Google duas horas antes da compra e uma chegada pela busca depois.
+A conta dizia "busca do Google"; a etiqueta da própria Tray dizia "Google Ads".
+
+`canal_anotado_dos_pedidos` (0111) passou a ler de `origem_resolvida`, então
+Vendas, a Visão geral, Tráfego e Gargalos seguem a mesma regra. A única cópia
+que sobrou é a de `historico_do_pedido` (0103), para a linha do tempo da
+gaveta.
+
+**Na tabela de campanhas** (`/admin/trafego/campanhas`) os dois números ficam
+lado a lado, três vezes: Resultado (Meta) e Resultado (UTM), Venda (Meta) e
+Venda (UTM), Volta (Meta) e Volta (UTM), nos três níveis. O Resultado (UTM) é
+pedido PAGO, e o número abre a lista dos pedidos daquele item na tela de
+origem. O do Meta conta pedido criado, pela regra de atribuição dele (clique em
+sete dias e visualização em um), e por isso é sempre maior.
+
+**Por que a UTM fica abaixo do Meta, e sempre vai ficar um pouco:** o Meta
+conta quem só VIU o anúncio, conta pedido não pago e reconhece a mesma pessoa
+em outro aparelho. A UTM só enxerga o clique feito no mesmo navegador da
+compra. E, em novembro de 2026, ainda há um motivo passageiro: a loja anota a
+chegada desde 13/11, então quem clicou antes disso e comprou depois não tem
+clique guardado.
+
 **Instagram nem sempre é anúncio.** O link da bio chega como
 `utm_source=ig&utm_medium=social&utm_content=link_in_bio`, com `fbclid` e tudo,
 e cai no mesmo canal "Instagram e Facebook". Nos quatro dias de 13 a 16/11, os

@@ -167,10 +167,18 @@ function LinhaDoGrupo({ g, aba, aberto, alternar }: { g: Grupo; aba: Agrupamento
   );
 }
 
-export function ListaDeOrigem({ pedidos }: { pedidos: PedidoComOrigem[] }) {
-  const [aba, setAba] = useState<Agrupamento | "pedido">("anuncio");
-  const [busca, setBusca] = useState("");
-  const [soPagos, setSoPagos] = useState(true);
+export function ListaDeOrigem({
+  pedidos, buscaInicial = "", abaInicial = "anuncio", soPagosInicial = true,
+}: {
+  pedidos: PedidoComOrigem[];
+  /** Quem chega pelo link de um item da tabela de campanhas já vem com a busca feita. */
+  buscaInicial?: string;
+  abaInicial?: Agrupamento | "pedido";
+  soPagosInicial?: boolean;
+}) {
+  const [aba, setAba] = useState<Agrupamento | "pedido">(abaInicial);
+  const [busca, setBusca] = useState(buscaInicial);
+  const [soPagos, setSoPagos] = useState(soPagosInicial);
   const [soAnuncio, setSoAnuncio] = useState(false);
   const [abertos, setAbertos] = useState<Set<string>>(new Set());
   const [quantos, setQuantos] = useState(POR_VEZ);
