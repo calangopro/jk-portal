@@ -13,6 +13,7 @@ import { nomeLimpo } from "@/lib/vendas/origem";
 import { diaCurto } from "@/lib/vendas/periodo";
 import { SeloDeTom } from "../Pecas";
 import { AcoesDoPedido } from "./AcoesDoPedido";
+import { BotaoDoHistorico } from "../pedido/abrir";
 
 /**
  * A lista de pedidos da fábrica: busca, filtros, a foto de cada peça e a
@@ -163,6 +164,7 @@ function CartaoDoPedido({
       </div>
 
       <div className="mt-2 flex flex-wrap gap-1.5">
+        {p.pedido !== null ? <BotaoDoHistorico numero={p.pedido} /> : null}
         {mostrarEtapa ? (
           <p className="painel-selo inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold">{NOME_DA_ETAPA[p.etapa]}</p>
         ) : null}

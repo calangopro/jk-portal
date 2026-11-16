@@ -7,6 +7,7 @@ import { CircleAlert, CircleCheck, Contact, Hammer, Loader2, Package, Target } f
 import { COR_DO_TOM } from "@/lib/painel/tons";
 import { diaCurto, situacaoDaMeta, situacaoDoPedido, type Marca, type PreviaDoPedido } from "@/lib/time/chat";
 import { SeloDeTom } from "../Pecas";
+import { BotaoDoHistorico } from "../pedido/abrir";
 
 /**
  * A marcação desenhada dentro da mensagem: uma pessoa, um setor, a meta do
@@ -145,6 +146,8 @@ function CorpoDaPrevia({ previa, numero }: { previa: PreviaDoPedido | null | und
               <Contact size={12} aria-hidden="true" /> Ficha do cliente
             </Link>
           ) : null}
+          {/* Quem vê a fábrica ou a ficha vê o histórico inteiro do pedido (0103). */}
+          <BotaoDoHistorico numero={previa.numero} />
         </p>
       ) : null}
     </>

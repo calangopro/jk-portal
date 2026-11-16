@@ -7,6 +7,7 @@ import { ASSUNTOS, MAXIMO_DE_PRINTS, conferirCaso } from "@/lib/suporte/casos";
 import { NOME_DA_ETAPA, TIPOS_DE_IMAGEM, diaCurto, type PedidoAchado } from "@/lib/time/chat";
 import { Ficha, botaoCheio, botaoClaro, campo } from "../biblioteca/pecas";
 import { Miniaturas, useImagens } from "../chat/Imagens";
+import { BotaoDoHistorico } from "../pedido/abrir";
 import type { ApiDoSuporte } from "./api";
 
 /**
@@ -14,8 +15,9 @@ import type { ApiDoSuporte } from "./api";
  * atendimento (inclusive na janela flutuante do chat):
  *
  *   1. o assunto, numa lista curta;
- *   2. quem é o cliente: o pedido, achado pela MESMA busca do "/pedido" do
- *      chat (número ou nome), ou o telefone quando não há pedido;
+ *   2. o PEDIDO do cliente, achado pela MESMA busca do "/pedido" do chat
+ *      (número ou nome), ou o telefone quando não há pedido. Com o pedido, o
+ *      caso entra no histórico dele (`historico_do_pedido`, 0103);
  *   3. o que o cliente disse;
  *   4. o print da conversa, colado no texto ou escolhido (é como o vendedor
  *      já pergunta no grupo);
@@ -134,7 +136,7 @@ export function FormularioDoCaso({
 
       <div>
         <p className={rotulo} id={`${id}-cliente`}>
-          Cliente
+          Pedido do cliente
         </p>
         {cliente ? (
           <p className="mt-1.5 flex items-center gap-2 rounded-[12px] border border-ink/12 bg-white px-3 py-2">
@@ -142,6 +144,7 @@ export function FormularioDoCaso({
               <span className="font-semibold">{cliente.titulo}</span>
               {cliente.apoio ? <span className="block truncate text-xs text-muted">{cliente.apoio}</span> : null}
             </span>
+            {/^p\d+$/.test(cliente.ref) ? <BotaoDoHistorico numero={Number(cliente.ref.slice(1))} /> : null}
             <button type="button" onClick={() => setCliente(null)} aria-label="Trocar o cliente" className="painel-toque grid h-8 w-8 shrink-0 place-items-center rounded-full text-muted hover:bg-ink/[0.06]">
               <X size={14} aria-hidden="true" />
             </button>
