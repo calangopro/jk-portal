@@ -1,7 +1,7 @@
 import type { LucideIcon } from "lucide-react";
 import {
   Activity, Banknote, BellRing, BookCheck, Bot, CalendarDays, Cable, Contact, Crosshair, FileText, Filter, Globe, Hammer, HandCoins, Handshake,
-  HeartPulse, History, ImageIcon, LayoutDashboard, LayoutTemplate, LibraryBig, ListChecks, MapPin, MessageCircle, MessagesSquare, Milestone,
+  HeartPulse, History, ImageIcon, LayoutDashboard, LayoutTemplate, LibraryBig, ListChecks, MapPin, MessageCircle, MessageSquareText, MessagesSquare, Milestone,
   Package, PackageSearch, Palette, PenLine,
   Percent, Plug, QrCode, RotateCcw, Send, Settings, Share2, Smartphone, Sparkles, Star, Store, Table2, Tags, TrendingUp, Trophy, Users,
   UsersRound, Wallet,
@@ -123,6 +123,7 @@ export const SETORES: Setor[] = [
     itens: [
       { href: "/admin/redes", area: "redes", label: "Todas as redes", curto: "Resumo", Icone: Share2, desc: "Os números de cada rede, lado a lado" },
       { href: "/admin/redes/publicar", area: "redes", label: "Publicar e agendar", curto: "Publicar", Icone: Send, desc: "Montar o post, mandar agora ou marcar a hora" },
+      { href: "/admin/redes/comentarios", area: "redes", label: "Comentários das redes", curto: "Comentários", Icone: MessageSquareText, desc: "O que comentaram, e a resposta da JK" },
       { href: "/admin/redes/contas", area: "redes", label: "Contas ligadas", curto: "Contas", Icone: Cable, desc: "O que está ligado e o que falta" },
     ],
   },
