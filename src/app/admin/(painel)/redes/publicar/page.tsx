@@ -4,7 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { apagar, cancelar, liberar } from "./actions";
 import { TelaDePublicar } from "./Tela";
 
-export const metadata = { title: "Publicar e agendar" };
+export const metadata = { title: "Posts e stories" };
 
 // "Publicar agora" e "Tentar de novo" rodam a fila do post logo depois da resposta.
 export const maxDuration = 60;

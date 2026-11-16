@@ -13,7 +13,11 @@ import { createAdminClient } from "@/lib/supabase/admin";
 
 export type RespostaDoComentario = { ok: true; aviso: string } | { ok: false; erro: string };
 
-const atualizar = () => revalidatePath("/admin/redes/comentarios");
+const atualizar = () => {
+  revalidatePath("/admin/redes/comentarios");
+  // A página de cada post também lista os comentários dele.
+  revalidatePath("/admin/redes/conteudos", "layout");
+};
 
 /** Publica a resposta em nome da JK. Fica gravado quem respondeu. */
 export async function responder(id: string, texto: string): Promise<RespostaDoComentario> {

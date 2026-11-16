@@ -37,7 +37,8 @@ const ABAS: { id: FiltroDeComentarios; nome: string; vazio: string }[] = [
 
 const LIMITE = 2200;
 
-function Comentario({ c, agora, acoes }: { c: ComentarioNaTela; agora: number; acoes: AcoesDeComentario }) {
+/** Um comentário com as ações. `semPost` esconde a faixa do post: na página do próprio post ela se repetiria. */
+export function CartaoDeComentario({ c, agora, acoes, semPost = false }: { c: ComentarioNaTela; agora: number; acoes: AcoesDeComentario; semPost?: boolean }) {
   const [aberto, setAberto] = useState(false);
   const [texto, setTexto] = useState("");
   const [pedindo, setPedindo] = useState<null | "responder" | "ocultar">(null);
@@ -84,6 +85,7 @@ function Comentario({ c, agora, acoes }: { c: ComentarioNaTela; agora: number; a
         </div>
       </div>
 
+      {semPost ? null : (
       <div className="mt-3 flex items-center gap-2.5 rounded-[10px] bg-ink/[0.03] p-2">
         <Miniatura src={c.publicacao.miniaturaUrl} rede={c.rede} />
         <p className="min-w-0 flex-1 text-xs leading-snug text-muted">
@@ -94,7 +96,11 @@ function Comentario({ c, agora, acoes }: { c: ComentarioNaTela; agora: number; a
             <ArrowUpRight size={15} aria-hidden="true" />
           </a>
         ) : null}
+        <Link href={`/admin/redes/conteudos/${c.publicacaoId}`} className="painel-toque shrink-0 whitespace-nowrap rounded-full px-2.5 py-1.5 text-xs font-semibold text-[var(--setor)] hover:bg-ink/[0.06]">
+          Ver o post
+        </Link>
       </div>
+      )}
 
       {c.respostas.length ? (
         <ul className="mt-3 space-y-1.5">
@@ -209,11 +215,24 @@ function Comentario({ c, agora, acoes }: { c: ComentarioNaTela; agora: number; a
   );
 }
 
+/** Os comentários agrupados pelo post, na ordem do comentário mais novo de cada um. */
+function porPost(lista: ComentarioNaTela[]): { id: string; publicacao: ComentarioNaTela["publicacao"]; rede: RedeId; comentarios: ComentarioNaTela[] }[] {
+  const grupos = new Map<string, { id: string; publicacao: ComentarioNaTela["publicacao"]; rede: RedeId; comentarios: ComentarioNaTela[] }>();
+  for (const c of lista) {
+    const g = grupos.get(c.publicacaoId) ?? { id: c.publicacaoId, publicacao: c.publicacao, rede: c.rede, comentarios: [] };
+    g.comentarios.push(c);
+    grupos.set(c.publicacaoId, g);
+  }
+  return [...grupos.values()];
+}
+
 export function TelaDeComentarios({
-  aba, rede, comentarios, contagem, agora, acoes,
+  aba, rede, ver, comentarios, contagem, agora, acoes,
 }: {
   aba: FiltroDeComentarios;
   rede: RedeId | null;
+  /** Um embaixo do outro, ou juntos pelo post. */
+  ver: "lista" | "post";
   comentarios: ComentarioNaTela[];
   contagem: { total: number; porRede: Record<string, number> };
   agora: number;
@@ -221,12 +240,12 @@ export function TelaDeComentarios({
 }) {
   const atual = ABAS.find((a) => a.id === aba) ?? ABAS[0];
   const comComentario = REDES.filter((r) => (contagem.porRede[r.id] ?? 0) > 0 || r.id === rede);
-  const link = (a: FiltroDeComentarios, r: RedeId | null) => `?aba=${a}${r ? `&rede=${r}` : ""}`;
+  const link = (a: FiltroDeComentarios, r: RedeId | null, v: "lista" | "post" = ver) => `?aba=${a}${r ? `&rede=${r}` : ""}${v === "post" ? "&ver=post" : ""}`;
 
   return (
     <div data-painel-largo>
       <header>
-        <p className="eyebrow">Redes</p>
+        <p className="eyebrow">Social Media</p>
         <h1 className="font-display mt-2 text-3xl text-ink sm:text-4xl">Comentários</h1>
         <p className="mt-2 max-w-2xl text-sm text-muted sm:text-base">
           O que comentaram nas publicações das redes, num lugar só. O painel busca os comentários de meia em meia hora, e a resposta que a JK der por outro caminho (no aplicativo ou por outra ferramenta) também tira o comentário da fila.
@@ -252,8 +271,9 @@ export function TelaDeComentarios({
         ))}
       </nav>
 
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
       {comComentario.length > 1 || rede ? (
-        <nav aria-label="Rede" className="-mx-1 mt-3 flex gap-1.5 overflow-x-auto px-1 pb-1">
+        <nav aria-label="Rede" className="-mx-1 flex min-w-0 max-w-full gap-1.5 overflow-x-auto px-1 pb-1">
           <Link href={link(aba, null)} scroll={false} aria-current={!rede ? "page" : undefined} className={"shrink-0 whitespace-nowrap rounded-full border px-3 py-1.5 text-xs font-semibold " + (!rede ? "border-transparent bg-ink text-white" : "border-ink/12 bg-white text-ink")}>
             Todas
           </Link>
@@ -264,17 +284,49 @@ export function TelaDeComentarios({
             </Link>
           ))}
         </nav>
-      ) : null}
+      ) : <span />}
+        <nav aria-label="Como mostrar" className="flex shrink-0 gap-1 rounded-full border border-border bg-surface/60 p-1">
+          {(["lista", "post"] as const).map((v) => (
+            <Link key={v} href={link(aba, rede, v)} scroll={false} aria-current={v === ver ? "page" : undefined} className={"whitespace-nowrap rounded-full px-3 py-1 text-xs font-semibold " + (v === ver ? "painel-aba-ativa" : "text-muted hover:text-ink")}>
+              {v === "lista" ? "Um por um" : "Por post"}
+            </Link>
+          ))}
+        </nav>
+      </div>
 
       {comentarios.length === 0 ? (
         <div className="glass mt-5 rounded-[20px] px-5 py-10 text-center sm:py-14">
           <p className="font-display text-xl text-ink">{atual.vazio}</p>
           {aba === "novos" ? <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-muted">Os comentários aparecem aqui depois que uma rede é ligada e o painel faz a primeira leitura das publicações.</p> : null}
         </div>
+      ) : ver === "post" ? (
+        <ul className="mt-5 grid grid-cols-1 gap-4">
+          {porPost(comentarios).map((g) => (
+            <li key={g.id} className="min-w-0 rounded-[20px] border border-ink/[0.08] bg-white/50 p-3 sm:p-4">
+              <div className="flex items-center gap-3">
+                <Miniatura src={g.publicacao.miniaturaUrl} rede={g.rede} />
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-semibold text-ink">
+                    {nomeDaRede(g.rede)} · {g.comentarios.length} {g.comentarios.length === 1 ? "comentário" : "comentários"}
+                  </p>
+                  <p className="mt-0.5 line-clamp-2 break-words text-xs leading-snug text-muted">{g.publicacao.legenda || "Publicação sem legenda"}</p>
+                </div>
+                <Link href={`/admin/redes/conteudos/${g.id}`} className="painel-toque inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border border-ink/12 bg-white px-3 py-1.5 text-xs font-semibold text-ink">
+                  Ver o post <ArrowUpRight size={13} aria-hidden="true" />
+                </Link>
+              </div>
+              <ul className="mt-3 grid grid-cols-1 gap-3 xl:grid-cols-2">
+                {g.comentarios.map((c) => (
+                  <CartaoDeComentario key={c.id} c={c} agora={agora} acoes={acoes} semPost />
+                ))}
+              </ul>
+            </li>
+          ))}
+        </ul>
       ) : (
         <ul className="mt-5 grid grid-cols-1 gap-3 xl:grid-cols-2">
           {comentarios.map((c) => (
-            <Comentario key={c.id} c={c} agora={agora} acoes={acoes} />
+            <CartaoDeComentario key={c.id} c={c} agora={agora} acoes={acoes} />
           ))}
         </ul>
       )}

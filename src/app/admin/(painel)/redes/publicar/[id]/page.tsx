@@ -33,7 +33,7 @@ export default async function PostPage({ params }: { params: Promise<{ id: strin
   return (
     <div data-painel-largo>
       <Link href="/admin/redes/publicar" className="inline-flex items-center gap-1 text-xs font-semibold text-[var(--setor)]">
-        <ArrowLeft size={13} aria-hidden="true" /> Publicar e agendar
+        <ArrowLeft size={13} aria-hidden="true" /> Posts e stories
       </Link>
       <h1 className="font-display mt-2 text-3xl text-ink sm:text-4xl">{editavel ? "Editar post" : "Post publicado"}</h1>
       {post.status === "agendado" ? (

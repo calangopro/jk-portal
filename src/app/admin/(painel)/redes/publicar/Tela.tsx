@@ -5,7 +5,7 @@ import type { FiltroDePosts, PostNaTela } from "@/lib/redes/posts";
 import { CartaoDoPost, type AcoesDoPost } from "./CartaoDoPost";
 
 /**
- * "Publicar e agendar", só o desenho: as quatro abas e os posts de cada uma.
+ * "Posts e stories", só o desenho: as quatro abas e os posts de cada uma.
  * A leitura fica em `page.tsx`.
  *
  * A aba que abre é a fila, porque é a pergunta do dia a dia: o que vai sair e
@@ -36,8 +36,8 @@ export function TelaDePublicar({
     <div data-painel-largo>
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div className="min-w-0">
-          <p className="eyebrow">Redes</p>
-          <h1 className="font-display mt-2 text-3xl text-ink sm:text-4xl">Publicar e agendar</h1>
+          <p className="eyebrow">Social Media</p>
+          <h1 className="font-display mt-2 text-3xl text-ink sm:text-4xl">Posts e stories</h1>
           <p className="mt-2 max-w-2xl text-sm text-muted sm:text-base">
             Monte o post uma vez e mande para as redes que quiser, agora ou na hora marcada. O painel publica sozinho o que foi agendado.
           </p>
