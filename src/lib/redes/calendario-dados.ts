@@ -1,6 +1,6 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { ItemDoCalendario, SituacaoNoCalendario } from "./calendario";
+import { diaEmSaoPaulo, type ItemDoCalendario, type SituacaoNoCalendario } from "./calendario";
 import { ehRede, type RedeId } from "./redes";
 import type { Midia } from "./tipos";
 
@@ -24,7 +24,7 @@ type PostCru = {
 const SITUACAO: Record<string, SituacaoNoCalendario> = { agendado: "agendado", publicando: "publicando", processando: "publicando", erro: "erro", parcial: "erro", publicado: "publicado" };
 
 export async function lerCalendario(admin: SupabaseClient, de: string, ate: string): Promise<ItemDoCalendario[] | null> {
-  const [publicacoes, agendados, saidos] = await Promise.all([
+  const [publicacoes, agendados, saidos, ideias] = await Promise.all([
     admin.from("redes_publicacoes").select("id, rede, formato, legenda, miniatura_url, publicado_em, envio_id").gte("publicado_em", de).lt("publicado_em", ate).order("publicado_em").limit(2000),
     admin
       .from("redes_posts")
@@ -40,6 +40,14 @@ export async function lerCalendario(admin: SupabaseClient, de: string, ate: stri
       .gte("publicado_em", de)
       .lt("publicado_em", ate)
       .limit(1000),
+    // As ideias com dia marcado que ainda não viraram post na fila (0089).
+    admin
+      .from("redes_ideias")
+      .select("id, titulo, formato, redes, quando")
+      .in("estado", ["ideia", "produzindo"])
+      .gte("quando", diaEmSaoPaulo(de))
+      .lte("quando", diaEmSaoPaulo(Date.parse(ate) - 1))
+      .limit(500),
   ]);
   const erro = publicacoes.error ?? agendados.error ?? saidos.error;
   if (erro) {
@@ -84,6 +92,20 @@ export async function lerCalendario(admin: SupabaseClient, de: string, ate: stri
       miniatura: imagem?.url ?? null,
       href: `/admin/redes/publicar/${p.id}`,
       sequencia: p.sequencia && p.ordem ? `${p.sequencia}:${p.ordem}` : null,
+    });
+  }
+  for (const i of (ideias.data ?? []) as { id: string; titulo: string; formato: string | null; redes: string[] | null; quando: string }[]) {
+    itens.push({
+      chave: `i${i.id}`,
+      situacao: "ideia",
+      // Meio-dia de Brasília: a ideia tem dia, não hora.
+      quando: `${i.quando}T15:00:00.000Z`,
+      redes: (i.redes ?? []).filter(ehRede) as RedeId[],
+      formato: i.formato,
+      legenda: i.titulo,
+      miniatura: null,
+      href: `/admin/redes/ideias#${i.id}`,
+      sequencia: null,
     });
   }
   return itens;

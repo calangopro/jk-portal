@@ -22,6 +22,7 @@ import { SETORES } from "../src/lib/painel/setores.ts";
 import { analisarConteudos, fatorEmPalavra, grupoDoFormato, mediana, ordenarConteudos, type PublicacaoCrua as PublicacaoDoConteudo } from "../src/lib/redes/conteudos.ts";
 import { diaEmSaoPaulo, diasDaGrade, horaCurta, intervaloDaGrade, lerMes, mesVizinho, nomeDoMes, porDia, type ItemDoCalendario } from "../src/lib/redes/calendario.ts";
 import { faixaEmPalavra, horaEmSaoPaulo, melhoresHorarios, proximosHorarios } from "../src/lib/redes/horarios.ts";
+import { datasDoComercio, proximasDatas, quandoEmPalavra } from "../src/lib/redes/datas.ts";
 import type { Peca } from "../src/lib/redes/tipos.ts";
 
 let falhas = 0;
@@ -318,6 +319,21 @@ console.log("\nCalendário e melhores horários");
   const agora = Date.parse("2026-11-16T20:00:00Z"); // 17h em Brasília
   confere("próximos horários a partir de agora", proximosHorarios([18, 12], agora, 3).join(",") === ["2026-11-16T22:00:00.000Z", "2026-11-17T16:00:00.000Z", "2026-11-17T22:00:00.000Z"].join(","));
   confere("horário com menos de meia hora de folga fica de fora", proximosHorarios([15], Date.parse("2026-11-16T18:45:00Z"), 1)[0] === "2026-11-17T19:00:00.000Z");
+}
+
+console.log("\nDatas que vêm aí");
+{
+  const d26 = Object.fromEntries(datasDoComercio(2026).map((d) => [d.nome, d.data]));
+  confere("Dia das Mães é o segundo domingo de maio", d26["Dia das Mães"] === "2026-05-10");
+  confere("Dia dos Pais é o segundo domingo de agosto", d26["Dia dos Pais"] === "2026-08-09");
+  confere("Black Friday é a sexta depois da quarta quinta de novembro", d26["Black Friday"] === "2026-11-27" && Object.fromEntries(datasDoComercio(2027).map((d) => [d.nome, d.data]))["Black Friday"] === "2027-11-26");
+  const campanhas = [{ nome: "Black", inicio: "2026-11-01", fim: "2026-11-30", ativa: true }, { nome: "Natal", inicio: "2026-12-01", fim: "2026-12-25", ativa: true }, { nome: "Rascunho", inicio: "2026-12-10", fim: "2026-12-12", ativa: false }, { nome: "Passada", inicio: "2026-10-01", fim: "2026-10-31", ativa: true }];
+  const prox = proximasDatas("2026-11-16", 60, campanhas);
+  confere("campanha no ar entra primeiro, com zero dias", prox[0].nome === "Black" && prox[0].faltam === 0 && quandoEmPalavra(prox[0]) === "no ar até 30/11");
+  confere("campanha desligada e passada não entram", !prox.some((d) => d.nome === "Rascunho" || d.nome === "Passada"));
+  confere("datas do comércio na janela, em ordem", prox.filter((d) => d.tipo === "comercio").map((d) => d.nome).join(",") === "Black Friday,Natal,Véspera de Ano-Novo");
+  confere("janela vira o ano", proximasDatas("2026-12-30", 10).map((d) => d.nome).join(",") === "Véspera de Ano-Novo");
+  confere("quando em palavra", quandoEmPalavra({ data: "2026-11-27", fim: null, nome: "x", tipo: "comercio", faltam: 11 }) === "em 11 dias" && quandoEmPalavra({ data: "2026-11-17", fim: null, nome: "x", tipo: "comercio", faltam: 1 }) === "amanhã");
 }
 
 console.log("\nEndereço assinado (S3 e R2)");

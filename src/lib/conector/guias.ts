@@ -24,7 +24,7 @@ FLUXO DE UM POST: pautas e oportunidades (o que escrever) -> canibalização (n�
 
 FOTOS DO CATÁLOGO: três por produto (1 produto, 2 face, 3 uso). catalogo.fila_de_fotos -> leia a peça na foto do site (largura, pedras, formato, acabamento) -> gere a partir dela, nunca do zero -> revise ao lado da original e corrija o que divergir -> catalogo.enviar_foto. Aprovar é de gente, no painel. Detalhe em buscar({ guia: "fotos" }).
 
-REDES SOCIAIS: redes.contas (o que está ligado) -> redes.regras -> redes.enviar_midia para cada arquivo -> redes.criar_post (nasce RASCUNHO) -> mostre à pessoa a legenda, as redes e a hora -> redes.agendar ou redes.publicar só com o sim dela. Sai no nome da JK, para o público. Detalhe em buscar({ guia: "redes" }).
+REDES SOCIAIS: redes.contas (o que está ligado) -> redes.regras -> redes.enviar_midia para cada arquivo -> redes.criar_post (nasce RASCUNHO; story com várias mídias vira sequência) -> mostre à pessoa a legenda, as redes e a hora -> redes.agendar ou redes.publicar só com o sim dela. Sai no nome da JK, para o público. O que viralizou: redes.em_alta. Ideias: redes.ideias e redes.criar_ideia. Detalhe em buscar({ guia: "redes" }).
 
 SEGURANÇA:
 - Operação PERIGOSA (publicar, tirar do ar, agendar, publicar ou agendar nas redes sociais, responder comentário do site ou das redes em nome da JK, redirect, home, bio, grupo, destino de QR impresso, loja publicada, convite de usuário) muda o que o público vê. Antes de rodar, diga em uma frase o que vai fazer e espere o "sim" da pessoa nesta conversa, a não ser que o pedido já diga exatamente isso ("publica o post X"). Em lote, liste tudo e peça um sim só.
