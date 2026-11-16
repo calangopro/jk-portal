@@ -28,7 +28,7 @@ export const AREAS: { nome: string; descricao: string }[] = [
   { nome: "produtos", descricao: "catálogo espelhado da Tray (só leitura) e sincronização" },
   { nome: "catalogo", descricao: "fotos novas dos produtos: fila do que falta, enviar foto do Magnific, padrão de foto" },
   { nome: "margem", descricao: "limite de anúncio por produto: CPA máximo e ROAS mínimo (só administrador)" },
-  { nome: "redes", descricao: "redes sociais: contas ligadas, números de cada rede, montar post, enviar mídia, agendar e publicar" },
+  { nome: "redes", descricao: "redes sociais: contas ligadas, números de cada rede, montar post, enviar mídia, agendar, publicar, ler e responder comentários" },
   { nome: "lojas", descricao: "lojas físicas: endereço, horário, fotos, publicação" },
   { nome: "metricas", descricao: "Search Console (buscas, páginas, números de um post, importação) e visitas do GA4" },
   { nome: "home", descricao: "layout da página inicial" },

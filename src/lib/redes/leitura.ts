@@ -1,5 +1,6 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { lerComentariosDaConta } from "./comentarios";
 import { anotarErro, credenciaisAtivas, listarContas, marcarExpirada } from "./contas";
 import { modulo } from "./plataformas";
 import { nomeDaRede } from "./redes";
@@ -231,6 +232,11 @@ async function lerUmaConta(db: SupabaseClient, conta: Conta, o: Required<Omit<Op
       metricas = await lerMetricasPendentes(db, conta, m, credenciais, o.metricas, ate);
     });
 
+    // Por último, porque é o que mais gasta chamada: se o tempo da rodada acabar, fica para a seguinte.
+    await tentar("comentários", async () => {
+      await lerComentariosDaConta(db, conta, m, credenciais, ate);
+    });
+
     await db
       .from("redes_contas")
       .update({ lida_em: new Date().toISOString(), ultimo_erro: avisos.length ? avisos.join(" | ").slice(0, 300) : null, atualizado_em: new Date().toISOString() })
@@ -258,5 +264,11 @@ export async function lerRedes(db: SupabaseClient, opcoes: OpcoesDaLeitura = {})
   const ate = Date.now() + o.prazoMs;
   let contas = await listarContas(db, { soAtivas: true });
   if (opcoes.contaId) contas = contas.filter((c) => c.id === opcoes.contaId);
-  return Promise.all(contas.map((c) => lerUmaConta(db, c, o, ate)));
+  const resultados = await Promise.all(contas.map((c) => lerUmaConta(db, c, o, ate)));
+  // Comentário não é arquivo: o que passou de 90 dias sai. Falhar aqui não derruba a leitura.
+  if (!opcoes.contaId) {
+    const { error } = await db.rpc("redes_limpar_comentarios");
+    if (error) console.error("[redes] limpar comentários:", error.message);
+  }
+  return resultados;
 }

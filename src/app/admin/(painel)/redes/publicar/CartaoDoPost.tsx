@@ -118,7 +118,7 @@ export function CartaoDoPost({ post, agora, acoes, semLink = false }: { post: Po
     });
 
   return (
-    <article className="glass rounded-[18px] p-4 sm:p-5">
+    <article className="glass min-w-0 rounded-[18px] p-4 sm:p-5">
       <div className="flex items-start gap-3">
         <span className="relative grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded-[11px] bg-ink/[0.06] text-muted sm:h-20 sm:w-20">
           {capa?.tipo === "imagem" ? (
@@ -139,7 +139,7 @@ export function CartaoDoPost({ post, agora, acoes, semLink = false }: { post: Po
             <span className="text-xs font-semibold text-ink">{NOME_DO_FORMATO[post.formato]}</span>
           </div>
           {post.titulo ? <p className="mt-1 break-words text-sm font-semibold text-ink">{post.titulo}</p> : null}
-          <p className="mt-1 line-clamp-3 whitespace-pre-line break-words text-sm leading-snug text-ink">{post.legenda.trim() || <span className="text-muted">Sem legenda</span>}</p>
+          <p className="mt-1 line-clamp-3 whitespace-pre-line text-sm leading-snug text-ink [overflow-wrap:anywhere]">{post.legenda.trim() || <span className="text-muted">Sem legenda</span>}</p>
         </div>
       </div>
 

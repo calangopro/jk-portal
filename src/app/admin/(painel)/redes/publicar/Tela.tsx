@@ -91,9 +91,9 @@ export function TelaDePublicar({
           ) : null}
         </div>
       ) : (
-        <ul className="mt-5 grid gap-3 lg:grid-cols-2">
+        <ul className="mt-5 grid grid-cols-1 gap-3 lg:grid-cols-2">
           {posts.map((p) => (
-            <li key={p.id}>
+            <li key={p.id} className="min-w-0">
               <CartaoDoPost post={p} agora={agora} acoes={acoes} />
             </li>
           ))}

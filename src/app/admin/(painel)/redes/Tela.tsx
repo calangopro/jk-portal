@@ -73,7 +73,7 @@ function FaixaDaConta({ c, agora, dias }: { c: ContaNoResumo; agora: number; dia
   const rede = nomeDaRede(c.rede);
   const comProblema = c.status === "expirada" || Boolean(c.ultimoErro);
   return (
-    <li className="glass rounded-[18px] p-4 sm:p-5">
+    <li className="glass min-w-0 rounded-[18px] p-4 sm:p-5">
       <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2">
         <div className="flex min-w-0 items-center gap-2.5">
           <SeloDaRede id={c.rede} tamanho={32} />
@@ -309,15 +309,15 @@ export function TelaDasRedes({
             <h2 id="titulo-contas" className="text-sm font-semibold text-ink">
               Rede por rede
             </h2>
-            <ul className="mt-3 grid gap-3 lg:grid-cols-2 2xl:grid-cols-3">
+            <ul className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-2 2xl:grid-cols-3">
               {contas.map((c) => (
                 <FaixaDaConta key={c.id} c={c} agora={agora} dias={dias} />
               ))}
             </ul>
           </section>
 
-          <div className="mt-8 grid gap-4 lg:grid-cols-2">
-            <section className="glass rounded-[18px] p-4 sm:p-5" aria-labelledby="titulo-melhores">
+          <div className="mt-8 grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <section className="glass min-w-0 rounded-[18px] p-4 sm:p-5" aria-labelledby="titulo-melhores">
               <h2 id="titulo-melhores" className="text-sm font-semibold text-ink">
                 O que mais rendeu em {dias} dias
               </h2>
@@ -333,7 +333,7 @@ export function TelaDasRedes({
               )}
             </section>
 
-            <section className="glass rounded-[18px] p-4 sm:p-5" aria-labelledby="titulo-recentes">
+            <section className="glass min-w-0 rounded-[18px] p-4 sm:p-5" aria-labelledby="titulo-recentes">
               <h2 id="titulo-recentes" className="text-sm font-semibold text-ink">
                 Últimas publicações
               </h2>

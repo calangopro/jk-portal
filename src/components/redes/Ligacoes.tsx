@@ -210,7 +210,7 @@ function CartaoDaRede({ ligacao, agora, acoes, retornoBase }: { ligacao: Ligacao
   const retorno = `${retornoBase}/api/redes/retorno/${rede.id}`;
 
   return (
-    <li className="glass rounded-[18px] p-4 sm:p-5">
+    <li className="glass min-w-0 rounded-[18px] p-4 sm:p-5">
       <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2">
         <div className="flex min-w-0 items-center gap-2.5">
           <SeloDaRede id={rede.id} tamanho={34} />
@@ -317,7 +317,7 @@ export function LigacoesDasRedes({ ligacoes, agora, acoes, retornoBase }: { liga
   const outras = ligacoes.filter((l) => !l.pronta);
   return (
     <div>
-      <ul className="grid gap-4 xl:grid-cols-2">
+      <ul className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         {prontas.map((l) => (
           <CartaoDaRede key={l.rede.id} ligacao={l} agora={agora} acoes={acoes} retornoBase={retornoBase} />
         ))}
@@ -328,7 +328,7 @@ export function LigacoesDasRedes({ ligacoes, agora, acoes, retornoBase }: { liga
           <p className="mt-1 max-w-3xl text-xs leading-relaxed text-muted">
             O perfil existe, mas a rede exige uma aprovação antes de abrir a API, ou não tem API. Cada cartão diz o que falta.
           </p>
-          <ul className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          <ul className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
             {outras.map((l) => (
               <CartaoDaRede key={l.rede.id} ligacao={l} agora={agora} retornoBase={retornoBase} />
             ))}
