@@ -9,6 +9,7 @@ import { NOME_DA_ETAPA, diaDe, horaCurta, rotuloDoDia } from "@/lib/time/chat";
 import { SeloDeTom } from "../Pecas";
 import { FormularioDeResposta } from "../biblioteca/FormularioDeResposta";
 import { botaoCheio, botaoClaro, campo } from "../biblioteca/pecas";
+import { BotaoDoHistorico } from "../pedido/abrir";
 import type { ApiDoSuporte } from "./api";
 
 /**
@@ -161,6 +162,7 @@ export function CartaoDoCaso({
             <MessageCircle size={14} aria-hidden="true" /> WhatsApp do cliente
           </a>
         ) : null}
+        {c.cliente.pedido ? <BotaoDoHistorico numero={c.cliente.pedido} rotulo="Histórico do pedido" className={botaoClaro} /> : null}
         {c.cliente.ref ? (
           <Link href={`/admin/clientes/${c.cliente.ref}`} className={botaoClaro}>
             <CircleUserRound size={14} aria-hidden="true" /> Ficha

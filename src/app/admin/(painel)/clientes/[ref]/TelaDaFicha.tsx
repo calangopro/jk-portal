@@ -14,6 +14,7 @@ import type { Marcar } from "../CartaoDaOportunidade";
 import { comprasEmPalavra } from "../LinhaDoCliente";
 import { EditarFicha } from "./EditarFicha";
 import { OportunidadesDaFicha } from "./OportunidadesDaFicha";
+import { BotaoDoHistorico } from "../../pedido/abrir";
 
 /**
  * A ficha do cliente, só o desenho. A leitura fica em `page.tsx`, para a tela
@@ -131,7 +132,10 @@ function EventoDoPedido({ p }: { p: PedidoDaFicha }) {
           <p className="text-sm font-semibold text-ink">
             Pedido <span className="numeros">{p.pedido}</span> na loja
           </p>
-          <SeloDeTom tom={s.tom}>{s.nome}</SeloDeTom>
+          <span className="flex items-center gap-1.5">
+            <BotaoDoHistorico numero={p.pedido} />
+            <SeloDeTom tom={s.tom}>{s.nome}</SeloDeTom>
+          </span>
         </div>
         <p className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted">
           <span className="numeros text-sm font-bold text-ink">{reais(p.total)}</span>

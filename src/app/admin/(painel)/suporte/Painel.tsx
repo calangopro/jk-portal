@@ -1,11 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ChevronDown, ChevronUp, CircleCheck, LifeBuoy, Loader2, TriangleAlert, X } from "lucide-react";
+import { ChevronDown, ChevronUp, CircleCheck, History, LifeBuoy, Loader2, TriangleAlert, X } from "lucide-react";
+import { lerNumeroDoPedido } from "@/lib/pedidos/historico";
 import { COR_DO_TOM } from "@/lib/painel/tons";
 import { ABERTOS, limitesDoSuportePorExtenso, ordenarCasos, type Caso, type ListaDoSuporte } from "@/lib/suporte/casos";
 import { aoAvisar } from "@/lib/time/ao-vivo";
-import { botaoCheio, botaoClaro, useAgora } from "../biblioteca/pecas";
+import { botaoCheio, botaoClaro, campo, useAgora } from "../biblioteca/pecas";
+import { abrirHistoricoDoPedido } from "../pedido/abrir";
 import { apiDoSuporte, type ApiDoSuporte } from "./api";
 import { CartaoDoCaso } from "./Caso";
 import { FormularioDoCaso, type ClienteEscolhido } from "./Formulario";
@@ -167,6 +169,8 @@ export function PainelDoSuporte({
         </section>
       ) : null}
 
+      <HistoricoPeloNumero compacta={compacta} />
+
       {lista.atende ? (
         <>
           {grupo("Na fila, sem dono", abertos.filter((c) => c.estado === "na_fila"), "Ninguém na fila agora.")}
@@ -194,3 +198,39 @@ export function PainelDoSuporte({
     </div>
   );
 }
+
+/**
+ * O histórico de qualquer pedido, pelo número: quem vendeu, por onde veio, o
+ * que a fábrica fez, quem passou ao suporte e quem atendeu. Abre a gaveta do
+ * histórico por cima da tela (`pedido/abrir.tsx`).
+ */
+function HistoricoPeloNumero({ compacta }: { compacta: boolean }) {
+  const [valor, setValor] = useState("");
+  const [erro, setErro] = useState<string | null>(null);
+  return (
+    <form
+      className={`${compacta ? "mt-4" : "mt-5"} flex flex-wrap items-end gap-2`}
+      onSubmit={(e) => {
+        e.preventDefault();
+        const n = lerNumeroDoPedido(valor);
+        if (!n) return setErro("Digite só o número do pedido, como 12345.");
+        setErro(null);
+        abrirHistoricoDoPedido(n, e.currentTarget.querySelector("input"));
+      }}
+    >
+      <label className="min-w-0 flex-1 basis-48">
+        <span className="text-xs font-semibold text-ink">Histórico de um pedido</span>
+        <input value={valor} onChange={(e) => setValor(e.target.value)} inputMode="numeric" placeholder="Número do pedido" autoComplete="off" className={campo} />
+      </label>
+      <button type="submit" className={botaoClaro}>
+        <History size={14} aria-hidden="true" /> Ver o histórico
+      </button>
+      {erro ? (
+        <p role="alert" className="basis-full text-xs font-semibold" style={{ color: COR_DO_TOM.ruim.texto }}>
+          {erro}
+        </p>
+      ) : null}
+    </form>
+  );
+}
+
