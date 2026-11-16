@@ -67,9 +67,11 @@ export async function ligarRedeComToken(_prev: IntegracaoState, formData: FormDa
     const gravou = await guardarContas(db, contas, { perfilId: perfil.id, via: "token" });
     if (gravou.erro) return { erro: `O token foi conferido, mas não deu para guardar: ${gravou.erro}` };
 
-    // A primeira leitura roda depois da resposta, para o botão não ficar girando.
+    // A primeira leitura roda depois da resposta, para o botão não ficar girando. As contas vão AO MESMO TEMPO:
+    // um token liga duas (Página e Instagram), e em fila a segunda leitura era cortada pelo teto de 60 s da função
+    // (foi o que aconteceu com o Instagram na primeira ligação de verdade, em 16/11/2026).
     after(async () => {
-      for (const id of gravou.ids) await lerRedes(db, { contaId: id, dias: 30, paginas: 3, metricas: 30, prazoMs: 40_000 }).catch((e) => console.error("[redes] primeira leitura", e));
+      await Promise.all(gravou.ids.map((id) => lerRedes(db, { contaId: id, primeira: true, dias: 30, paginas: 6, metricas: 30, prazoMs: 40_000 }).catch((e) => console.error("[redes] primeira leitura", e))));
     });
     atualizarTelas();
     const quais = contas.map((c) => `${nomeDaRede(c.rede)} ${c.usuario || c.nome || ""}`.trim()).join(", ");

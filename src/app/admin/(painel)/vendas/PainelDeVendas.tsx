@@ -285,7 +285,9 @@ function Periodo({
         <div className="glass rounded-[18px] p-5">
           <p className="eyebrow">De onde vieram as vendas</p>
           <p className="mt-1 text-xs text-muted">
-            Pela etiqueta que a Tray grava no pedido. Busca do Google e acesso direto chegam sem etiqueta.
+            Pela etiqueta que a Tray grava no pedido e, quando ela falta, pela chegada que o script da loja anotou
+            (desde 13/11/2026). Pedido de antes disso sem etiqueta, como busca do Google e acesso direto, fica em Sem
+            etiqueta.
           </p>
           {canais.length > 0 ? (
             <ListaComBarra

@@ -49,6 +49,8 @@ export type OpcoesDaLeitura = {
   metricas?: number;
   /** Só esta conta (retorno de ligação, "Ler agora" de uma conta). */
   contaId?: string;
+  /** Primeira leitura de uma conta recém-ligada: busca a história que o módulo da rede aguenta (`historico`). */
+  primeira?: boolean;
   /** Milissegundos que a rodada pode gastar. A função da Vercel tem teto. */
   prazoMs?: number;
 };
@@ -209,7 +211,8 @@ async function lerUmaConta(db: SupabaseClient, conta: Conta, o: Required<Omit<Op
 
     if (m.lerDias) {
       await tentar("números por dia", async () => {
-        const lidos = await m.lerDias!({ credenciais, conta, de: somarDias(hoje, -(o.dias - 1)), ate: hoje });
+        const pedir = o.primeira ? Math.max(o.dias, m.historico ?? o.dias) : o.dias;
+        const lidos = await m.lerDias!({ credenciais, conta, de: somarDias(hoje, -(pedir - 1)), ate: hoje });
         if (lidos.length) await gravarDias(db, conta.id, lidos);
         dias = lidos.length;
       });
@@ -260,7 +263,7 @@ async function lerUmaConta(db: SupabaseClient, conta: Conta, o: Required<Omit<Op
  * de tempo da função.
  */
 export async function lerRedes(db: SupabaseClient, opcoes: OpcoesDaLeitura = {}): Promise<ResultadoDaConta[]> {
-  const o = { dias: opcoes.dias ?? 7, paginas: opcoes.paginas ?? 1, metricas: opcoes.metricas ?? 20, prazoMs: opcoes.prazoMs ?? 45_000 };
+  const o = { dias: opcoes.dias ?? 7, paginas: opcoes.paginas ?? 1, metricas: opcoes.metricas ?? 20, prazoMs: opcoes.prazoMs ?? 45_000, primeira: opcoes.primeira ?? false };
   const ate = Date.now() + o.prazoMs;
   let contas = await listarContas(db, { soAtivas: true });
   if (opcoes.contaId) contas = contas.filter((c) => c.id === opcoes.contaId);

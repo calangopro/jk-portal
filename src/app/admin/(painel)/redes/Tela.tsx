@@ -287,7 +287,7 @@ export function TelaDasRedes({
             <Cartao Icone={Eye} rotulo="Visualizações" variacao={{ d: resumo.total.visualizacoes.variacao }}>
               {compacto(resumo.total.visualizacoes.valor)}
             </Cartao>
-            <Cartao Icone={Heart} rotulo="Interações" variacao={{ d: resumo.total.interacoes.variacao }} apoio="curtidas, comentários, salvos e compartilhamentos">
+            <Cartao Icone={Heart} rotulo="Interações" variacao={{ d: resumo.total.interacoes.variacao }}>
               {compacto(resumo.total.interacoes.valor)}
             </Cartao>
             <Cartao Icone={Images} rotulo="Publicações" variacao={{ d: resumo.total.publicacoes.variacao }}>
@@ -295,7 +295,7 @@ export function TelaDasRedes({
             </Cartao>
           </section>
           <p className="mt-2 text-[0.7rem] leading-relaxed text-muted">
-            Seguidores somados contam duas vezes quem segue a JK em duas redes. A comparação é com os {dias} dias anteriores.
+            Seguidores somados contam duas vezes quem segue a JK em duas redes. Interações são curtidas, comentários, salvos e compartilhamentos. O alcance é a soma do alcance de cada dia: quem viu a JK em dois dias conta duas vezes. A comparação é com os {dias} dias anteriores, e só aparece quando eles foram lidos por inteiro.
           </p>
 
           {resumo.semLeitura ? (

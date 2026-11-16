@@ -99,10 +99,47 @@ anúncio, o sufixo do URL final da conta: `adgroupid={adgroupid}&creative={creat
   esperado no primeiro dia: o coletor não tem passado, quem compra costuma ter
   chegado antes, e parte das vendas vem de link mandado pelo vendedor.
 
-**Não foi conferido:** que o `session_id` que a API devolve no pedido é essa
-mesma sessão. Tudo aponta que sim, mas a prova é o primeiro pedido lido pela
-API. Enquanto a API não chega, a ligação pela página de compra já funciona
-sozinha.
+**Conferido em 16/11/2026, com os primeiros pedidos lidos pela API:** o
+`session_id` que a API devolve no pedido é a mesma sessão que o coletor lê na
+vitrine. Dos 39 pedidos de 13 a 16/11, os 34 feitos depois de o coletor entrar
+na loja ligaram ao visitante pela sessão. Em 27 deles a página de compra
+também tinha visto o pedido e apontava o mesmo visitante. Em 4 apontava outro,
+e isso ainda não foi investigado (a conta dá preferência à sessão).
+
+## A origem nas telas de vendas
+
+Até 16/11/2026, a origem em Vendas, na Visão geral, em Tráfego e em Gargalos
+saía só de `tray_pedidos.utm_source`, a etiqueta que a exportação do painel da
+loja traz. A origem anotada pelo coletor aparecia num bloco à parte, em
+Tráfego. Com o pedido entrando pela API, que não tem origem, e a exportação
+parada, todo pedido novo caía em "Sem etiqueta": nos quatro dias de 13 a
+16/11 eram 30 de 39.
+
+Desde a 0111, as duas contas que alimentam essas telas (`resumo_de_vendas` e
+`raio_x_dos_pedidos`) usam **a etiqueta da Tray quando ela existe e, quando
+falta, o canal da chegada anotada** (`canal_anotado_dos_pedidos`, a mesma regra
+de `origem_dos_pedidos`). O banco devolve a chegada como `@canal`, e
+`canalDaOrigem` (`src/lib/vendas/origem.ts`) entende a marca. Nos mesmos
+quatro dias, os "sem etiqueta" caíram de 30 para 4.
+
+O que isso muda, para ler os números sem susto:
+
+- **Cinco canais só existem de 13/11/2026 em diante:** Busca do Google, Outros
+  buscadores, YouTube, Outros sites e Acesso direto. Antes, a Tray jogava
+  todos em "Sem etiqueta". Os sinais da Visão geral não comparam esses canais
+  com um período de antes do coletor, senão "Busca do Google começou a vender"
+  seria só a troca de quem conta.
+- **Acesso direto começa inflado.** O coletor não tem passado: quem clicou num
+  anúncio antes de 13/11 e voltou depois aparece como direto. Isso se acerta
+  sozinho com as semanas.
+- **A chegada anotada olha trinta dias para trás**, e a etiqueta da Tray só a
+  visita da compra. Um pedido sem etiqueta da Tray pode ganhar "Instagram e
+  Facebook" por um clique de duas semanas antes. Por isso Meta e Google Ads
+  tendem a subir um pouco em relação ao que a etiqueta sozinha mostrava.
+- **A exportação deixou de ser necessária para a origem dos pedidos novos.**
+  Ela ainda é a única fonte para pedido de antes de 13/11 e para quem a loja
+  não conseguiu ligar a uma chegada.
+- **A fila de recuperação ainda mostra só a etiqueta da Tray** no "veio de".
 
 ## Privacidade
 
