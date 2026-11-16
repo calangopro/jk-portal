@@ -15,7 +15,9 @@ import { CartaoGoogleAds, CartaoMetaAds } from "./CartaoDeAnuncios";
 import { CartaoDeChave } from "./CartaoDeChave";
 import { CartaoGoogle } from "./CartaoGoogle";
 import { LigacoesDasRedes } from "@/components/redes/Ligacoes";
+import { estadoDoArmazenamento } from "@/lib/redes/armazenamento";
 import { lerLigacoes } from "@/lib/redes/painel";
+import { CartaoDoArmazenamento } from "./CartaoDoArmazenamento";
 import { desligarContaDaRede, ligarRedeComToken, salvarAplicativoDaRede } from "./redes-actions";
 
 export const metadata = { title: "Integrações" };
@@ -41,12 +43,13 @@ export default async function IntegracoesPage({
   // Chaves e contagens com a service_role: `integration_tokens` não tem policy,
   // e a página já exige administrador.
   const admin = createAdminClient();
-  const [chaves, estadoDoGoogle, conexoes, estadoDaTray, ligacoesDasRedes] = await Promise.all([
+  const [chaves, estadoDoGoogle, conexoes, estadoDaTray, ligacoesDasRedes, armazenamentoDasRedes] = await Promise.all([
     lerChaves(admin),
     lerEstadoDoGoogle(admin),
     lerConexoes(admin),
     lerEstadoDaApiDePedidos(admin),
     lerLigacoes(admin),
+    estadoDoArmazenamento(admin),
   ]);
   const anuncio = (p: "meta" | "google") => {
     const c = conexoes.find((x) => x.plataforma === p);
@@ -172,6 +175,9 @@ export default async function IntegracoesPage({
             retornoBase={absoluteUrl("/")}
             acoes={{ salvarAplicativo: salvarAplicativoDaRede, ligarComToken: ligarRedeComToken, desligar: desligarContaDaRede }}
           />
+        </div>
+        <div className="mt-5">
+          <CartaoDoArmazenamento estado={armazenamentoDasRedes} />
         </div>
       </section>
 

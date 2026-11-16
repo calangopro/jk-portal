@@ -3,6 +3,7 @@
 import { after } from "next/server";
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth/session";
+import { guardarR2, PROVEDOR_R2 } from "@/lib/redes/armazenamento";
 import { desligarConta, guardarAplicativo, guardarContas, lerConta } from "@/lib/redes/contas";
 import { lerRedes } from "@/lib/redes/leitura";
 import { modulo } from "@/lib/redes/plataformas";
@@ -91,4 +92,41 @@ export async function desligarContaDaRede(_prev: IntegracaoState, formData: Form
   if (erro) return { erro };
   atualizarTelas();
   return { ok: `${nomeDaRede(conta.rede)} desligado. A credencial foi apagada; os números já lidos continuam guardados.` };
+}
+
+/**
+ * Liga o R2 da Cloudflare como armazenamento das mídias dos posts. As chaves
+ * só são guardadas depois de o painel provar que funcionam (ver `guardarR2`).
+ * "Voltar ao Supabase" apaga as chaves daqui; os arquivos que já estão no R2
+ * continuam lá, e os posts agendados com eles continuam valendo.
+ */
+export async function salvarArmazenamentoR2(_prev: IntegracaoState, formData: FormData): Promise<IntegracaoState> {
+  await requireAdmin();
+  const db = createAdminClient();
+
+  if (String(formData.get("remover") ?? "") === "1") {
+    const { error } = await db.from("integration_tokens").delete().eq("provider", PROVEDOR_R2);
+    if (error) return { erro: error.message };
+    atualizarTelas();
+    return { ok: "Chaves do R2 apagadas. As próximas mídias sobem para o Supabase, com até 50 MB por arquivo." };
+  }
+
+  // Aceita o ID puro ou o endereço S3 inteiro (https://<id>.r2.cloudflarestorage.com).
+  const conta = (String(formData.get("conta") ?? "").trim().toLowerCase().match(/[0-9a-f]{32}/) ?? [""])[0];
+  const balde = String(formData.get("balde") ?? "").trim();
+  const publico = String(formData.get("publico") ?? "").trim().replace(/\/+$/, "");
+  const chaveDeAcesso = String(formData.get("chave_id") ?? "").trim();
+  const chaveSecreta = String(formData.get("chave_segredo") ?? "").trim();
+
+  if (!conta) return { erro: "Confira o ID da conta da Cloudflare: são 32 letras e números." };
+  if (!/^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$/.test(balde)) return { erro: "Confira o nome do balde." };
+  if (!/^https:\/\/[a-z0-9.-]+\.[a-z]{2,}$/i.test(publico)) return { erro: "O endereço público começa com https:// e não tem caminho depois do domínio." };
+  if (chaveDeAcesso.length < 20 || /\s/.test(chaveDeAcesso) || chaveSecreta.length < 40 || /\s/.test(chaveSecreta)) {
+    return { erro: "Cole o ID da chave de acesso e a chave secreta inteiros, sem espaço nem quebra de linha." };
+  }
+
+  const erro = await guardarR2(db, { conta, balde, publico, chaveDeAcesso, chaveSecreta });
+  if (erro) return { erro };
+  atualizarTelas();
+  return { ok: "R2 conferido e ligado: o painel subiu um arquivo de teste, leu pelo endereço público e apagou. As próximas mídias vão para lá." };
 }
