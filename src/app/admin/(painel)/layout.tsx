@@ -1,3 +1,4 @@
+import { ehAdmin } from "@/lib/auth/acessos";
 import { requireSessao, ROLE_LABEL } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { signOut } from "@/app/admin/login/actions";
@@ -29,6 +30,7 @@ export default async function PainelLayout({ children }: { children: React.React
       pendentes={count ?? 0}
       avisos={avisosDoMenu(chat)}
       meuId={profile.areas.includes("time") ? profile.id : null}
+      souAdmin={ehAdmin(profile.role)}
       sair={signOut}
     >
       {children}
