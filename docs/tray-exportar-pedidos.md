@@ -1,10 +1,16 @@
-# Pedidos da Tray no portal, sem API
+# Pedidos da Tray pela exportação do painel
 
-A Tray ainda não liberou a API para a JK. Enquanto isso, os pedidos chegam ao
-portal pela exportação do próprio painel da Tray: alguém (ou a rotina
-programada) exporta dois arquivos e roda um comando. O dado é da Tray, com
-status, forma de pagamento, cupom e origem. Quando a API chegar, ela troca
-este caminho e a tabela continua a mesma.
+**Desde 16/11/2026 quem traz o pedido é a API da Tray**, de dez em dez minutos
+(`docs/tray-api-de-pedidos.md`). Este caminho continua existindo por um motivo
+só: **a API não diz de onde veio o pedido**, e a exportação tem a coluna "UTM
+Source". Alguém (ou a rotina programada) exporta dois arquivos e roda um
+comando, e a origem entra nos pedidos que a API já gravou. A tabela é a mesma,
+e a gravação nunca troca uma origem lida por vazio.
+
+De 12/11 a 16/11/2026 este foi o ÚNICO caminho, e mostrou por que não podia
+continuar sendo: depende do Mac ligado, do Chrome aberto e da Tray logada, e
+parou duas vezes em cinco dias (a Tray deslogou no fim de semana de 15/11, e no
+dia 16 o Chrome deixou de salvar o arquivo baixado).
 
 Percorrido e conferido em 12/11/2026. O total do dia 11/11 saiu
 R$ 3.883,38, igual ao relatório que a equipe manda no WhatsApp.

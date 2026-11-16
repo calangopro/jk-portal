@@ -8,9 +8,13 @@ A Tray continua sendo a fonte de verdade. O painel não guarda um valor próprio
 e torce para a loja concordar: manda a alteração, lê de volta o que ficou e só
 então atualiza o espelho.
 
-**Na loja da JK nada disto roda ainda.** Falta a Tray homologar o aplicativo e
-a loja ser autorizada em Integrações (`docs/tray-api-de-pedidos.md`). Tudo foi
-testado contra a loja de testes.
+**Na loja da JK isto roda desde 16/11/2026**, quando a Tray homologou o
+aplicativo e a loja foi autorizada (`docs/tray-api-de-pedidos.md`). No mesmo
+dia, em produção, "Editar na loja" leu um produto direto da loja de verdade
+(nome, preço, promoção com as datas e estoque). **Nenhuma alteração foi gravada
+na loja da JK por quem montou isto:** a escrita foi toda conferida na loja de
+testes, e a primeira alteração de verdade é de uma pessoa da JK, pela tela, com
+o antes e depois na frente.
 
 ## As regras de quem escreve na loja
 

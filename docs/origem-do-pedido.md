@@ -133,8 +133,9 @@ medição.
    dois recados, um com a chegada e outro, logo depois, com a sessão, porque a
    loja só preenche `data-session` depois de a página abrir. Não vira chegada
    repetida.
-2. **A API de pedidos na loja da JK**, que traz a sessão. Depende da
-   homologação do aplicativo (`docs/tray-api-de-pedidos.md`).
+2. **A API de pedidos na loja da JK**, que traz a sessão. Ligada em
+   16/11/2026 (`docs/tray-api-de-pedidos.md`): todo pedido lido pela API vem
+   com o `session_id` da Tray, que tem 20 ou 26 caracteres.
 3. **O código nos anúncios do Meta**, pelo modelo acima.
 
 O bloco "Origem anotada pela loja", em Tráfego, mostra sozinho qual desses
