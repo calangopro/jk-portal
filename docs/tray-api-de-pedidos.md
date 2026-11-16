@@ -95,7 +95,43 @@ e o token mascarado. A conferência campo a campo do formulário está em
 **O chamado foi aberto pelo Filipe em 14/11/2026**, pelo formulário de
 homologação da Tray (Octadesk, "Parcerias técnico"), com o título que a Tray
 pede, "Homologacao Loja 1305187 - Relatorios de pedidos e vitrine" (sem
-acento), e os três arquivos anexados. Falta a Tray responder.
+acento), e os três arquivos anexados.
+
+**A Tray respondeu em 16/11/2026 (chamado #2125522) pedindo outra forma, e não
+outro conteúdo.** São quatro exigências:
+
+1. Preencher o modelo dela, um `.docx` ("Modelo Homologação de Aplicativo"),
+   com a requisição e a resposta de cada rota em texto. Print não é aceito.
+2. Deixar À MOSTRA o access token usado nos testes, e o mesmo em todas as
+   evidências. Os arquivos de 14/11 tinham o token trocado por `***`.
+3. Escrever no CORPO do e-mail todas as rotas que a integração consome, com o
+   método de cada uma. Só no anexo não basta.
+4. Se o aplicativo fosse um ERP, as rotas de MultiCD. Não é o caso.
+
+No mesmo dia as requisições foram refeitas na loja de testes, numa rodada só e
+com um token só, e o modelo foi preenchido. Na pasta de evidências:
+
+- `Homologacao-Loja-1305187-Relatorios-de-pedidos-e-vitrine.docx`, o anexo.
+- `resposta-ao-chamado.md`, o texto do e-mail com as rotas.
+- `ferramentas/`, para refazer: a rota temporária (só local, 404 em produção,
+  some antes de qualquer commit) e o `montar.py`, que preenche o modelo a
+  partir do resultado dela e recusa gerar o arquivo se sobrar segredo.
+
+As rotas que o aplicativo consome são sete: `POST /auth`, `GET /auth` (com
+`refresh_token`), `GET /orders`, `GET /orders/{id}/complete`,
+`GET /products/{id}`, `PUT /products/{id}` e `POST /products/{id}/images`. O
+cliente (`src/lib/tray/cliente.ts`) ainda tem leitura de categorias, de produtos
+em lista e de variações, mas ninguém chama: o catálogo vem da busca pública.
+**Rota nova da API só entra em uso depois de ter evidência**, senão o
+aplicativo homologado passa a fazer o que a Tray não viu.
+
+O access token da loja de testes aparece por inteiro no documento (vale três
+horas). Refresh token, chave e segredo do aplicativo e código da instalação
+continuam trocados por `***`: o código da instalação continua valendo (o de
+13/11 gerou token novo em 16/11), e com ele e as chaves qualquer um gera token. Os dados pessoais do cliente do pedido
+também ficam escondidos. O campo de webhook foi como "N/A", porque o webhook do
+catálogo não está cadastrado na Tray. **Quem responde o chamado é o Filipe.**
+Falta a Tray responder.
 
 **Homologado não é liberado.** Depois da homologação, a liberação do
 aplicativo para a loja 1305187 é OUTRO chamado ("Liberar o aplicativo para loja
@@ -104,7 +140,9 @@ página de homologação da documentação da Tray. Sem ele o aplicativo não ap
 para instalar na loja de verdade.
 
 A categoria 3743 e o produto 93525 ficaram na loja de testes com o nome "Teste
-de homologacao JK Aliancas (pode apagar)". Apagar depois da homologação.
+de homologacao JK Aliancas (pode apagar)", e a rodada de 16/11 deixou a
+categoria 3783 e o produto 93611, com o mesmo nome e um "2". Apagar depois da
+homologação.
 
 ## No dia em que a Tray homologar
 
