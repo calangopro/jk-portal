@@ -23,6 +23,7 @@ import {
 import { HORAS_ATE_A_LEITURA_ATRASAR, variacao } from "@/lib/painel/sinais";
 import { tomDoCancelamento, tomDoMeioDePagamento, type Tom } from "@/lib/painel/tons";
 import { Cartao, Dinheiro, ListaComBarra, SeloDeTom } from "../Pecas";
+import { BotaoDoHistorico } from "../pedido/abrir";
 import { SeletorDePeriodo } from "../SeletorDePeriodo";
 import { Barras, type Barra } from "./Barras";
 
@@ -153,7 +154,12 @@ function LinhaDePedido({ p }: { p: PedidoRecente }) {
   return (
     <tr className="border-b border-border/50 align-top last:border-0">
       <td className="numeros py-2.5 pr-4 text-sm text-ink">
-        {p.pedido}
+        {/* O número abre a gaveta do pedido: status, envio, fábrica, suporte e de onde veio. */}
+        <BotaoDoHistorico
+          numero={p.pedido}
+          rotulo={String(p.pedido)}
+          className="painel-toque numeros -ml-1.5 rounded-full px-1.5 py-0.5 text-sm font-semibold text-ink underline decoration-ink/25 underline-offset-2 hover:bg-ink/[0.05] hover:decoration-ink"
+        />
         <span className="block text-xs text-muted">{quando}</span>
       </td>
       <td className="max-w-[22rem] py-2.5 pr-4">

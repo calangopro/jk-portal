@@ -106,6 +106,61 @@ na loja ligaram ao visitante pela sessão. Em 27 deles a página de compra
 também tinha visto o pedido e apontava o mesmo visitante. Em 4 apontava outro,
 e isso ainda não foi investigado (a conta dá preferência à sessão).
 
+## A UTM ligada à campanha, ao conjunto e ao anúncio
+
+Até 16/11/2026 a conta só casava por NÚMERO: procurava em `anuncios_itens`
+cada número comprido que vinha nas UTMs. Medido nesse dia, em sete dias de
+chegadas: os anúncios do Meta mandam o número só da campanha (`utm_id`), e o
+anúncio e o conjunto vêm pelo NOME (`utm_content` é o nome do anúncio,
+`utm_term` o do conjunto). Todo pedido parava na campanha, e a tela de
+campanhas mostrava "na loja, pago" em branco para todo conjunto e anúncio.
+
+Desde a 0112 a regra inteira mora em `origem_resolvida`, do mais certo para o
+menos certo, e nunca no chute:
+
+1. Pelo número, quando a UTM traz o número do anúncio ou do conjunto.
+2. A campanha pelo número; sem número, pelo nome exato (`utm_campaign`).
+3. O conjunto pelo nome, só DENTRO da campanha já achada.
+4. O anúncio pelo nome, dentro da campanha e do conjunto já achados.
+5. Campanha com um conjunto só, ou conjunto com um anúncio só: é ele.
+
+Nome igual em dois lugares (o mesmo criativo em dois conjuntos, sem o conjunto
+para desempatar) fica sem anúncio. "Nome igual" compara só letras e números
+(`so_letras`), porque a mesma UTM chega com `+` no lugar de espaço em parte das
+visitas, e compara com TODO nome que o item já teve, porque a UTM leva o nome
+do dia do clique.
+
+O que isso deu nas chegadas de anúncio do Meta em sete dias: **75% ligam ao
+anúncio exato e nenhuma ficou ambígua**. Os outros 25% são de UMA campanha
+("Direct Sales $120"), cujas UTMs têm texto fixo (`direct_sales`, `p2`,
+`cat_silver_who_are_we_25`) em vez do nome. Ela liga à campanha e ao conjunto,
+que é um só; para ligar ao anúncio, a UTM dela precisa passar a usar
+`{{ad.name}}` em `utm_content`, como as outras campanhas já usam. No Google o
+endereço só traz o número da campanha (`gad_campaignid`), então é até a
+campanha, a menos que ela tenha um conjunto e um anúncio só.
+
+**Instagram nem sempre é anúncio.** O link da bio chega como
+`utm_source=ig&utm_medium=social&utm_content=link_in_bio`, com `fbclid` e tudo,
+e cai no mesmo canal "Instagram e Facebook". Nos quatro dias de 13 a 16/11, os
+cinco pedidos pagos desse canal vieram do link da bio (quatro) ou sem UTM
+nenhuma (um), e nenhum com UTM de anúncio pago do Meta. É amostra pequena, de
+um coletor com quatro dias de vida. `ehAnuncio` (`src/lib/origem/pedidos.ts`) separa: é anúncio a chegada que
+casou com uma campanha, a que tem mídia paga na UTM ou a que tem `gclid`.
+**A tela de Tráfego ainda soma os dois** quando compara a venda do canal com
+o gasto do Meta; isso está em "O que falta".
+
+Onde se consulta:
+
+- **Tráfego, Origem dos pedidos** (`/admin/trafego/origem`): os pedidos do
+  período por anúncio, por conjunto, por campanha, pela UTM como chegou e
+  pedido a pedido, com busca. Cada pedido mostra as UTMs e a frase que diz por
+  que foi ligado (`comoLigou`).
+- **A gaveta do pedido**, que abre de qualquer tela: o bloco "De qual anúncio
+  veio", com a campanha, o conjunto, o anúncio, as UTMs, a página de entrada e
+  todas as chegadas do visitante em trinta dias (`origem_do_pedido`).
+- **Campanhas e anúncios**: a coluna "Na loja, pago" passou a encher também
+  para conjunto e anúncio, porque sai da mesma conta.
+
 ## A origem nas telas de vendas
 
 Até 16/11/2026, a origem em Vendas, na Visão geral, em Tráfego e em Gargalos
@@ -173,7 +228,13 @@ medição.
 2. **A API de pedidos na loja da JK**, que traz a sessão. Ligada em
    16/11/2026 (`docs/tray-api-de-pedidos.md`): todo pedido lido pela API vem
    com o `session_id` da Tray, que tem 20 ou 26 caracteres.
-3. **O código nos anúncios do Meta**, pelo modelo acima.
+3. ~~O código nos anúncios do Meta.~~ Deixou de ser preciso em 16/11/2026: a
+   ligação passou a ser pelo nome do conjunto e do anúncio, que as campanhas
+   já mandam. Falta só a campanha "Direct Sales $120" trocar o texto fixo da
+   UTM por `{{ad.name}}` e `{{adset.name}}`.
+4. **Separar anúncio de orgânico nas contas de Tráfego.** `retornoPorPlataforma`
+   compara o gasto do Meta com toda venda do canal "Instagram e Facebook",
+   inclusive a que veio do link da bio.
 
 O bloco "Origem anotada pela loja", em Tráfego, mostra sozinho qual desses
 passos já está feito: cada um é decidido por um número do banco.

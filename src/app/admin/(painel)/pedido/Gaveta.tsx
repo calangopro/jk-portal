@@ -17,6 +17,7 @@ import { NOME_DO_CANAL, canalDaOrigem, nomeLimpo, type Canal } from "@/lib/venda
 import { SeloDeTom } from "../Pecas";
 import { botaoCheio, botaoClaro } from "../biblioteca/pecas";
 import { CascaDoHistorico } from "./Casca";
+import { OrigemDoPedido } from "./Origem";
 import { fecharHistoricoDoPedido } from "./abrir";
 
 /**
@@ -323,6 +324,9 @@ export function Historico({ h, recarregar }: { h: HistoricoDoPedido; recarregar:
           ) : null}
         </dl>
       </section>
+
+      {/* A campanha, o conjunto e o anúncio a que a UTM foi ligada, e as chegadas do visitante (0112). */}
+      <OrigemDoPedido numero={h.numero} />
 
       {/* A linha do tempo. */}
       <section aria-label="O que aconteceu com o pedido" className="mt-5">
