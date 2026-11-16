@@ -1,8 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState, type RefObject } from "react";
+import { LifeBuoy } from "lucide-react";
 import { NOME_DA_SALA, SALAS, diaDe, horaCurta, rotuloDoDia, trechoDe, type Abertura, type Mensagem, type Sala } from "@/lib/time/chat";
 import type { PedidoDeAbertura } from "../ChatFlutuante";
+import type { ApiDoSuporte } from "../suporte/api";
+import { PainelDoSuporte } from "../suporte/Painel";
 import { apiDoChat, type ApiDoChat } from "./api";
 import { Abrindo, CabecalhoDaJanela } from "./MolduraDaJanela";
 import { Ponto, resumoDaPresenca } from "./Pessoas";
@@ -17,8 +20,13 @@ import { salaComNovidade, useChat, type Chat } from "./useChat";
  *
  * Duas vistas, como no direct do Instagram: a LISTA (cada sala com a última
  * mensagem, a hora e os números) e a SALA (a mesma conversa da tela cheia,
- * em `Sala.tsx`, com uma seta para voltar). A janela abre direto na sala que
- * tem mensagem nova para a pessoa; sem novidade, abre na lista.
+ * em `Sala.tsx`, com uma seta para voltar). A janela abre direto onde está a
+ * novidade (a sala com mensagem nova, ou o suporte); com novidade nos dois,
+ * ou em nenhum, abre na lista.
+ *
+ * Quem passa ou atende caso de suporte pós-venda ganha uma terceira vista, o
+ * SUPORTE, que é a mesma peça da tela `/admin/suporte` (`suporte/Painel.tsx`):
+ * o vendedor passa o caso sem sair do que estava fazendo.
  *
  * Depois da primeira abertura a conversa fica montada e guardada: fechar e
  * abrir de novo é instantâneo. Fechada, ela não pergunta nada ao banco (o
@@ -40,6 +48,10 @@ type Props = {
   caixa: RefObject<HTMLDivElement>;
   /** Só a prévia de desenvolvimento: uma conversa de mentira, sem sessão. */
   api?: ApiDoChat;
+  /** A pessoa passa ou atende caso de suporte, e o número do suporte no menu. Nulo: a janela não mostra o suporte. */
+  suporte: { numero: number } | null;
+  /** Só a prévia de desenvolvimento: um suporte de mentira, sem sessão. */
+  apiDoSuporte?: ApiDoSuporte;
 };
 
 export default function ConteudoDaJanela(p: Props) {
@@ -73,19 +85,30 @@ function ultimaDaSala(mensagens: readonly Mensagem[], sala: Sala): Mensagem | nu
 
 const primeiroNome = (nome: string | null) => (nome ?? "Alguém").split(/\s+/)[0];
 
-function Janela({ abertura, meuId, souAdmin, podeMeta, aberto, vezes, pedido, idTitulo, fechar, api = apiDoChat }: Props & { abertura: Abertura }) {
+function Janela({
+  abertura, meuId, souAdmin, podeMeta, aberto, vezes, pedido, idTitulo, fechar, api = apiDoChat, suporte, apiDoSuporte,
+}: Props & { abertura: Abertura }) {
+  const naMensagem = pedido?.tipo === "mensagem" ? pedido : null;
   const c = useChat({
     abertura,
     meuId,
-    salaInicial: pedido?.sala ?? null,
+    salaInicial: naMensagem?.sala ?? null,
     rascunho: "",
     pedirDeInicio: false,
-    destaqueInicial: pedido?.mensagem ?? null,
+    destaqueInicial: naMensagem?.mensagem ?? null,
     podeMeta,
     api,
     ativo: aberto,
   });
-  const [vista, setVista] = useState<"lista" | "sala">(() => (pedido || salaComNovidade(abertura, meuId) ? "sala" : "lista"));
+  // Onde abre: no pedido, se houver; senão onde está a novidade. Com novidade no chat E no suporte, na lista, que mostra as duas.
+  const [vista, setVista] = useState<"lista" | "sala" | "suporte">(() => {
+    if (pedido?.tipo === "suporte" && suporte) return "suporte";
+    if (naMensagem) return "sala";
+    const noChat = salaComNovidade(abertura, meuId) !== null;
+    const noSuporte = (suporte?.numero ?? 0) > 0;
+    if (noChat && noSuporte) return "lista";
+    return noChat ? "sala" : noSuporte ? "suporte" : "lista";
+  });
   const titulo = useRef<HTMLHeadingElement>(null);
 
   // A cada nova abertura: o pedido de ir a uma mensagem, ou a linha "Novas mensagens" refeita na sala que estava aberta.
@@ -96,6 +119,10 @@ function Janela({ abertura, meuId, souAdmin, podeMeta, aberto, vezes, pedido, id
     ultimaVez.current = vezes;
     if (pedido && pedido.vez !== ultimoPedido.current) {
       ultimoPedido.current = pedido.vez;
+      if (pedido.tipo === "suporte") {
+        if (suporte) setVista("suporte");
+        return;
+      }
       c.abrirNaMensagem(pedido.sala, pedido.mensagem);
       setVista("sala");
       return;
@@ -117,6 +144,26 @@ function Janela({ abertura, meuId, souAdmin, podeMeta, aberto, vezes, pedido, id
     c.trocarDeSala(s, true);
     setVista("sala");
   };
+
+  if (vista === "suporte" && suporte) {
+    return (
+      <>
+        <CabecalhoDaJanela
+          idTitulo={idTitulo}
+          tituloRef={titulo}
+          titulo="Suporte pós-venda"
+          apoio="O caso do cliente passa para o gerente"
+          voltar={() => setVista("lista")}
+          telaCheia="/admin/suporte"
+          fechar={fechar}
+        />
+        {/* Só existe com a janela aberta: ver um caso fechado conta como ver, e com a janela fechada ninguém viu nada. */}
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3">
+          {aberto ? <PainelDoSuporte inicial={null} meuId={meuId} compacta api={apiDoSuporte} /> : null}
+        </div>
+      </>
+    );
+  }
 
   if (vista === "sala") {
     return (
@@ -150,8 +197,36 @@ function Janela({ abertura, meuId, souAdmin, podeMeta, aberto, vezes, pedido, id
         telaCheia="/admin/chat"
         fechar={fechar}
       />
+      {suporte ? <LinhaDoSuporte numero={suporte.numero} entrar={() => setVista("suporte")} /> : null}
       <ListaDeSalas c={c} entrar={entrar} />
     </>
+  );
+}
+
+/** A primeira linha da lista: o suporte pós-venda, com o número do menu (caso sem dono, ou caso seu que fechou). */
+function LinhaDoSuporte({ numero, entrar }: { numero: number; entrar: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={entrar}
+      className="painel-toque flex w-full shrink-0 items-center gap-3 border-b border-ink/[0.06] bg-[rgb(var(--jk-bg-rgb))] px-4 py-3 text-left hover:bg-ink/[0.04] focus-visible:bg-ink/[0.05]"
+    >
+      <span className="painel-selo painel-selo-ativo grid h-10 w-10 shrink-0 place-items-center rounded-full" aria-hidden="true">
+        <LifeBuoy size={18} />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-[0.92rem] font-bold leading-tight text-ink">Suporte pós-venda</span>
+        <span className="mt-0.5 block truncate text-xs leading-snug text-muted">
+          {numero > 0 ? (numero === 1 ? "1 caso esperando por você" : `${numero} casos esperando por você`) : "Passe o caso do cliente para o gerente"}
+        </span>
+      </span>
+      {numero > 0 ? (
+        <span className="shrink-0 rounded-full bg-wine px-1.5 py-0.5 text-[0.62rem] font-bold leading-none text-white">
+          {numero > 99 ? "99+" : numero}
+          <span className="sr-only"> esperando</span>
+        </span>
+      ) : null}
+    </button>
   );
 }
 
