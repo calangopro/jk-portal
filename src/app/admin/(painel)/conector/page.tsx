@@ -1,6 +1,6 @@
 import { headers } from "next/headers";
 import { Bot, Plug, ShieldCheck } from "lucide-react";
-import { requireStaff } from "@/lib/auth/session";
+import { requireConector } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { origemDosCabecalhos } from "@/lib/conector/base";
 import { AREAS, OPERACOES } from "@/lib/conector/operacoes";
@@ -10,6 +10,7 @@ import { BotaoCopiar } from "../bio/LinksParaDivulgar";
 import { NovaChave } from "./NovaChave";
 import { desligarAcesso } from "./actions";
 import { ehAdmin } from "@/lib/auth/acessos";
+import { limiteEmPalavras, operacaoLiberada } from "@/lib/conector/quem-usa";
 
 export const metadata = { title: "Conector do Claude" };
 export const dynamic = "force-dynamic";
@@ -19,7 +20,7 @@ export const dynamic = "force-dynamic";
  * fez. O servidor mora em `lib/conector/` e responde em /guias/api/mcp.
  *
  * Os acessos e o histórico ficam em tabelas sem policy (só a service_role
- * lê), então esta tela usa o cliente admin, depois do `requireStaff`. Quem
+ * lê), então esta tela usa o cliente admin, depois do `requireConector`. Quem
  * não é administrador vê só os próprios acessos e o próprio histórico.
  */
 
@@ -79,7 +80,8 @@ const pessoa = (p: Acesso["profiles"]) => {
 };
 
 export default async function ConectorPage() {
-  const perfil = await requireStaff();
+  const perfil = await requireConector();
+  const limite = limiteEmPalavras(perfil.role);
   const admin = ehAdmin(perfil.role);
   const db = createAdminClient();
   const base = `${origemDosCabecalhos(await headers())}${BASE_PATH}`;
@@ -104,7 +106,7 @@ export default async function ConectorPage() {
   const lista = (acessos ?? []) as Acesso[];
   const linhas = (registro ?? []) as Linha[];
 
-  const porArea = AREAS.map((a) => ({ ...a, ops: OPERACOES.filter((o) => o.nome.startsWith(`${a.nome}.`)) })).filter(
+  const porArea = AREAS.map((a) => ({ ...a, ops: OPERACOES.filter((o) => o.nome.startsWith(`${a.nome}.`) && operacaoLiberada(perfil.role, o.nome)) })).filter(
     (a) => a.ops.length,
   );
 
@@ -118,6 +120,7 @@ export default async function ConectorPage() {
           rascunhos e, quando você pede na conversa, publica. Passa pelas mesmas travas do painel: post sem fonte ou com
           travessão não vai ao ar, e tudo fica registrado abaixo.
         </p>
+        {limite ? <p className="mt-2 max-w-2xl text-sm font-medium text-ink">{limite}</p> : null}
       </header>
 
       <section className="mt-8 grid gap-5 lg:grid-cols-2">

@@ -2,7 +2,7 @@
 
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { requireStaff } from "@/lib/auth/session";
+import { requireConector } from "@/lib/auth/session";
 import { origemDosCabecalhos } from "@/lib/conector/base";
 import { decidir, lerPedido } from "@/lib/conector/oauth";
 import { BASE_PATH } from "@/lib/seo/base-path";
@@ -14,7 +14,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
  * só serve para o app que pediu, com a prova PKCE dele (`lib/conector/oauth.ts`).
  */
 export async function decidirConexao(form: FormData): Promise<void> {
-  const perfil = await requireStaff();
+  const perfil = await requireConector();
   const pedido = lerPedido(String(form.get("pedido") ?? ""));
   if (!pedido) redirect("/admin/conectar?vencido=1");
 

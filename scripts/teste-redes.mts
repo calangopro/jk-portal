@@ -24,6 +24,8 @@ import { diaEmSaoPaulo, diasDaGrade, horaCurta, intervaloDaGrade, lerMes, mesViz
 import { faixaEmPalavra, horaEmSaoPaulo, melhoresHorarios, proximosHorarios } from "../src/lib/redes/horarios.ts";
 import { datasDoComercio, proximasDatas, quandoEmPalavra } from "../src/lib/redes/datas.ts";
 import type { Peca } from "../src/lib/redes/tipos.ts";
+import { limiteEmPalavras, operacaoLiberada, podeUsarConector, USAM_EM_PARTE } from "../src/lib/conector/quem-usa.ts";
+import { ehEquipeDeConteudo, FORA_DO_CONTEUDO, NIVEIS, ROLE_LABEL } from "../src/lib/auth/acessos.ts";
 
 let falhas = 0;
 function confere(nome: string, ok: boolean, detalhe = "") {
@@ -381,6 +383,30 @@ console.log("\nRegra de automação");
   confere("resposta a outro comentário e comentário da própria conta ficam de fora", deveResponder(c({ ehResposta: true }), ligada, agora) === null && deveResponder(c({ nosso: true }), ligada, agora) === null);
   confere("comentário sem data não é respondido", deveResponder(c({ quando: null }), ligada, agora) === null);
   confere("comentário que não tem a palavra não é respondido", deveResponder(c({ texto: "que linda" }), ligada, agora) === null);
+}
+
+console.log("\nNível Social media");
+{
+  confere("o nível tem nome na tela de usuários", NIVEIS.some((n) => n.papel === "social") && ROLE_LABEL.social === "Social media");
+  confere("fica fora da equipe de conteúdo, como vendas e fábrica (is_staff da 0090)", !ehEquipeDeConteudo("social") && !ehEquipeDeConteudo("vendas") && ehEquipeDeConteudo("editor"));
+  confere(
+    "quem usa o conector é a equipe de conteúdo mais quem usa em parte, nível por nível",
+    NIVEIS.every((n) => podeUsarConector(n.papel) === (ehEquipeDeConteudo(n.papel) || USAM_EM_PARTE.includes(n.papel)))
+      && USAM_EM_PARTE.every((p) => FORA_DO_CONTEUDO.includes(p as never)),
+  );
+  confere("usa o conector, e vendas e fábrica não", podeUsarConector("social") && podeUsarConector("editor") && !podeUsarConector("vendas") && !podeUsarConector("fabrica") && !podeUsarConector(null));
+  confere(
+    "no conector, só as operações das redes e o quem sou eu",
+    operacaoLiberada("social", "redes.publicar") && operacaoLiberada("social", "redes.ideias") && operacaoLiberada("social", "painel.eu")
+      && !operacaoLiberada("social", "painel.resumo") && !operacaoLiberada("social", "conteudos.publicar") && !operacaoLiberada("social", "redesx.algo")
+      && !operacaoLiberada("social", "usuarios.convidar") && !operacaoLiberada("social", "leads.listar"),
+  );
+  confere("a equipe de conteúdo segue com tudo", operacaoLiberada("editor", "conteudos.publicar") && operacaoLiberada("admin", "usuarios.convidar") && !operacaoLiberada("vendas", "redes.publicar"));
+  confere("a tela diz o limite só para quem usa em parte", Boolean(limiteEmPalavras("social")) && limiteEmPalavras("editor") === null);
+  const setor = SETORES.find((s) => s.id === "redes");
+  confere("o Social Media inteiro pede a área redes", Boolean(setor) && setor!.itens.every((i) => i.area === "redes"));
+  const mig = readFileSync("supabase/migrations/0090_nivel_social_media.sql", "utf8");
+  confere("a migration abre só redes e time, e tira o nível de is_staff", /\('social', 'redes', true\), \('social', 'time', true\)/.test(mig) && /not in \('vendas', 'fabrica', 'social'\)/.test(mig));
 }
 
 console.log("\nSegredo fora da tela");

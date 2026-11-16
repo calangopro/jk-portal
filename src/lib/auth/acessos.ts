@@ -21,7 +21,9 @@ export type AppRole =
   | "fabrica"
   | "editor"
   | "reviewer"
-  | "author";
+  | "author"
+  /** Quem cuida das redes: só o Social Media e o Time (0090). Fora de `is_staff()`, como vendas e fábrica. */
+  | "social";
 
 export type Area =
   | "conteudo"
@@ -57,6 +59,7 @@ export const NIVEIS: { papel: AppRole; nome: string; resumo: string }[] = [
   { papel: "trafego", nome: "Tráfego", resumo: "Gasto de anúncio, retorno, vendas, métricas e campanhas" },
   { papel: "vendas", nome: "Vendas", resumo: "Consulta de produto e prazo, registrar venda e fila de recuperação" },
   { papel: "fabrica", nome: "Fábrica", resumo: "A fila da fábrica e a consulta de produto e prazo" },
+  { papel: "social", nome: "Social media", resumo: "Só o Social Media: posts, stories, comentários, ideias e números das redes" },
   { papel: "editor", nome: "Editor", resumo: "Conteúdo, Social Media, site, produtos e campanhas" },
   { papel: "reviewer", nome: "Revisor", resumo: "Conteúdo e métricas" },
   { papel: "author", nome: "Autor", resumo: "Conteúdo e métricas" },
@@ -76,11 +79,14 @@ export function ehAdmin(papel: string | null | undefined): boolean {
 }
 
 /**
- * Vendas e fábrica não mexem em conteúdo: ficam de fora de `is_staff()` no
- * banco, e por isso também de `requireStaff()` no painel.
+ * Vendas, fábrica e Social media não mexem em conteúdo do site: ficam de fora
+ * de `is_staff()` no banco (0090), e por isso também de `requireStaff()` no
+ * painel. A lista é a mesma nos dois lados.
  */
+export const FORA_DO_CONTEUDO: readonly AppRole[] = ["vendas", "fabrica", "social"];
+
 export function ehEquipeDeConteudo(papel: string | null | undefined): boolean {
-  return Boolean(papel) && papel !== "vendas" && papel !== "fabrica";
+  return Boolean(papel) && !FORA_DO_CONTEUDO.includes(papel as AppRole);
 }
 
 /**

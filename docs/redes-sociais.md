@@ -35,7 +35,7 @@ No compositor, escolha **Story** e ponha várias fotos e vídeos de uma vez (at�
 
 As sugestões de hora do calendário e do compositor saem do histórico da própria conta: cada post comparado com o normal dela, em faixas de três horas. A faixa com a mediana mais alta é a sugerida, e a tela diz em quantos posts ela se apoia. É o que rendeu mais até aqui, não uma regra: muda conforme a conta posta.
 
-Quem cuida das redes entra como **Editor** por enquanto (vê também Conteúdo, Site e Produtos). Um nível só de redes depende de mexer na trava do conector do Claude, que hoje deixa entrar só a equipe de conteúdo.
+Quem cuida das redes entra no nível **Social media** (0090): vê só o setor Social Media e o Time, e usa o conector do Claude só com as operações das redes (`src/lib/conector/quem-usa.ts`). Escolhe-se o nível em Usuários, ao convidar ou depois. Editor continua vendo o Social Media, junto com o conteúdo do site.
 
 ## Publicar e agendar
 
