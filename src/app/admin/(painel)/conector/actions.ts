@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireStaff } from "@/lib/auth/session";
+import { requireConector } from "@/lib/auth/session";
 import { criarChaveManual, revogarChave } from "@/lib/conector/chaves";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ehAdmin } from "@/lib/auth/acessos";
@@ -13,7 +13,7 @@ export type EstadoDaChave = { erro?: string; chave?: string; nome?: string };
  * UMA vez, na resposta desta ação; no banco fica só o hash.
  */
 export async function criarChave(_anterior: EstadoDaChave, form: FormData): Promise<EstadoDaChave> {
-  const perfil = await requireStaff();
+  const perfil = await requireConector();
   const nome = String(form.get("nome") ?? "").trim();
   const escopo = form.get("escopo") === "leitura" ? "leitura" : "completo";
   if (nome.length < 2 || nome.length > 60) return { erro: "Dê um nome à chave, como Claude Code do Filipe." };
@@ -28,7 +28,7 @@ export async function criarChave(_anterior: EstadoDaChave, form: FormData): Prom
 
 /** Desliga um acesso. Cada pessoa desliga os seus; administrador desliga qualquer um. */
 export async function desligarAcesso(form: FormData): Promise<void> {
-  const perfil = await requireStaff();
+  const perfil = await requireConector();
   const id = String(form.get("id") ?? "");
   if (!/^[0-9a-f-]{36}$/i.test(id)) return;
   if (!ehAdmin(perfil.role)) {

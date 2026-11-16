@@ -3,6 +3,7 @@ import { cache } from "react";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { ehAdmin, ehEquipeDeConteudo, falhaPassageira, type AppRole, type Area } from "./acessos";
+import { podeUsarConector } from "@/lib/conector/quem-usa";
 
 export type { AppRole, Area } from "./acessos";
 export { ROLE_LABEL } from "./acessos";
@@ -85,13 +86,25 @@ export async function requireSessao(): Promise<Profile> {
 }
 
 /**
- * Exige alguém da equipe que mexe em conteúdo. Vendas e fábrica ficam de fora,
- * como em `is_staff()` no banco: todas as telas e ações que já chamavam esta
+ * Exige alguém da equipe que mexe em conteúdo. Vendas, fábrica e Social media
+ * ficam de fora, como em `is_staff()` no banco: todas as telas e ações que já chamavam esta
  * função continuam fechadas para eles sem precisar mexer em cada uma.
  */
 export async function requireStaff(): Promise<Profile> {
   const profile = await requireSessao();
   if (!ehEquipeDeConteudo(profile.role)) redirect(SEM_ACESSO);
+  return profile;
+}
+
+/**
+ * Exige quem usa o conector do Claude: a equipe de conteúdo, com todas as
+ * operações, e o nível Social media, só com as das redes
+ * (`lib/conector/quem-usa.ts`). Vale para a tela do conector, para criar chave
+ * e para o "Permitir" do login pelo app do Claude.
+ */
+export async function requireConector(): Promise<Profile> {
+  const profile = await requireSessao();
+  if (!podeUsarConector(profile.role)) redirect(SEM_ACESSO);
   return profile;
 }
 
