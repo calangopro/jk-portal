@@ -3,6 +3,7 @@ import { ehAdmin } from "@/lib/auth/acessos";
 import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ErroDoConector, type Contexto, type Operacao, type Risco } from "./tipos";
+import { limiteEmPalavras, operacaoLiberada } from "./quem-usa";
 
 /**
  * A ÚNICA porta por onde uma operação roda, nos dois modos (código e
@@ -10,7 +11,9 @@ import { ErroDoConector, type Contexto, type Operacao, type Risco } from "./tipo
  *
  * 1. escopo do acesso: acesso "só leitura" não roda nada que escreve;
  * 2. modo de leitura: o `consultar` não roda nada que escreve, mesmo com acesso completo;
- * 3. papel: operação de administrador pede perfil administrador;
+ * 3. papel: operação de administrador pede perfil administrador, e o nível
+ *    que usa o conector só em parte (Social media) fica nas operações dele
+ *    (`quem-usa.ts`);
  * 4. entrada validada pelo mesmo zod que gera a documentação;
  * 5. registro de tudo em `conector_registro`, deu certo ou não.
  */
@@ -125,6 +128,9 @@ export async function executarOperacao(
     }
     if (op.soAdmin && !ehAdmin(ctx.quem.papel)) {
       throw new ErroDoConector(`${op.nome} é só para administrador, e o seu perfil é ${ctx.quem.papel}.`, 403);
+    }
+    if (!operacaoLiberada(ctx.quem.papel, op.nome)) {
+      throw new ErroDoConector(`${op.nome} não faz parte do que o seu nível usa no conector. ${limiteEmPalavras(ctx.quem.papel) ?? ""}`.trim(), 403);
     }
 
     const lido = op.entrada.safeParse(bruto ?? {});

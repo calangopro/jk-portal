@@ -11,6 +11,7 @@ import { GUIAS, INSTRUCOES_CODIGO, INSTRUCOES_FERRAMENTAS } from "./guias";
 import { OPERACOES, AREAS } from "./operacoes";
 import { rodarCodigo } from "./sandbox";
 import { ErroDoConector, type Contexto, type Operacao } from "./tipos";
+import { operacaoLiberada } from "./quem-usa";
 
 /**
  * O servidor MCP (HTTP sem sessão, só POST com JSON). Dois modos no mesmo
@@ -50,7 +51,8 @@ function visiveis(ctx: Contexto, soLeitura: boolean): Operacao[] {
     (op) =>
       (!soLeitura || op.risco === "leitura") &&
       (ctx.acesso.escopo === "completo" || op.risco === "leitura") &&
-      (!op.soAdmin || ehAdmin(ctx.quem.papel)),
+      (!op.soAdmin || ehAdmin(ctx.quem.papel)) &&
+      operacaoLiberada(ctx.quem.papel, op.nome),
   );
 }
 

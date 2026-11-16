@@ -3,6 +3,7 @@ import { after } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { AppRole } from "@/lib/auth/session";
 import { aleatorio, sha256 } from "./cripto";
+import { podeUsarConector } from "./quem-usa";
 import type { Acesso, Escopo, QuemUsa } from "./tipos";
 
 /**
@@ -55,6 +56,10 @@ export async function identificar(req: Request): Promise<Identidade | FalhaDeAce
     .maybeSingle();
   if (!perfil || !perfil.is_active) {
     return { erro: "A pessoa dona desta chave não está mais ativa no painel.", status: 403 };
+  }
+  // O nível pode ter mudado depois de a chave nascer: quem passou a vendas ou fábrica perde o conector na hora.
+  if (!podeUsarConector(perfil.role)) {
+    return { erro: "O seu nível no painel não usa o conector do Claude.", status: 403 };
   }
 
   // Marca o último uso depois de responder (no máximo uma vez por minuto). `after`

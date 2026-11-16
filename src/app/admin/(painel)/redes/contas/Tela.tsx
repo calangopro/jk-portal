@@ -56,6 +56,10 @@ export function TelaDeContas({
               <BotaoDeLer />
             </form>
           ) : null}
+          {/* Todo nível com a área das redes usa o conector (o Social media, só com as operações das redes). */}
+          <LinkRapido href="/admin/conector" className="painel-toque inline-flex items-center gap-1 rounded-full border border-ink/15 bg-white/70 px-4 py-2 text-xs font-semibold text-ink transition-colors hover:border-[var(--setor)]">
+            Usar pelo Claude <ArrowUpRight size={13} aria-hidden="true" />
+          </LinkRapido>
           {podeLigar ? (
             <LinkRapido href="/admin/integracoes#redes" className="painel-toque inline-flex items-center gap-1 rounded-full bg-ink px-4 py-2 text-xs font-semibold text-white">
               Ligar em Integrações <ArrowUpRight size={13} aria-hidden="true" />

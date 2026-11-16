@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getSessionProfile, ROLE_LABEL } from "@/lib/auth/session";
+import { limiteEmPalavras, podeUsarConector } from "@/lib/conector/quem-usa";
 import { lerPedido, quemPede } from "@/lib/conector/oauth";
 import { MolduraDeAcesso, AvisoDeErro } from "../_acesso/Moldura";
 import { BotaoDeAcesso } from "../_acesso/BotaoDeAcesso";
@@ -44,7 +45,18 @@ export default async function ConectarPage({
     redirect(`/admin/login?next=${encodeURIComponent(`/admin/conectar?pedido=${bruto}`)}`);
   }
 
+  if (!podeUsarConector(perfil!.role)) {
+    return (
+      <MolduraDeAcesso rotulo="Conector do Claude" titulo="Sem acesso ao conector">
+        <AvisoDeErro>
+          O seu nível no painel ({ROLE_LABEL[perfil!.role]}) não usa o conector do Claude. Se precisar dele, fale com um administrador.
+        </AvisoDeErro>
+      </MolduraDeAcesso>
+    );
+  }
+
   const app = quemPede(pedido);
+  const limite = limiteEmPalavras(perfil!.role);
 
   return (
     <MolduraDeAcesso rotulo="Conector do Claude" titulo={`Conectar ${app.app}?`}>
@@ -74,6 +86,7 @@ export default async function ConectarPage({
           Vai entrar como <strong>{perfil.fullName ?? perfil.email}</strong> ({ROLE_LABEL[perfil.role]}), com o que o seu
           perfil pode fazer no painel.
         </p>
+        {limite ? <p className="mt-2 text-sm text-ink">{limite}</p> : null}
 
         <fieldset className="mt-5 space-y-2">
           <legend className="text-sm font-medium text-ink">O que o Claude vai poder fazer</legend>
