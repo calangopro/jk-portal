@@ -43,7 +43,9 @@ export type Area =
   /** A consulta de quem atende cliente ou despacha peça: produto, pronta entrega e prazo (0073). */
   | "consulta"
   /** O setor Time, de todos os níveis: o tutor, a Biblioteca JK e o chat do time (0071, 0077 e 0079). */
-  | "time";
+  | "time"
+  /** As redes sociais: números, publicar, agendar e responder (0083). Ligar conta é de administrador. */
+  | "redes";
 
 /** Na ordem em que aparecem para quem convida: da empresa para o editorial. */
 export const NIVEIS: { papel: AppRole; nome: string; resumo: string }[] = [
@@ -53,7 +55,7 @@ export const NIVEIS: { papel: AppRole; nome: string; resumo: string }[] = [
   { papel: "trafego", nome: "Tráfego", resumo: "Gasto de anúncio, retorno, vendas, métricas e campanhas" },
   { papel: "vendas", nome: "Vendas", resumo: "Consulta de produto e prazo, registrar venda e fila de recuperação" },
   { papel: "fabrica", nome: "Fábrica", resumo: "A fila da fábrica e a consulta de produto e prazo" },
-  { papel: "editor", nome: "Editor", resumo: "Conteúdo, site, produtos e campanhas" },
+  { papel: "editor", nome: "Editor", resumo: "Conteúdo, redes sociais, site, produtos e campanhas" },
   { papel: "reviewer", nome: "Revisor", resumo: "Conteúdo e métricas" },
   { papel: "author", nome: "Autor", resumo: "Conteúdo e métricas" },
   { papel: "admin", nome: "Administrador", resumo: "Vê e faz tudo (conta técnica)" },
