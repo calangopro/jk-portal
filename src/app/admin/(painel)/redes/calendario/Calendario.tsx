@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { ChevronLeft, ChevronRight, CircleAlert, Clock, LoaderCircle, Plus } from "lucide-react";
+import { ChevronLeft, ChevronRight, CircleAlert, Clock, Lightbulb, LoaderCircle, Plus } from "lucide-react";
 import { SeloDaRede } from "@/components/redes/Selo";
 import { horaCurta, nomeDoMes, porDia, type DiaDoCalendario, type ItemDoCalendario } from "@/lib/redes/calendario";
 import { faixaEmPalavra, type HorariosDaRede } from "@/lib/redes/horarios";
@@ -23,7 +23,7 @@ const SEMANA = ["D", "S", "T", "Q", "Q", "S", "S"];
 const SEMANA_INTEIRA = ["domingo", "segunda", "terça", "quarta", "quinta", "sexta", "sábado"];
 const FORMATOS: Formato[] = ["post", "carrossel", "video_curto", "story", "video", "texto"];
 
-const COR = { publicado: "var(--setor)", agendado: "var(--setor)", publicando: "#9a4a07", erro: "#b01919" };
+const COR = { publicado: "var(--setor)", agendado: "var(--setor)", publicando: "#9a4a07", erro: "#b01919", ideia: "#8a7c66" };
 
 function formatoEmPalavra(formato: string | null, rede: ItemDoCalendario["redes"][number] | undefined): string {
   if (!formato || !rede || !FORMATOS.includes(formato as Formato)) return "Publicação";
@@ -36,6 +36,7 @@ function Ponto({ i }: { i: ItemDoCalendario }) {
 }
 
 function rotuloDaSituacao(i: ItemDoCalendario): { texto: string; cor: string } {
+  if (i.situacao === "ideia") return { texto: "Ideia para este dia", cor: COR.ideia };
   if (i.situacao === "agendado") return { texto: `Agendado para ${horaCurta(i.quando)}`, cor: "var(--setor)" };
   if (i.situacao === "publicando") return { texto: "Saindo agora", cor: COR.publicando };
   if (i.situacao === "erro") return { texto: "Deu erro", cor: COR.erro };
@@ -155,6 +156,9 @@ export function Calendario({
           <span className="inline-flex items-center gap-1.5">
             <span className="h-2 w-2 rounded-full" style={{ background: COR.erro }} aria-hidden="true" /> deu erro
           </span>
+          <span className="inline-flex items-center gap-1.5">
+            <span className="h-2 w-2 rounded-full" style={{ background: COR.ideia }} aria-hidden="true" /> ideia
+          </span>
         </p>
       </section>
 
@@ -216,7 +220,7 @@ export function Calendario({
                     <Miniatura src={i.miniatura} rede={i.redes[0] ?? "instagram"} />
                     <span className="min-w-0 flex-1">
                       <span className="flex items-center gap-1.5 text-[0.7rem] font-semibold" style={{ color: s.cor }}>
-                        {i.situacao === "agendado" ? <Clock size={12} aria-hidden="true" /> : i.situacao === "publicando" ? <LoaderCircle size={12} aria-hidden="true" /> : i.situacao === "erro" ? <CircleAlert size={12} aria-hidden="true" /> : null}
+                        {i.situacao === "agendado" ? <Clock size={12} aria-hidden="true" /> : i.situacao === "publicando" ? <LoaderCircle size={12} aria-hidden="true" /> : i.situacao === "erro" ? <CircleAlert size={12} aria-hidden="true" /> : i.situacao === "ideia" ? <Lightbulb size={12} aria-hidden="true" /> : null}
                         {s.texto}
                       </span>
                       <span className="mt-0.5 flex items-center gap-1">

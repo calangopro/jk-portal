@@ -34,6 +34,8 @@ export type AcoesDoCompositor = {
   confirmarSubida: (url: string) => Promise<Resposta<{ tamanho: number }>>;
   salvarRascunho: (id: string | null, dados: DadosDoPost) => Promise<Resposta<{ id: string }>>;
   salvarELiberar: (id: string | null, dados: DadosDoPost, quando: string | null) => Promise<{ ok: true; id: string; quando: string; contas: string[] } | { ok: false; erro: string; id?: string }>;
+  /** Liga o rascunho à ideia de onde ele nasceu. Daí em diante o estado da ideia segue o do post. */
+  ligarIdeia?: (ideia: string, post: string) => Promise<{ ok: true } | { ok: false; erro: string }>;
 };
 
 type Item = {
@@ -82,9 +84,11 @@ function juntar(nomes: string[]): string {
 }
 
 export function Compositor({
-  post, formatoInicial, quandoInicial, horarios = [], contas, limite, acoes,
+  post, formatoInicial, quandoInicial, horarios = [], ideia, contas, limite, acoes,
 }: {
   post: PostNaTela | null;
+  /** A ideia de onde este post nasce ("Virar post"): aparece em cima, e o rascunho fica ligado a ela. */
+  ideia?: { id: string; titulo: string; notas: string } | null;
   /** O formato com que o compositor em branco abre ("Novo story" já abre em story). */
   formatoInicial?: Formato;
   /** Dia e hora vindos do calendário ("AAAA-MM-DDTHH:mm", horário de Brasília): abre já agendando. */
@@ -128,6 +132,18 @@ export function Compositor({
   const [ocupado, setOcupado] = useState<null | "rascunho" | "liberar">(null);
   const [aviso, setAviso] = useState<{ tom: "bom" | "ruim"; texto: string } | null>(null);
   const arquivo = useRef<HTMLInputElement>(null);
+  const ideiaLigada = useRef(false);
+
+  /** Liga a ideia ao post uma vez só, quando o post ganha um id. Falhar aqui não atrapalha o post. */
+  const ligarAIdeia = useCallback(
+    async (postId: string) => {
+      if (!ideia || !acoes.ligarIdeia || ideiaLigada.current) return;
+      ideiaLigada.current = true;
+      const r = await acoes.ligarIdeia(ideia.id, postId).catch(() => null);
+      if (!r?.ok) ideiaLigada.current = false;
+    },
+    [ideia, acoes],
+  );
   const locais = useRef<string[]>([]);
 
   // Os endereços locais das miniaturas ocupam memória até serem soltos.
@@ -289,6 +305,7 @@ export function Compositor({
     const r = await acoes.salvarRascunho(id, dados);
     setOcupado(null);
     if (!r.ok) return setAviso({ tom: "ruim", texto: r.erro });
+    await ligarAIdeia(r.id);
     if (!id) {
       setId(r.id);
       // O endereço passa a ser o do rascunho: recarregar a página não perde o trabalho.
@@ -305,12 +322,14 @@ export function Compositor({
     if (!r.ok) {
       setConfirmando(false);
       // O rascunho pode ter sido criado antes da recusa: guarda o id, para a próxima tentativa salvar NELE.
+      if (r.id) await ligarAIdeia(r.id);
       if (r.id && !id) {
         setId(r.id);
         window.history.replaceState(null, "", window.location.pathname.replace(/\/novo$/, `/${r.id}`));
       }
       return setAviso({ tom: "ruim", texto: r.erro });
     }
+    await ligarAIdeia(r.id);
     router.push(`/admin/redes/publicar?aba=fila&saiu=${modo === "agendar" ? "agendado" : "agora"}`);
   }
 
@@ -320,6 +339,15 @@ export function Compositor({
   return (
     <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_19rem] lg:items-start">
       <div className="min-w-0 space-y-4">
+        {ideia ? (
+          <section className="rounded-[18px] border border-[var(--setor)]/25 bg-[var(--setor)]/[0.05] p-4 sm:p-5" aria-label="A ideia deste post">
+            <p className="text-[0.68rem] font-semibold uppercase tracking-wide text-[var(--setor)]">Da ideia</p>
+            <p className="mt-1 text-sm font-semibold text-ink [overflow-wrap:anywhere]">{ideia.titulo}</p>
+            {ideia.notas ? <p className="mt-1 whitespace-pre-line text-xs leading-relaxed text-muted [overflow-wrap:anywhere]">{ideia.notas}</p> : null}
+            <p className="mt-2 text-[0.68rem] text-muted">Ao salvar ou mandar sair, o post fica ligado à ideia, e ela anda sozinha para Agendadas e Publicadas.</p>
+          </section>
+        ) : null}
+
         {/* 1. O formato */}
         <section className="glass rounded-[18px] p-4 sm:p-5" aria-labelledby="t-formato">
           <h2 id="t-formato" className="text-sm font-semibold text-ink">

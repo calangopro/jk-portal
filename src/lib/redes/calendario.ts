@@ -8,7 +8,7 @@
  */
 import type { RedeId } from "./redes.ts";
 
-export type SituacaoNoCalendario = "agendado" | "publicando" | "publicado" | "erro";
+export type SituacaoNoCalendario = "agendado" | "publicando" | "publicado" | "erro" | "ideia";
 
 export type ItemDoCalendario = {
   chave: string;

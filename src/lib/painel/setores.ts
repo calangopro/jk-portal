@@ -1,7 +1,7 @@
 import type { LucideIcon } from "lucide-react";
 import {
   Activity, Banknote, BellRing, BookCheck, Bot, CalendarDays, Cable, Contact, Crosshair, FileText, Filter, Flame, Globe, Hammer, HandCoins, Handshake,
-  HeartPulse, History, ImageIcon, LayoutDashboard, LayoutTemplate, LibraryBig, LifeBuoy, ListChecks, MapPin, MessageCircle, MessageSquareText, MessagesSquare, Milestone,
+  HeartPulse, History, ImageIcon, LayoutDashboard, LayoutTemplate, LibraryBig, LifeBuoy, Lightbulb, ListChecks, MapPin, MessageCircle, MessageSquareText, MessagesSquare, Milestone,
   Package, PackageSearch, Palette, PenLine,
   Percent, Plug, QrCode, RotateCcw, Send, Settings, Share2, Smartphone, Sparkles, Star, Store, Table2, Tags, TrendingUp, Trophy, Users,
   UsersRound, Wallet, Workflow,
@@ -128,6 +128,7 @@ export const SETORES: Setor[] = [
       { href: "/admin/redes/calendario", area: "redes", label: "Calendário", Icone: CalendarDays, desc: "O que sai e o que saiu, dia a dia" },
       { href: "/admin/redes/publicar", area: "redes", label: "Posts e stories", curto: "Posts", Icone: Send, desc: "Criar, agendar e acompanhar o que sai" },
       { href: "/admin/redes/conteudos", area: "redes", label: "Em alta", Icone: Flame, desc: "O que mais viralizou, post a post" },
+      { href: "/admin/redes/ideias", area: "redes", label: "Ideias", Icone: Lightbulb, desc: "O que postar: guardado, sugerido e planejado" },
       { href: "/admin/redes/comentarios", area: "redes", label: "Comentários", Icone: MessageSquareText, desc: "O que comentaram, e a resposta da JK" },
       { href: "/admin/redes/automacoes", area: "redes", label: "Automações", Icone: Workflow, desc: "Resposta pronta a comentário, por palavra" },
       { href: "/admin/redes/contas", area: "redes", label: "Contas ligadas", curto: "Contas", Icone: Cable, desc: "O que está ligado e o que falta" },
