@@ -125,6 +125,7 @@ export const SETORES: Setor[] = [
     Icone: Share2,
     itens: [
       { href: "/admin/redes", area: "redes", label: "Hoje nas redes", curto: "Hoje", Icone: Share2, desc: "O que sai, o que comentaram e o que está em alta" },
+      { href: "/admin/redes/calendario", area: "redes", label: "Calendário", Icone: CalendarDays, desc: "O que sai e o que saiu, dia a dia" },
       { href: "/admin/redes/publicar", area: "redes", label: "Posts e stories", curto: "Posts", Icone: Send, desc: "Criar, agendar e acompanhar o que sai" },
       { href: "/admin/redes/conteudos", area: "redes", label: "Em alta", Icone: Flame, desc: "O que mais viralizou, post a post" },
       { href: "/admin/redes/comentarios", area: "redes", label: "Comentários", Icone: MessageSquareText, desc: "O que comentaram, e a resposta da JK" },

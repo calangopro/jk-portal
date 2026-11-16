@@ -10,6 +10,7 @@ import type { DadosDoPost, PostNaTela } from "@/lib/redes/posts";
 import type { Midia } from "@/lib/redes/tipos";
 import type { Resposta } from "./actions";
 import type { EnvioPreparado } from "@/lib/redes/armazenamento";
+import { faixaEmPalavra, proximosHorarios, type HorariosDaRede } from "@/lib/redes/horarios";
 import { duracaoEmPalavra, horaDeSaoPaulo, medirVideo, paraCampoDeHora, prepararImagem, subir, tamanhoEmPalavra } from "./midia";
 
 /**
@@ -47,7 +48,25 @@ type Item = {
   midia?: Midia;
 };
 
-const FORMATOS: Formato[] = ["post", "carrossel", "video_curto", "story", "video", "texto"];
+/**
+ * Os botões de "O que é". Post e carrossel são UM botão: uma foto é post,
+ * duas ou mais viram carrossel sozinhas. Quem cuida das redes pensa em "post",
+ * e não em escolher o nome técnico antes de pôr as fotos.
+ */
+const FORMATOS: Formato[] = ["post", "video_curto", "story", "video", "texto"];
+const NOME_DO_BOTAO: Partial<Record<Formato, string>> = { post: "Post", video_curto: "Reels e Shorts", story: "Story", video: "Vídeo longo", texto: "Só texto" };
+const ativoNoBotao = (botao: Formato, formato: Formato) => botao === formato || (botao === "post" && formato === "carrossel");
+
+/** "Hoje 19h", "Amanhã 13h", "Sáb 19h". */
+function chipDeHora(iso: string, agora: number): string {
+  const dia = (t: number) => new Date(t).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
+  const t = Date.parse(iso);
+  const hora = new Date(t).toLocaleTimeString("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit" }).replace(/^0/, "").replace(":00", "h").replace(":", "h");
+  if (dia(t) === dia(agora)) return `Hoje ${hora}`;
+  if (dia(t) === dia(agora + 86_400_000)) return `Amanhã ${hora}`;
+  const semana = new Date(t).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo", weekday: "short" }).replace(".", "");
+  return `${semana.charAt(0).toUpperCase()}${semana.slice(1)} ${hora}`;
+}
 const campo = "w-full rounded-[12px] border border-border bg-white px-3.5 py-2.5 text-sm text-ink outline-none transition-colors focus:border-[var(--setor)]";
 const rotulo = "text-xs font-semibold text-ink";
 const COR = { ruim: "#b01919", fundoRuim: "#fde8e8", bom: "#046c4e", fundoBom: "#e3f4ec", atencao: "#9a4a07", fundoAtencao: "#fcefd9" };
@@ -63,11 +82,15 @@ function juntar(nomes: string[]): string {
 }
 
 export function Compositor({
-  post, formatoInicial, contas, limite, acoes,
+  post, formatoInicial, quandoInicial, horarios = [], contas, limite, acoes,
 }: {
   post: PostNaTela | null;
   /** O formato com que o compositor em branco abre ("Novo story" já abre em story). */
   formatoInicial?: Formato;
+  /** Dia e hora vindos do calendário ("AAAA-MM-DDTHH:mm", horário de Brasília): abre já agendando. */
+  quandoInicial?: string;
+  /** Os melhores horários de cada rede, pelo histórico da conta. Vira sugestão em "Quando sai". */
+  horarios?: HorariosDaRede[];
   contas: ContaDoCompositor[];
   /** O maior arquivo que o armazenamento aceita hoje, em bytes. */
   limite: number;
@@ -87,9 +110,10 @@ export function Compositor({
     const doPost = (post?.envios ?? []).filter((e) => e.status !== "publicado").map((e) => e.contaId);
     return doPost.length ? doPost : [];
   });
-  const [modo, setModo] = useState<"agora" | "agendar">(post?.agendadoPara && post.status === "agendado" ? "agendar" : "agora");
+  const [modo, setModo] = useState<"agora" | "agendar">((post?.agendadoPara && post.status === "agendado") || quandoInicial ? "agendar" : "agora");
   const [hora, setHora] = useState(() => {
     if (post?.agendadoPara && Date.parse(post.agendadoPara) > Date.now()) return paraCampoDeHora(post.agendadoPara);
+    if (quandoInicial) return quandoInicial;
     // A próxima hora cheia depois de daqui a uma hora: nunca um horário que já passou.
     const d = new Date(Date.now() + 2 * 3_600_000);
     d.setMinutes(0, 0, 0);
@@ -167,10 +191,11 @@ export function Compositor({
     [acoes, limite, mudarItem],
   );
 
-  // Segunda mídia num post de foto: é carrossel.
+  // Segunda mídia num post de foto: é carrossel. Voltou a uma só: é post de novo.
   useEffect(() => {
     const vivos = itens.filter((i) => i.estado !== "erro").length;
     if (formato === "post" && vivos > 1) setFormato("carrossel");
+    if (formato === "carrossel" && vivos === 1) setFormato("post");
   }, [itens, formato]);
 
   const mover = (chave: string, passo: -1 | 1) =>
@@ -234,6 +259,13 @@ export function Compositor({
     return { lista: [...new Set(lista)], horaMarcada };
   }, [legenda, titulo, primeiroComentario, subindo, escolhidas, redesEscolhidas, problemaDa, modo, hora]);
 
+  // Os melhores horários das redes escolhidas (de todas, se nenhuma foi escolhida ainda). Story fica de fora da conta.
+  const motivos = useMemo(() => {
+    const redes = new Set(redesEscolhidas.map((c) => c.rede));
+    return horarios.filter((h) => h.melhor && (redes.size === 0 || redes.has(h.rede)));
+  }, [horarios, redesEscolhidas]);
+  const sugestoes = useMemo(() => proximosHorarios(motivos.map((h) => h.melhor!.inicio), Date.now(), 3), [motivos]);
+
   const limiteDaLegenda = useMemo(() => {
     const limites = redesEscolhidas.filter((c) => c.rede !== "youtube").map((c) => LIMITES[c.rede]?.legenda).filter((n): n is number => typeof n === "number");
     return limites.length ? Math.min(...limites) : null;
@@ -292,14 +324,15 @@ export function Compositor({
                 key={f}
                 type="button"
                 role="radio"
-                aria-checked={formato === f}
+                aria-checked={ativoNoBotao(f, formato)}
                 onClick={() => {
-                  setFormato(f);
+                  // "Post" com duas fotos ou mais continua carrossel.
+                  setFormato(f === "post" && itens.filter((i) => i.estado !== "erro").length > 1 ? "carrossel" : f);
                   setConfirmando(false);
                 }}
-                className={"painel-toque shrink-0 whitespace-nowrap rounded-full border px-3.5 py-2 text-xs font-semibold " + (formato === f ? "painel-aba-ativa border-transparent" : "border-ink/12 bg-white text-ink")}
+                className={"painel-toque shrink-0 whitespace-nowrap rounded-full border px-3.5 py-2 text-xs font-semibold " + (ativoNoBotao(f, formato) ? "painel-aba-ativa border-transparent" : "border-ink/12 bg-white text-ink")}
               >
-                {NOME_DO_FORMATO[f]}
+                {NOME_DO_BOTAO[f] ?? NOME_DO_FORMATO[f]}
               </button>
             ))}
           </div>
@@ -309,12 +342,12 @@ export function Compositor({
               : formato === "story"
                 ? "Uma imagem ou um vídeo de até 60 segundos, em pé. Sai sem figurinha de link: a rede não deixa pôr pela API."
                 : formato === "carrossel"
-                  ? "De 2 a 20 fotos (o Instagram aceita vídeo no meio; o Facebook, só foto)."
+                  ? "Carrossel: de 2 a 20 fotos, na ordem da lista (o Instagram aceita vídeo no meio; o Facebook, só foto)."
                   : formato === "texto"
                     ? "Só o texto, sem mídia. Hoje só o Facebook publica assim."
                     : formato === "video"
                       ? "Vídeo deitado ou longo: sai como vídeo no YouTube e no Facebook."
-                      : "Uma foto, com legenda."}
+                      : "Uma foto, com legenda. Pondo duas ou mais, vira carrossel sozinho."}
           </p>
         </section>
 
@@ -537,6 +570,42 @@ export function Compositor({
               </button>
             ))}
           </div>
+          {modo === "agendar" && sugestoes.length ? (
+            <div className="mt-3">
+              <p className={rotulo}>Sugestões pelo histórico</p>
+              <div className="mt-1.5 flex flex-wrap gap-1.5">
+                {sugestoes.map((iso) => {
+                  const campo = paraCampoDeHora(iso);
+                  return (
+                    <button
+                      key={iso}
+                      type="button"
+                      onClick={() => {
+                        setHora(campo);
+                        setConfirmando(false);
+                      }}
+                      aria-pressed={hora === campo}
+                      className={"painel-toque rounded-full border px-3 py-1.5 text-xs font-semibold " + (hora === campo ? "painel-aba-ativa border-transparent" : "border-ink/12 bg-white text-ink")}
+                    >
+                      {chipDeHora(iso, Date.now())}
+                    </button>
+                  );
+                })}
+              </div>
+              {motivos.length ? (
+                <p className="mt-1.5 text-[0.68rem] leading-relaxed text-muted">
+                  Melhor faixa pelo histórico:{" "}
+                  {motivos.map((h, i) => (
+                    <span key={h.rede}>
+                      {i ? ", " : ""}
+                      {nomeDaRede(h.rede)} {faixaEmPalavra(h.melhor!.inicio)} ({h.melhor!.mediana.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}× o normal, {h.melhor!.posts} posts)
+                    </span>
+                  ))}
+                  . É o que rendeu mais até aqui, não uma regra.
+                </p>
+              ) : null}
+            </div>
+          ) : null}
           {modo === "agendar" ? (
             <label className="mt-3 block">
               <span className={rotulo}>Dia e hora, no horário de Brasília</span>
