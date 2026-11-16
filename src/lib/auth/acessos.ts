@@ -55,7 +55,7 @@ export const NIVEIS: { papel: AppRole; nome: string; resumo: string }[] = [
   { papel: "trafego", nome: "Tráfego", resumo: "Gasto de anúncio, retorno, vendas, métricas e campanhas" },
   { papel: "vendas", nome: "Vendas", resumo: "Consulta de produto e prazo, registrar venda e fila de recuperação" },
   { papel: "fabrica", nome: "Fábrica", resumo: "A fila da fábrica e a consulta de produto e prazo" },
-  { papel: "editor", nome: "Editor", resumo: "Conteúdo, redes sociais, site, produtos e campanhas" },
+  { papel: "editor", nome: "Editor", resumo: "Conteúdo, Social Media, site, produtos e campanhas" },
   { papel: "reviewer", nome: "Revisor", resumo: "Conteúdo e métricas" },
   { papel: "author", nome: "Autor", resumo: "Conteúdo e métricas" },
   { papel: "admin", nome: "Administrador", resumo: "Vê e faz tudo (conta técnica)" },

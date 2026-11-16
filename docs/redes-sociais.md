@@ -11,6 +11,18 @@ Tudo aqui foi tirado da documentação oficial de cada rede em 16/11/2026. As re
 - **Token e chave ficam cifrados** (`redes_credenciais`, AES-GCM) e nunca voltam para a tela. Ligar e desligar conta é de administrador, dono e GM, em **Integrações**, seção Redes sociais.
 - **Nada sai para fora sem pessoa.** Publicar e responder têm autor e confirmação.
 
+## O Social Media
+
+O setor se chama **Social Media** na tela. As telas, na ordem do menu:
+
+- **Hoje nas redes:** o que sai nas próximas 48 horas, os comentários esperando resposta, o que está em alta nos últimos 7 dias e os números de cada rede. Atalhos para criar post e story.
+- **Posts e stories:** a fila, os rascunhos, o que saiu e o que deu erro.
+- **Em alta:** cada publicação comparada com o normal da própria conta (a mediana de 90 dias, da mesma conta, do mesmo tipo e pela mesma régua). Ordena por visualizações, interações, engajamento, comentários, compartilhamentos ou salvos. Cada post abre uma página com os números e os comentários dele.
+- **Comentários:** um por um ou agrupados por post.
+- **Automações** e **Contas ligadas.**
+
+Quem cuida das redes entra como **Editor** por enquanto (vê também Conteúdo, Site e Produtos). Um nível só de redes depende de mexer na trava do conector do Claude, que hoje deixa entrar só a equipe de conteúdo.
+
 ## Publicar e agendar
 
 Em **Redes, Publicar e agendar**. Monta-se o post uma vez (formato, mídia, texto), escolhe-se para quais contas vai e se sai agora ou numa hora marcada.
@@ -118,15 +130,9 @@ A área de usuários do sistema pede a chave de acesso (passkey) de quem está l
 
 ### 3. Armazenamento de vídeo (R2)
 
-O Storage do Supabase aceita 50 MB por arquivo. Para vídeo maior, o R2 da Cloudflare, ativado em 16/11. Já existem o balde `jk-redes`, a regra de CORS (só o painel envia) e o endereço público `midia.jkaliancas.com.br`.
+**Ligado em 16/11/2026.** O balde `jk-redes`, a regra de CORS (só o painel envia) e o endereço público `midia.jkaliancas.com.br` existiam desde a tarde; à noite a chave S3 foi criada pela API da Cloudflare (permissão de ler e escrever objetos, restrita ao balde `jk-redes`) e guardada pelo painel, que antes de aceitar sobe um arquivo de teste, lê pelo endereço público e apaga. O compositor passou a aceitar até 1 GB por arquivo. Conferido: uma foto subiu pelo compositor em produção, ficou pública no endereço do R2, aceitou leitura em pedaços e saiu do balde quando o rascunho foi apagado.
 
-Falta só a chave:
-
-1. Painel da Cloudflare, **R2, Gerenciar tokens de API, Criar token de API**: permissão de **leitura e escrita de objetos**, restrita ao balde `jk-redes`.
-2. No fim ele mostra o **ID da chave de acesso** e a **chave de acesso secreta**, uma vez só.
-3. No painel, **Integrações**, cartão **Armazenamento de foto e vídeo dos posts**: colar o ID da conta da Cloudflare (aparece na página do R2), as duas chaves, e clicar em **Conferir e ligar o R2**. O painel sobe um arquivo de teste, lê pelo endereço público e apaga antes de aceitar.
-
-Sem as chaves, tudo funciona pelo Supabase, com o limite de 50 MB.
+Para trocar a chave: no cartão **Armazenamento de foto e vídeo dos posts**, em Integrações, colar o ID da conta, as duas chaves e clicar em **Conferir e ligar o R2**.
 
 ### 4. Decisões
 

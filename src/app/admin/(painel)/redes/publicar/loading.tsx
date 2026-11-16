@@ -1,6 +1,6 @@
 import { Skeleton } from "@/components/ui/states";
 
-/** Esqueleto de "Publicar e agendar": o título, as abas e dois posts. */
+/** Esqueleto de "Posts e stories": o título, as abas e dois posts. */
 export default function Carregando() {
   return (
     <div role="status" aria-live="polite" aria-busy="true" data-painel-largo>

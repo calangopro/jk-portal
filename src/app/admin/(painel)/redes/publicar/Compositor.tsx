@@ -63,9 +63,11 @@ function juntar(nomes: string[]): string {
 }
 
 export function Compositor({
-  post, contas, limite, acoes,
+  post, formatoInicial, contas, limite, acoes,
 }: {
   post: PostNaTela | null;
+  /** O formato com que o compositor em branco abre ("Novo story" já abre em story). */
+  formatoInicial?: Formato;
   contas: ContaDoCompositor[];
   /** O maior arquivo que o armazenamento aceita hoje, em bytes. */
   limite: number;
@@ -73,7 +75,7 @@ export function Compositor({
 }) {
   const router = useRouter();
   const [id, setId] = useState<string | null>(post?.id ?? null);
-  const [formato, setFormato] = useState<Formato>(post?.formato ?? "post");
+  const [formato, setFormato] = useState<Formato>(post?.formato ?? formatoInicial ?? "post");
   const [legenda, setLegenda] = useState(post?.legenda ?? "");
   const [titulo, setTitulo] = useState(post?.titulo ?? "");
   const [primeiroComentario, setPrimeiroComentario] = useState(String(post?.opcoes?.primeiro_comentario ?? ""));

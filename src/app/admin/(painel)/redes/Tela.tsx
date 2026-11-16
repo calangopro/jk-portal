@@ -1,18 +1,20 @@
 import Link from "next/link";
-import { ArrowUpRight, Cable, CircleAlert, CircleCheck, Eye, Heart, Images, UsersRound } from "lucide-react";
+import { ArrowUpRight, Cable, CalendarClock, CircleAlert, CircleCheck, Eye, Flame, Heart, Images, MessageSquareText, Plus, UsersRound } from "lucide-react";
 import { SeloDaRede } from "@/components/redes/Selo";
 import { LinkRapido } from "@/components/ui/LinkRapido";
 import { ehRede, nomeDaRede, nomeDoFormatoNaRede, type Formato } from "@/lib/redes/redes";
 import { compacto, haQuanto, type ContaNoResumo, type Medida, type PublicacaoNoResumo, type Resumo } from "@/lib/redes/resumo";
+import { fatorEmPalavra, type Conteudo } from "@/lib/redes/conteudos";
+import type { PostNaTela } from "@/lib/redes/posts";
 import { Cartao, SeloDeTom, Variacao } from "../Pecas";
 import { Miniatura } from "./Miniatura";
 
 /**
- * "Todas as redes", só o desenho. A leitura fica em `page.tsx`, para a tela
+ * "Hoje nas redes", só o desenho. A leitura fica em `page.tsx`, para a tela
  * poder ser vista com dado de exemplo durante o desenvolvimento.
  *
- * De cima para baixo: o total somado, uma faixa por conta e os posts que mais
- * renderam. Desenhada para 375 px primeiro: os cartões andam de dois em dois e
+ * De cima para baixo: o dia (o que sai, o que espera resposta, o que está em
+ * alta), o total somado, uma faixa por conta e os posts que mais renderam. Desenhada para 375 px primeiro: os cartões andam de dois em dois e
  * cada conta é um bloco que cabe na tela sem rolar de lado.
  *
  * Número que a rede não informa aparece como "a rede não informa", e não como
@@ -200,21 +202,132 @@ function LinhaDoPost({ p, posicao }: { p: PublicacaoNoResumo; posicao?: number }
   );
   return (
     <li className="py-3">
-      {p.link ? (
-        <a href={p.link} target="_blank" rel="noreferrer" className="flex items-start gap-3">
-          {miolo}
-        </a>
-      ) : (
-        <div className="flex items-start gap-3">{miolo}</div>
-      )}
+      <Link href={`/admin/redes/conteudos/${p.id}`} className="flex items-start gap-3 hover:[&_p.line-clamp-2]:underline">
+        {miolo}
+      </Link>
     </li>
   );
 }
 
+/** "hoje às 19h", "amanhã às 9h30", "qua, 20/11 às 19h". */
+function quandoCurto(iso: string | null, agora: number): string {
+  if (!iso) return "";
+  const dia = (t: number) => new Date(t).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
+  const t = Date.parse(iso);
+  const hora = new Date(t).toLocaleTimeString("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit" }).replace(":00", "h").replace(":", "h");
+  if (dia(t) === dia(agora)) return `hoje às ${hora}`;
+  if (dia(t) === dia(agora + 86_400_000)) return `amanhã às ${hora}`;
+  return `${new Date(t).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo", weekday: "short", day: "2-digit", month: "2-digit" })} às ${hora}`;
+}
+
+export type Hoje = {
+  proximos: PostNaTela[];
+  comentarios: { total: number; porRede: Record<string, number> };
+  emAlta: Conteudo[];
+};
+
+/** A faixa de cima: o que sai, o que espera resposta e o que está rendendo. Cada bloco leva para a tela dele. */
+function FaixaDeHoje({ hoje, agora }: { hoje: Hoje; agora: number }) {
+  const titulo = "flex items-center gap-2 text-sm font-semibold text-ink";
+  const link = "mt-3 inline-flex items-center gap-1 text-xs font-semibold text-[var(--setor)] underline-offset-2 hover:underline";
+  return (
+    <section aria-label="Hoje" className="mt-6 grid grid-cols-1 gap-3 lg:grid-cols-3">
+      <div className="glass min-w-0 rounded-[18px] p-4 sm:p-5">
+        <h2 className={titulo}>
+          <CalendarClock size={16} className="text-[var(--setor)]" aria-hidden="true" /> Saindo nas próximas 48 horas
+        </h2>
+        {hoje.proximos.length ? (
+          <ul className="mt-2 divide-y divide-ink/[0.07]">
+            {hoje.proximos.slice(0, 4).map((p) => {
+              const primeira = p.midias[0];
+              return (
+                <li key={p.id} className="py-2">
+                  <Link href={`/admin/redes/publicar/${p.id}`} className="flex items-center gap-3">
+                    <Miniatura src={primeira?.tipo === "imagem" ? primeira.url : null} rede={p.envios[0]?.rede ?? "instagram"} />
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-xs font-semibold text-ink">
+                        {quandoCurto(p.agendadoPara, agora)} · {formatoEmPalavra(p.formato, p.envios[0]?.rede ?? "instagram") ?? "Post"}
+                      </span>
+                      <span className="mt-0.5 flex items-center gap-1">
+                        {[...new Set(p.envios.map((e) => e.rede))].map((r) => (
+                          <SeloDaRede key={r} id={r} tamanho={16} />
+                        ))}
+                        <span className="ml-1 min-w-0 truncate text-[0.72rem] text-muted">{p.legenda.trim() || p.titulo || "Sem legenda"}</span>
+                      </span>
+                    </span>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        ) : (
+          <p className="mt-2 text-sm leading-relaxed text-muted">Nada agendado para os próximos dois dias.</p>
+        )}
+        <LinkRapido href={hoje.proximos.length ? "/admin/redes/publicar?aba=fila" : "/admin/redes/publicar/novo"} className={link}>
+          {hoje.proximos.length ? (hoje.proximos.length > 4 ? `Ver os ${hoje.proximos.length} da fila` : "Ver a fila") : "Agendar um post"} <ArrowUpRight size={13} aria-hidden="true" />
+        </LinkRapido>
+      </div>
+
+      <div className="glass min-w-0 rounded-[18px] p-4 sm:p-5">
+        <h2 className={titulo}>
+          <MessageSquareText size={16} className="text-[var(--setor)]" aria-hidden="true" /> Comentários esperando resposta
+        </h2>
+        <p className="font-display numeros mt-2 text-4xl leading-none text-ink">{hoje.comentarios.total.toLocaleString("pt-BR")}</p>
+        {hoje.comentarios.total ? (
+          <p className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted">
+            {Object.entries(hoje.comentarios.porRede)
+              .filter(([r]) => ehRede(r))
+              .map(([r, n]) => (
+                <span key={r} className="inline-flex items-center gap-1">
+                  <SeloDaRede id={r as PublicacaoNoResumo["rede"]} tamanho={16} /> {n}
+                </span>
+              ))}
+          </p>
+        ) : (
+          <p className="mt-2 text-sm text-muted">Tudo respondido ou fora da fila.</p>
+        )}
+        <LinkRapido href="/admin/redes/comentarios?ver=post" className={link}>
+          {hoje.comentarios.total ? "Responder, post a post" : "Ver os comentários"} <ArrowUpRight size={13} aria-hidden="true" />
+        </LinkRapido>
+      </div>
+
+      <div className="glass min-w-0 rounded-[18px] p-4 sm:p-5">
+        <h2 className={titulo}>
+          <Flame size={16} style={{ color: "#046c4e" }} aria-hidden="true" /> Em alta nos últimos 7 dias
+        </h2>
+        {hoje.emAlta.length ? (
+          <ul className="mt-2 divide-y divide-ink/[0.07]">
+            {hoje.emAlta.slice(0, 3).map((c) => (
+              <li key={c.id} className="py-2">
+                <Link href={`/admin/redes/conteudos/${c.id}`} className="flex items-center gap-3">
+                  <Miniatura src={c.miniatura_url} rede={c.rede} />
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-xs font-semibold" style={{ color: "#046c4e" }}>
+                      {c.fator !== null ? `${fatorEmPalavra(c.fator)} o normal` : ""}
+                      <span className="font-normal text-muted"> · {nomeDaRede(c.rede)}</span>
+                    </span>
+                    <span className="mt-0.5 block truncate text-[0.72rem] text-ink">{(c.legenda ?? "").trim() || "Sem legenda"}</span>
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="mt-2 text-sm leading-relaxed text-muted">Nenhum post passou do dobro do normal da conta nos últimos 7 dias.</p>
+        )}
+        <LinkRapido href="/admin/redes/conteudos?dias=7" className={link}>
+          Ver o que mais rendeu <ArrowUpRight size={13} aria-hidden="true" />
+        </LinkRapido>
+      </div>
+    </section>
+  );
+}
+
 export function TelaDasRedes({
-  resumo, dias, periodos, agora, podeLigar,
+  resumo, hoje, dias, periodos, agora, podeLigar,
 }: {
   resumo: Resumo | null;
+  hoje: Hoje | null;
   dias: number;
   periodos: number[];
   agora: number;
@@ -227,26 +340,23 @@ export function TelaDasRedes({
     <div data-painel-largo>
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div className="min-w-0">
-          <p className="eyebrow">Redes</p>
-          <h1 className="font-display mt-2 text-3xl text-ink sm:text-4xl">Todas as redes</h1>
+          <p className="eyebrow">Social Media</p>
+          <h1 className="font-display mt-2 text-3xl text-ink sm:text-4xl">Hoje nas redes</h1>
           <p className="mt-2 max-w-2xl text-sm text-muted sm:text-base">
-            Os números de cada rede ligada, lado a lado. O painel lê as redes sozinho, em segundo plano, e esta tela mostra a última leitura.
+            O que sai, o que comentaram e o que está rendendo, com os números de cada rede embaixo. O painel lê as redes sozinho, de meia em meia hora.
           </p>
         </div>
-        <nav aria-label="Período" className="flex max-w-full gap-1 overflow-x-auto rounded-full border border-border bg-surface/60 p-1">
-          {periodos.map((p) => (
-            <Link
-              key={p}
-              href={`?dias=${p}`}
-              scroll={false}
-              aria-current={p === dias ? "page" : undefined}
-              className={"shrink-0 whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-semibold sm:px-3.5 " + (p === dias ? "painel-aba-ativa" : "text-muted hover:text-ink")}
-            >
-              {p} dias
-            </Link>
-          ))}
-        </nav>
+        <div className="flex flex-wrap gap-2">
+          <LinkRapido href="/admin/redes/publicar/novo" className="painel-toque inline-flex items-center gap-1.5 rounded-full bg-ink px-4 py-2.5 text-sm font-semibold text-white">
+            <Plus size={16} aria-hidden="true" /> Post
+          </LinkRapido>
+          <LinkRapido href="/admin/redes/publicar/novo?formato=story" className="painel-toque inline-flex items-center gap-1.5 rounded-full border border-ink/15 bg-white px-4 py-2.5 text-sm font-semibold text-ink">
+            <Plus size={16} aria-hidden="true" /> Story
+          </LinkRapido>
+        </div>
       </header>
+
+      {hoje && contas.length ? <FaixaDeHoje hoje={hoje} agora={agora} /> : null}
 
       {resumo === null ? (
         <p className="glass mt-6 rounded-[18px] p-5 text-sm text-muted">
@@ -275,7 +385,23 @@ export function TelaDasRedes({
             </p>
           ) : null}
 
-          <section className="mt-5 grid grid-cols-2 gap-3 lg:grid-cols-4" aria-label="Total das redes">
+          <div className="mt-8 flex flex-wrap items-end justify-between gap-3">
+            <h2 className="text-sm font-semibold text-ink">Os números de {dias} dias</h2>
+            <nav aria-label="Período" className="flex max-w-full gap-1 overflow-x-auto rounded-full border border-border bg-surface/60 p-1">
+              {periodos.map((p) => (
+                <Link
+                  key={p}
+                  href={`?dias=${p}`}
+                  scroll={false}
+                  aria-current={p === dias ? "page" : undefined}
+                  className={"shrink-0 whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-semibold sm:px-3.5 " + (p === dias ? "painel-aba-ativa" : "text-muted hover:text-ink")}
+                >
+                  {p} dias
+                </Link>
+              ))}
+            </nav>
+          </div>
+          <section className="mt-3 grid grid-cols-2 gap-3 lg:grid-cols-4" aria-label="Total das redes">
             <Cartao
               Icone={UsersRound}
               rotulo="Seguidores somados"

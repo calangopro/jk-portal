@@ -1,6 +1,6 @@
 import type { LucideIcon } from "lucide-react";
 import {
-  Activity, Banknote, BellRing, BookCheck, Bot, CalendarDays, Cable, Contact, Crosshair, FileText, Filter, Globe, Hammer, HandCoins, Handshake,
+  Activity, Banknote, BellRing, BookCheck, Bot, CalendarDays, Cable, Contact, Crosshair, FileText, Filter, Flame, Globe, Hammer, HandCoins, Handshake,
   HeartPulse, History, ImageIcon, LayoutDashboard, LayoutTemplate, LibraryBig, ListChecks, MapPin, MessageCircle, MessageSquareText, MessagesSquare, Milestone,
   Package, PackageSearch, Palette, PenLine,
   Percent, Plug, QrCode, RotateCcw, Send, Settings, Share2, Smartphone, Sparkles, Star, Store, Table2, Tags, TrendingUp, Trophy, Users,
@@ -110,20 +110,22 @@ export const SETORES: Setor[] = [
       { href: "/admin/anuncios", area: "anuncios", label: "Limite de anúncio", curto: "Limite", Icone: Crosshair, desc: "Quanto dá para pagar por venda" },
     ],
   },
-  // As redes sociais da JK. A cor (azul ultramar) foi medida como as outras:
-  // 9,3:1 sobre o marfim, 10,3:1 sobre branco e 8,3:1 sobre ela mesma a 12%,
-  // e é a mais distante das cores que já existiam (as vizinhas são Vendas e
-  // Tráfego). Tela nova das redes entra aqui quando existir, nunca antes.
+  // Social Media: as redes sociais da JK, desenhado para quem cuida delas. O id
+  // continua `redes` (é a área no banco e o começo dos endereços); o nome na
+  // tela é Social Media, a pedido do dono em 16/11. A cor (azul ultramar) foi
+  // medida como as outras: 9,3:1 sobre o marfim, 10,3:1 sobre branco e 8,3:1
+  // sobre ela mesma a 12%. Tela nova entra aqui quando existir, nunca antes.
   {
     id: "redes",
-    nome: "Redes",
-    frase: "Instagram, Facebook, YouTube e as outras",
+    nome: "Social Media",
+    frase: "Instagram, Facebook e YouTube",
     cor: "#24339e",
     Icone: Share2,
     itens: [
-      { href: "/admin/redes", area: "redes", label: "Todas as redes", curto: "Resumo", Icone: Share2, desc: "Os números de cada rede, lado a lado" },
-      { href: "/admin/redes/publicar", area: "redes", label: "Publicar e agendar", curto: "Publicar", Icone: Send, desc: "Montar o post, mandar agora ou marcar a hora" },
-      { href: "/admin/redes/comentarios", area: "redes", label: "Comentários das redes", curto: "Comentários", Icone: MessageSquareText, desc: "O que comentaram, e a resposta da JK" },
+      { href: "/admin/redes", area: "redes", label: "Hoje nas redes", curto: "Hoje", Icone: Share2, desc: "O que sai, o que comentaram e o que está em alta" },
+      { href: "/admin/redes/publicar", area: "redes", label: "Posts e stories", curto: "Posts", Icone: Send, desc: "Criar, agendar e acompanhar o que sai" },
+      { href: "/admin/redes/conteudos", area: "redes", label: "Em alta", Icone: Flame, desc: "O que mais viralizou, post a post" },
+      { href: "/admin/redes/comentarios", area: "redes", label: "Comentários", Icone: MessageSquareText, desc: "O que comentaram, e a resposta da JK" },
       { href: "/admin/redes/automacoes", area: "redes", label: "Automações", Icone: Workflow, desc: "Resposta pronta a comentário, por palavra" },
       { href: "/admin/redes/contas", area: "redes", label: "Contas ligadas", curto: "Contas", Icone: Cable, desc: "O que está ligado e o que falta" },
     ],

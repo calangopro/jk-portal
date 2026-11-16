@@ -117,6 +117,7 @@ export type ComentarioNaTela = {
   /** O que a JK respondeu neste fio, da mais antiga para a mais nova. */
   respostas: { texto: string; quando: string | null }[];
   respondidoPor: string | null;
+  publicacaoId: string;
   publicacao: { legenda: string; link: string | null; miniaturaUrl: string | null; formato: string | null };
   podeResponder: boolean;
   podeOcultar: boolean;
@@ -138,15 +139,20 @@ type LinhaCrua = {
  * o cliente com a chave de serviço, depois de a área ser conferida, para
  * trazer o nome de quem respondeu.
  */
-export async function listarComentarios(admin: SupabaseClient, filtro: FiltroDeComentarios, opcoes: { rede?: RedeId; limite?: number } = {}): Promise<ComentarioNaTela[]> {
+export async function listarComentarios(
+  admin: SupabaseClient,
+  filtro: FiltroDeComentarios,
+  opcoes: { rede?: RedeId; limite?: number; /** Só os comentários deste post, em qualquer situação. */ publicacao?: string } = {},
+): Promise<ComentarioNaTela[]> {
   let q = admin
     .from("redes_comentarios")
     .select("id, conta_id, rede, id_na_rede, pai_id_na_rede, autor, texto, quando, estado, respondido_por, publicacao_id, redes_publicacoes(legenda, link, miniatura_url, formato), redes_contas(nome, usuario, escopos, status)")
     .eq("nosso", false)
-    .in("estado", ESTADOS[filtro])
+    .in("estado", opcoes.publicacao ? ["novo", "respondido", "visto", "oculto"] : ESTADOS[filtro])
     .order("quando", { ascending: false, nullsFirst: false })
     .limit(opcoes.limite ?? 60);
   if (opcoes.rede) q = q.eq("rede", opcoes.rede);
+  if (opcoes.publicacao) q = q.eq("publicacao_id", opcoes.publicacao);
   const { data, error } = await q;
   if (error) {
     console.error("[redes] listarComentarios:", error.message);
@@ -193,6 +199,7 @@ export async function listarComentarios(admin: SupabaseClient, filtro: FiltroDeC
       acima: acima ? { autor: acima.autor, texto: acima.texto, nosso: acima.nosso } : null,
       respostas,
       respondidoPor: l.respondido_por ? nomes.get(l.respondido_por) ?? null : null,
+      publicacaoId: l.publicacao_id,
       publicacao: { legenda: (l.redes_publicacoes?.legenda ?? "").slice(0, 140), link: l.redes_publicacoes?.link ?? null, miniaturaUrl: l.redes_publicacoes?.miniatura_url ?? null, formato: l.redes_publicacoes?.formato ?? null },
       podeResponder: Boolean(m?.responderComentario) && temPermissao && contaAtiva,
       podeOcultar: Boolean(m?.ocultarComentario) && temPermissao && contaAtiva,

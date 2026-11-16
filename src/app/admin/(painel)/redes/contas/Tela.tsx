@@ -44,7 +44,7 @@ export function TelaDeContas({
     <div data-painel-largo>
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div className="min-w-0">
-          <p className="eyebrow">Redes</p>
+          <p className="eyebrow">Social Media</p>
           <h1 className="font-display mt-2 text-3xl text-ink sm:text-4xl">Contas ligadas</h1>
           <p className="mt-2 max-w-2xl text-sm text-muted sm:text-base">
             O que está ligado ao painel, o que venceu e o que falta para ligar cada rede. O painel lê as contas ligadas sozinho, de meia em meia hora.
