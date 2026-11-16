@@ -13,6 +13,13 @@
  * 3. A variação compara o período com o período ANTERIOR de mesmo tamanho. Sem
  *    dado do período anterior (conta ligada ontem), não há variação: vem nulo e
  *    a tela escreve "sem comparação".
+ * 4. Período anterior lido PELA METADE também não compara. Na primeira conta
+ *    ligada de verdade (YouTube, 16/11/2026) a leitura trazia 30 dias, o
+ *    período anterior de 28 dias tinha 2 dias de número, e a tela dizia "subiu
+ *    2.146%". Cada número por dia só compara quando o período anterior tem
+ *    quase todos os dias lidos (`COBERTURA_MINIMA`), e a contagem de posts só
+ *    compara quando o painel conhece um post mais antigo que o período
+ *    anterior inteiro.
  */
 import type { RedeId } from "./redes.ts";
 
@@ -26,6 +33,9 @@ export type DiaCru = {
   cliques_no_link: number | null;
   novos_seguidores: number | null;
 };
+
+/** Os números que a rede informa por dia e que têm comparação com o período anterior. */
+export type ChaveDoDia = "alcance" | "visualizacoes" | "interacoes" | "visitas_ao_perfil" | "cliques_no_link";
 
 type SomaDePosts = {
   quantos: number | null;
@@ -51,9 +61,12 @@ export type ContaCrua = {
   seguidores: number | null;
   seguidores_antes: number | null;
   serie: DiaCru[];
-  anterior: { alcance: number | null; visualizacoes: number | null; interacoes: number | null; visitas_ao_perfil: number | null; cliques_no_link: number | null } | null;
+  /** As somas do período anterior e, em `dias`, em quantos dias dele cada número foi lido (0087). */
+  anterior: (Record<ChaveDoDia, number | null> & { dias?: Partial<Record<ChaveDoDia, number | null>> | null }) | null;
   posts: SomaDePosts | null;
   posts_antes: SomaDePosts | null;
+  /** A publicação mais antiga que o painel conhece desta conta (0087). Diz se a lista de posts alcança o período anterior. */
+  primeira_publicacao?: string | null;
 };
 
 export type PublicacaoCrua = {
@@ -153,9 +166,22 @@ export function variacao(agora: number | null, antes: number | null): number | n
 
 const medida = (agora: number | null, antes: number | null): Medida => ({ valor: agora, variacao: variacao(agora, antes) });
 
+/**
+ * Fração dos dias do período anterior que precisa ter número para a comparação
+ * valer. Não é 1 porque a rede às vezes pula um dia, e o YouTube entrega os
+ * números com dois ou três dias de atraso.
+ */
+export const COBERTURA_MINIMA = 0.85;
+
+function diaMenos(dia: string, n: number): string {
+  const d = new Date(`${dia}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() - n);
+  return d.toISOString().slice(0, 10);
+}
+
 const interacoesDoPost = (p: PublicacaoCrua) => (numero(p.curtidas) ?? 0) + (numero(p.comentarios) ?? 0) + (numero(p.salvos) ?? 0) + (numero(p.compartilhamentos) ?? 0);
 
-function contaNoResumo(c: ContaCrua): ContaNoResumo {
+function contaNoResumo(c: ContaCrua, dias: number, hoje: string): ContaNoResumo {
   const seguidores = numero(c.seguidores);
   const antes = numero(c.seguidores_antes);
   const col = (k: keyof DiaCru) => somar(c.serie.map((d) => d[k] as number | null));
@@ -168,9 +194,20 @@ function contaNoResumo(c: ContaCrua): ContaNoResumo {
   const interacoesDosPosts = somar([posts.curtidas, posts.comentarios, posts.salvos, posts.compartilhamentos]);
   const interacoes = col("interacoes") ?? interacoesDosPosts;
 
-  const alcanceAntes = numero(c.anterior?.alcance) ?? numero(postsAntes?.alcance);
-  const visualizacoesAntes = numero(c.anterior?.visualizacoes) ?? numero(postsAntes?.visualizacoes);
-  const interacoesAntes = numero(c.anterior?.interacoes) ?? somar([postsAntes?.curtidas, postsAntes?.comentarios]);
+  // A lista de posts alcança o período anterior inteiro? Só se o painel conhece um post mais antigo que ele.
+  const historicoDePosts = Boolean(c.primeira_publicacao) && String(c.primeira_publicacao).slice(0, 10) <= diaMenos(hoje, dias * 2);
+  const minimo = Math.ceil(dias * COBERTURA_MINIMA);
+  const antesDe = (k: ChaveDoDia, dosPosts: number | null): number | null => {
+    const lidos = numero(c.anterior?.dias?.[k]) ?? 0;
+    if (lidos >= minimo) return numero(c.anterior?.[k]);
+    // A rede informa este número por dia, mas o período anterior não foi lido inteiro: comparar daria uma alta que não houve.
+    if (lidos > 0 || col(k) !== null) return null;
+    // A rede não informa por dia: vale a soma dos posts, se a lista de posts alcança o período anterior.
+    return historicoDePosts ? dosPosts : null;
+  };
+  const alcanceAntes = antesDe("alcance", numero(postsAntes?.alcance));
+  const visualizacoesAntes = antesDe("visualizacoes", numero(postsAntes?.visualizacoes));
+  const interacoesAntes = antesDe("interacoes", somar([postsAntes?.curtidas, postsAntes?.comentarios]));
 
   // O ganho pelos novos seguidores do dia, se a rede informa; senão, a diferença entre as duas fotos.
   const novos = col("novos_seguidores");
@@ -192,9 +229,9 @@ function contaNoResumo(c: ContaCrua): ContaNoResumo {
     alcance: medida(alcance, alcanceAntes),
     visualizacoes: medida(visualizacoes, visualizacoesAntes),
     interacoes: medida(interacoes, interacoesAntes),
-    visitasAoPerfil: medida(col("visitas_ao_perfil"), numero(c.anterior?.visitas_ao_perfil)),
-    cliquesNoLink: medida(col("cliques_no_link"), numero(c.anterior?.cliques_no_link)),
-    publicacoes: medida(numero(posts.quantos) ?? 0, numero(postsAntes?.quantos)),
+    visitasAoPerfil: medida(col("visitas_ao_perfil"), antesDe("visitas_ao_perfil", null)),
+    cliquesNoLink: medida(col("cliques_no_link"), antesDe("cliques_no_link", null)),
+    publicacoes: medida(numero(posts.quantos) ?? 0, historicoDePosts ? numero(postsAntes?.quantos) : null),
     engajamento: interacoes !== null && base !== null && base > 0 ? (interacoes / base) * 100 : null,
     baseDoEngajamento: interacoes !== null && base !== null && base > 0 ? (alcance !== null ? "pessoas" : "visualizações") : null,
     serieDeSeguidores: c.serie.map((d) => numero(d.seguidores)).filter((v): v is number => v !== null),
@@ -206,7 +243,7 @@ function contaNoResumo(c: ContaCrua): ContaNoResumo {
 const MINIMO_PARA_RANKING = 50;
 
 export function montarResumo(cru: ResumoCru): Resumo {
-  const contas = cru.contas.filter((c) => c.status !== "desligada").map(contaNoResumo);
+  const contas = cru.contas.filter((c) => c.status !== "desligada").map((c) => contaNoResumo(c, cru.dias, cru.hoje));
   const nomeDaConta = new Map(contas.map((c) => [c.id, c.nome]));
 
   const publicacoes: PublicacaoNoResumo[] = cru.publicacoes.map((p) => {

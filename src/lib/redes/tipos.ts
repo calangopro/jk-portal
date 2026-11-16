@@ -175,6 +175,12 @@ export type ModuloDaRede = {
   provedorDoAplicativo: string | null;
   /** Recurso -> permissão que a conta precisa ter liberado. */
   recursos: Partial<Record<Recurso, string[]>>;
+  /**
+   * Quantos dias para trás a PRIMEIRA leitura pede (ao ligar a conta). Sem isto, os 30 de sempre.
+   * Existe para a comparação com o período anterior valer desde o primeiro dia: 28 dias pedem 56 de história.
+   * Cada rede diz o que aguenta: o YouTube devolve meses numa chamada, o Instagram cobra uma chamada por dia.
+   */
+  historico?: number;
 
   // ------------------------------------------------------------ ligar
   /** Para onde mandar a pessoa autorizar. `estado` já vem assinado. */

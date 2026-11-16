@@ -45,6 +45,8 @@ async function mandarBuscar(token: string, enderecoDeEnvio: string, arquivo: str
 export const facebook: ModuloDaRede = {
   id: "facebook",
   provedorDoAplicativo: null,
+  // A Página aceita até 90 dias por consulta. Ficam 60, com folga, que já comparam 28.
+  historico: 60,
   recursos: {
     metricas: ["read_insights"],
     publicar: ["pages_manage_posts"],

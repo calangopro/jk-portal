@@ -158,6 +158,8 @@ async function listaDeEnvios(c: Cred): Promise<string> {
 export const youtube: ModuloDaRede = {
   id: "youtube",
   provedorDoAplicativo: "google_cliente",
+  // O Analytics devolve meses de dias numa chamada só: 180 dão comparação até na visão de 90 dias.
+  historico: 180,
   recursos: {
     metricas: [ESCOPO_DE_LEITURA],
     publicar: [ESCOPO_DE_ENVIO],
@@ -269,7 +271,8 @@ export const youtube: ModuloDaRede = {
       return {
         dia: String(linha[i("day")]),
         visualizacoes: v("views"),
-        interacoes: v("likes") + v("comments") + v("shares"),
+        // O Analytics desconta a curtida retirada: num dia parado a soma pode sair negativa. Interação não fica abaixo de zero.
+        interacoes: Math.max(0, v("likes") + v("comments") + v("shares")),
         novosSeguidores: v("subscribersGained") - v("subscribersLost"),
         extra: { minutos_assistidos: v("estimatedMinutesWatched"), inscritos_ganhos: v("subscribersGained"), inscritos_perdidos: v("subscribersLost") },
       };
