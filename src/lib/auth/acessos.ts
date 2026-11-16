@@ -45,7 +45,9 @@ export type Area =
   /** O setor Time, de todos os níveis: o tutor, a Biblioteca JK e o chat do time (0071, 0077 e 0079). */
   | "time"
   /** As redes sociais: números, publicar, agendar e responder (0083). Ligar conta é de administrador. */
-  | "redes";
+  | "redes"
+  /** Atender o suporte pós-venda: assumir e fechar o caso que o vendedor passou (0102). Gerente e diretoria. Passar o caso é de `lancar_venda`. */
+  | "suporte";
 
 /** Na ordem em que aparecem para quem convida: da empresa para o editorial. */
 export const NIVEIS: { papel: AppRole; nome: string; resumo: string }[] = [

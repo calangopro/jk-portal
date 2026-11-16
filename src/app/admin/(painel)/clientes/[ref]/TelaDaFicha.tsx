@@ -1,8 +1,6 @@
 import { Fragment } from "react";
 import Link from "next/link";
-import {
-  ArrowLeft, CalendarHeart, HandCoins, MessageCircle, Phone, RotateCcw, Search, ShoppingBag, Store, Truck, UsersRound, Wallet,
-} from "lucide-react";
+import { ArrowLeft, CalendarHeart, HandCoins, LifeBuoy, MessageCircle, Phone, RotateCcw, Search, ShoppingBag, Store, Truck, UsersRound, Wallet } from "lucide-react";
 import type { CamposDaFicha, CasoDaFicha, FichaDoCliente, PedidoDaFicha, VendaDaFicha, CadastroDaFicha } from "@/lib/clientes/dados";
 import { NOME_DA_FASE, NOME_DO_TIPO, dataPorExtenso, type Oportunidade, type Sugestao } from "@/lib/clientes/oportunidades";
 import { lerEntrega, lerEspecificacoes, type Especificacao } from "@/lib/fabrica/etapas";
@@ -257,6 +255,7 @@ export function TelaDaFicha({
   const primeiro = eventos.length ? eventos[eventos.length - 1].quando : null;
 
   const contato = "painel-toque inline-flex h-11 items-center justify-center gap-2 rounded-full px-4 text-sm font-semibold";
+  const ultimoPedido = f.pedidos.reduce((maior, p) => Math.max(maior, p.pedido), 0);
   const marcadas = f.marcadas.filter((m) => m.decisao !== "reaberta");
 
   return (
@@ -298,6 +297,12 @@ export function TelaDaFicha({
         ) : (
           <p className="text-sm text-muted">Sem telefone nos pedidos deste cliente.</p>
         )}
+        {ultimoPedido > 0 ? (
+          // Pós-venda (pedra, ajuste, troca, garantia) passa para o suporte com o pedido mais recente já escolhido.
+          <Link href={`/admin/suporte?cliente=p${ultimoPedido}`} className={`${contato} flex-1 border border-ink/12 bg-white text-ink sm:flex-none`}>
+            <LifeBuoy size={15} aria-hidden="true" /> Passar para o suporte
+          </Link>
+        ) : null}
       </div>
       <p className="mt-2 flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-muted">
         {f.telefone ? <span className="numeros text-ink">{legivel(f.telefone)}</span> : null}
