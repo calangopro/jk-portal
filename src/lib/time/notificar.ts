@@ -4,7 +4,7 @@ import { useEffect, useRef, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import { comBasePath } from "@/lib/seo/base-path";
 import { aoAvisar, avisarAqui, pegarCliente } from "./ao-vivo";
-import { avisosDoSistema, estadoDoAviso, lerParaAvisar, type AvisoDoSistema, type EstadoDoAviso } from "./chat";
+import { avisosDoSistema, estadoDoAviso, lerParaAvisar, lerSala, type AvisoDoSistema, type EstadoDoAviso, type Sala } from "./chat";
 
 /**
  * O aviso do sistema do chat: a notificação do computador quando chega
@@ -124,13 +124,16 @@ const emSegundoPlano = () => document.visibilityState !== "visible" || !document
  * está em segundo plano. A moldura do painel liga isto em toda tela.
  *
  * `noChat`: a tela aberta é a do chat. Aí o clique no aviso leva até a
- * mensagem sem trocar de página.
+ * mensagem sem trocar de página. `naJanela`: fora da tela do chat, o clique
+ * abre a janela flutuante do chat na mensagem, também sem trocar de página.
  */
-export function useNotificarMensagens(ligado: boolean, noChat: boolean) {
+export function useNotificarMensagens(ligado: boolean, noChat: boolean, naJanela?: (sala: Sala, mensagem: number) => void) {
   const router = useRouter();
   const estado = useAvisoDoSistema();
   const estouNoChat = useRef(noChat);
   estouNoChat.current = noChat;
+  const abrirNaJanela = useRef(naJanela);
+  abrirNaJanela.current = naJanela;
 
   useEffect(() => {
     if (!ligado || estado !== "ligado") return;
@@ -151,7 +154,9 @@ export function useNotificarMensagens(ligado: boolean, noChat: boolean) {
             // Alguns navegadores não deixam a página se pôr na frente: a pessoa clica na aba.
           }
           n.close();
+          const sala = lerSala(a.sala);
           if (estouNoChat.current) avisarAqui({ tipo: "abrir", sala: a.sala, mensagem: a.mensagem });
+          else if (abrirNaJanela.current && sala) abrirNaJanela.current(sala, a.mensagem);
           else router.push(`/admin/chat?sala=${a.sala}&m=${a.mensagem}`);
         };
       } catch {
