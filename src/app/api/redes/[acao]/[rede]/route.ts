@@ -123,7 +123,7 @@ export async function GET(request: Request, { params }: Rota) {
 
       // A primeira leitura roda depois da resposta: a pessoa volta para a tela na hora e os números chegam em seguida.
       after(async () => {
-        for (const id of gravou.ids) await lerRedes(db, { contaId: id, primeira: true, dias: 30, paginas: 3, metricas: 30, prazoMs: 40_000 }).catch((e) => console.error("[redes] primeira leitura", e));
+        await Promise.all(gravou.ids.map((id) => lerRedes(db, { contaId: id, primeira: true, dias: 30, paginas: 6, metricas: 30, prazoMs: 40_000 }).catch((e) => console.error("[redes] primeira leitura", e))));
       });
       revalidatePath("/admin/integracoes");
       revalidatePath("/admin/redes", "layout");

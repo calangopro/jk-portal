@@ -60,8 +60,8 @@ O conector do Claude tem a área `redes`. O caminho é: `redes.contas` (o que es
 
 | Rede | Perfil da JK | Métricas | Publicar e agendar | Story | Comentários | Directs | Situação |
 |---|---|---|---|---|---|---|---|
-| Instagram | @jkaliancas | sim | sim | sim, sem figurinha de link | sim, por consulta | só com App Review da Meta | aplicativo e usuário do sistema prontos (16/11), esperando o Filipe gerar e colar o token |
-| Facebook | jkaliancasoficial | sim | sim | sim | sim | só com App Review | o mesmo token do Instagram |
+| Instagram | @jkaliancas | sim | sim | sim, sem figurinha de link | sim, por consulta | só com App Review da Meta | **ligado em 16/11/2026** |
+| Facebook | jkaliancasoficial | sim | sim | sim | sim, sem o nome de quem comentou | só com App Review | **ligado em 16/11/2026**, pelo mesmo token do Instagram |
 | YouTube | @jkaliancas1 (ligado) e @jk.aliancas | sim, com 2 a 3 dias de atraso | sim, vídeo e Shorts | não existe | sim | não existe | **ligado em 16/11/2026** (canal @jkaliancas1, da conta jkaliancasmkt) |
 | Threads | @jkaliancas (11,8 mil) | sim | sim | não existe | sim (respostas) | não existe | a construir |
 | TikTok | @jkaliancas | sim | sim | não | sim | revisão de segurança de 2 a 4 semanas | depende do cadastro no TikTok API for Business |
@@ -92,16 +92,17 @@ O token é de **usuário do sistema** do portfólio da JK. É um token NOVO: o q
 - Aplicativo **JK Alianças Painel Redes** criado no portfólio da JK, com os casos de uso de Página, Instagram e Threads. Em cada caso de uso, as permissões abaixo foram adicionadas (ficam "Pronto para teste"). O aplicativo `JK Alianças Painel Compras` não serve: o Filipe não é desenvolvedor dele.
 - Usuário do sistema **`painel-redes`**, função Employee, com três ativos: a **Página** JK Alianças e a conta do **Instagram** `jkaliancas` (as duas só com Conteúdo, Atividade da comunidade e Insights, sem mensagens nem anúncios) e o **aplicativo** novo (Desenvolver app).
 
-**Falta, e é do Filipe:**
+**Ligado em 16/11/2026.** O Filipe gerou o token (o Meta pediu a aprovação de outro administrador do portfólio) e colou no cartão do Instagram em Integrações. Entraram as duas contas: `@jkaliancas` e `@jkaliancasoficial`.
 
-1. Em **Configurações do negócio, Usuários, Usuários do sistema**, `painel-redes`, **Gerar token**: aplicativo **JK Alianças Painel Redes**, validade **Nunca**, com estas permissões:
-   `pages_show_list`, `pages_read_engagement`, `business_management`, `read_insights`, `pages_manage_posts`, `pages_read_user_content`, `pages_manage_engagement`, `instagram_basic`, `instagram_manage_insights`, `instagram_content_publish`, `instagram_manage_comments`.
-2. Se o pedido virar uma solicitação, **outro administrador** do portfólio aprova (Configurações do negócio, Solicitações; da última vez foi o Erick). O token aparece **uma vez só**.
-3. No painel, **Integrações**, seção Redes sociais, cartão do **Instagram**: colar o token e clicar em **Conferir e ligar**. O painel confere antes de guardar e diz quais contas o token alcança.
+O que a ligação confirmou e mostrou:
+
+- **O token de usuário do sistema serve nos endpoints do Instagram.** A documentação não dizia.
+- O token foi gerado com mais permissões do que o painel usa (mensagens, catálogo, conteúdo de marca). O painel não tem código de direct.
+- **Comentário do Facebook chega sem o nome de quem escreveu.** O nome depende do recurso "Business Asset User Profile Access" do aplicativo, que não foi adicionado. Para ter o nome: adicionar o recurso nos casos de uso do aplicativo e gerar o token de novo.
+- A validade é "Nunca". Se um dia precisar trocar: mesmo caminho (Usuários do sistema, `painel-redes`, Gerar token) com as permissões
+  `pages_show_list`, `pages_read_engagement`, `business_management`, `read_insights`, `pages_manage_posts`, `pages_read_user_content`, `pages_manage_engagement`, `instagram_basic`, `instagram_manage_insights`, `instagram_content_publish`, `instagram_manage_comments`.
 
 A área de usuários do sistema pede a chave de acesso (passkey) de quem está logado. A lista de permissões do assistente tem busca: digitar o nome e marcar é mais seguro do que rolar.
-
-Não confirmado na documentação: que o token de usuário do sistema serve em todos os endpoints do Instagram. A primeira ligação é o teste. Se o Instagram recusar, o caminho de reserva é o Login do Facebook para Empresas, que pede a chave secreta do aplicativo e um endereço de volta.
 
 ### 2. YouTube
 

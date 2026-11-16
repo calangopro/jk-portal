@@ -173,6 +173,9 @@ const medida = (agora: number | null, antes: number | null): Medida => ({ valor:
  */
 export const COBERTURA_MINIMA = 0.85;
 
+/** Fração do total que precisa vir de contas com comparação para o total ganhar variação. */
+export const COBERTURA_DO_TOTAL = 0.9;
+
 function diaMenos(dia: string, n: number): string {
   const d = new Date(`${dia}T12:00:00Z`);
   d.setUTCDate(d.getUTCDate() - n);
@@ -262,7 +265,11 @@ export function montarResumo(cru: ResumoCru): Resumo {
     const comBase = contas.filter((c) => f(c).valor !== null && f(c).variacao !== null);
     const antes = comBase.length ? somar(comBase.map((c) => (f(c).valor as number) / (1 + (f(c).variacao as number)))) : null;
     const agoraComparavel = comBase.length ? somar(comBase.map((c) => f(c).valor)) : null;
-    return { valor: agora, variacao: variacao(agoraComparavel, antes) };
+    // A variação fica ao lado do TOTAL, então só vale quando quem tem comparação é quase o total inteiro.
+    // Com as três redes ligadas de verdade, só o YouTube comparava a contagem de posts (1 contra 31), e o
+    // total de 280 publicações saiu com "caiu 97%": a queda era de uma conta que tinha 1 das 280.
+    const cobre = agora !== null && agoraComparavel !== null && Math.abs(agora) > 0 && Math.abs(agoraComparavel) >= Math.abs(agora) * COBERTURA_DO_TOTAL;
+    return { valor: agora, variacao: cobre ? variacao(agoraComparavel, antes) : null };
   };
 
   return {
