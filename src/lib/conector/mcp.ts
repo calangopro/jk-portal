@@ -71,7 +71,7 @@ const FERRAMENTAS_CODIGO = {
     name: "buscar",
     title: "Buscar operações do painel",
     description:
-      'Acha operações do painel da JK e devolve a assinatura TypeScript de cada uma (jk.area.acao). Sem nada: as áreas e o que cada uma tem. area: a área inteira. consulta: procura por palavra (ex.: "publicar", "comentário"). guia: "escrita" (regras de texto), "blocos" (HTML do editor), "seo" (checklist), "site" (o que existe e onde) ou "fotos" (fotos novas do catálogo com o Magnific).',
+      'Acha operações do painel da JK e devolve a assinatura TypeScript de cada uma (jk.area.acao). Sem nada: as áreas e o que cada uma tem. area: a área inteira. consulta: procura por palavra (ex.: "publicar", "comentário"). guia: "escrita" (regras de texto), "blocos" (HTML do editor), "seo" (checklist), "site" (o que existe e onde), "fotos" (fotos novas do catálogo com o Magnific) ou "redes" (publicar e agendar nas redes sociais).',
     inputSchema: {
       type: "object",
       properties: {

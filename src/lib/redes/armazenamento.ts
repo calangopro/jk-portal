@@ -127,6 +127,23 @@ export async function prepararEnvio(db: SupabaseClient, arquivo: { mime: string;
 }
 
 /**
+ * Guarda um arquivo que JÁ ESTÁ no servidor (o conector baixa a mídia de um
+ * link e manda para cá). Pela tela o caminho é outro: o navegador sobe direto.
+ */
+export async function guardarArquivo(db: SupabaseClient, arquivo: { bytes: Buffer; mime: string }): Promise<{ url: string; caminho: string; tamanho: number } | { erro: string }> {
+  const preparado = await prepararEnvio(db, { mime: arquivo.mime, tamanho: arquivo.bytes.length });
+  if ("erro" in preparado) return preparado;
+  try {
+    // Uint8Array novo: o Buffer do Node pode ser uma fatia de um bloco maior, e o corpo do pedido precisa ser só o arquivo.
+    const r = await fetch(preparado.urlDeEnvio, { method: "PUT", headers: preparado.cabecalhos, body: new Uint8Array(arquivo.bytes), cache: "no-store", signal: AbortSignal.timeout(45_000) });
+    if (!r.ok) return { erro: `O armazenamento recusou o arquivo (HTTP ${r.status}).` };
+  } catch {
+    return { erro: "A ligação com o armazenamento caiu no meio do envio. Tente de novo." };
+  }
+  return { url: preparado.urlPublica, caminho: preparado.caminho, tamanho: arquivo.bytes.length };
+}
+
+/**
  * Confere que um arquivo subiu de verdade e mede o tamanho dele. A tela diz o
  * tamanho que mandou; o que vale para a fila é o que o armazenamento tem.
  */
