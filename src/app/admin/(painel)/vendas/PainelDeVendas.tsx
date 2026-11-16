@@ -20,7 +20,7 @@ import {
   somarDias,
   type ChaveDePeriodo,
 } from "@/lib/vendas/periodo";
-import { variacao } from "@/lib/painel/sinais";
+import { HORAS_ATE_A_LEITURA_ATRASAR, variacao } from "@/lib/painel/sinais";
 import { tomDoCancelamento, tomDoMeioDePagamento, type Tom } from "@/lib/painel/tons";
 import { Cartao, Dinheiro, ListaComBarra, SeloDeTom } from "../Pecas";
 import { SeletorDePeriodo } from "../SeletorDePeriodo";
@@ -61,23 +61,21 @@ function Atualizacao({ ultima }: { ultima: UltimaImportacao }) {
   if (!ultima) {
     return (
       <p className="mt-4 rounded-[12px] border border-brand/40 bg-brand/10 px-4 py-3 text-sm text-ink">
-        Os pedidos ainda não foram trazidos da Tray. O passo a passo está em{" "}
-        <code className="text-brand-strong">docs/tray-exportar-pedidos.md</code>.
+        Os pedidos ainda não foram lidos da Tray. O estado da ligação com a loja está em Integrações, no cartão da Tray.
       </p>
     );
   }
+  // `quando` é a última leitura BOA. Uma rodada ruim no meio de várias boas não atrasa nada, então
+  // o aviso é pela idade dela, e o erro da última tentativa só aparece quando ela já passou do limite.
   const horas = (Date.now() - Date.parse(ultima.quando)) / 3_600_000;
-  // A rotina roda de hora em hora, das 8h às 23h: o maior vão normal é o da madrugada, de 9 horas.
-  const atrasado = horas > 12;
-  if (!atrasado && ultima.ok) {
-    return <p className="mt-2 text-xs text-muted">Pedidos trazidos da Tray {haQuantoTempo(ultima.quando)}.</p>;
+  if (horas <= HORAS_ATE_A_LEITURA_ATRASAR) {
+    return <p className="mt-2 text-xs text-muted">Pedidos lidos da Tray {haQuantoTempo(ultima.quando)}.</p>;
   }
   return (
     <p className="mt-4 rounded-[12px] border border-brand/40 bg-brand/10 px-4 py-3 text-sm text-ink">
-      {ultima.ok
-        ? `A última leitura da Tray foi ${haQuantoTempo(ultima.quando)}. Os números abaixo podem estar atrasados.`
-        : `A última leitura da Tray, ${haQuantoTempo(ultima.quando)}, deu erro: ${ultima.erro ?? "sem detalhe"}.`}{" "}
-      A rotina roda de hora em hora, das 8h às 23h, com o computador ligado e a Tray aberta no Chrome.
+      A última leitura boa da Tray foi {haQuantoTempo(ultima.quando)}. Os números abaixo podem estar atrasados.
+      {ultima.erro ? ` A última tentativa deu erro: ${ultima.erro}.` : ""} A leitura roda sozinha de 10 em 10 minutos, pela API
+      da loja.
     </p>
   );
 }

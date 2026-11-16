@@ -16,6 +16,11 @@ import type { EstadoDaApiDePedidos } from "@/lib/vendas/pedidos-da-api";
  * e não escreve em pedido. Até 13/11/2026 ele dizia "o painel só lê"; deixou
  * de ser verdade quando a edição de produto entrou (`lib/loja/alterar.ts`), e
  * foi essa frase velha que travou o pedido de homologação em 14/11.
+ *
+ * A loja da JK foi autorizada em 16/11/2026 por outro caminho: instalando o
+ * aplicativo pelo painel da Tray, que em vez de voltar para o portal mostra o
+ * endereço da API e o código para "encaminhar ao desenvolvedor". O botão daqui
+ * continua valendo para autorizar de novo se o aplicativo for tirado da loja.
  */
 
 const quando = (iso: string) =>
@@ -49,13 +54,13 @@ export function CartaoDaTray({ estado }: { estado: EstadoDaApiDePedidos }) {
           Autorizada em {quando(estado.autorizadaEm)}.{" "}
           {estado.lidaEm
             ? `Última leitura em ${quando(estado.lidaEm)}.`
-            : "A leitura automática ainda não foi ligada: antes dela vem uma conferência, que compara o que a API devolve com o que as exportações já gravaram."}
+            : "A primeira leitura ainda não rodou. Ela acontece sozinha, de 10 em 10 minutos."}
         </p>
       ) : (
         <>
           <p className="mt-4 text-xs leading-relaxed text-muted">
-            O aplicativo ainda não foi autorizado na loja da JK. A Tray libera a instalação na loja de verdade depois de
-            homologar o aplicativo. Até lá, os pedidos continuam entrando pela exportação de hora em hora.
+            O aplicativo não está autorizado na loja da JK. Sem a autorização o painel não lê pedido novo nem altera
+            produto. A Tray já liberou o aplicativo para a loja, em 16/11/2026: é só autorizar de novo.
           </p>
           {estado.aplicativo ? (
             <a

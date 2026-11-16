@@ -9,6 +9,7 @@
  */
 import {
   ArquivoDaTrayInvalido,
+  INFO_MAXIMA,
   lerCsv,
   lerPedidos,
   lerProdutosVendidos,
@@ -17,7 +18,7 @@ import {
 } from "../src/lib/vendas/tray-csv.ts";
 import { agruparPorCanal, canalDaOrigem, nomeLimpo } from "../src/lib/vendas/origem.ts";
 import { diasEntre, hojeEmSaoPaulo, intervaloDoPeriodo, lerPeriodo, somarDias } from "../src/lib/vendas/periodo.ts";
-import { calcularSinais, porDiaDaSemana, taxaDeCancelamento, variacao } from "../src/lib/painel/sinais.ts";
+import { HORAS_ATE_A_LEITURA_ATRASAR, calcularSinais, porDiaDaSemana, taxaDeCancelamento, variacao } from "../src/lib/painel/sinais.ts";
 import { ehAdmin, ehEquipeDeConteudo, NIVEIS, ROLE_LABEL } from "../src/lib/auth/acessos.ts";
 import { andamentoDaMeta } from "../src/lib/painel/meta.ts";
 import { dividirPorDia, retornoPorPlataforma, tomDaFaixaDeVolta } from "../src/lib/trafego/retorno.ts";
@@ -28,7 +29,7 @@ import { lerItensDoGoogle, lerItensDoMeta, tipoDoGoogle, tipoDoMeta } from "../s
 import { diagnosticar, objetivoDe, type Item } from "../src/lib/trafego/diagnostico.ts";
 import { juntarMeios, mapearGargalos, meioDePagamento } from "../src/lib/painel/gargalos.ts";
 import { voltaParaEmpatar } from "../src/lib/painel/premissas.ts";
-import { compararComOBanco, pedidoDaApi, ultimaAlteracao } from "../src/lib/vendas/tray-api.ts";
+import { alteradosEm, compararComOBanco, pedidoDaApi, semOsJaLidos, ultimaAlteracao } from "../src/lib/vendas/tray-api.ts";
 import { ehRobo, lerChegada, pedidoValido, repeteAAnterior, sessaoValida } from "../src/lib/origem/chegada.ts";
 import { itensQueVenderam, passosDoColetor, vendasPorItem, type Cobertura, type SaudeDoColetor } from "../src/lib/origem/anotado.ts";
 import { diaOuNulo, lerEstado, naoPegaram, prepararEdicao } from "../src/lib/loja/produto.ts";
@@ -232,6 +233,8 @@ console.log("\nSinais do painel e níveis de acesso");
   });
   const chaves = sinais.map((s) => s.chave);
   confere("leitura atrasada vem primeiro", sinais[0].chave === "leitura-atrasada" && sinais[0].gravidade === "problema");
+  const comLeitura = (horas: number) => calcularSinais({ atual: periodo(8000, 50, 28, [["", 8000]]), anterior: null, dias: 30, horasDesdeALeitura: horas }).some((s) => s.chave === "leitura-atrasada");
+  confere("a leitura pela API roda de 10 em 10 minutos: duas horas em branco ainda não é aviso, quatro é", !comLeitura(2) && comLeitura(4) && HORAS_ATE_A_LEITURA_ATRASAR === 3);
   confere("queda de 20% no faturamento é problema", chaves.includes("faturamento-caiu"));
   confere("custos em 90% do faturamento é problema", chaves.includes("custos-altos"));
   confere("36% de cancelamento é problema", chaves.includes("cancelamento-alto"), String(taxaDeCancelamento(periodo(0, 50, 28, []).totais)));
@@ -579,7 +582,44 @@ console.log("\nPedido lido pela API da Tray");
   const cancelado = pedidoDaApi({ ...cru, id: "5013", status: "DEVOLVIDO", OrderStatus: { type: "canceled", status: "DEVOLVIDO" } }, situacaoDoStatus);
   confere("tipo cancelado vale mesmo com outro nome de status", cancelado?.situacao === "cancelado");
   const esperando = pedidoDaApi({ ...cru, id: "5014", OrderStatus: { type: "open", status: "AGUARDANDO PAGAMENTO" }, Payment: [] }, situacaoDoStatus);
-  confere("aguardando pagamento continua aguardando", esperando?.situacao === "aguardando" && esperando.valor_pago === null);
+  confere("aguardando pagamento continua aguardando, com valor pago zero como na exportação", esperando?.situacao === "aguardando" && esperando.valor_pago === 0);
+
+  // As três diferenças achadas em 16/11/2026, comparando 60 pedidos da loja da JK com o que as exportações gravaram.
+  const comoALojaManda = pedidoDaApi(
+    {
+      ...cru,
+      ProductsSold: [
+        { ProductsSold: { product_id: "901", name: "Aliança de teste 4 mm (Ref. AL-4) (Disponível em 2 dias úteis)<br />", reference: "AL-4", quantity: "1", price: "749.95", additional_information: "Gravação - aro 18: Ana    10.10.2020<br />Gravação - aro 22: Rui    10.10.2020<br />" } },
+      ],
+    },
+    situacaoDoStatus,
+  );
+  confere("o nome do item sai sem o <br /> que a API põe no fim", comoALojaManda?.itens[0].nome === "Aliança de teste 4 mm (Ref. AL-4) (Disponível em 2 dias úteis)");
+  confere("espaço repetido vira um só, como no leitor das exportações", comoALojaManda?.itens[0].info === "Gravação - aro 18: Ana 10.10.2020<br />Gravação - aro 22: Rui 10.10.2020<br />");
+
+  // O texto do item passava de 300 caracteres em um de cada sete itens, e o corte comia a gravação do segundo aro.
+  const longa = `${"Numeração - aro 18: 18<br />".repeat(11)}Gravação - aro 22: FIM DA GRAVAÇÃO<br />`;
+  const daApi = pedidoDaApi({ ...cru, ProductsSold: [{ ProductsSold: { product_id: "901", name: "Aliança", quantity: "1", additional_information: longa } }] }, situacaoDoStatus)?.itens[0].info;
+  const doCsv = lerProdutosVendidos(new TextEncoder().encode(`Código pedido;Nome produto;Quantidade;Informação adicional\r\n5012;Aliança;1;"${longa}"`)).get(5012)?.[0].info;
+  confere("texto do item com mais de 300 caracteres chega inteiro, pelas duas portas", longa.length > 300 && daApi === longa && doCsv === longa);
+  const enorme = "x".repeat(INFO_MAXIMA + 500);
+  confere(
+    "as duas portas cortam o texto do item no mesmo ponto",
+    pedidoDaApi({ ...cru, ProductsSold: [{ ProductsSold: { product_id: "901", name: "Aliança", quantity: "1", additional_information: enorme } }] }, situacaoDoStatus)?.itens[0].info?.length === INFO_MAXIMA &&
+      lerProdutosVendidos(new TextEncoder().encode(`Código pedido;Nome produto;Quantidade;Informação adicional\r\n5012;Aliança;1;${enorme}`)).get(5012)?.[0].info?.length === INFO_MAXIMA,
+  );
+
+  // O filtro `modified` da Tray inclui o instante pedido: a rodada seguinte relê o último pedido se ninguém pular.
+  const lista = [
+    { id: "11", modified: "2026-11-15 04:16:19" },
+    { id: "12", modified: "2026-11-15 04:16:19" },
+    { id: "13", modified: "2026-11-15 04:16:19" },
+    { id: "14", modified: "2026-11-16 09:00:00" },
+  ];
+  confere("pula só o que já foi lido naquele instante", semOsJaLidos(lista, "2026-11-15 04:16:19", [11, 12]).map((p) => p.id).join() === "13,14");
+  confere("pedido já lido que mudou DEPOIS volta a ser lido", semOsJaLidos([{ id: "11", modified: "2026-11-15 08:00:00" }], "2026-11-15 04:16:19", [11]).length === 1);
+  confere("sem nada lido antes, a lista passa inteira", semOsJaLidos(lista, "2026-11-15 04:16:19", []).length === 4);
+  confere("guarda quem dividiu o último segundo, para a próxima rodada pular", alteradosEm(lista.slice(0, 2), "2026-11-15 04:16:19").join() === "11,12" && alteradosEm(lista, null).length === 0);
   confere("pedido sem número ou sem data é recusado", pedidoDaApi({ ...cru, id: "" }, situacaoDoStatus) === null && pedidoDaApi({ ...cru, date: "0000-00-00" }, situacaoDoStatus) === null);
   confere("hora ausente não derruba o pedido", pedidoDaApi({ ...cru, hour: undefined }, situacaoDoStatus)?.feito_em === "2026-11-12T00:00:00-03:00");
 
@@ -1000,7 +1040,10 @@ console.log("\nSaúde das ligações");
   confere("fila esperando e rotina que nunca registrou é parada, não \"sem registro\"", nuncaRodou.estado === "ruim" && nuncaRodou.frase.startsWith("4 contatos esperam reenvio e a rotina nunca rodou bem"));
   confere("rotina de relógio que só responde erro está parada, mesmo rodando", avaliarSaude({ ...cru, leituras: [{ fonte: "tray", ultima_em: ha(4), ultima_boa_em: ha(300), ultimo_status: "error", ultimo_erro: "tempo esgotado" }] }).find((l) => l.chave === "catalogo")!.frase.startsWith("Parada há 5 horas"));
   confere("uma falha depois de rodada boa dentro da tolerância é só atenção", de("avaliacoes").estado === "atencao");
-  confere("a de pedidos tolera a noite inteira", de("pedidos").estado === "ok");
+  confere("a exportação, que hoje só traz a origem, tolera a noite inteira", de("pedidos-origem").estado === "ok" && de("pedidos-origem").nome === "Origem dos pedidos");
+  const comPedidos = (minutos: number, ok = true) => avaliarSaude({ ...cru, rotinas: [...cru.rotinas, { rotina: "pedidos-api", ultima_em: ha(ok ? minutos : 5), ok, detalhe: ok ? null : "Tray respondeu 401 em /orders.", ultima_boa_em: ha(minutos) }] }).find((l) => l.chave === "pedidos")!;
+  confere("a leitura de pedidos pela API é julgada pelo pulso, de 10 em 10 minutos", de("pedidos").estado === "sem_registro" && comPedidos(15).estado === "ok" && comPedidos(50, false).estado === "atencao");
+  confere("uma hora sem rodada boa e ela está parada, com o que fazer", comPedidos(90, false).estado === "ruim" && comPedidos(90, false).frase.includes("a chave foi recusada") && (comPedidos(90).oQueFazer ?? "").includes("Integrações"));
   confere("leitura parada diz o erro que a pessoa consegue ler", de("gasto-meta").estado === "ruim" && de("gasto-meta").frase.includes("a chave foi recusada") && !de("gasto-meta").frase.includes("{"));
   confere("rotina que nunca registrou não vira alarme", de("search-console").estado === "sem_registro" && de("gasto-google").estado === "sem_registro");
   confere("destino recusando diz desde quando, quantos e o que fazer", de("destino-rd").estado === "ruim" && de("destino-rd").frase.startsWith("Recusando desde 11/11 às 12h26: 31 contatos não entraram.") && (de("destino-rd").oQueFazer ?? "").includes("31 contatos já saíram da fila"));

@@ -89,6 +89,14 @@ export function porDiaDaSemana(porDia: { dia: string; valor_pago: number }[]): {
     .sort((a, b) => b.media - a.media);
 }
 
+/**
+ * Depois de quantas horas sem leitura boa os números passam a ser tratados
+ * como atrasados. Eram 12, do tempo em que a leitura era a exportação de hora
+ * em hora e parava de noite. Pela API são seis rodadas por hora, o dia todo:
+ * três horas em branco são dezoito rodadas perdidas, e isso não é soluço.
+ */
+export const HORAS_ATE_A_LEITURA_ATRASAR = 3;
+
 export function calcularSinais(e: EntradaDosSinais): Sinal[] {
   const s: Sinal[] = [];
   const t = e.atual.totais;
@@ -102,11 +110,11 @@ export function calcularSinais(e: EntradaDosSinais): Sinal[] {
       titulo: "Os pedidos da Tray ainda não foram trazidos",
       texto: "Sem a leitura da Tray o painel não tem venda para mostrar.",
     });
-  } else if (typeof e.horasDesdeALeitura === "number" && e.horasDesdeALeitura > 12) {
+  } else if (typeof e.horasDesdeALeitura === "number" && e.horasDesdeALeitura > HORAS_ATE_A_LEITURA_ATRASAR) {
     s.push({
       chave: "leitura-atrasada", gravidade: "problema", peso: 1e12,
       titulo: `A última leitura da Tray foi há ${Math.round(e.horasDesdeALeitura)} horas`,
-      texto: "Os números abaixo podem estar atrasados. A rotina roda de hora em hora, das 8h às 23h, com o computador ligado e a Tray aberta no Chrome.",
+      texto: "Os números abaixo podem estar atrasados. A leitura roda sozinha de 10 em 10 minutos, pela API da loja, e o motivo da parada aparece na saúde das ligações.",
     });
   }
 
