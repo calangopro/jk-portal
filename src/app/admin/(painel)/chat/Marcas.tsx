@@ -252,6 +252,8 @@ function PedidoMarcado({ numero, buscar }: { numero: number; buscar: BuscarPrevi
         ? createPortal(
             <div
               ref={caixa}
+              // A janela flutuante do chat confere isto antes de fechar com Esc: o Esc é desta prévia.
+              data-previa-do-pedido=""
               role="dialog"
               aria-label={`Pedido ${numero}`}
               onPointerEnter={somenteMouse(semRelogio)}

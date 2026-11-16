@@ -23,7 +23,7 @@ import { ListaDeSugestoes, useSugestoes, type BuscarPedidos } from "./Sugestoes"
  * item em vez de enviar.
  */
 export function Escrever({
-  texto, onTexto, onEnviar, respondendo, onCancelarResposta, pedir, onPedir, imagens, sala, focar, pessoas, meuId, podeMeta, buscarPedidos,
+  texto, onTexto, onEnviar, respondendo, onCancelarResposta, pedir, onPedir, imagens, sala, focar, pessoas, meuId, podeMeta, buscarPedidos, compacta = false,
 }: {
   texto: string;
   onTexto: (t: string) => void;
@@ -43,6 +43,8 @@ export function Escrever({
   /** A pessoa pode ver a meta do mês: só então o "/meta" aparece. */
   podeMeta: boolean;
   buscarPedidos: BuscarPedidos;
+  /** A janela flutuante: estreita mesmo no computador, então o botão de pedir fica só com o ícone e o texto de apoio sai. */
+  compacta?: boolean;
 }) {
   const campo = useRef<HTMLTextAreaElement>(null);
   const idDaLista = useId();
@@ -159,8 +161,8 @@ export function Escrever({
           style={pedir ? { background: COR_DO_TOM.atencao.fundo, color: COR_DO_TOM.atencao.texto } : undefined}
         >
           <MessageCircleQuestion size={18} aria-hidden="true" />
-          <span className="hidden sm:inline">{pedir ? "Pedindo resposta" : "Pedir resposta"}</span>
-          <span className="sr-only sm:hidden">{pedir ? "Pedindo resposta" : "Pedir resposta"}</span>
+          <span className={compacta ? "hidden" : "hidden sm:inline"}>{pedir ? "Pedindo resposta" : "Pedir resposta"}</span>
+          <span className={compacta ? "sr-only" : "sr-only sm:hidden"}>{pedir ? "Pedindo resposta" : "Pedir resposta"}</span>
         </button>
 
         <button
@@ -174,7 +176,7 @@ export function Escrever({
         </button>
       </div>
 
-      <p className="mt-1.5 hidden px-1 text-[0.68rem] leading-snug text-muted sm:block">
+      <p className={`mt-1.5 hidden px-1 text-[0.68rem] leading-snug text-muted ${compacta ? "" : "sm:block"}`}>
         {pedir
           ? "Esta mensagem vai pedir resposta: fica no topo da sala, com o tempo de espera, até alguém responder a ela."
           : toque
@@ -182,7 +184,7 @@ export function Escrever({
             : "Enter envia, Shift+Enter pula linha. Digite @ para marcar alguém ou um setor, e / para marcar um pedido."}
       </p>
       {pedir ? (
-        <p className="mt-1.5 px-1 text-[0.68rem] leading-snug sm:hidden" style={{ color: COR_DO_TOM.atencao.texto }}>
+        <p className={`mt-1.5 px-1 text-[0.68rem] leading-snug ${compacta ? "" : "sm:hidden"}`} style={{ color: COR_DO_TOM.atencao.texto }}>
           Esta mensagem vai pedir resposta e ficar no topo da sala até alguém responder.
         </p>
       ) : null}

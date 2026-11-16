@@ -8,9 +8,12 @@ import type { Area } from "@/lib/auth/acessos";
 import { comBasePath } from "@/lib/seo/base-path";
 import { nomeDoSetor, ondeEstou, setoresDe } from "@/lib/painel/setores";
 import { useAoVivo } from "@/lib/time/ao-vivo";
+import { ENDERECO_DO_CHAT } from "@/lib/time/chat";
 import { useNotificarMensagens } from "@/lib/time/notificar";
 import { BotaoSair } from "./BotaoSair";
+import type { ApiDoChat } from "./chat/api";
 import { useAvisosAoVivo, useTituloComAviso } from "./AvisosAoVivo";
+import { BotaoDoChatNoTopo, ChatFlutuante, useChatFlutuante } from "./ChatFlutuante";
 import { AbasDoSetor, BarraDeBaixo, FolhaMais, Lateral, corDoSetor, type Avisos } from "./Navegacao";
 
 /**
@@ -28,7 +31,7 @@ import { AbasDoSetor, BarraDeBaixo, FolhaMais, Lateral, corDoSetor, type Avisos 
  * durante o desenvolvimento.
  */
 export function Moldura({
-  nome, papel, areas, pendentes, avisos: avisosDoServidor, meuId, sair, children, caminhoDaPrevia,
+  nome, papel, areas, pendentes, avisos: avisosDoServidor, meuId, souAdmin = false, sair, children, caminhoDaPrevia, apiDoChatDaPrevia,
 }: {
   nome: string;
   papel: string;
@@ -38,10 +41,14 @@ export function Moldura({
   avisos?: Avisos;
   /** O id de quem está logado, quando a pessoa tem o setor Time: liga o canal ao vivo (quem está online e mensagem nova). */
   meuId?: string | null;
+  /** Administrador, dono ou GM: no chat flutuante, pode apagar a mensagem de outra pessoa (o banco confere de novo). */
+  souAdmin?: boolean;
   sair: () => Promise<void>;
   children: React.ReactNode;
   /** Só para a prévia de desenvolvimento: desenha como se a pessoa estivesse neste endereço. */
   caminhoDaPrevia?: string;
+  /** Só para a prévia de desenvolvimento: a conversa de mentira do chat flutuante. Sem ela, a prévia não mostra o chat. */
+  apiDoChatDaPrevia?: ApiDoChat;
 }) {
   const daBarra = usePathname();
   const caminho = caminhoDaPrevia ?? daBarra;
@@ -50,8 +57,11 @@ export function Moldura({
   // O canal ao vivo fica ligado em TODA tela do painel: "online" é estar com o painel aberto, não só com o chat.
   useAoVivo(meuId, caminhoDaPrevia === undefined);
   useTituloComAviso(avisos, caminho);
-  // O aviso do sistema (a notificação do computador) também vale em toda tela, para quem ligou no chat.
-  useNotificarMensagens(caminhoDaPrevia === undefined && Boolean(meuId), caminho.startsWith("/admin/chat"));
+  // O chat flutuante: o botão com o número do menu e a janela que abre por cima da tela, em qualquer tela menos a do próprio chat.
+  const flutuante = useChatFlutuante(caminho, Boolean(meuId) && (caminhoDaPrevia === undefined || apiDoChatDaPrevia !== undefined));
+  const numeroDoChat = avisos?.[ENDERECO_DO_CHAT] ?? 0;
+  // O aviso do sistema (a notificação do computador) também vale em toda tela, para quem ligou no chat. Fora da tela do chat, o clique abre a janela flutuante na mensagem.
+  useNotificarMensagens(caminhoDaPrevia === undefined && Boolean(meuId), caminho.startsWith("/admin/chat"), flutuante.disponivel ? flutuante.abrirNaMensagem : undefined);
   const setores = useMemo(() => setoresDe(areas), [areas]);
   const { setor, item } = ondeEstou(setores, caminho);
   const [mais, setMais] = useState(false);
@@ -125,16 +135,19 @@ export function Moldura({
                 <p className="truncate text-[0.7rem] leading-tight text-muted">{item?.label ?? "JK Alianças"}</p>
               </div>
             </div>
-            <button
-              type="button"
-              onClick={() => setMais(true)}
-              aria-label={`Conta de ${nome} e todos os setores`}
-              aria-expanded={mais}
-              aria-controls="folha-mais"
-              className="painel-toque grid h-10 w-10 shrink-0 place-items-center rounded-full bg-ink text-xs font-bold text-brand-light"
-            >
-              {iniciais}
-            </button>
+            <div className="flex shrink-0 items-center gap-2">
+              <BotaoDoChatNoTopo f={flutuante} n={numeroDoChat} />
+              <button
+                type="button"
+                onClick={() => setMais(true)}
+                aria-label={`Conta de ${nome} e todos os setores`}
+                aria-expanded={mais}
+                aria-controls="folha-mais"
+                className="painel-toque grid h-10 w-10 shrink-0 place-items-center rounded-full bg-ink text-xs font-bold text-brand-light"
+              >
+                {iniciais}
+              </button>
+            </div>
           </div>
           {setor ? <AbasDoSetor setor={setor} item={item} pendentes={pendentes} avisos={avisos} /> : null}
 
@@ -163,6 +176,8 @@ export function Moldura({
 
         <main className="painel-conteudo mx-auto w-full max-w-5xl px-4 pb-[calc(6rem+env(safe-area-inset-bottom))] pt-5 sm:px-8 lg:pb-12 lg:pt-8">
           {children}
+          {/* No computador, a bolha do chat fica no canto de baixo: este respiro deixa o fim de toda tela acima dela. */}
+          {flutuante.disponivel ? <div aria-hidden="true" className="hidden h-14 lg:block" /> : null}
         </main>
       </div>
 
@@ -187,6 +202,7 @@ export function Moldura({
         papel={papel}
         sair={sair}
       />
+      {meuId ? <ChatFlutuante f={flutuante} n={numeroDoChat} meuId={meuId} souAdmin={souAdmin} podeMeta={areas.includes("vendas")} apiDaPrevia={apiDoChatDaPrevia} /> : null}
     </div>
   );
 }
