@@ -16,7 +16,7 @@ import {
   resumirPorDia,
   situacaoDoStatus,
 } from "../src/lib/vendas/tray-csv.ts";
-import { agruparPorCanal, canalDaOrigem, nomeLimpo } from "../src/lib/vendas/origem.ts";
+import { SO_DA_CHEGADA, agruparPorCanal, canalDaOrigem, nomeLimpo } from "../src/lib/vendas/origem.ts";
 import { diasEntre, hojeEmSaoPaulo, intervaloDoPeriodo, lerPeriodo, somarDias } from "../src/lib/vendas/periodo.ts";
 import { HORAS_ATE_A_LEITURA_ATRASAR, calcularSinais, porDiaDaSemana, taxaDeCancelamento, variacao } from "../src/lib/painel/sinais.ts";
 import { ehAdmin, ehEquipeDeConteudo, NIVEIS, ROLE_LABEL } from "../src/lib/auth/acessos.ts";
@@ -173,6 +173,17 @@ console.log("\nOrigem e período da tela de vendas");
   confere("vazio e undefined são sem etiqueta", canais(["", "undefined"]) === "sem_etiqueta,sem_etiqueta");
   confere("etiqueta com % solto não quebra", canalDaOrigem("promo 100%") === "outro");
 
+  // A chegada anotada pela loja vem do banco como `@canal`, quando a etiqueta da Tray falta.
+  confere("a chegada anotada pela loja já vem classificada", canais(["@meta", "@google_ads", "@google_organico", "@direto", "@ia"]) === "meta,google_ads,google_organico,direto,ia");
+  confere("marca com canal desconhecido, ou querendo se passar por sem etiqueta, cai em outros", canais(["@inventado", "@sem_etiqueta", "@"]) === "outro,outro,outro");
+  const misturado = agruparPorCanal([
+    { origem: "ig", pagos: 2, valor: 500, criados: 3 },
+    { origem: "@meta", pagos: 1, valor: 300, criados: 1 },
+    { origem: "@direto", pagos: 1, valor: 100, criados: 2 },
+  ]);
+  confere("etiqueta da Tray e chegada anotada somam no mesmo canal", misturado[0].canal === "meta" && misturado[0].valor === 800 && misturado[0].pagos === 3 && misturado[1].nome === "Acesso direto");
+  confere("os canais que só a chegada separa têm nome", SO_DA_CHEGADA.every((c) => canalDaOrigem(`@${c}`) === c) && SO_DA_CHEGADA.length === 5);
+
   const agrupado = agruparPorCanal([
     { origem: "ig", pagos: 2, valor: 500.1, criados: 4 },
     { origem: "fb", pagos: 1, valor: 200.2, criados: 1 },
@@ -233,6 +244,13 @@ console.log("\nSinais do painel e níveis de acesso");
   });
   const chaves = sinais.map((s) => s.chave);
   confere("leitura atrasada vem primeiro", sinais[0].chave === "leitura-atrasada" && sinais[0].gravidade === "problema");
+  // A chegada anotada pela loja separa canais que a etiqueta da Tray nunca separou (13/11/2026 em diante).
+  const chavesCom = (atual: [string, number][], anterior: [string, number][]) =>
+    calcularSinais({ atual: periodo(9000, 50, 2, atual), anterior: periodo(9000, 50, 2, anterior), dias: 30, horasDesdeALeitura: 1 }).map((x) => x.chave);
+  const naTroca = chavesCom([["@google_organico", 3000], ["@direto", 4000], ["@meta", 2000]], [["", 7000], ["ig", 2000]]);
+  confere("período anterior de antes do coletor: busca do Google não vira \"canal novo\"", !naTroca.includes("canal-novo-google_organico") && !naTroca.some((c) => c.endsWith("-direto")));
+  const depois = chavesCom([["@google_organico", 3000], ["@direto", 6000]], [["@google_organico", 1500], ["@direto", 2000]]);
+  confere("com a chegada nos dois períodos, busca do Google crescendo vira sinal, e acesso direto nunca", depois.includes("canal-subiu-google_organico") && !depois.some((c) => c.endsWith("-direto")));
   const comLeitura = (horas: number) => calcularSinais({ atual: periodo(8000, 50, 28, [["", 8000]]), anterior: null, dias: 30, horasDesdeALeitura: horas }).some((s) => s.chave === "leitura-atrasada");
   confere("a leitura pela API roda de 10 em 10 minutos: duas horas em branco ainda não é aviso, quatro é", !comLeitura(2) && comLeitura(4) && HORAS_ATE_A_LEITURA_ATRASAR === 3);
   confere("queda de 20% no faturamento é problema", chaves.includes("faturamento-caiu"));
