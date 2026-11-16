@@ -14,6 +14,9 @@ import { CartaoDaTray } from "./CartaoDaTray";
 import { CartaoGoogleAds, CartaoMetaAds } from "./CartaoDeAnuncios";
 import { CartaoDeChave } from "./CartaoDeChave";
 import { CartaoGoogle } from "./CartaoGoogle";
+import { LigacoesDasRedes } from "@/components/redes/Ligacoes";
+import { lerLigacoes } from "@/lib/redes/painel";
+import { desligarContaDaRede, ligarRedeComToken, salvarAplicativoDaRede } from "./redes-actions";
 
 export const metadata = { title: "Integrações" };
 
@@ -25,10 +28,10 @@ type Linha = { provider: string; status: string; config: Record<string, string> 
 export default async function IntegracoesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ google?: string }>;
+  searchParams: Promise<{ google?: string; redes?: string; redes_ok?: string }>;
 }) {
   await requireAdmin();
-  const { google: avisoDoGoogle } = await searchParams;
+  const { google: avisoDoGoogle, redes: erroDasRedes, redes_ok: avisoDasRedes } = await searchParams;
   const supabase = await createClient();
   const { data } = await supabase.from("integrations").select("provider, status, config");
 
@@ -38,11 +41,12 @@ export default async function IntegracoesPage({
   // Chaves e contagens com a service_role: `integration_tokens` não tem policy,
   // e a página já exige administrador.
   const admin = createAdminClient();
-  const [chaves, estadoDoGoogle, conexoes, estadoDaTray] = await Promise.all([
+  const [chaves, estadoDoGoogle, conexoes, estadoDaTray, ligacoesDasRedes] = await Promise.all([
     lerChaves(admin),
     lerEstadoDoGoogle(admin),
     lerConexoes(admin),
     lerEstadoDaApiDePedidos(admin),
+    lerLigacoes(admin),
   ]);
   const anuncio = (p: "meta" | "google") => {
     const c = conexoes.find((x) => x.plataforma === p);
@@ -137,6 +141,36 @@ export default async function IntegracoesPage({
             estado={anuncio("google")}
             contaDeServico={anuncio("google").contaDeServico}
             cliente={CLIENTE_DO_GOOGLE_ADS.replace(/(\d{3})(\d{3})(\d{4})/, "$1-$2-$3")}
+          />
+        </div>
+      </section>
+
+      <section className="mt-12 scroll-mt-24" id="redes">
+        <p className="eyebrow">Redes sociais</p>
+        <h2 className="font-display mt-2 text-2xl text-ink">As contas da JK nas redes</h2>
+        <p className="mt-2 max-w-3xl text-sm text-muted">
+          Ligando uma rede aqui, o painel passa a ler os números dela de meia em meia hora e a publicar o que for agendado em{" "}
+          <Link href="/admin/redes" className="font-semibold text-brand-nav hover:underline">
+            Redes
+          </Link>
+          . Token e chave ficam cifrados e nunca voltam para a tela. Nada é publicado sem uma pessoa mandar.
+        </p>
+        {erroDasRedes ? (
+          <p role="alert" className="mt-4 rounded-[10px] bg-wine/10 px-3 py-2 text-sm text-wine">
+            {erroDasRedes.slice(0, 300)}
+          </p>
+        ) : null}
+        {avisoDasRedes ? (
+          <p role="status" className="mt-4 rounded-[10px] bg-ink/5 px-3 py-2 text-sm text-ink">
+            {avisoDasRedes.slice(0, 300)}
+          </p>
+        ) : null}
+        <div className="mt-6">
+          <LigacoesDasRedes
+            ligacoes={ligacoesDasRedes}
+            agora={Date.now()}
+            retornoBase={absoluteUrl("/")}
+            acoes={{ salvarAplicativo: salvarAplicativoDaRede, ligarComToken: ligarRedeComToken, desligar: desligarContaDaRede }}
           />
         </div>
       </section>

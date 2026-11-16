@@ -96,6 +96,11 @@ export const ROTINAS: Rotina[] = [
   },
   { chave: "avaliacoes", origem: "pulso", id: "avaliacoes", nome: "Avaliações do Google", paraQue: "Relê as avaliações das lojas uma vez por dia.", tolerancia: 36 * HORA, seParar: "Confira a ligação com o Google em Integrações." },
   { chave: "search-console", origem: "pulso", id: "search-console", nome: "Search Console", paraQue: "Importa as buscas do Google toda segunda de manhã.", tolerancia: 8 * DIA + 12 * HORA, seParar: AVISAR },
+  {
+    chave: "redes", origem: "pulso", id: "redes", nome: "Leitura das redes sociais",
+    paraQue: "Lê seguidores, alcance e posts das redes ligadas, de meia em meia hora.",
+    tolerancia: 2 * HORA, seParar: "Confira as contas em Redes, Contas ligadas: uma conta com o acesso vencido precisa ser ligada de novo.",
+  },
 ];
 
 const DESTINOS: Record<string, { nome: string; paraQue: string }> = {
