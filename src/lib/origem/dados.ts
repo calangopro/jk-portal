@@ -1,6 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Cobertura, OrigemDosPedidos, SaudeDoColetor } from "./anotado";
+import { lerPedidosComOrigem, type PedidoComOrigem } from "./pedidos";
 
 /**
  * Leitura da origem anotada pelo coletor (0064). As duas funções do banco
@@ -44,4 +45,17 @@ export async function lerSaudeDoColetor(db: SupabaseClient): Promise<SaudeDoCole
     pedidos_vistos_7d: Number(r.pedidos_vistos_7d ?? 0),
     por_canal_7d: (r.por_canal_7d ?? []).map((c) => ({ canal: String(c.canal), chegadas: Number(c.chegadas) })),
   };
+}
+
+/**
+ * Cada pedido do período com a chegada, as UTMs e o anúncio a que elas foram
+ * ligadas (`pedidos_com_origem`, 0112). `null` quando a leitura falhou.
+ */
+export async function lerPedidosComOrigemDoPeriodo(db: SupabaseClient, de: string, ate: string): Promise<PedidoComOrigem[] | null> {
+  const { data, error } = await db.rpc("pedidos_com_origem", { p_de: de, p_ate: ate });
+  if (error) {
+    console.error("[origem] pedidos_com_origem:", error.message);
+    return null;
+  }
+  return lerPedidosComOrigem(data);
 }

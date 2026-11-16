@@ -32,6 +32,7 @@ import { voltaParaEmpatar } from "../src/lib/painel/premissas.ts";
 import { alteradosEm, compararComOBanco, pedidoDaApi, semOsJaLidos, ultimaAlteracao } from "../src/lib/vendas/tray-api.ts";
 import { ehRobo, lerChegada, pedidoValido, repeteAAnterior, sessaoValida } from "../src/lib/origem/chegada.ts";
 import { itensQueVenderam, passosDoColetor, vendasPorItem, type Cobertura, type SaudeDoColetor } from "../src/lib/origem/anotado.ts";
+import { agrupar as agruparOrigem, coberturaDaLista, comoLigou, ehAnuncio, filtrar as filtrarOrigem, lerPedidoComOrigem, nivelLigado, utmLegivel } from "../src/lib/origem/pedidos.ts";
 import { diaOuNulo, lerEstado, naoPegaram, prepararEdicao } from "../src/lib/loja/produto.ts";
 import { TETO_DE_BYTES, codigoDaImagem, corpoDasFotos, enderecoAceito, fotosQueNaoEntraram, lerImagens, prepararFotos, type FotoNova } from "../src/lib/loja/imagens.ts";
 import { achatar, ordenar, somar, tomContraAMedia, tomDaVoltaDaLoja, tomDaVoltaDaPlataforma, tomDoVeredito } from "../src/lib/trafego/linhas.ts";
@@ -566,10 +567,6 @@ console.log("\nMapa de gargalos");
   confere("sem dado nenhum, o mapa não inventa gargalo", vazio.length === 0);
 }
 
-if (falhas > 0) {
-  console.error(`\n${falhas} falha(s).`);
-  process.exit(1);
-}
 console.log("\nPedido lido pela API da Tray");
 {
   // O formato é o do pedido completo da loja de testes, lido em 13/11/2026. Os dados são inventados.
@@ -712,6 +709,51 @@ console.log("\nChegada anotada pelo coletor");
   confere("robô e pedido sem navegador ficam de fora", ehRobo("Googlebot/2.1") && ehRobo("") && ehRobo("curl/8.4.0") && !ehRobo(instagram) && !ehRobo(mac));
   confere("sessão da Tray só no formato dela", sessaoValida("2cs8g43iinqh5c5bmp7ln9nbhn") !== null && sessaoValida("curta") === null && sessaoValida("tem espaço e é comprida demais") === null && sessaoValida(12) === null);
   confere("número de pedido só inteiro positivo", pedidoValido("1985") === 1985 && pedidoValido(0) === null && pedidoValido("12a") === null && pedidoValido("-3") === null);
+}
+
+console.log("\nUTM ligada ao anúncio");
+{
+  // O formato é o de `pedidos_com_origem` (0112). Campanhas, anúncios e pedidos são inventados.
+  const base = { feito_em: "2026-11-16T12:00:00-03:00", dia: "2026-11-16", status: "A ENVIAR", ligado: true, chegadas: 2 };
+  const exato = lerPedidoComOrigem({
+    ...base, pedido: 901, situacao: "pago", total: "400.10", canal: "meta", source: "ig", medium: "paid", clique: "fbclid",
+    campaign: "[Loja]+VENDAS+|+Direta", term: "[SP] Interesse amplo", content: "[Estático] Aliança 3mm",
+    plataforma: "meta", campanha_id: "c1", conjunto_id: "s1", anuncio_id: "a1", campanha_nome: "[Loja] VENDAS | Direta", conjunto_nome: "[SP] Interesse amplo",
+    anuncio_nome: "[Estático] Aliança 3mm", campanha_por: "numero", conjunto_por: "nome", anuncio_por: "nome",
+  })!;
+  const soCampanha = lerPedidoComOrigem({
+    ...base, pedido: 902, situacao: "pago", total: 300, canal: "meta", source: "meta", medium: "cpc", campaign: "direct_sales", term: "p2", content: "cat_silver",
+    plataforma: "meta", campanha_id: "c2", conjunto_id: "s2", campanha_nome: "Campanha dois", conjunto_nome: "Conjunto único", campanha_por: "numero", conjunto_por: "unico",
+  })!;
+  const bio = lerPedidoComOrigem({ ...base, pedido: 903, situacao: "pago", total: 200, canal: "meta", source: "ig", medium: "social", content: "link_in_bio", clique: "fbclid" })!;
+  const google = lerPedidoComOrigem({ ...base, pedido: 904, situacao: "cancelado", total: 150, canal: "google_ads", clique: "gclid", plataforma: "google", campanha_id: "g1", campanha_nome: "Pesquisa", campanha_por: "numero" })!;
+  const direto = lerPedidoComOrigem({ ...base, pedido: 905, situacao: "pago", total: 100, canal: "direto" })!;
+  const semNada = lerPedidoComOrigem({ ...base, pedido: 906, situacao: "pago", total: 50, ligado: false, chegadas: 0 })!;
+  const todos = [exato, soCampanha, bio, google, direto, semNada];
+
+  confere("lê o pedido, o valor em número e a ligação", exato.total === 400.1 && exato.anuncioId === "a1" && exato.conjuntoPor === "nome" && lerPedidoComOrigem({ pedido: 0 }) === null);
+  confere("Instagram pelo link da bio NÃO é anúncio, mesmo com fbclid", !ehAnuncio(bio) && ehAnuncio(exato) && ehAnuncio(soCampanha) && ehAnuncio(google) && !ehAnuncio(direto));
+  confere("mídia paga na UTM é anúncio mesmo sem campanha casada", ehAnuncio({ campanhaId: null, medium: "cpc", clique: null, canal: "meta" }) && !ehAnuncio({ campanhaId: null, medium: "organic", clique: null, canal: "google_organico" }));
+  confere("até onde ligou", nivelLigado(exato) === "anuncio" && nivelLigado(soCampanha) === "conjunto" && nivelLigado(google) === "campanha" && nivelLigado(bio) === null);
+  confere("a UTM com + volta a ter espaço para ler", utmLegivel(exato.campaign) === "[Loja] VENDAS | Direta" && utmLegivel(null) === null);
+  confere("a frase diz por que ligou", comoLigou(exato) === "Campanha pelo número que veio na UTM, conjunto pelo nome que veio na UTM, anúncio pelo nome que veio na UTM.");
+  confere("a frase diz o que faltou, sem culpar ninguém", comoLigou(soCampanha).includes("conjunto porque é o único") && comoLigou(soCampanha).includes("Faltou o anúncio"));
+  confere("no Google, diz que o endereço só traz a campanha", comoLigou(google).endsWith("O Google não manda o anúncio no endereço, só a campanha."));
+  confere("pedido sem visitante e pedido só com acesso direto têm frase própria", comoLigou(semNada).startsWith("O painel não sabe quem é o visitante") && comoLigou(direto).startsWith("Todas as chegadas"));
+  confere("link da bio: a chegada não é de anúncio", comoLigou(bio).startsWith("A chegada não é de anúncio"));
+
+  const porAnuncio = agruparOrigem(todos, "anuncio");
+  confere("por anúncio: o exato vem primeiro, com o pedido dele", porAnuncio[0].titulo === "[Estático] Aliança 3mm" && porAnuncio[0].pagos === 1 && porAnuncio[0].valor === 400.1 && porAnuncio[0].pedidos.join() === "901" && porAnuncio[0].apoio === "[Loja] VENDAS | Direta, [SP] Interesse amplo");
+  confere("por anúncio: campanha sem anúncio identificado fica separada por conjunto", porAnuncio.some((g) => g.titulo === "Anúncio não identificado" && g.apoio === "Campanha dois, Conjunto único" && g.pagos === 1));
+  confere("por anúncio: o que não é anúncio vai para o fim, junto", porAnuncio[porAnuncio.length - 1].itemId === null && porAnuncio.some((g) => g.titulo === "Não veio de anúncio" && g.criados === 2) && porAnuncio.some((g) => g.titulo === "Sem chegada anotada"));
+  const porCampanha = agruparOrigem(todos, "campanha");
+  confere("por campanha: pedido cancelado conta como criado e não como pago", porCampanha.find((g) => g.chave === "g1")?.criados === 1 && porCampanha.find((g) => g.chave === "g1")?.pagos === 0 && porCampanha.find((g) => g.chave === "g1")?.valor === 0);
+  const porUtm = agruparOrigem(todos, "utm");
+  confere("pela UTM: junta pelo texto que chegou, e o título é o anúncio da UTM", porUtm[0].titulo === "[Estático] Aliança 3mm" && porUtm.some((g) => g.titulo === "link_in_bio" && g.apoio === "ig / social") && porUtm.some((g) => g.titulo === "Chegada sem UTM"));
+
+  const c = coberturaDaLista(todos);
+  confere("cobertura: pagos, com chegada, de anúncio e com o anúncio exato", c.pagos === 5 && c.pagosComChegada === 4 && c.pagosDeAnuncio === 2 && c.pagosComCampanha === 2 && c.pagosComAnuncioExato === 1 && c.valorDeAnuncio === 700.1 && c.valorComAnuncioExato === 400.1);
+  confere("a busca acha por pedido, por UTM e pelo nome casado, sem acento", filtrarOrigem(todos, "901").length === 1 && filtrarOrigem(todos, "estatico alianca").length === 1 && filtrarOrigem(todos, "link_in_bio").length === 1 && filtrarOrigem(todos, "conjunto unico")[0].pedido === 902 && filtrarOrigem(todos, "").length === 6);
 }
 
 console.log("\nVenda da loja por anúncio");
@@ -1093,8 +1135,8 @@ console.log("\nSetores do painel");
 
   const vendedor = setoresDe(["lancar_venda", "recuperacao"]);
   confere("o vendedor só vê o início e as vendas, e a primeira sala se chama Início", vendedor.length === 2 && nomeDoSetor(vendedor[0]) === "Início"
-    && vendedor[1].itens.map((i) => i.href).join() === "/admin/registrar-venda,/admin/oportunidades,/admin/clientes,/admin/recuperacao");
-  confere("com menos de três setores, a barra de baixo é por tela, e a quinta tela fica no Mais", abasDaBarra(vendedor).map((a) => a.href).join() === "/admin,/admin/registrar-venda,/admin/oportunidades,/admin/clientes");
+    && vendedor[1].itens.map((i) => i.href).join() === "/admin/registrar-venda,/admin/suporte,/admin/oportunidades,/admin/clientes,/admin/recuperacao");
+  confere("com menos de três setores, a barra de baixo é por tela, e da quinta em diante fica no Mais", abasDaBarra(vendedor).map((a) => a.href).join() === "/admin,/admin/registrar-venda,/admin/suporte,/admin/oportunidades");
   confere("a ficha de um cliente acende a tela de clientes", ondeEstou(tudo, "/admin/clientes/p48213").item?.href === "/admin/clientes");
   confere("a primeira tela de vendas do vendedor é registrar", vendedor[1].itens[0].href === "/admin/registrar-venda");
   confere("setor sem nenhuma tela some", setoresDe([]).length === 1 && setoresDe(["equipe"]).some((s) => s.id === "sistema") && !setoresDe(["equipe"]).some((s) => s.id === "loja"));
@@ -1191,4 +1233,11 @@ console.log("\nAcesso de cada tela");
   confere("não existe tela do painel fora do menu", semDono.length === 0);
 }
 
+// A conferência das falhas é a ÚLTIMA coisa do arquivo, de propósito. Ela ficou meses no meio dele
+// (depois do mapa de gargalos), e todo bloco escrito abaixo imprimia ERRO, terminava em "Tudo certo"
+// e saía com zero: o build passava com teste falhando. Bloco novo entra ACIMA desta linha.
+if (falhas > 0) {
+  console.error(`\n${falhas} falha(s).`);
+  process.exit(1);
+}
 console.log("\nTudo certo.");

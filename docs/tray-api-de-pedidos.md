@@ -337,8 +337,15 @@ oferece:
 - Não existe campo que diga "abandonado": carrinho abandonado seria o carrinho
   de dias atrás cuja sessão não virou pedido. A sessão é a mesma do pedido
   (`tray_pedidos.sessao`), então o painel consegue fazer essa conta.
-- Em 13/11 o aplicativo leu um carrinho pela sessão na loja de testes, então a
-  API não barrou. A lista (`GET /carts`) não foi testada.
+- **Testado em 16/11/2026 na loja de testes, com o aplicativo como está:** a
+  lista (`GET /carts`) respondeu 200, com 7 carrinhos; os filtros
+  `has_customer=1` e `has_customer=0` funcionaram (2 e 5); e
+  `GET /carts/:session_id` e `GET /carts/:session_id/complete` responderam
+  200, com e-mail, `customer_id`, produtos, data, hora e total. Ou seja, **não
+  é preciso mexer no aplicativo nem na permissão dele** para ler carrinho.
+- O filtro de data é `date_time`, no formato exato
+  `AAAA-MM-DD HH:MM:SS, AAAA-MM-DD HH:MM:SS`, com vírgula e espaço entre as
+  duas datas. Qualquer outro formato responde 400.
 
 Nenhuma dessas rotas está entre as sete mostradas na homologação. A
 documentação não diz se rota nova, usada depois, pede homologação outra vez.
