@@ -40,7 +40,9 @@ export async function POST(request: Request) {
     const detalhe =
       resultado.estado === "ok"
         ? `${resultado.lidos} lidos, ${resultado.novos} novos, ${resultado.mudaram} mudaram de status${resultado.restam ? `, ${resultado.restam} para a próxima` : ""}`
-        : resultado.mensagem;
+        : "mensagem" in resultado
+          ? resultado.mensagem
+          : "resposta inesperada da leitura";
     await registrarPulso(supabase, "pedidos-api", resultado.estado === "ok", detalhe);
   }
   return NextResponse.json(resultado, { status: resultado.estado === "erro" ? 502 : 200 });
