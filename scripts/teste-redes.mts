@@ -194,7 +194,13 @@ console.log("\nResumo das redes");
   confere("rede que não informa alcance fica com nulo, não zero", b.alcance.valor === null && b.visualizacoes.valor === 3000 && b.interacoes.valor === 22);
   confere("sem foto anterior não há variação nem ganho", b.seguidores.variacao === null && b.ganho === null);
   confere("total soma o que existe", r.total.seguidores.valor === 1600 && r.total.visualizacoes.valor === 5000 && r.total.alcance.valor === 1200 && r.total.publicacoes.valor === 4);
-  confere("variação do total só usa quem tem comparação", Math.abs((r.total.seguidores.variacao ?? 0) - 0.1) < 1e-9);
+  confere("total sem comparação quando quem compara é só uma parte dele", r.total.seguidores.valor === 1600 && r.total.seguidores.variacao === null);
+  const quase = montarResumo({
+    dias: 7, hoje: "2026-01-10",
+    contas: [conta("g", { seguidores: 9500, seguidores_antes: 9000 }), conta("h", { rede: "youtube", seguidores: 500, seguidores_antes: null })],
+    publicacoes: [],
+  });
+  confere("total com comparação quando quem compara é quase tudo", quase.total.seguidores.valor === 10000 && Math.abs((quase.total.seguidores.variacao ?? 0) - 500 / 9000) < 1e-9);
   confere("o pódio é por interações e deixa de fora quem não teve nenhuma", r.melhores.map((p) => p.id).join(",") === "p1,p2,p4");
   confere("taxa só com base mínima de pessoas", r.melhores.find((p) => p.id === "p1")!.taxa !== null && r.melhores.find((p) => p.id === "p4")!.taxa === null);
   confere("post leva o nome da conta", r.melhores[0].conta === "@exemplo");
