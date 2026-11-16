@@ -28,7 +28,7 @@ export default async function PostPage({ params }: { params: Promise<{ id: strin
   const post = await lerPost(admin, id);
   if (!post) notFound();
   const editavel = EDITAVEL.includes(post.status);
-  const { contas, limite } = editavel ? await lerParaCompor(admin) : { contas: [], limite: 0 };
+  const { contas, limite, horarios } = editavel ? await lerParaCompor(admin) : { contas: [], limite: 0, horarios: [] };
 
   return (
     <div data-painel-largo>
@@ -49,7 +49,7 @@ export default async function PostPage({ params }: { params: Promise<{ id: strin
                 <CartaoDoPost post={post} agora={Date.now()} acoes={{ liberar, cancelar, apagar }} semLink />
               </div>
             ) : null}
-            <Compositor post={post} contas={contas} limite={limite} acoes={{ prepararSubida, confirmarSubida, salvarRascunho, salvarELiberar }} />
+            <Compositor horarios={horarios} post={post} contas={contas} limite={limite} acoes={{ prepararSubida, confirmarSubida, salvarRascunho, salvarELiberar }} />
           </>
         ) : (
           <CartaoDoPost post={post} agora={Date.now()} acoes={{ liberar, cancelar, apagar }} semLink />

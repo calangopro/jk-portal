@@ -20,6 +20,8 @@ import { enderecoAssinado } from "../src/lib/redes/s3.ts";
 import { conferirRegra, deveResponder, lerPalavras, normalizar, palavraQueCasa } from "../src/lib/redes/automacoes-regra.ts";
 import { SETORES } from "../src/lib/painel/setores.ts";
 import { analisarConteudos, fatorEmPalavra, grupoDoFormato, mediana, ordenarConteudos, type PublicacaoCrua as PublicacaoDoConteudo } from "../src/lib/redes/conteudos.ts";
+import { diaEmSaoPaulo, diasDaGrade, horaCurta, intervaloDaGrade, lerMes, mesVizinho, nomeDoMes, porDia, type ItemDoCalendario } from "../src/lib/redes/calendario.ts";
+import { faixaEmPalavra, horaEmSaoPaulo, melhoresHorarios, proximosHorarios } from "../src/lib/redes/horarios.ts";
 import type { Peca } from "../src/lib/redes/tipos.ts";
 
 let falhas = 0;
@@ -278,6 +280,40 @@ console.log("\nEm alta: comparado com o normal da própria conta");
     pub("lido", { conta_id: "fb", rede: "facebook", formato: "post", visualizacoes: 4770, curtidas: 12 }),
   ]);
   confere("régua diferente não se compara (visualização contra curtida)", misturado.find((c) => c.id === "lido")!.fator === null && misturado.find((c) => c.id === "i1")!.fator === 1);
+}
+
+console.log("\nCalendário e melhores horários");
+{
+  confere("mês lido do endereço", lerMes("2026-11") === "2026-11" && lerMes("2026-13") === null && lerMes("x") === null && lerMes(undefined) === null);
+  confere("mês vizinho vira o ano", mesVizinho("2026-12", 1) === "2027-01" && mesVizinho("2026-01", -1) === "2025-12");
+  confere("nome do mês", nomeDoMes("2026-11") === "novembro de 2026");
+  const grade = diasDaGrade("2026-11", "2026-11-16");
+  confere("grade começa no domingo e fecha no sábado", grade[0].data === "2026-11-01" && grade[grade.length - 1].data === "2026-12-05" && grade.length % 7 === 0);
+  confere("grade marca o dia de hoje e os dias de fora", grade.find((d) => d.hoje)?.data === "2026-11-16" && !grade[grade.length - 1].doMes);
+  const fev = diasDaGrade("2026-02", "2026-02-01");
+  confere("fevereiro de 2026 começa no domingo e tem quatro semanas", fev[0].data === "2026-02-01" && fev.length === 28);
+  const { de, ate } = intervaloDaGrade(grade);
+  confere("intervalo da grade em meia-noite de Brasília", de === "2026-11-01T03:00:00.000Z" && ate === "2026-12-06T03:00:00.000Z");
+  confere("o dia de um post é o de Brasília, não o do servidor", diaEmSaoPaulo("2026-11-17T01:30:00Z") === "2026-11-16");
+  const item = (chave: string, quando: string): ItemDoCalendario => ({ chave, situacao: "publicado", quando, redes: ["instagram"], formato: "post", legenda: "", miniatura: null, href: "/", sequencia: null });
+  const mapa = porDia([item("b", "2026-11-16T22:00:00Z"), item("a", "2026-11-16T12:00:00Z"), item("c", "2026-11-17T02:59:00Z")]);
+  confere("itens por dia, em ordem de hora", mapa.get("2026-11-16")?.map((i) => i.chave).join(",") === "a,b,c");
+  confere("hora curta", horaCurta("2026-11-16T22:00:00Z") === "19h" && horaCurta("2026-11-16T12:30:00Z") === "9h30");
+
+  confere("hora em Brasília", horaEmSaoPaulo("2026-11-16T22:10:00Z") === 19);
+  confere("faixa em palavra", faixaEmPalavra(18) === "18h às 21h" && faixaEmPalavra(21) === "21h às 0h");
+  const conteudo = (id: string, hora: string, fator: number, grupo: "video" | "story" = "video") => ({ ...analisarConteudos([])[0], id, rede: "instagram" as const, grupo, fator, publicado_em: `2026-11-1${id.length % 7}T${hora}:00-03:00` }) as Parameters<typeof melhoresHorarios>[0][number];
+  const noite = [1, 2, 3, 4, 5, 6].map((i) => conteudo(`n${i}`, "19:10", 2));
+  const tarde = [1, 2, 3, 4, 5, 6].map((i) => conteudo(`t${i}`, "13:00", 1));
+  const poucos = [1, 2].map((i) => conteudo(`m${i}`, "07:00", 9));
+  const stories = [1, 2, 3, 4, 5, 6].map((i) => conteudo(`s${i}`, "10:00", 9, "story"));
+  const h = melhoresHorarios([...noite, ...tarde, ...poucos, ...stories]);
+  confere("a melhor faixa é a de mediana mais alta", h[0]?.melhor?.inicio === 18 && Math.abs((h[0]?.melhor?.mediana ?? 0) - 2) < 1e-9 && h[0]?.melhor?.posts === 6);
+  confere("faixa com poucos posts não entra", !h[0].faixas.some((f) => f.inicio === 6));
+  confere("story não entra na conta dos horários", !h[0].faixas.some((f) => f.inicio === 9));
+  const agora = Date.parse("2026-11-16T20:00:00Z"); // 17h em Brasília
+  confere("próximos horários a partir de agora", proximosHorarios([18, 12], agora, 3).join(",") === ["2026-11-16T22:00:00.000Z", "2026-11-17T16:00:00.000Z", "2026-11-17T22:00:00.000Z"].join(","));
+  confere("horário com menos de meia hora de folga fica de fora", proximosHorarios([15], Date.parse("2026-11-16T18:45:00Z"), 1)[0] === "2026-11-17T19:00:00.000Z");
 }
 
 console.log("\nEndereço assinado (S3 e R2)");
