@@ -1,7 +1,7 @@
 import { requireArea } from "@/lib/auth/session";
 import { contarPosts, listarPosts, type FiltroDePosts } from "@/lib/redes/posts";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { apagar, cancelar, liberar } from "./actions";
+import { apagar, cancelar, cancelarDaSequencia, liberar } from "./actions";
 import { TelaDePublicar } from "./Tela";
 
 export const metadata = { title: "Posts e stories" };
@@ -25,5 +25,5 @@ export default async function PublicarPage({ searchParams }: { searchParams: Pro
   const aba = ABAS.includes(pedida as FiltroDePosts) ? (pedida as FiltroDePosts) : "fila";
   const admin = createAdminClient();
   const [posts, contagem] = await Promise.all([listarPosts(admin, aba), contarPosts(admin)]);
-  return <TelaDePublicar aba={aba} posts={posts} contagem={contagem} agora={Date.now()} saiu={saiu === "agora" || saiu === "agendado" ? saiu : null} acoes={{ liberar, cancelar, apagar }} />;
+  return <TelaDePublicar aba={aba} posts={posts} contagem={contagem} agora={Date.now()} saiu={saiu === "agora" || saiu === "agendado" ? saiu : null} acoes={{ liberar, cancelar, apagar, cancelarSequencia: cancelarDaSequencia }} />;
 }

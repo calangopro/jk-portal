@@ -17,6 +17,7 @@ import type { Midia } from "./tipos";
 type PublicacaoCrua = { id: string; rede: string; formato: string | null; legenda: string | null; miniatura_url: string | null; publicado_em: string | null; envio_id: string | null };
 type PostCru = {
   id: string; formato: string; legenda: string; titulo: string | null; midias: unknown; status: string; agendado_para: string | null; publicado_em: string | null;
+  sequencia: string | null; ordem: number | null;
   redes_envios: { id: string; rede: string; status: string }[];
 };
 
@@ -27,14 +28,14 @@ export async function lerCalendario(admin: SupabaseClient, de: string, ate: stri
     admin.from("redes_publicacoes").select("id, rede, formato, legenda, miniatura_url, publicado_em, envio_id").gte("publicado_em", de).lt("publicado_em", ate).order("publicado_em").limit(2000),
     admin
       .from("redes_posts")
-      .select("id, formato, legenda, titulo, midias, status, agendado_para, publicado_em, redes_envios(id, rede, status)")
+      .select("id, formato, legenda, titulo, midias, status, agendado_para, publicado_em, sequencia, ordem, redes_envios(id, rede, status)")
       .in("status", ["agendado", "publicando", "erro", "parcial"])
       .gte("agendado_para", de)
       .lt("agendado_para", ate)
       .limit(1000),
     admin
       .from("redes_posts")
-      .select("id, formato, legenda, titulo, midias, status, agendado_para, publicado_em, redes_envios(id, rede, status)")
+      .select("id, formato, legenda, titulo, midias, status, agendado_para, publicado_em, sequencia, ordem, redes_envios(id, rede, status)")
       .in("status", ["publicado", "parcial"])
       .gte("publicado_em", de)
       .lt("publicado_em", ate)
@@ -82,7 +83,7 @@ export async function lerCalendario(admin: SupabaseClient, de: string, ate: stri
       legenda: (p.legenda || p.titulo || "").slice(0, 160),
       miniatura: imagem?.url ?? null,
       href: `/admin/redes/publicar/${p.id}`,
-      sequencia: null,
+      sequencia: p.sequencia && p.ordem ? `${p.sequencia}:${p.ordem}` : null,
     });
   }
   return itens;

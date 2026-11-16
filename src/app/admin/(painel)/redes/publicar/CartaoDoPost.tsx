@@ -25,6 +25,8 @@ export type AcoesDoPost = {
   liberar: (id: string, quando: string | null) => Promise<Resposta<{ quando: string; contas: string[] }>>;
   cancelar: (id: string) => Promise<Resposta<{ cancelados: number }>>;
   apagar: (id: string) => Promise<Resposta>;
+  /** Tira da fila tudo o que falta sair de uma sequência de stories. */
+  cancelarSequencia?: (sequencia: string) => Promise<Resposta<{ cancelados: number }>>;
 };
 
 const ESTADO_DO_ENVIO: Record<string, { tom: Tom; nome: string }> = {
@@ -96,7 +98,7 @@ function LinhaDoEnvio({ e, formato }: { e: EnvioNaTela; formato: PostNaTela["for
 }
 
 export function CartaoDoPost({ post, agora, acoes, semLink = false }: { post: PostNaTela; agora: number; acoes: AcoesDoPost; semLink?: boolean }) {
-  const [pedindo, setPedindo] = useState<null | "publicar" | "cancelar" | "apagar">(null);
+  const [pedindo, setPedindo] = useState<null | "publicar" | "cancelar" | "apagar" | "sequencia">(null);
   const [resposta, setResposta] = useState<{ tom: "bom" | "ruim"; texto: string } | null>(null);
   const [rodando, iniciar] = useTransition();
 
@@ -136,7 +138,9 @@ export function CartaoDoPost({ post, agora, acoes, semLink = false }: { post: Po
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
             <SeloDeTom tom={estado.tom}>{estado.nome}</SeloDeTom>
-            <span className="text-xs font-semibold text-ink">{NOME_DO_FORMATO[post.formato]}</span>
+            <span className="text-xs font-semibold text-ink">
+              {post.sequencia ? `Story ${post.sequencia.ordem} de ${post.sequencia.total} da sequência` : post.formato === "story" && post.midias.length > 1 ? `Sequência de ${post.midias.length} stories` : NOME_DO_FORMATO[post.formato]}
+            </span>
           </div>
           {post.titulo ? <p className="mt-1 break-words text-sm font-semibold text-ink">{post.titulo}</p> : null}
           <p className="mt-1 line-clamp-3 whitespace-pre-line text-sm leading-snug text-ink [overflow-wrap:anywhere]">{post.legenda.trim() || <span className="text-muted">Sem legenda</span>}</p>
@@ -182,7 +186,9 @@ export function CartaoDoPost({ post, agora, acoes, semLink = false }: { post: Po
               ? `Vai sair agora em ${juntos}. É público e sai no nome da JK.${comErro.length ? " Se a mensagem de erro pediu para conferir na rede, confira antes: publicar de novo pode sair em dobro." : ""}`
               : pedindo === "cancelar"
                 ? "O post sai da fila e fica guardado em Rascunhos. O que já saiu em alguma rede continua lá."
-                : "O post e as mídias dele são apagados do painel. Não dá para desfazer."}
+                : pedindo === "sequencia"
+                  ? `Os stories desta sequência que ainda não saíram saem da fila e ficam em Rascunhos. Os que já saíram continuam no ar.`
+                  : "O post e as mídias dele são apagados do painel. Não dá para desfazer."}
           </p>
           <div className="mt-2.5 flex flex-wrap gap-2">
             <button
@@ -193,12 +199,14 @@ export function CartaoDoPost({ post, agora, acoes, semLink = false }: { post: Po
                   ? fazer(() => acoes.liberar(post.id, null), "Mandado sair. O estado de cada rede aparece aqui em instantes, recarregando a página.")
                   : pedindo === "cancelar"
                     ? fazer(() => acoes.cancelar(post.id), "Tirado da fila.")
-                    : fazer(() => acoes.apagar(post.id), "Apagado.")
+                    : pedindo === "sequencia" && post.sequencia && acoes.cancelarSequencia
+                      ? fazer(() => acoes.cancelarSequencia!(post.sequencia!.id), "Sequência tirada da fila.")
+                      : fazer(() => acoes.apagar(post.id), "Apagado.")
               }
               className="painel-toque inline-flex items-center gap-1.5 rounded-full bg-ink px-4 py-2 text-xs font-semibold text-white disabled:opacity-60"
             >
               {rodando ? <LoaderCircle size={13} className="animate-spin" aria-hidden="true" /> : null}
-              {pedindo === "publicar" ? "Sim, publicar agora" : pedindo === "cancelar" ? "Sim, tirar da fila" : "Sim, apagar"}
+              {pedindo === "publicar" ? "Sim, publicar agora" : pedindo === "cancelar" ? "Sim, tirar da fila" : pedindo === "sequencia" ? "Sim, tirar a sequência" : "Sim, apagar"}
             </button>
             <button type="button" disabled={rodando} onClick={() => setPedindo(null)} className="rounded-full px-3 py-2 text-xs font-semibold text-muted hover:text-ink">
               Voltar
@@ -225,6 +233,11 @@ export function CartaoDoPost({ post, agora, acoes, semLink = false }: { post: Po
           {naFila ? (
             <button type="button" onClick={() => setPedindo("cancelar")} className="painel-toque inline-flex items-center gap-1.5 rounded-full border border-ink/15 bg-white px-3.5 py-2 text-xs font-semibold text-ink">
               <XCircle size={13} aria-hidden="true" /> Tirar da fila
+            </button>
+          ) : null}
+          {naFila && post.sequencia && post.sequencia.total > 1 && acoes.cancelarSequencia ? (
+            <button type="button" onClick={() => setPedindo("sequencia")} className="painel-toque inline-flex items-center gap-1.5 rounded-full border border-ink/15 bg-white px-3.5 py-2 text-xs font-semibold text-ink">
+              <XCircle size={13} aria-hidden="true" /> Tirar a sequência inteira
             </button>
           ) : null}
           {nuncaSaiu && !naFila ? (

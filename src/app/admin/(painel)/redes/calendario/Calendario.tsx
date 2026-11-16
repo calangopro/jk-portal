@@ -223,7 +223,10 @@ export function Calendario({
                         {i.redes.map((r) => (
                           <SeloDaRede key={r} id={r} tamanho={16} />
                         ))}
-                        <span className="ml-0.5 text-[0.7rem] text-muted">{formatoEmPalavra(i.formato, i.redes[0])}</span>
+                        <span className="ml-0.5 text-[0.7rem] text-muted">
+                          {formatoEmPalavra(i.formato, i.redes[0])}
+                          {i.sequencia ? ` ${i.sequencia.split(":")[1]} da sequência` : ""}
+                        </span>
                       </span>
                       <span className="mt-0.5 block truncate text-xs text-ink">{i.legenda.trim() || "Sem legenda"}</span>
                     </span>

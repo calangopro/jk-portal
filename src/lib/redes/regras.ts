@@ -139,9 +139,15 @@ export function validarPeca(rede: RedeId, peca: Peca): string | null {
     }
 
     case "story": {
-      if (peca.midias.length !== 1) return "Story leva uma imagem ou um vídeo. Para vários, crie um story por vez.";
-      if (imagens[0]) return conferirImagem(imagens[0]);
-      return conferirVideo(videos[0], lim.storyEmVideo, "O vídeo do story");
+      // Várias mídias num story são uma SEQUÊNCIA: ao liberar, cada uma vira um story, na ordem (`liberarPost`).
+      if (peca.midias.length === 0) return "Story precisa de uma imagem ou de um vídeo.";
+      if (peca.midias.length > MAX_STORIES_NA_SEQUENCIA) return `Uma sequência leva até ${MAX_STORIES_NA_SEQUENCIA} stories por vez.`;
+      for (const [i, m] of peca.midias.entries()) {
+        const qual = peca.midias.length > 1 ? `do story ${i + 1}` : "do story";
+        const problema = m.tipo === "video" ? conferirVideo(m, lim.storyEmVideo, `O vídeo ${qual}`) : conferirImagem(m);
+        if (problema) return peca.midias.length > 1 && m.tipo !== "video" ? `Story ${i + 1}: ${problema}` : problema;
+      }
+      return null;
     }
 
     case "video": {
@@ -161,6 +167,12 @@ export function problemasDaPeca(redes: RedeId[], pecaPorRede: (rede: RedeId) => 
   }
   return saida;
 }
+
+/** Quantos stories uma sequência leva de uma vez. */
+export const MAX_STORIES_NA_SEQUENCIA = 10;
+
+/** Os intervalos que a tela oferece entre os stories de uma sequência, em minutos. Zero: um logo depois do outro. */
+export const INTERVALOS_DA_SEQUENCIA = [0, 15, 30, 60, 120, 180];
 
 /** O texto da casa não leva travessão. Vale para legenda, título e resposta de comentário. */
 export const temTravessao = (t: string): boolean => /[—–]/.test(t);

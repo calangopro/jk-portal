@@ -76,7 +76,11 @@ console.log("\nRegras de cada rede");
   confere("vídeo curto aceita uma capa", validarPeca("instagram", peca({ formato: "video_curto", midias: [mp4(), jpg()] })) === null);
   confere("vídeo sem duração conhecida não é barrado aqui", validarPeca("instagram", peca({ formato: "video_curto", midias: [mp4({ duracao: undefined })] })) === null);
   confere("story em vídeo de 70 segundos é recusado", /60 segundos/.test(validarPeca("instagram", peca({ formato: "story", midias: [mp4({ duracao: 70 })] })) ?? ""));
-  confere("story com duas mídias é recusado", /um story por vez/.test(validarPeca("instagram", peca({ formato: "story", midias: [jpg(), jpg()] })) ?? ""));
+  // Várias mídias num story são uma sequência: cada uma é conferida como um story.
+  confere("sequência de stories passa quando cada um passa", validarPeca("instagram", peca({ formato: "story", midias: [jpg(), mp4({ duracao: 20 }), jpg()] })) === null);
+  confere("sequência diz qual story não cabe", /story 2/.test(validarPeca("instagram", peca({ formato: "story", midias: [jpg(), mp4({ duracao: 70 })] })) ?? ""));
+  confere("sequência tem teto de 10 stories", /até 10/.test(validarPeca("instagram", peca({ formato: "story", midias: Array.from({ length: 11 }, () => jpg()) })) ?? ""));
+  confere("story sem mídia é recusado", /imagem ou de um vídeo/.test(validarPeca("instagram", peca({ formato: "story", midias: [] })) ?? ""));
   confere("post de texto só existe no Facebook", validarPeca("facebook", peca({ formato: "texto", midias: [] })) === null && /não publica este formato/.test(validarPeca("instagram", peca({ formato: "texto", midias: [] })) ?? ""));
   confere("post de texto vazio é recusado", /precisa de texto/.test(validarPeca("facebook", peca({ formato: "texto", legenda: "  ", midias: [] })) ?? ""));
   confere("YouTube recusa foto", /não publica este formato/.test(validarPeca("youtube", peca({})) ?? ""));

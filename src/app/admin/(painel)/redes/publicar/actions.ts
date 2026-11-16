@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { requireArea } from "@/lib/auth/session";
 import { conferirSubida, prepararEnvio, type EnvioPreparado } from "@/lib/redes/armazenamento";
 import { processarFila } from "@/lib/redes/fila";
-import { apagarPost, cancelarPost, criarPost, liberarPost, salvarPost, type DadosDoPost } from "@/lib/redes/posts";
+import { apagarPost, cancelarPost, criarPost, liberarPost, salvarPost, type DadosDoPost, cancelarSequencia } from "@/lib/redes/posts";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 /**
@@ -113,6 +113,14 @@ export async function liberar(id: string, quando: string | null): Promise<Respos
 export async function cancelar(id: string): Promise<Resposta<{ cancelados: number }>> {
   await requireArea("redes");
   const r = await cancelarPost(createAdminClient(), String(id ?? ""));
+  atualizar();
+  return r;
+}
+
+/** Tira da fila o que falta sair de uma sequência de stories. */
+export async function cancelarDaSequencia(sequencia: string): Promise<Resposta<{ cancelados: number }>> {
+  await requireArea("redes");
+  const r = await cancelarSequencia(createAdminClient(), String(sequencia ?? ""));
   atualizar();
   return r;
 }

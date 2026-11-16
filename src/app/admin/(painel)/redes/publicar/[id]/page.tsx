@@ -4,7 +4,7 @@ import { ArrowLeft } from "lucide-react";
 import { requireArea } from "@/lib/auth/session";
 import { lerPost } from "@/lib/redes/posts";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { apagar, cancelar, confirmarSubida, liberar, prepararSubida, salvarELiberar, salvarRascunho } from "../actions";
+import { apagar, cancelar, cancelarDaSequencia, confirmarSubida, liberar, prepararSubida, salvarELiberar, salvarRascunho } from "../actions";
 import { CartaoDoPost } from "../CartaoDoPost";
 import { Compositor } from "../Compositor";
 import { lerParaCompor } from "../dados";
@@ -46,13 +46,13 @@ export default async function PostPage({ params }: { params: Promise<{ id: strin
           <>
             {post.envios.some((e) => e.status === "publicado" || e.status === "erro") ? (
               <div className="mb-4">
-                <CartaoDoPost post={post} agora={Date.now()} acoes={{ liberar, cancelar, apagar }} semLink />
+                <CartaoDoPost post={post} agora={Date.now()} acoes={{ liberar, cancelar, apagar, cancelarSequencia: cancelarDaSequencia }} semLink />
               </div>
             ) : null}
             <Compositor horarios={horarios} post={post} contas={contas} limite={limite} acoes={{ prepararSubida, confirmarSubida, salvarRascunho, salvarELiberar }} />
           </>
         ) : (
-          <CartaoDoPost post={post} agora={Date.now()} acoes={{ liberar, cancelar, apagar }} semLink />
+          <CartaoDoPost post={post} agora={Date.now()} acoes={{ liberar, cancelar, apagar, cancelarSequencia: cancelarDaSequencia }} semLink />
         )}
       </div>
     </div>

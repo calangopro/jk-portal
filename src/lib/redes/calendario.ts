@@ -21,7 +21,7 @@ export type ItemDoCalendario = {
   miniatura: string | null;
   /** Para onde o clique leva: a página do post publicado, ou o post no compositor. */
   href: string;
-  /** Stories que saem em sequência levam o mesmo valor aqui. */
+  /** Story de sequência: "<id da sequência>:<posição>". Nulo: post solto. */
   sequencia: string | null;
 };
 
