@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { NOME_DA_CHEGADA, type CanalDeChegada } from "@/lib/origem/chegada";
-import { comoLigou, ehAnuncio, lerChegadaCasada, nivelLigado, utmLegivel, type PedidoComOrigem } from "@/lib/origem/pedidos";
+import { comoLigou, ehAnuncio, lerChegadaCasada, nivelLigado, pelaBio, utmLegivel, type PedidoComOrigem } from "@/lib/origem/pedidos";
 import type { Tom } from "@/lib/painel/tons";
 import { createClient } from "@/lib/supabase/client";
 import { SeloDeTom } from "../Pecas";
@@ -101,6 +101,7 @@ export function OrigemDoPedido({ numero }: { numero: number }) {
         {nomeDoCanal(o.canal)}
         {selo ? <SeloDeTom tom={selo.tom}>{selo.nome}</SeloDeTom> : null}
         {o.plataforma ? <span className="text-[0.68rem] font-semibold uppercase tracking-wider text-muted">{PLATAFORMA[o.plataforma]}</span> : null}
+        {pelaBio(o) ? <span className="text-[0.68rem] font-semibold uppercase tracking-wider text-muted">pelo link da bio</span> : null}
       </p>
       <p className="mt-1 text-xs leading-snug text-muted">{comoLigou(o)}</p>
 

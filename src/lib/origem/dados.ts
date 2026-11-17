@@ -1,7 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Cobertura, OrigemDosPedidos, SaudeDoColetor } from "./anotado";
-import { lerPedidosComOrigem, type PedidoComOrigem } from "./pedidos";
+import { lerChegadasPelaBio, lerPedidosComOrigem, type ChegadasPelaBio, type PedidoComOrigem } from "./pedidos";
 
 /**
  * Leitura da origem anotada pelo coletor (0064). As duas funções do banco
@@ -58,4 +58,17 @@ export async function lerPedidosComOrigemDoPeriodo(db: SupabaseClient, de: strin
     return null;
   }
   return lerPedidosComOrigem(data);
+}
+
+/**
+ * As chegadas pelo link da bio do período, separadas em quem veio de anúncio e
+ * quem não veio (`chegadas_pela_bio`, 0114). `null` quando a leitura falhou.
+ */
+export async function lerChegadasPelaBioDoPeriodo(db: SupabaseClient, de: string, ate: string): Promise<ChegadasPelaBio | null> {
+  const { data, error } = await db.rpc("chegadas_pela_bio", { p_de: de, p_ate: ate });
+  if (error) {
+    console.error("[origem] chegadas_pela_bio:", error.message);
+    return null;
+  }
+  return lerChegadasPelaBio(data);
 }

@@ -1,6 +1,17 @@
 import { randomUUID } from "node:crypto";
 import { after, NextResponse, type NextRequest } from "next/server";
-import { COOKIE_DO_VISITANTE, VIDA_DO_COOKIE, daCasa, dominioDoCookie, registrarRecado, visitanteDoCookie, type Recado } from "@/lib/origem/registrar";
+import {
+  COOKIE_DO_ANUNCIO,
+  COOKIE_DO_VISITANTE,
+  VIDA_DO_ANUNCIO,
+  VIDA_DO_COOKIE,
+  anuncioDoRecado,
+  daCasa,
+  dominioDoCookie,
+  registrarRecado,
+  visitanteDoCookie,
+  type Recado,
+} from "@/lib/origem/registrar";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 /**
@@ -63,5 +74,20 @@ export async function POST(request: NextRequest) {
     maxAge: VIDA_DO_COOKIE,
     domain: dominioDoCookie(),
   });
+  // Clique em anúncio deixa também o resumo do anúncio, por sete dias e à vista do navegador: é o que a página da
+  // bio lê para contar ao GA4 que a visita é de quem veio de anúncio. Ler a chegada é conta pura, não segura a resposta.
+  const anuncio = anuncioDoRecado(recado, agente);
+  if (anuncio) {
+    resposta.cookies.set({
+      name: COOKIE_DO_ANUNCIO,
+      value: anuncio,
+      httpOnly: false,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+      maxAge: VIDA_DO_ANUNCIO,
+      domain: dominioDoCookie(),
+    });
+  }
   return resposta;
 }

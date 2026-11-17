@@ -1,5 +1,5 @@
 import { requireArea } from "@/lib/auth/session";
-import { lerPedidosComOrigemDoPeriodo } from "@/lib/origem/dados";
+import { lerChegadasPelaBioDoPeriodo, lerPedidosComOrigemDoPeriodo } from "@/lib/origem/dados";
 import { createClient } from "@/lib/supabase/server";
 import { hojeEmSaoPaulo, intervaloDoPeriodo, lerPeriodo } from "@/lib/vendas/periodo";
 import { TelaDeOrigem } from "./Tela";
@@ -20,11 +20,13 @@ export default async function OrigemPage({ searchParams }: { searchParams: Promi
   // Trinta dias é o padrão: a chegada só existe desde 13/11/2026, e em sete dias há pouco pedido para ler.
   const chave = lerPeriodo(sp.periodo ?? "30d");
   const { de, ate } = intervaloDoPeriodo(chave, hojeEmSaoPaulo());
-  const pedidos = await lerPedidosComOrigemDoPeriodo(await createClient(), de, ate);
+  const db = await createClient();
+  const [pedidos, bio] = await Promise.all([lerPedidosComOrigemDoPeriodo(db, de, ate), lerChegadasPelaBioDoPeriodo(db, de, ate)]);
   // `busca`, `aba` e `pagos` chegam do link de um item na tabela de campanhas: a lista já abre nos pedidos dele.
   return (
     <TelaDeOrigem
       pedidos={pedidos}
+      bio={bio}
       de={de}
       ate={ate}
       chave={chave}
