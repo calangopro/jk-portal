@@ -2,7 +2,21 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { LOJAS } from "@/lib/tray/lojas";
 import { canalDaOrigem } from "@/lib/vendas/origem";
-import { ehRobo, lerChegada, pedidoValido, repeteAAnterior, sessaoValida } from "./chegada";
+import {
+  COOKIE_DO_ANUNCIO,
+  DIAS_DO_ANUNCIO,
+  anuncioDeAntes,
+  anuncioParaCookie,
+  chegouPelaBio,
+  comOAnuncioDeAntes,
+  ehCliqueDeAnuncio,
+  ehRobo,
+  lerChegada,
+  pedidoValido,
+  repeteAAnterior,
+  sessaoValida,
+  type Chegada,
+} from "./chegada";
 
 /**
  * O lado do servidor do coletor de origem: confere quem está mandando, anota a
@@ -19,6 +33,17 @@ import { ehRobo, lerChegada, pedidoValido, repeteAAnterior, sessaoValida } from 
 export const COOKIE_DO_VISITANTE = "jk_v";
 /** Noventa dias, renovados a cada visita. A atribuição olha trinta. */
 export const VIDA_DO_COOKIE = 90 * 24 * 60 * 60;
+
+/**
+ * O último anúncio em que o visitante clicou, resumido (`anuncioParaCookie`).
+ * Ao contrário do `jk_v`, este o navegador LÊ: é por ele que a página da bio
+ * conta ao GA4 que a visita é de quem veio de anúncio (`OrigemDaBio`). Só leva
+ * as UTMs do anúncio, que já estavam no endereço da página. O que vai para o
+ * banco não depende dele: ali quem decide é o histórico do visitante.
+ */
+export { COOKIE_DO_ANUNCIO };
+/** A mesma janela em que a chegada pela bio ainda é do anúncio. */
+export const VIDA_DO_ANUNCIO = DIAS_DO_ANUNCIO * 24 * 60 * 60;
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const DOMINIO = "jkaliancas.com.br";
@@ -50,6 +75,20 @@ export function dominioDoCookie(): string | undefined {
 
 export type Recado = { u?: unknown; r?: unknown; s?: unknown; p?: unknown; n?: unknown };
 
+/** A chegada que o recado descreve. Conta pura: não toca no banco. */
+export function chegadaDoRecado(recado: Recado, agente: string | null): Chegada | null {
+  return typeof recado.u === "string"
+    ? lerChegada({ url: recado.u.slice(0, 2000), referencia: typeof recado.r === "string" ? recado.r.slice(0, 600) : null, agente, daCasa, canalDaEtiqueta: canalDaOrigem })
+    : null;
+}
+
+/** O valor do cookie do anúncio, quando o recado é de um clique em anúncio. `null` em qualquer outro caso. */
+export function anuncioDoRecado(recado: Recado, agente: string | null): string | null {
+  if (ehRobo(agente)) return null;
+  const chegada = chegadaDoRecado(recado, agente);
+  return chegada && ehCliqueDeAnuncio(chegada) ? anuncioParaCookie(chegada) || null : null;
+}
+
 /**
  * Grava o que o recado do navegador traz. Nunca lança: o coletor não pode
  * derrubar página de ninguém, e um recado perdido é só uma chegada a menos.
@@ -59,23 +98,30 @@ export async function registrarRecado(db: SupabaseClient, visitante: string, rec
     if (ehRobo(agente)) return;
     const sessao = sessaoValida(recado.s);
     const pedido = pedidoValido(recado.p);
-    const chegada =
-      typeof recado.u === "string"
-        ? lerChegada({ url: recado.u.slice(0, 2000), referencia: typeof recado.r === "string" ? recado.r.slice(0, 600) : null, agente, daCasa, canalDaEtiqueta: canalDaOrigem })
-        : null;
+    let chegada = chegadaDoRecado(recado, agente);
 
     // Anota a chegada com etiqueta ou vinda de fora sempre; o acesso direto, só na primeira página da visita.
     if (chegada && (chegada.nova || recado.n === 1)) {
-      const { data: anterior } = await db
+      // O link da bio chega igual para todo mundo. Para saber se quem chegou veio de anúncio, olha-se o que o
+      // mesmo visitante fez antes: por isso a chegada pela bio lê mais do que a última linha.
+      const procuraAnuncio = chegouPelaBio(chegada) && !ehCliqueDeAnuncio(chegada);
+      const { data: ultimas } = await db
         .from("origem_toques")
-        .select("canal, campaign, content, clique_id, em")
+        .select("canal, source, medium, campaign, content, term, ids, clique, clique_id, em")
         .eq("visitante", visitante)
         .order("em", { ascending: false })
-        .limit(1)
-        .maybeSingle();
+        .limit(procuraAnuncio ? 40 : 1);
+      const agora = Date.now();
+      const lista = (ultimas ?? []).map((t) => ({ ...t, haDias: (agora - new Date(t.em).getTime()) / 86_400_000 }));
+      if (procuraAnuncio) {
+        const anuncio = anuncioDeAntes(lista);
+        // Daqui para baixo a chegada já é a do anúncio com a marca da bio, inclusive para conferir se repete a anterior.
+        if (anuncio) chegada = comOAnuncioDeAntes(chegada, anuncio);
+      }
+      const anterior = lista[0] ?? null;
       const repete = repeteAAnterior(
         chegada,
-        anterior ? { canal: anterior.canal, campaign: anterior.campaign, content: anterior.content, clique_id: anterior.clique_id, haMinutos: (Date.now() - new Date(anterior.em).getTime()) / 60_000 } : null,
+        anterior ? { canal: anterior.canal, campaign: anterior.campaign, content: anterior.content, clique_id: anterior.clique_id, haMinutos: anterior.haDias * 1440 } : null,
       );
       if (!repete) {
         const { nova: _nova, ...linha } = chegada;

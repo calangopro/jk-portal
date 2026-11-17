@@ -204,6 +204,87 @@ Onde se consulta:
 - **Campanhas e anúncios**: a coluna "Na loja, pago" passou a encher também
   para conjunto e anúncio, porque sai da mesma conta.
 
+## O link da bio: de anúncio ou sem anúncio
+
+Pedido do dono em 16/11/2026: as UTMs do link da bio precisam dizer se a
+pessoa veio de anúncio ou não e, se veio, manter as UTMs do anúncio com uma
+marca no fim.
+
+**Pelo endereço não dá para saber.** O link do perfil é um só, e o Instagram
+põe nele a mesma etiqueta em todo clique
+(`utm_source=ig&utm_medium=social&utm_content=link_in_bio`, com `fbclid`),
+venha a pessoa de um anúncio ou não. Quem sabe é o site, que reconhece o
+visitante pelo cookie `jk_v`.
+
+**A regra.** A chegada pelo link da bio de quem clicou num anúncio até sete
+dias antes é gravada com as UTMs DAQUELE anúncio (origem, campanha, conjunto,
+anúncio e os números), e a mídia ganha `_bio` no fim: `paid` vira `paid_bio`,
+`cpc` vira `cpc_bio`. O clique (`fbclid`), a página de entrada e o aparelho
+continuam sendo os da chegada pela bio. Sem anúncio antes, a chegada fica como
+veio: `ig / social / link_in_bio`. Sete dias é a mesma janela da precedência do
+clique em anúncio (0113). As regras são puras e moram em
+`src/lib/origem/chegada.ts`; quem as aplica é `registrarRecado`
+(`src/lib/origem/registrar.ts`), olhando as chegadas do próprio visitante.
+
+- **Chegada pela bio** (`chegouPelaBio`) é a página da bio como entrada ou
+  `utm_content=link_in_bio`, porque o link do perfil às vezes aponta direto
+  para um produto.
+- **Clique em anúncio** (`ehCliqueDeAnuncio`) é mídia paga na UTM ou clique do
+  Google Ads. `fbclid` não conta: o link da bio também traz.
+- **A chegada que herdou as UTMs não é clique novo.** Ela não renova a janela:
+  sem essa regra, quem voltasse pela bio a cada cinco dias seria do anúncio
+  para sempre.
+- **Anúncio que leva DIRETO para a bio** é gravado como veio (é um clique de
+  verdade), e as telas o reconhecem pela página de entrada.
+- A repetição (`repeteAAnterior`) é conferida com a chegada JÁ herdada, senão
+  recarregar a bio anotaria a mesma chegada duas vezes.
+
+**A conta de origem não precisou mudar.** `paid_bio` casa com a mesma
+expressão de mídia paga de `origem_resolvida` e de `ehAnuncio`, e campanha,
+conjunto e anúncio chegam intactos, então a ligação pelo número e pelo nome
+continua igual. O que muda é qual chegada aparece no pedido: a da bio, que é a
+mais recente. **A janela pode chegar a catorze dias**: clique no anúncio, bio
+até sete dias depois, pedido até sete dias depois da bio.
+
+**No GA4 vai a mesma coisa.** O clique em anúncio deixa o cookie `jk_ad`
+(sete dias, só com as UTMs do anúncio), gravado pela resposta de
+`/api/origem`. O script da página da bio (`src/lib/bio/origem-script.ts`) lê o
+cookie e entrega ao GA4 o `page_location` com as UTMs do anúncio, `_bio` no fim
+da mídia e `utm_id` quando o anúncio trouxe número. `paid_bio` e `cpc_bio`
+continuam caindo nos canais pagos do GA4. Anúncio que leva direto para a bio
+também ganha `_bio` na mídia (antes ganhava `utm_term=bio`, e só quando o
+termo vinha vazio). O que vai para o banco NÃO depende do cookie: ali quem
+decide é o histórico do visitante. Os dois podem divergir quando o cookie é
+apagado, e o que vale para o painel é o banco. Na página `/grupo` nada disso
+entra: o anúncio leva direto para lá.
+
+**Onde se vê.** Em Tráfego, Origem dos pedidos, o bloco "Link da bio" mostra
+as chegadas pelo link, quantas são de quem veio de anúncio e de quais
+campanhas (`chegadas_pela_bio`, 0114). A função refaz a pergunta para cada
+chegada em vez de ler a marca gravada, e por isso vale também para o que foi
+anotado antes de a marca existir, sem reescrever linha nenhuma. Cada pedido
+diz "Anúncio, pelo link da bio" ou "Link da bio, sem anúncio antes"
+(`tipoDaChegada`), há o filtro "Pelo link da bio", e a gaveta do pedido traz a
+mesma marca e a frase de `comoLigou`.
+
+**O limite, que não tem conserto pelo site.** Anúncio que manda a pessoa para
+o PERFIL do Instagram (visita ao perfil, publicação impulsionada) não passa
+pelo site. Quando ela toca no link da bio, é a primeira vez que o site a vê, e
+a chegada sai como sem anúncio. O Instagram não passa essa informação adiante.
+O mesmo vale para quem clicou no anúncio num aparelho e abriu a bio em outro.
+Então "sem anúncio antes" quer dizer "sem clique em anúncio que tenha passado
+pelo site neste navegador", e não "seguidor que nunca viu anúncio".
+
+Medido em 16/11/2026, em sete dias (quatro deles com o coletor ligado): 726
+chegadas pela bio, de 593 visitantes; 91 delas (13%) de 57 visitantes que
+tinham clicado num anúncio nos sete dias antes.
+
+Conferido: as regras e o script da bio rodado num navegador de mentira
+(`npm run verificar:pedidos`), e um ensaio no servidor local contra o banco
+(clique em anúncio, bio do mesmo visitante, recarga e um visitante sem
+anúncio), com as linhas apagadas depois. A função do banco foi conferida com
+JWT falso de cada nível: só quem tem a área de tráfego recebe os números.
+
 ## A origem nas telas de vendas
 
 Até 16/11/2026, a origem em Vendas, na Visão geral, em Tráfego e em Gargalos
@@ -241,7 +322,9 @@ O que isso muda, para ler os números sem susto:
 
 ## Privacidade
 
-O cookie leva só um número aleatório e dura noventa dias. Não se guarda IP,
+O cookie do visitante (`jk_v`) leva só um número aleatório e dura noventa
+dias. O do anúncio (`jk_ad`) dura sete dias e leva só as UTMs do último
+anúncio clicado, que já estavam no endereço da página. Não se guarda IP,
 navegador, nome, telefone nem e-mail. O identificador do clique (`gclid`,
 `fbclid`) fica guardado, porque é ele que um dia permite devolver a venda paga
 para a plataforma. A política de privacidade da loja precisa citar essa

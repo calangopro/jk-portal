@@ -1,3 +1,6 @@
+import { scriptDaOrigemDaBio } from "@/lib/bio/origem-script";
+import { COOKIE_DO_ANUNCIO, MARCA_DA_BIO, MIDIA_PAGA } from "@/lib/origem/chegada";
+
 /**
  * De onde veio quem abriu a bio, sem etiqueta no link.
  *
@@ -14,50 +17,43 @@
  * "instagram / social" continua assim até a compra.
  *
  * Como descobre, em ordem:
- *   1. Link que JÁ tem `utm_source` (anúncio, e-mail): vale a etiqueta dele, e a
- *      bio entra em `utm_term=bio` quando o termo está vazio. É a marca de que
- *      o anúncio terminou passando pela bio, sem mexer em campanha nem em
- *      conteúdo, que precisam bater com os nomes do gerenciador de anúncios.
- *   2. `?o=canal` curto, para onde o app não se identifica (WhatsApp, e-mail,
+ *   1. ANÚNCIO QUE LEVA DIRETO PARA A BIO (mídia paga na UTM): ficam as UTMs
+ *      dele e a mídia ganha `_bio` no fim (`paid` vira `paid_bio`). Campanha,
+ *      conjunto e anúncio não mudam, porque precisam bater com os nomes do
+ *      gerenciador de anúncios.
+ *   2. QUEM CLICOU NUM ANÚNCIO ATÉ SETE DIAS ANTES e agora chega pelo link da
+ *      bio: a visita fica com as UTMs DAQUELE anúncio, também com `_bio` no fim
+ *      da mídia. O Instagram etiqueta todo clique no link do perfil do mesmo
+ *      jeito (`ig / social / link_in_bio`), venha a pessoa de anúncio ou não,
+ *      então pelo endereço não dá para saber. Quem sabe é o site: o clique no
+ *      anúncio deixou o cookie `jk_ad` (ver `/api/origem`), que este script lê.
+ *   3. Link que JÁ tem `utm_source` sem ser anúncio (o do Instagram, e-mail):
+ *      vale a etiqueta dele, e a bio entra em `utm_term=bio` quando o termo
+ *      está vazio.
+ *   4. `?o=canal` curto, para onde o app não se identifica (WhatsApp, e-mail,
  *      QR code na loja): `/bio?o=whatsapp`.
- *   3. O navegador de dentro do app: Instagram, Threads, TikTok e Facebook se
+ *   5. O navegador de dentro do app: Instagram, Threads, TikTok e Facebook se
  *      identificam no user agent.
- *   4. A página de onde veio: Pinterest, YouTube e os mesmos acima quando
+ *   6. A página de onde veio: Pinterest, YouTube e os mesmos acima quando
  *      abertos no navegador comum.
  *   Nada disso: fica como o GA4 decidir (acesso direto ou referência).
  *
- * Anúncio e perfil chegam IGUAIS do Instagram (mesmo app, mesmo `fbclid`), então
- * o anúncio continua precisando dos parâmetros do gerenciador. É a única
- * etiqueta que sobra, e ela mora no anúncio, não na bio.
+ * O painel grava a MESMA coisa, mas não por este script: lá quem decide é o
+ * servidor, olhando as chegadas do visitante (`lib/origem/registrar.ts`).
  *
- * Na página /grupo vale o mesmo, com duas diferenças: o anúncio leva direto
- * para lá (não "passou pela bio"), então o `utm_term` do anúncio fica intacto;
- * e a visita sem etiqueta vira `utm_campaign=grupo_de_ofertas`.
+ * O LIMITE. Anúncio que manda a pessoa para o PERFIL do Instagram, e não para
+ * o site, não deixa rastro nenhum: quando ela toca no link da bio, é a
+ * primeira vez que o site a vê, e a visita sai como orgânica.
+ *
+ * Na página /grupo os casos 1 e 2 não valem: o anúncio leva direto para lá
+ * (não "passou pela bio"), então as UTMs dele ficam intactas; e a visita sem
+ * etiqueta vira `utm_campaign=grupo_de_ofertas`.
  *
  * Roda como script comum no HTML, antes de qualquer coisa do React, para o
  * resultado já existir quando o GA4 carregar. Guarda em `window.jkOrigemDaBio`,
  * que a captura do grupo usa para gravar a origem junto do contato.
  */
-const SCRIPT = `(function(){try{
-var q=new URLSearchParams(location.search),ua=navigator.userAgent||"",h="";
-try{h=document.referrer?new URL(document.referrer).hostname:""}catch(e){}
-var u={};["utm_source","utm_medium","utm_campaign","utm_content","utm_term"].forEach(function(k){var v=q.get(k);if(v)u[k]=v.slice(0,120)});
-var r="";
-if(/Instagram/i.test(ua)||/(^|\\.)instagram\\.com$/.test(h))r="instagram";
-else if(/Barcelona/.test(ua)||/(^|\\.)threads\\.(net|com)$/.test(h))r="threads";
-else if(/musical_ly|BytedanceWebview|TikTok|trill_/i.test(ua)||/(^|\\.)tiktok\\.com$/.test(h))r="tiktok";
-else if(/FBAN|FBAV|FB_IAB|FB4A|FBIOS/.test(ua)||/(^|\\.)(facebook\\.com|fb\\.com|fb\\.me)$/.test(h))r="facebook";
-else if(/Pinterest/i.test(ua)||/(^|\\.)pinterest\\./.test(h)||h==="pin.it")r="pinterest";
-else if(/(^|\\.)(youtube\\.com|youtu\\.be)$/.test(h))r="youtube";
-var o=(q.get("o")||"").toLowerCase().replace(/[^a-z0-9_-]/g,"").slice(0,30);
-var g=/^\\/(guias\\/)?grupo(\\/|$)/.test(location.pathname);
-var mudou=false;
-if(u.utm_source){if(!u.utm_term&&!g){u.utm_term="bio";mudou=true}}
-else if(o||r){u.utm_source=o||r;u.utm_medium="social";u.utm_campaign=g?"grupo_de_ofertas":"link_na_bio";mudou=true}
-var m=u.utm_medium||"";
-window.jkOrigemDaBio={rede:o||r,utm:u,pago:!!q.get("gclid")||/(cpc|ppc|paid|ads)/i.test(m)};
-if(mudou){var l=new URL(location.href);l.searchParams.delete("o");Object.keys(u).forEach(function(k){l.searchParams.set(k,u[k])});window.jkPaginaComOrigem=l.toString()}
-}catch(e){}})();`;
+const SCRIPT = scriptDaOrigemDaBio({ cookie: COOKIE_DO_ANUNCIO, marca: MARCA_DA_BIO, midiaPaga: MIDIA_PAGA.source });
 
 export function OrigemDaBio() {
   return <script dangerouslySetInnerHTML={{ __html: SCRIPT }} />;

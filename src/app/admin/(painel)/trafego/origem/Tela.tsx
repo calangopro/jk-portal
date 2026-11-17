@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Megaphone, MousePointerClick, Receipt, Target } from "lucide-react";
-import { coberturaDaLista, type PedidoComOrigem } from "@/lib/origem/pedidos";
+import { coberturaDaLista, pagosPelaBio, type ChegadasPelaBio, type PedidoComOrigem } from "@/lib/origem/pedidos";
 import { diaCurto, type ChaveDePeriodo } from "@/lib/vendas/periodo";
 import { Cartao, Dinheiro } from "../../Pecas";
 import { SeletorDePeriodo } from "../../SeletorDePeriodo";
@@ -22,10 +22,71 @@ import { ListaDeOrigem } from "./Lista";
 const COMECO_DO_COLETOR = "2026-11-13";
 const inteiro = (n: number) => n.toLocaleString("pt-BR");
 
+/**
+ * O link da bio em dois: quem veio de anúncio e quem não veio.
+ *
+ * São chegadas, não pedidos, porque a pergunta é sobre o link ("a bio traz
+ * gente de anúncio?") e pedido pela bio é pouco para responder. O Instagram
+ * etiqueta todo clique no link do perfil igual, então a separação é feita pelo
+ * site: é de anúncio a chegada de quem clicou num anúncio até sete dias antes.
+ */
+function LinkDaBio({ bio, pedidos }: { bio: ChegadasPelaBio; pedidos: PedidoComOrigem[] }) {
+  const parte = (n: number) => (bio.chegadas > 0 ? `${Math.round((n / bio.chegadas) * 100)}% das chegadas` : "sem chegada no período");
+  const pagos = pagosPelaBio(pedidos);
+  const numeros: { rotulo: string; valor: number; apoio: string }[] = [
+    { rotulo: "Chegadas pelo link", valor: bio.chegadas, apoio: `${inteiro(bio.visitantes)} ${bio.visitantes === 1 ? "visitante" : "visitantes"}` },
+    {
+      rotulo: "De quem veio de anúncio",
+      valor: bio.deAnuncio,
+      apoio: `${parte(bio.deAnuncio)}, ${inteiro(bio.visitantesDeAnuncio)} ${bio.visitantesDeAnuncio === 1 ? "visitante" : "visitantes"}`,
+    },
+    { rotulo: "Sem anúncio antes", valor: bio.semAnuncio, apoio: parte(bio.semAnuncio) },
+  ];
+  const comNome = bio.porCampanha.filter((c) => c.campanha);
+  return (
+    <section aria-label="Link da bio" className="glass mt-3 rounded-[18px] p-4 sm:p-5">
+      <p className="eyebrow">Link da bio</p>
+      <dl className="mt-3 grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-3">
+        {numeros.map((n) => (
+          <div key={n.rotulo} className="min-w-0">
+            <dt className="text-xs font-semibold text-muted">{n.rotulo}</dt>
+            <dd className="numeros mt-1 text-2xl font-semibold text-ink">{inteiro(n.valor)}</dd>
+            <dd className="mt-0.5 text-xs text-muted">{n.apoio}</dd>
+          </div>
+        ))}
+      </dl>
+      {comNome.length > 0 ? (
+        <div className="mt-4 border-t border-ink/[0.06] pt-3">
+          <p className="text-xs font-semibold text-ink">De quais anúncios essas pessoas vieram</p>
+          <ul className="mt-1.5 space-y-1 text-xs leading-snug text-muted">
+            {comNome.map((c) => (
+              <li key={c.campanha} className="flex gap-2">
+                <span className="min-w-0 flex-1 text-ink [overflow-wrap:anywhere]">{c.campanha}</span>
+                <span className="numeros shrink-0">
+                  {inteiro(c.chegadas)} {c.chegadas === 1 ? "chegada" : "chegadas"}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+      <p className="mt-4 max-w-3xl text-xs leading-relaxed text-muted">
+        Pedidos pagos pelo link da bio no período: {inteiro(pagos.deAnuncio)} de quem veio de anúncio e {inteiro(pagos.semAnuncio)} sem
+        anúncio antes. O Instagram manda todo clique no link do perfil com a mesma etiqueta, então quem separa é o site: conta como
+        de anúncio a chegada de quem clicou num anúncio até sete dias antes, e ela fica com as UTMs do anúncio e <code>_bio</code> no
+        fim da mídia. Anúncio que leva a pessoa para o perfil do Instagram, e não para o site, não deixa esse rastro: ela aparece
+        como sem anúncio.
+      </p>
+    </section>
+  );
+}
+
 export function TelaDeOrigem({
-  pedidos, de, ate, chave, busca = "", aba = "anuncio", soPagos = true,
+  pedidos, bio = null, de, ate, chave, busca = "", aba = "anuncio", soPagos = true,
 }: {
   pedidos: PedidoComOrigem[] | null;
+  /** `null` quando a leitura falhou: o bloco some e o resto da tela continua. */
+  bio?: ChegadasPelaBio | null;
   de: string;
   ate: string;
   chave: ChaveDePeriodo;
@@ -91,6 +152,8 @@ export function TelaDeOrigem({
         </p>
       ) : null}
 
+      {bio && bio.chegadas > 0 ? <LinkDaBio bio={bio} pedidos={lista} /> : null}
+
       <ListaDeOrigem pedidos={lista} buscaInicial={busca} abaInicial={aba} soPagosInicial={soPagos} />
 
       <section className="glass mt-6 rounded-[18px] p-5">
@@ -103,7 +166,9 @@ export function TelaDeOrigem({
           </li>
           <li>
             <strong className="font-semibold text-ink">Instagram nem sempre é anúncio.</strong> O link da bio também chega como
-            Instagram. Só conta como anúncio a chegada que bate com uma campanha ou que vem com mídia paga na UTM.
+            Instagram. Só conta como anúncio a chegada que bate com uma campanha ou que vem com mídia paga na UTM. Quem clicou num
+            anúncio e voltou pelo link da bio em até sete dias aparece como &ldquo;Anúncio, pelo link da bio&rdquo;, com a mídia
+            terminada em <code>_bio</code>.
           </li>
           <li>
             <strong className="font-semibold text-ink">Por que um anúncio fica sem identificar.</strong> O anúncio é achado pelo nome que

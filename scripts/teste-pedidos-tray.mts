@@ -30,9 +30,40 @@ import { diagnosticar, objetivoDe, type Item } from "../src/lib/trafego/diagnost
 import { juntarMeios, mapearGargalos, meioDePagamento } from "../src/lib/painel/gargalos.ts";
 import { voltaParaEmpatar } from "../src/lib/painel/premissas.ts";
 import { alteradosEm, compararComOBanco, pedidoDaApi, semOsJaLidos, ultimaAlteracao } from "../src/lib/vendas/tray-api.ts";
-import { ehRobo, lerChegada, pedidoValido, repeteAAnterior, sessaoValida } from "../src/lib/origem/chegada.ts";
+import vm from "node:vm";
+import { scriptDaOrigemDaBio } from "../src/lib/bio/origem-script.ts";
+import {
+  COOKIE_DO_ANUNCIO,
+  MARCA_DA_BIO,
+  MIDIA_PAGA,
+  anuncioDeAntes,
+  anuncioParaCookie,
+  chegouPelaBio,
+  comOAnuncioDeAntes,
+  ehCliqueDeAnuncio,
+  ehRobo,
+  lerChegada,
+  pedidoValido,
+  repeteAAnterior,
+  sessaoValida,
+  type Chegada,
+} from "../src/lib/origem/chegada.ts";
 import { itensQueVenderam, passosDoColetor, vendasPorItem, type Cobertura, type SaudeDoColetor } from "../src/lib/origem/anotado.ts";
-import { agrupar as agruparOrigem, coberturaDaLista, comoLigou, ehAnuncio, filtrar as filtrarOrigem, lerPedidoComOrigem, nivelLigado, utmLegivel } from "../src/lib/origem/pedidos.ts";
+import {
+  NOME_DO_TIPO,
+  agrupar as agruparOrigem,
+  coberturaDaLista,
+  comoLigou,
+  ehAnuncio,
+  filtrar as filtrarOrigem,
+  lerChegadasPelaBio,
+  lerPedidoComOrigem,
+  nivelLigado,
+  pagosPelaBio,
+  pelaBio,
+  tipoDaChegada,
+  utmLegivel,
+} from "../src/lib/origem/pedidos.ts";
 import { diaOuNulo, lerEstado, naoPegaram, prepararEdicao } from "../src/lib/loja/produto.ts";
 import { TETO_DE_BYTES, codigoDaImagem, corpoDasFotos, enderecoAceito, fotosQueNaoEntraram, lerImagens, prepararFotos, type FotoNova } from "../src/lib/loja/imagens.ts";
 import { achatar, ordenar, somar, tomContraAMedia, tomDaVoltaDaLoja, tomDaVoltaDaPlataforma, tomDoVeredito } from "../src/lib/trafego/linhas.ts";
@@ -740,7 +771,7 @@ console.log("\nUTM ligada ao anúncio");
   confere("a frase diz o que faltou, sem culpar ninguém", comoLigou(soCampanha).includes("conjunto porque é o único") && comoLigou(soCampanha).includes("Faltou o anúncio"));
   confere("no Google, diz que o endereço só traz a campanha", comoLigou(google).endsWith("O Google não manda o anúncio no endereço, só a campanha."));
   confere("pedido sem visitante e pedido só com acesso direto têm frase própria", comoLigou(semNada).startsWith("O painel não sabe quem é o visitante") && comoLigou(direto).startsWith("Todas as chegadas"));
-  confere("link da bio: a chegada não é de anúncio", comoLigou(bio).startsWith("A chegada não é de anúncio"));
+  confere("link da bio sem anúncio antes tem frase própria", comoLigou(bio).startsWith("Chegou pelo link da bio, e este visitante não tinha clicado em anúncio"));
 
   const porAnuncio = agruparOrigem(todos, "anuncio");
   confere("por anúncio: o exato vem primeiro, com o pedido dele", porAnuncio[0].titulo === "[Estático] Aliança 3mm" && porAnuncio[0].pagos === 1 && porAnuncio[0].valor === 400.1 && porAnuncio[0].pedidos.join() === "901" && porAnuncio[0].apoio === "[Loja] VENDAS | Direta, [SP] Interesse amplo");
@@ -1233,6 +1264,164 @@ console.log("\nAcesso de cada tela");
   const semDono = paginas(RAIZ, []).filter((a) => a !== `${RAIZ}/page.tsx` && !itens.some((i) => a.startsWith(`${pastaDe(i.href)}/`)));
   if (semDono.length) console.log(semDono.join("\n"));
   confere("não existe tela do painel fora do menu", semDono.length === 0);
+}
+
+console.log("\nLink da bio: de anúncio ou sem anúncio");
+{
+  // Endereços, campanhas e pedidos inventados. O formato das UTMs é o que o Instagram e os anúncios mandam.
+  const daCasa = (h: string) => h === "jkaliancas.com.br";
+  const noInstagram = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 Instagram 350.0.0.0";
+  const ler = (url: string) => lerChegada({ url, referencia: null, agente: noInstagram, daCasa, canalDaEtiqueta: canalDaOrigem })!;
+  const loja = "https://www.jkaliancas.com.br";
+  const anuncio = ler(`${loja}/alianca-x?utm_source=ig&utm_medium=paid&utm_campaign=%5BLoja%5D+VENDAS&utm_term=Conjunto+A&utm_content=Anuncio+1&utm_id=120210000000000001&fbclid=AAA`);
+  const bio = ler(`${loja}/bio?utm_source=ig&utm_medium=social&utm_content=link_in_bio&fbclid=BBB`);
+  const bioNoProduto = ler(`${loja}/alianca-y?utm_source=ig&utm_medium=social&utm_content=link_in_bio&fbclid=CCC`);
+  const google = ler(`${loja}/alianca-z?gclid=Cj0abc&gad_campaignid=21000000001`);
+
+  confere("clique em anúncio é mídia paga ou clique do Google, e o link da bio não é", ehCliqueDeAnuncio(anuncio) && ehCliqueDeAnuncio(google) && !ehCliqueDeAnuncio(bio) && !ehCliqueDeAnuncio(bioNoProduto));
+  confere("chegada pela bio é a página da bio ou a marca do Instagram no link", chegouPelaBio(bio) && chegouPelaBio(bioNoProduto) && !chegouPelaBio(anuncio) && !chegouPelaBio(google));
+
+  const herdada = comOAnuncioDeAntes(bio, anuncio);
+  confere(
+    "a bio de quem veio de anúncio fica com as UTMs dele e _bio no fim da mídia",
+    herdada.medium === "paid_bio" && herdada.source === "ig" && herdada.canal === "meta" && herdada.campaign === anuncio.campaign && herdada.term === anuncio.term &&
+      herdada.content === anuncio.content && herdada.ids.join() === "120210000000000001",
+  );
+  confere("o clique, a entrada e o aparelho continuam os da chegada pela bio", herdada.clique_id === "BBB" && herdada.entrada === "/bio" && herdada.aparelho === bio.aparelho);
+  confere("a herdada segue sendo chegada pela bio, e não é clique novo em anúncio", chegouPelaBio(herdada) && !ehCliqueDeAnuncio(herdada));
+  confere("o painel e o banco leem a herdada como anúncio", ehAnuncio({ campanhaId: null, medium: herdada.medium, clique: herdada.clique, canal: herdada.canal }));
+  const doGoogle = comOAnuncioDeAntes(bio, google);
+  confere("anúncio do Google sem UTM: a mídia vira cpc_bio e a origem, google", doGoogle.medium === "cpc_bio" && doGoogle.source === "google" && doGoogle.canal === "google_ads" && doGoogle.ids.includes("21000000001"));
+  confere("canal desconhecido no banco não troca o canal da chegada", comOAnuncioDeAntes(bio, { ...anuncio, canal: "inventado" }).canal === bio.canal);
+
+  const ha = (c: Chegada, haDias: number) => ({ ...c, haDias });
+  confere("vale o clique em anúncio mais recente dentro de sete dias", anuncioDeAntes([ha(bio, 0.5), ha(google, 2), ha(anuncio, 5)])?.canal === "google_ads");
+  confere("clique de mais de sete dias não conta", anuncioDeAntes([ha(anuncio, 7.5)]) === null && anuncioDeAntes([ha(anuncio, 6.9)]) !== null);
+  confere("a herdada não renova a janela: sem o clique original, a bio volta a ser sem anúncio", anuncioDeAntes([ha(herdada, 1), ha(anuncio, 9)]) === null);
+  confere("sem anúncio antes, não inventa", anuncioDeAntes([ha(bio, 1), ha(bioNoProduto, 3)]) === null && anuncioDeAntes([]) === null);
+
+  const doMeta = new URLSearchParams(anuncioParaCookie(anuncio));
+  confere(
+    "o cookie leva o resumo do anúncio para a página da bio",
+    doMeta.get("s") === "ig" && doMeta.get("m") === "paid" && doMeta.get("c") === anuncio.campaign && doMeta.get("t") === anuncio.term && doMeta.get("n") === anuncio.content &&
+      doMeta.get("i") === "120210000000000001",
+  );
+  const doGoogleNoCookie = new URLSearchParams(anuncioParaCookie(google));
+  confere("no cookie, o anúncio do Google sem UTM vira google e cpc", doGoogleNoCookie.get("s") === "google" && doGoogleNoCookie.get("m") === "cpc" && doGoogleNoCookie.get("i") === "21000000001" && !doGoogleNoCookie.has("c"));
+  confere(
+    "recarregar a bio não anota duas vezes: a repetição é conferida com a chegada já herdada",
+    repeteAAnterior(herdada, { canal: herdada.canal, campaign: herdada.campaign, content: herdada.content, clique_id: "BBB", haMinutos: 5 }) &&
+      !repeteAAnterior(herdada, { canal: anuncio.canal, campaign: anuncio.campaign, content: anuncio.content, clique_id: "AAA", haMinutos: 5 }),
+  );
+
+  // O que o painel mostra. O formato é o de `pedidos_com_origem` (0112).
+  const base = { feito_em: "2026-11-16T12:00:00-03:00", dia: "2026-11-16", status: "A ENVIAR", ligado: true, chegadas: 2, situacao: "pago", total: 100 };
+  const daBioDeAnuncio = lerPedidoComOrigem({
+    ...base, pedido: 911, canal: "meta", source: "ig", medium: "paid_bio", campaign: "[Loja] VENDAS", entrada: "/bio", clique: "fbclid",
+    plataforma: "meta", campanha_id: "c1", campanha_nome: "[Loja] VENDAS", campanha_por: "nome",
+  })!;
+  const daBio = lerPedidoComOrigem({ ...base, pedido: 912, canal: "meta", source: "ig", medium: "social", content: "link_in_bio", entrada: "/bio", clique: "fbclid" })!;
+  const deAnuncio = lerPedidoComOrigem({ ...base, pedido: 913, canal: "meta", source: "ig", medium: "paid", entrada: "/alianca-x", plataforma: "meta", campanha_id: "c1", campanha_nome: "[Loja] VENDAS", campanha_por: "numero" })!;
+  const anuncioDiretoNaBio = lerPedidoComOrigem({ ...base, pedido: 914, canal: "meta", source: "ig", medium: "paid", entrada: "/guias/bio" })!;
+  const daBusca = lerPedidoComOrigem({ ...base, pedido: 915, canal: "google_organico", entrada: "/alianca-x" })!;
+  const direto = lerPedidoComOrigem({ ...base, pedido: 916, canal: "direto", entrada: "/bioma" })!;
+  const cancelado = lerPedidoComOrigem({ ...base, pedido: 917, situacao: "cancelado", canal: "meta", source: "ig", medium: "paid_bio", entrada: "/bio" })!;
+
+  confere("pela bio: a marca na mídia, a marca do Instagram ou a página da bio", pelaBio(daBioDeAnuncio) && pelaBio(daBio) && pelaBio(anuncioDiretoNaBio) && !pelaBio(deAnuncio) && !pelaBio(direto));
+  confere(
+    "os quatro tipos de chegada, e nenhum para acesso direto",
+    tipoDaChegada(daBioDeAnuncio) === "anuncio_pela_bio" && tipoDaChegada(anuncioDiretoNaBio) === "anuncio_pela_bio" && tipoDaChegada(daBio) === "bio" &&
+      tipoDaChegada(deAnuncio) === "anuncio" && tipoDaChegada(daBusca) === "outra" && tipoDaChegada(direto) === null,
+  );
+  confere("cada tipo tem nome para a tela", NOME_DO_TIPO.anuncio_pela_bio === "Anúncio, pelo link da bio" && NOME_DO_TIPO.bio === "Link da bio, sem anúncio antes");
+  confere(
+    "a frase conta a passagem pela bio antes de dizer como ligou",
+    comoLigou(daBioDeAnuncio) === "Clicou num anúncio e depois chegou pelo link da bio: as UTMs são as do anúncio, com _bio no fim da mídia. Campanha pelo nome que veio na UTM. Faltou o conjunto e o anúncio: o texto da UTM não é o nome de nenhum conjunto desta campanha." &&
+      comoLigou(anuncioDiretoNaBio).startsWith("O anúncio levou direto para a bio. A chegada é de anúncio, mas") &&
+      comoLigou(daBusca) === "A chegada não é de anúncio (mídia orgânica ou outro site).",
+  );
+  const pagos = pagosPelaBio([daBioDeAnuncio, daBio, deAnuncio, anuncioDiretoNaBio, daBusca, direto, cancelado]);
+  confere("pedidos pagos pela bio, nos dois tipos, sem contar o cancelado", pagos.deAnuncio === 2 && pagos.semAnuncio === 1);
+
+  const conta = lerChegadasPelaBio({
+    chegadas: "726", visitantes: 593, de_anuncio: 91, visitantes_de_anuncio: 57,
+    por_campanha: [{ campanha: "[Loja]+VENDAS", chegadas: 50, visitantes: 32 }, { campanha: "", chegadas: 41, visitantes: 26 }, { campanha: "vazia", chegadas: 0, visitantes: 0 }],
+  })!;
+  confere(
+    "lê a conta das chegadas pela bio",
+    conta.chegadas === 726 && conta.deAnuncio === 91 && conta.semAnuncio === 635 && conta.visitantesDeAnuncio === 57 && conta.porCampanha.length === 2 &&
+      conta.porCampanha[0].campanha === "[Loja] VENDAS" && lerChegadasPelaBio(null) === null,
+  );
+  confere("a parte de anúncio nunca passa do total", lerChegadasPelaBio({ chegadas: 3, de_anuncio: 9 })!.semAnuncio === 0);
+
+  // O script da página da bio, rodado de verdade num navegador de mentira: é ele que diz ao GA4 de onde a visita veio.
+  const script = scriptDaOrigemDaBio({ cookie: COOKIE_DO_ANUNCIO, marca: MARCA_DA_BIO, midiaPaga: MIDIA_PAGA.source });
+  type Saida = { origem: { rede: string; utm: Record<string, string>; pago: boolean }; pagina: URLSearchParams | null };
+  const abrir = (url: string, e: { cookies?: string; agente?: string } = {}): Saida => {
+    const u = new URL(url);
+    const window: { jkOrigemDaBio?: Saida["origem"]; jkPaginaComOrigem?: string } = {};
+    vm.runInNewContext(script, {
+      window, URL, URLSearchParams,
+      location: { search: u.search, pathname: u.pathname, href: u.href },
+      navigator: { userAgent: e.agente ?? noInstagram },
+      document: { referrer: "", cookie: e.cookies ?? "" },
+    });
+    return { origem: window.jkOrigemDaBio!, pagina: window.jkPaginaComOrigem ? new URL(window.jkPaginaComOrigem).searchParams : null };
+  };
+  // O cookie como o navegador o entrega: o valor codificado, no meio de outros.
+  const comAnuncio = (c: Chegada) => `_ga=GA1.1.1; ${COOKIE_DO_ANUNCIO}=${encodeURIComponent(anuncioParaCookie(c))}; outro=1`;
+  const linkDoPerfil = `${loja}/bio?utm_source=ig&utm_medium=social&utm_content=link_in_bio&fbclid=BBB`;
+
+  const organica = abrir(linkDoPerfil);
+  confere(
+    "bio sem anúncio antes: fica como o Instagram mandou, com a bio no termo",
+    organica.pagina?.get("utm_medium") === "social" && organica.pagina.get("utm_content") === "link_in_bio" && organica.pagina.get("utm_term") === "bio" && !organica.origem.pago,
+  );
+  const deQuemClicou = abrir(linkDoPerfil, { cookies: comAnuncio(anuncio) });
+  confere(
+    "bio de quem clicou num anúncio: o GA4 recebe as UTMs do anúncio com _bio no fim da mídia",
+    deQuemClicou.pagina?.get("utm_source") === "ig" && deQuemClicou.pagina.get("utm_medium") === "paid_bio" && deQuemClicou.pagina.get("utm_campaign") === anuncio.campaign &&
+      deQuemClicou.pagina.get("utm_term") === anuncio.term && deQuemClicou.pagina.get("utm_content") === anuncio.content && deQuemClicou.pagina.get("utm_id") === "120210000000000001" &&
+      deQuemClicou.pagina.get("fbclid") === "BBB" && deQuemClicou.origem.pago && deQuemClicou.origem.utm.utm_medium === "paid_bio" && !("utm_id" in deQuemClicou.origem.utm),
+  );
+  const aposOGoogle = abrir(linkDoPerfil, { cookies: comAnuncio(google) });
+  confere(
+    "depois de anúncio do Google sem UTM: google e cpc_bio, e a marca do Instagram sai",
+    aposOGoogle.pagina?.get("utm_source") === "google" && aposOGoogle.pagina.get("utm_medium") === "cpc_bio" && !aposOGoogle.pagina.has("utm_content") && aposOGoogle.pagina.get("utm_id") === "21000000001",
+  );
+  const semEtiqueta = abrir(`${loja}/bio`, { cookies: comAnuncio(anuncio) });
+  confere("link da bio sem etiqueta nenhuma, de quem clicou num anúncio, também herda", semEtiqueta.pagina?.get("utm_medium") === "paid_bio" && semEtiqueta.origem.rede === "instagram");
+  const semEtiquetaSemAnuncio = abrir(`${loja}/bio`);
+  confere("sem etiqueta e sem anúncio: Instagram reconhecido pelo aplicativo", semEtiquetaSemAnuncio.pagina?.get("utm_source") === "instagram" && semEtiquetaSemAnuncio.pagina.get("utm_campaign") === "link_na_bio");
+
+  const anuncioNaBio = abrir(`${loja}/bio?utm_source=ig&utm_medium=paid&utm_campaign=Campanha+X&utm_term=Conjunto+Y&utm_content=Anuncio+Z`, { cookies: comAnuncio(google) });
+  confere(
+    "anúncio que leva direto para a bio: as UTMs dele ficam, só a mídia ganha _bio",
+    anuncioNaBio.pagina?.get("utm_medium") === "paid_bio" && anuncioNaBio.pagina.get("utm_campaign") === "Campanha X" && anuncioNaBio.pagina.get("utm_term") === "Conjunto Y" &&
+      anuncioNaBio.pagina.get("utm_content") === "Anuncio Z" && !anuncioNaBio.pagina.has("utm_id") && anuncioNaBio.origem.pago,
+  );
+  confere("mídia que já termina em _bio não ganha a marca duas vezes", abrir(`${loja}/bio?utm_source=ig&utm_medium=paid_bio&utm_campaign=X&utm_term=Y`).pagina === null);
+  const soOGoogle = abrir(`${loja}/bio?gclid=Cj0abc`, { agente: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 Safari/605.1.15" });
+  confere("clique do Google sem UTM na bio: não inventa etiqueta, o GA4 lê o gclid", soOGoogle.pagina === null && soOGoogle.origem.pago);
+
+  const noGrupo = abrir(`${loja}/grupo?utm_source=ig&utm_medium=paid&utm_campaign=Grupo&utm_term=Conjunto`, { cookies: comAnuncio(anuncio) });
+  confere("no /grupo o anúncio leva direto para lá: nada muda", noGrupo.pagina === null && noGrupo.origem.utm.utm_medium === "paid");
+  const grupoSemEtiqueta = abrir(`${loja}/guias/grupo`, { cookies: comAnuncio(anuncio) });
+  confere("no /grupo sem etiqueta o cookie do anúncio não entra", grupoSemEtiqueta.pagina?.get("utm_campaign") === "grupo_de_ofertas" && grupoSemEtiqueta.pagina.get("utm_medium") === "social");
+
+  const estragado = abrir(linkDoPerfil, { cookies: `${COOKIE_DO_ANUNCIO}=%E0%A4%A; outro=1` });
+  confere("cookie estragado não derruba o script: a visita sai como sem anúncio", estragado.pagina?.get("utm_medium") === "social" && estragado.pagina.get("utm_term") === "bio");
+  const semMidia = abrir(linkDoPerfil, { cookies: `${COOKIE_DO_ANUNCIO}=${encodeURIComponent("s=ig&c=So+a+campanha")}` });
+  confere("cookie sem a mídia do anúncio é ignorado", semMidia.pagina?.get("utm_medium") === "social");
+  const peloWhats = abrir(`${loja}/bio?o=whatsapp`, { agente: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 Safari/605.1.15" });
+  confere("a etiqueta curta continua valendo", peloWhats.pagina?.get("utm_source") === "whatsapp" && !peloWhats.pagina.has("o"));
+  let recusou = false;
+  try {
+    scriptDaOrigemDaBio({ cookie: "jk_ad)|(", marca: MARCA_DA_BIO, midiaPaga: MIDIA_PAGA.source });
+  } catch {
+    recusou = true;
+  }
+  confere("nome de cookie que quebraria a expressão é recusado", recusou);
 }
 
 // A conferência das falhas é a ÚLTIMA coisa do arquivo, de propósito. Ela ficou meses no meio dele

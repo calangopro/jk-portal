@@ -226,6 +226,124 @@ export function lerChegada(e: {
   };
 }
 
+// ------------------------------------------------- o link da bio e o anúncio
+
+/**
+ * Mídia paga na UTM. É a MESMA regra de `ehAnuncio` (`pedidos.ts`) e do
+ * `order by` de `origem_resolvida` (0113): mudou uma, mudam as três.
+ */
+export const MIDIA_PAGA = /^(paid|paga?|cpc|cpm|cpv|ppc|ads?|anuncios?|display|pmax|shopping)([_-].*)?$/i;
+
+/**
+ * O cookie com o último anúncio em que o visitante clicou, resumido
+ * (`anuncioParaCookie`). Quem grava é a resposta de `/api/origem`; quem lê é o
+ * script da página da bio (`OrigemDaBio`), que monta o texto dele a partir
+ * destas mesmas constantes.
+ */
+export const COOKIE_DO_ANUNCIO = "jk_ad";
+
+/** O que entra no FIM da mídia quando a chegada pela bio herda as UTMs de um anúncio: `paid` vira `paid_bio`. */
+export const MARCA_DA_BIO = "_bio";
+/** Por quantos dias depois do clique no anúncio a chegada pela bio ainda é dele. A mesma janela da precedência (0113). */
+export const DIAS_DO_ANUNCIO = 7;
+
+const temAMarca = (medium: string | null | undefined) => (medium ?? "").trim().toLowerCase().endsWith(MARCA_DA_BIO);
+
+/**
+ * A chegada foi pelo link da bio? Vale a página da bio como entrada, e vale a
+ * marca que o próprio Instagram põe em todo link do perfil
+ * (`utm_content=link_in_bio`), que às vezes aponta direto para um produto.
+ */
+export function chegouPelaBio(c: Pick<Chegada, "entrada" | "content" | "medium">): boolean {
+  return /^\/(guias\/)?bio(\/|$)/i.test(c.entrada) || (c.content ?? "").trim().toLowerCase() === "link_in_bio" || temAMarca(c.medium);
+}
+
+/**
+ * Clique em ANÚNCIO de verdade: mídia paga na UTM ou clique do Google Ads.
+ *
+ * `fbclid` não conta, porque o link da bio do Instagram também traz. E a
+ * chegada pela bio que HERDOU as UTMs de um anúncio (mídia terminada em
+ * `_bio`) também não: ela é o eco de um clique, não um clique novo. Sem essa
+ * exceção, quem voltasse pela bio a cada cinco dias seria do anúncio para
+ * sempre.
+ */
+export function ehCliqueDeAnuncio(c: { canal: string | null; medium: string | null; clique: string | null }): boolean {
+  if (temAMarca(c.medium)) return false;
+  return MIDIA_PAGA.test((c.medium ?? "").trim()) || c.canal === "google_ads" || /^(gclid|gbraid|wbraid)$/i.test(c.clique ?? "");
+}
+
+/** O clique no anúncio como está guardado em `origem_toques`: o canal vem do banco como texto. */
+export type AnuncioDeAntes = {
+  canal: string | null;
+  source: string | null;
+  medium: string | null;
+  campaign: string | null;
+  content: string | null;
+  term: string | null;
+  ids: string[] | null;
+};
+
+const ehCanal = (c: string | null): c is CanalDeChegada => c !== null && Object.prototype.hasOwnProperty.call(NOME_DA_CHEGADA, c);
+
+/**
+ * O clique em anúncio mais recente entre as chegadas do visitante, dentro da
+ * janela. `haDias` é há quantos dias a chegada aconteceu.
+ */
+export function anuncioDeAntes<T extends AnuncioDeAntes & { clique: string | null; haDias: number }>(chegadas: T[]): T | null {
+  let achado: T | null = null;
+  for (const c of chegadas) {
+    if (c.haDias < 0 || c.haDias > DIAS_DO_ANUNCIO || !ehCliqueDeAnuncio(c)) continue;
+    if (!achado || c.haDias < achado.haDias) achado = c;
+  }
+  return achado;
+}
+
+/**
+ * A chegada pelo link da bio de quem clicou num anúncio até sete dias antes.
+ *
+ * O Instagram etiqueta TODO clique no link do perfil do mesmo jeito
+ * (`ig / social / link_in_bio`), venha a pessoa de um anúncio ou não: pelo
+ * endereço não dá para saber. Quem sabe é o site, que reconhece o visitante.
+ * Então a chegada fica com as UTMs do ANÚNCIO (campanha, conjunto e anúncio
+ * intactos, que é o que liga ao item certo) e a mídia ganha `_bio` no fim. O
+ * clique, a página de entrada e o aparelho continuam sendo os desta chegada.
+ */
+export function comOAnuncioDeAntes(bio: Chegada, anuncio: AnuncioDeAntes): Chegada {
+  const midia = (anuncio.medium ?? "").trim() || "cpc";
+  return {
+    ...bio,
+    canal: ehCanal(anuncio.canal) ? anuncio.canal : bio.canal,
+    source: anuncio.source ?? (anuncio.canal === "google_ads" ? "google" : bio.source),
+    medium: `${midia}${MARCA_DA_BIO}`.slice(0, 120),
+    campaign: anuncio.campaign,
+    content: anuncio.content,
+    term: anuncio.term,
+    ids: Array.isArray(anuncio.ids) ? anuncio.ids.filter((n) => typeof n === "string").slice(0, 8) : [],
+    nova: true,
+  };
+}
+
+/**
+ * O anúncio, resumido para caber num cookie que a página da bio consegue ler.
+ * É só para a bio contar ao GA4 a mesma coisa que o painel grava: quem decide o
+ * que vai para o banco é o servidor, olhando o histórico do visitante, e nunca
+ * este cookie (que qualquer um edita no próprio navegador).
+ */
+export function anuncioParaCookie(c: AnuncioDeAntes): string {
+  const p = new URLSearchParams();
+  const por = (k: string, v: string | null | undefined) => {
+    const t = (v ?? "").trim().slice(0, 110);
+    if (t) p.set(k, t);
+  };
+  por("s", c.source ?? (c.canal === "google_ads" ? "google" : null));
+  por("m", (c.medium ?? "").trim() || "cpc");
+  por("c", c.campaign);
+  por("n", c.content);
+  por("t", c.term);
+  por("i", (c.ids ?? [])[0]);
+  return p.toString();
+}
+
 /**
  * A chegada repete a anterior? Recarregar a página do anúncio, ou abrir a
  * mesma campanha em duas abas, não são duas chegadas.

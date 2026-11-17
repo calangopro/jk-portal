@@ -5,8 +5,11 @@ import { ChevronDown, Search } from "lucide-react";
 import { NOME_DA_CHEGADA, type CanalDeChegada } from "@/lib/origem/chegada";
 import {
   agrupar,
+  NOME_DO_TIPO,
   comoLigou,
   ehAnuncio,
+  pelaBio,
+  tipoDaChegada,
   filtrar,
   nivelLigado,
   utmLegivel,
@@ -110,6 +113,7 @@ function Ligacao({ p }: { p: PedidoComOrigem }) {
 
 function CartaoDoPedido({ p }: { p: PedidoComOrigem }) {
   const s = SITUACAO[p.situacao];
+  const tipo = tipoDaChegada(p);
   return (
     <li className="border-b border-border/60 py-3.5 last:border-0">
       <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
@@ -122,8 +126,8 @@ function CartaoDoPedido({ p }: { p: PedidoComOrigem }) {
         <div className="min-w-0">
           <p className="text-sm font-semibold text-ink">{nomeDoCanal(p.canal)}</p>
           <p className="text-[0.7rem] leading-snug text-muted">
-            {p.canal && p.canal !== "direto" ? (ehAnuncio(p) ? "Anúncio" : "Não é anúncio") : null}
-            {p.chegadas > 1 ? `${p.canal && p.canal !== "direto" ? ", " : ""}${p.chegadas} chegadas em 30 dias` : null}
+            {tipo ? NOME_DO_TIPO[tipo] : null}
+            {p.chegadas > 1 ? `${tipo ? ", " : ""}${p.chegadas} chegadas em 30 dias` : null}
           </p>
           {p.etiqueta ? <p className="mt-0.5 text-[0.7rem] leading-snug text-muted [overflow-wrap:anywhere]">Etiqueta da Tray: {p.etiqueta}</p> : null}
         </div>
@@ -180,14 +184,16 @@ export function ListaDeOrigem({
   const [busca, setBusca] = useState(buscaInicial);
   const [soPagos, setSoPagos] = useState(soPagosInicial);
   const [soAnuncio, setSoAnuncio] = useState(false);
+  const [soBio, setSoBio] = useState(false);
   const [abertos, setAbertos] = useState<Set<string>>(new Set());
   const [quantos, setQuantos] = useState(POR_VEZ);
 
   const visiveis = useMemo(() => {
     let l = soPagos ? pedidos.filter((p) => p.situacao === "pago") : pedidos;
     if (soAnuncio) l = l.filter(ehAnuncio);
+    if (soBio) l = l.filter(pelaBio);
     return filtrar(l, busca);
-  }, [pedidos, soPagos, soAnuncio, busca]);
+  }, [pedidos, soPagos, soAnuncio, soBio, busca]);
 
   const grupos = useMemo(() => (aba === "pedido" ? [] : agrupar(visiveis, aba)), [visiveis, aba]);
   const total = aba === "pedido" ? visiveis.length : grupos.length;
@@ -244,6 +250,9 @@ export function ListaDeOrigem({
         </button>
         <button type="button" aria-pressed={soAnuncio} onClick={() => setSoAnuncio((v) => !v)} className={`${filtro} ${soAnuncio ? "border-ink bg-ink text-white" : "border-border bg-white text-ink"}`}>
           Só de anúncio
+        </button>
+        <button type="button" aria-pressed={soBio} onClick={() => setSoBio((v) => !v)} className={`${filtro} ${soBio ? "border-ink bg-ink text-white" : "border-border bg-white text-ink"}`}>
+          Pelo link da bio
         </button>
       </div>
 

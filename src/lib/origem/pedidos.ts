@@ -120,6 +120,90 @@ export function ehAnuncio(p: Pick<Casada, "campanhaId" | "medium" | "clique" | "
   return p.canal === "google_ads" && /^(gclid|gbraid|wbraid)$/i.test(p.clique ?? "");
 }
 
+const COM_A_MARCA_DA_BIO = /_bio$/i;
+
+/**
+ * A chegada passou pelo link da bio? A MESMA regra de `chegouPelaBio`
+ * (`chegada.ts`): a página da bio como entrada, a marca que o Instagram põe em
+ * todo link do perfil (`utm_content=link_in_bio`) ou a mídia terminada em
+ * `_bio`, que é como o site grava a chegada pela bio de quem veio de anúncio.
+ */
+export function pelaBio(p: Pick<Casada, "medium" | "content" | "entrada">): boolean {
+  return (
+    COM_A_MARCA_DA_BIO.test((p.medium ?? "").trim()) ||
+    (p.content ?? "").trim().toLowerCase() === "link_in_bio" ||
+    /^\/(guias\/)?bio(\/|$)/i.test(p.entrada ?? "")
+  );
+}
+
+/** O link da bio separado em dois: de quem veio de anúncio e de quem não veio. */
+export type TipoDeChegada = "anuncio_pela_bio" | "anuncio" | "bio" | "outra";
+
+export const NOME_DO_TIPO: Record<TipoDeChegada, string> = {
+  anuncio_pela_bio: "Anúncio, pelo link da bio",
+  anuncio: "Anúncio",
+  bio: "Link da bio, sem anúncio antes",
+  outra: "Não é anúncio",
+};
+
+/** `null` quando não há chegada, ou quando ela é acesso direto: aí não há o que classificar. */
+export function tipoDaChegada(p: Pick<Casada, "campanhaId" | "medium" | "clique" | "canal" | "content" | "entrada">): TipoDeChegada | null {
+  if (!p.canal || p.canal === "direto") return null;
+  const bio = pelaBio(p);
+  if (ehAnuncio(p)) return bio ? "anuncio_pela_bio" : "anuncio";
+  return bio ? "bio" : "outra";
+}
+
+/**
+ * As chegadas pelo link da bio no período, e quantas são de quem clicou num
+ * anúncio nos sete dias antes (`chegadas_pela_bio`, 0114). São CHEGADAS, não
+ * pedidos: é o que responde "a bio está trazendo gente de anúncio ou gente que
+ * já seguia a loja" antes de existir venda para contar.
+ */
+export type ChegadasPelaBio = {
+  chegadas: number;
+  visitantes: number;
+  deAnuncio: number;
+  visitantesDeAnuncio: number;
+  semAnuncio: number;
+  /** Os anúncios de onde essas pessoas vieram, pelo nome da campanha na UTM. Vazio quando a UTM não trouxe campanha. */
+  porCampanha: { campanha: string; chegadas: number; visitantes: number }[];
+};
+
+export function lerChegadasPelaBio(v: unknown): ChegadasPelaBio | null {
+  if (!v || typeof v !== "object") return null;
+  const o = v as Record<string, unknown>;
+  const n = (x: unknown) => Math.max(0, Math.round(Number(x) || 0));
+  const chegadas = n(o.chegadas);
+  const deAnuncio = Math.min(n(o.de_anuncio), chegadas);
+  return {
+    chegadas,
+    visitantes: n(o.visitantes),
+    deAnuncio,
+    visitantesDeAnuncio: n(o.visitantes_de_anuncio),
+    semAnuncio: chegadas - deAnuncio,
+    porCampanha: (Array.isArray(o.por_campanha) ? o.por_campanha : [])
+      .map((c) => {
+        const l = (c ?? {}) as Record<string, unknown>;
+        return { campanha: utmLegivel(texto(l.campanha)) ?? "", chegadas: n(l.chegadas), visitantes: n(l.visitantes) };
+      })
+      .filter((c) => c.chegadas > 0),
+  };
+}
+
+/** Os pedidos pagos que chegaram pelo link da bio, nos dois tipos. */
+export function pagosPelaBio(pedidos: PedidoComOrigem[]): { deAnuncio: number; semAnuncio: number } {
+  let deAnuncio = 0;
+  let semAnuncio = 0;
+  for (const p of pedidos) {
+    if (p.situacao !== "pago") continue;
+    const tipo = tipoDaChegada(p);
+    if (tipo === "anuncio_pela_bio") deAnuncio += 1;
+    else if (tipo === "bio") semAnuncio += 1;
+  }
+  return { deAnuncio, semAnuncio };
+}
+
 export type NivelLigado = "anuncio" | "conjunto" | "campanha" | null;
 
 /** Até onde a UTM foi ligada. */
@@ -141,13 +225,24 @@ export function comoLigou(p: Casada): string {
   if (!p.ligado) return "O painel não sabe quem é o visitante deste pedido, então não há chegada para ligar.";
   if (!p.canal) return "O visitante é conhecido, mas não há chegada dele nos trinta dias antes do pedido.";
   if (p.canal === "direto") return "Todas as chegadas deste visitante foram diretas, sem UTM nem site de origem.";
-  if (!ehAnuncio(p)) return "A chegada não é de anúncio (mídia orgânica, link da bio ou outro site).";
+  const bio = pelaBio(p);
+  if (!ehAnuncio(p)) {
+    return bio
+      ? "Chegou pelo link da bio, e este visitante não tinha clicado em anúncio nos sete dias antes."
+      : "A chegada não é de anúncio (mídia orgânica ou outro site).";
+  }
+  // Pela bio há dois caminhos: o anúncio que leva direto para lá, e quem clicou num anúncio e voltou pelo link do perfil.
+  const passagem = !bio
+    ? ""
+    : COM_A_MARCA_DA_BIO.test((p.medium ?? "").trim())
+      ? "Clicou num anúncio e depois chegou pelo link da bio: as UTMs são as do anúncio, com _bio no fim da mídia. "
+      : "O anúncio levou direto para a bio. ";
   const nivel = nivelLigado(p);
-  if (!nivel) return "A chegada é de anúncio, mas a UTM não bate com nenhuma campanha lida das plataformas.";
+  if (!nivel) return `${passagem}A chegada é de anúncio, mas a UTM não bate com nenhuma campanha lida das plataformas.`;
   const partes = [`Campanha ${POR[p.campanhaPor ?? "numero"]}`];
   if (p.conjuntoId) partes.push(`conjunto ${POR[p.conjuntoPor ?? "nome"]}`);
   if (p.anuncioId) partes.push(`anúncio ${POR[p.anuncioPor ?? "nome"]}`);
-  const frase = `${partes.join(", ")}.`;
+  const frase = `${passagem}${partes.join(", ")}.`;
   if (nivel === "anuncio") return frase;
   if (p.plataforma === "google") return `${frase} O Google não manda o anúncio no endereço, só a campanha.`;
   const falta = nivel === "campanha" ? "o conjunto e o anúncio" : "o anúncio";
