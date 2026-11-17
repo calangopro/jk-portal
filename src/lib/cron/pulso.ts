@@ -12,7 +12,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
  * Nunca derruba a rotina: o pulso é diagnóstico, e falhar aqui não pode
  * transformar uma rodada boa em erro.
  */
-export type Rotina = "leads" | "publicar" | "catalogo" | "anuncios" | "search-console" | "avaliacoes" | "pedidos-api" | "redes" | "redes-fila";
+export type Rotina = "leads" | "publicar" | "catalogo" | "anuncios" | "search-console" | "avaliacoes" | "pedidos-api" | "redes" | "redes-fila" | "catalogo-detalhes";
 
 export async function registrarPulso(db: SupabaseClient, rotina: Rotina, ok: boolean, detalhe?: string): Promise<void> {
   try {
