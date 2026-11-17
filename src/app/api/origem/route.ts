@@ -61,7 +61,14 @@ export async function POST(request: NextRequest) {
 
   const visitante = visitanteDoCookie(request.cookies.get(COOKIE_DO_VISITANTE)?.value) ?? randomUUID();
   const agente = request.headers.get("user-agent");
-  after(() => registrarRecado(createAdminClient(), visitante, recado, agente));
+  // Os cookies do pixel do Meta e o IP real (o Worker repassa em `x-jk-ip-cliente`, porque a Vercel só vê a
+  // Cloudflare). Só são guardados na página de confirmação do pedido e com o envio ao Meta ligado (0120).
+  const sinais = {
+    fbp: request.cookies.get("_fbp")?.value ?? null,
+    fbc: request.cookies.get("_fbc")?.value ?? null,
+    ip: request.headers.get("x-jk-ip-cliente") || null,
+  };
+  after(() => registrarRecado(createAdminClient(), visitante, recado, agente, sinais));
 
   const resposta = vazio();
   resposta.cookies.set({
