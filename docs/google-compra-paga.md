@@ -109,12 +109,13 @@ Prévia de 17/11/2026, conferida direto em `tray_pedidos` (`npm run google:previ
 | Compras pagas com clique do Google | 2 (R$ 509,80) | 2, mais o que entrar até lá |
 | Pagos desde 13/11 sem clique do Google | 22 (R$ 11.650,23) | |
 
-**Uma decisão para o Filipe:** cada dia de espera tira do alcance os cancelados
-de 54 dias antes. Ligar só a retirada antes de 01/12 salva esses pedidos, mas
-muda o que as campanhas aprendem durante a Black, que é o que ficou combinado
-não mexer. A maioria dos 188 deve voltar `nao_contado`, porque a etiqueta só
-contou os que o Google atribuiu a anúncio; o número de retiradas de verdade só
-aparece depois da primeira rodada valendo.
+**Decidido em 17/11: a retirada espera 01/12, como o resto.** Cada dia de
+espera tira do alcance os cancelados de 54 dias antes, e em 01/12 serão 54
+pedidos (os de 26/09 a 09/10) que não se retiram mais. O Filipe aceitou essa
+perda para não mudar o que as campanhas aprendem durante a Black. A maioria dos
+138 que sobram deve voltar `nao_contado`, porque a etiqueta só contou os que o
+Google atribuiu a anúncio; o número de retiradas de verdade só aparece depois
+da primeira rodada valendo.
 
 ## O que depende do Filipe
 
