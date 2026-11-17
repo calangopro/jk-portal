@@ -46,10 +46,9 @@ contas. A exportação da 26, tirada antes de mexer, está em
 `~/Downloads/GTM-WWT3T789_v26.json` (44 tags, 42 acionadores, 172 variáveis
 mais 27 embutidas).
 
-A versão 26 também mudou a conversão de compra do Google Ads no GTM, o que a
-regra "Não corrigir o `AW-AW-16750399342`" mais abaixo dizia para não fazer.
-A regra ficou como estava, para a decisão não se perder: vale conferir com a
-Conversity se a compra está sendo contada uma vez só.
+A versão 26 também mudou a conversão de compra do Google Ads no GTM: trocou o
+`AW-AW-16750399342` pelo ID e pelo rótulo certos. Conferido em 16/11 que a
+compra é contada uma vez só (seção "Google Ads e Meta, conferidos em 16/11").
 
 ### O fechamento da compra tem política de segurança de conteúdo
 
@@ -64,12 +63,86 @@ resolver. Script carregado do próprio domínio roda, por causa do `'self'`.
 | Ferramenta | Loja | Portal (`/guias` e `/bio`) |
 |---|---|---|
 | GA4 (G-9V89YVR635) | integração nativa da Tray, fila `dataLayerGa4` | carregado pelo código (`Medicao.tsx`), fila `dataLayerGa4` |
-| Google Ads (AW-16750399342) | GTM | GTM |
+| Google Ads (AW-16750399342) | GTM: é a ÚNICA fonte da compra (a Tray não manda nada ao Google Ads) | GTM (só remarketing) |
 | Pinterest (2612456931453) | GTM | GTM |
-| Meta Pixel (364357034958645) | integração nativa da Tray (navegador e API de Conversões); as tags do GTM estão pausadas e sem ID (`0000`) | GTM, pasta "🟡 JK Portal /guias", só em `/guias` e `/bio` |
+| Meta Pixel (364357034958645) | integração "Facebook e Instagram" da Tray, ligada pelo login do Facebook (navegador e API de Conversões); as tags do GTM estão pausadas e sem ID (`0000`). **O pixel do navegador da loja só liga se o envio pelo servidor da Tray der certo** (ver 16/11) | GTM, pasta "🟡 JK Portal /guias", só em `/guias` e `/bio` |
 
 **Nunca despausar as tags da pasta "🟠GA4 V4COMPANY".** O GA4 já chega pelos
 dois lados sem o GTM. Ligar aquelas tags contaria cada visita duas vezes.
+
+## Google Ads e Meta, conferidos em 16/11/2026
+
+Diagnóstico só de leitura, pedido pelo Filipe ("o que tem causado erros no
+Google Ads em marcação"). O relatório inteiro, com os números, fica fora do
+git, em `entregas/marcacao-google-ads-e-meta.md`.
+
+**Google Ads: a etiqueta de compra está certa.** No `gtm.js` publicado existe
+uma etiqueta de conversão só, a "Acompanhamento de conversões do Google Ads":
+conversão `16750399342`, rótulo `j5D-CJyNnpwcEO6em7M-`, valor
+`ecommerce.purchase.actionField.revenue`, moeda `BRL`, número do pedido
+`ecommerce.purchase.actionField.id`, acionador `purchase` e a exceção de
+pagamento recusado. Esse rótulo é o da única ação principal de compra da conta,
+que se chama "Conversão automática tray - Não Remover (1776189228867)": o nome
+engana, quem alimenta é o GTM. No carrinho e no fechamento não há código nativo
+da Tray para o Google.
+
+Os alertas de "Configuração incorreta" no Google Ads não são da etiqueta:
+
+- a ação antiga do app da Tray, "Conversão automática Tray - Não remover
+  (1729622898665)", rótulo `btMMCPmMuuAZEO6em7M-`, secundária, que ninguém
+  manda desde a versão 26 ("Conversion has not received tag pings in the last
+  7 days");
+- as metas "Lead telefônico", "Download" e "Leads de mensagens", marcadas como
+  padrão da conta sem nenhuma ação principal.
+
+Nenhuma das duas conta compra a mais.
+
+**O que infla os números não é etiqueta.** O `purchase` da Tray sai quando o
+pedido é CRIADO, e a exceção só barra o cartão recusado que aparece na mesma
+tela. Pix e boleto não pagos e o cartão que cai depois contam como compra,
+no Google e no Meta.
+
+**Meta: a loja parou de mandar eventos em 15/11, entre 16h e 17h.** A
+integração da Tray (`facebook-conversion.js`) manda cada evento primeiro para o
+servidor dela (`/mvc/store/facebook_conversions/event/send`, que repassa para a
+API de Conversões) e **só inicia o pixel do navegador se esse envio der
+certo**. Desde o corte o servidor responde 400, erro 190 do Meta ("The access
+token could not be decrypted"), e `/nocache/facebook-info.php` traz
+"Error validating application. Application has been deleted.": o aplicativo
+do Meta que a integração usa foi apagado. Sem ele, a loja não manda nada ao
+Meta, nem pelo navegador. O PageView que segue chegando ao pixel é o do portal
+e da bio, pelo GTM.
+
+**A falha é da Tray, não da JK.** Na noite de 16/11, 15 lojas Tray públicas
+com essa integração (cada uma com o próprio pixel, várias anunciando no Meta
+naquela hora) davam exatamente o mesmo erro, conferido no navegador e por
+chamada direta sem cookie a `/nocache/facebook-info.php`. Nenhuma loja com a
+integração funcionando foi encontrada. O script da Tray
+(`facebook-conversion.js`) não muda desde 27/08, então a quebra é do servidor
+da Tray ou do aplicativo dela no Meta. Não houve mudança no conjunto de dados da JK nesse dia (o histórico do
+Gerenciador de Eventos não tem nada em 15/11). A integração não usa token
+colado: ela é ligada em "Marketing, Facebook e Instagram" pelo login do
+Facebook, escolhendo portfólio, página, Instagram, catálogo, conta de anúncios
+e pixel. O conserto é da Tray (chamado), e só ela diz se a loja precisa
+reiniciar a integração depois. **Não desativar nem refazer a integração por
+conta própria**: ela também carrega o catálogo e a loja do Facebook e do
+Instagram, e a própria Tray avisa que remover tira os produtos.
+
+**Não ligar as tags da pasta "🔵FACEBOOK V4 COMPANY" para cobrir o buraco**:
+quando a Tray voltar, a loja passaria a mandar tudo em dobro. Uma ponte pelo
+GTM só serve se disparar APENAS quando o pixel da Tray não iniciou. Para
+conferir a volta, na home da loja: o console sem "Couldn't send event",
+`/nocache/facebook-info.php` sem `authentication_error`, e
+`fbq.getState().pixels` com o pixel.
+
+**Não existe GTM de servidor ligado à loja.** A conta do GTM tem só dois
+contêineres de site (`GTM-WWT3T789` e o antigo `GTM-NWWGSTGS`, que não está na
+loja), o Meta só recebe do navegador e da "API de Conversões via Tray", e o
+endereço `track.jkaliancas.com.br` (registro de DNS de agosto, época da V4)
+aponta para uma máquina do Google Cloud que responde "404 page not found" para
+tudo, sem certificado válido. O único sinal de servidor fora da Tray foi o
+evento personalizado `CompraPaga` (39 eventos de 18/10 a 02/11, depois parou),
+com a conversão personalizada "Compra Paga"; quem mandava não aparece no Meta.
 
 ## O que o portal manda para o `dataLayer`
 
@@ -106,12 +179,16 @@ Vêm do Trello (quadro "🧠 JK Alianças | ADM") e valem para qualquer pessoa o
   conferir "Alterações no espaço de trabalho: 0", senão a mudança de outra
   pessoa vai junto na publicação.
 - Mudança no GTM só com aprovação do Filipe.
-- **Não corrigir o `AW-AW-16750399342` (WM-025).** A conversão de compra que
-  vale é a da integração nativa da Tray, com o ID certo. A do GTM é uma segunda
-  conversão, e consertá-la contaria a venda em dobro. A proposta registrada é
-  pausar as tags de Google Ads do GTM, não corrigir. O sinal de compra parado
-  desde 17/09 é outra coisa: o app Google Ads da Tray desconectou, e a
-  reconexão está com a Tray. Ninguém clica em "Comece já" no app da Tray.
+- **A compra do Google Ads é a etiqueta do GTM, e só ela.** A regra antiga
+  (WM-025, "não corrigir o `AW-AW-16750399342`, a compra que vale é a nativa da
+  Tray") venceu em 26/09: a versão 26 corrigiu o ID e o rótulo, e a integração
+  nativa da Tray não manda mais nada ao Google Ads. **Não pausar** a etiqueta
+  "Acompanhamento de conversões do Google Ads": ela é a ação principal de
+  compra de todas as campanhas.
+- **Não reconectar o app Google Ads da Tray** (nada de "Comece já" no app)
+  sem decidir antes qual fonte fica. Em abril de 2026 ele criou uma ação de
+  compra nova; se fizer de novo, serão duas ações principais e a venda conta
+  em dobro.
 - As "2 atualizações de modelo" que o GTM oferece não foram aceitas de
   propósito.
 
@@ -124,8 +201,9 @@ carrega no portal e já faz sozinho:
 - **Pinterest**: a tag base e o Page Visit rodam em todas as páginas do
   domínio, `/guias` incluído. Quem lê as dicas já entra no público do
   Pinterest (público por URL que contenha `/guias`).
-- **Google Ads**: o remarketing roda no portal, mas com o `AW-AW-` acima, e a
-  tag nativa da Tray não roda no portal. Para público do Google Ads com quem
+- **Google Ads**: o remarketing roda no portal com o ID certo (desde a versão
+  26), e a conversão de compra só dispara no evento `purchase` da loja. Para
+  público do Google Ads com quem
   leu o portal, o caminho é um público do GA4 ("visitou /guias"), que passa
   para o Google Ads pelo vínculo entre os dois.
 
@@ -297,6 +375,75 @@ filtrando a URL por `/guias`.
 Para voltar: Versões, versão 24, Publicar. Ou pausar as três tags da pasta
 "🟡 JK Portal /guias" e publicar. A exportação da versão 24 é
 `GTM-WWT3T789_workspace27.json`, de 24/09.
+
+## Pixel do Meta da loja pelo GTM (liga em 01/12)
+
+**Estado em 17/11/2026: preparado em arquivo, NÃO importado e NÃO publicado.**
+É a parte do navegador da medição pelo painel (`docs/medicao-pelo-painel.md`):
+quando a integração da Tray sair, o pixel da loja passa a ser este, e a parte
+do servidor é o envio do painel (cartão "Meta, compra da loja pelo servidor",
+em Integrações).
+
+O arquivo é `loja-meta.json`, gerado por script e conferido com dados de
+exemplo (o JavaScript de cada variável rodou no Node, o número do evento é o
+mesmo do servidor e todas as etiquetas estão pausadas). Importar com
+**Combinar** e "Renomear itens em conflito" (nunca Substituir). Entra tudo
+numa pasta nova, "🟣 JK Loja Meta (liga em 01/12)":
+
+| Etiqueta (pausada) | Quando | O que leva |
+|---|---|---|
+| JK Loja Meta - PageView | toda página, menos `/guias`, `/bio`, `/grupo` e `/qrcode` (que têm o pixel do portal) | nada |
+| JK Loja Meta - ViewContent | página de produto (`pageCategory` = Produto) | código do produto, nome e preço |
+| JK Loja Meta - AddToCart | `jk_add_to_cart` do tema | código, quantidade e valor |
+| JK Loja Meta - InitiateCheckout | etapa 1 do fechamento com produtos (o mesmo acionador do Pinterest) | códigos, peças e valor |
+| JK Loja Meta - Search | página de busca | o termo buscado |
+| JK Loja Meta - Purchase | `purchase` com número de pedido | códigos, peças, valor e o número do pedido, com ID do evento `pedido-{{OrderID}}` |
+
+**O ID do evento da compra é o que evita compra em dobro.** O painel manda a
+mesma compra pelo servidor com `pedido-<número>` (`idDoEvento` em
+`src/lib/meta/compra.ts`), e o Meta junta as duas. Mudou um lado, muda o outro.
+
+**O código do produto é o da Tray**, o mesmo `g:id` do catálogo: na página do
+produto 47 o `dataLayer` traz `idProduct: "47"` (conferido em 17/11). O do
+carrinho, do fechamento e da compra vem do mesmo campo `id` que o Pinterest já
+usa, e precisa ser conferido no Visualizar no dia (no Meta, "Eventos de teste"
+mostra os `content_ids`).
+
+**A compra do cartão recusado NÃO é barrada aqui**, ao contrário do Google: o
+servidor manda a Purchase de todo pedido criado e não sabe do recusado, e uma
+compra que só chega pelo servidor conta do mesmo jeito. No Meta, Purchase é
+"pedido criado", como era na Tray; o pago é a `CompraPaga`, que só sai do
+servidor. Quem quiser otimizar por venda paga troca o evento da campanha.
+
+**Usa variáveis que já existem no contêiner** e não estão no arquivo:
+`OrderData`, `OrderID`, `transactionTotal`, `JK CHK - produtos`,
+`JK CHK - valor`, `JK ATC - dados`, `JK ATC - valor`, `dtl - idProduct`,
+`dtl - nameProduct`, `dtl - priceSell`, `dtl - siteSearchTerm`,
+`dtl - pageCategory`, `dtl - step - checkout` e `Event ID`. Se alguma tiver sido
+apagada ou renomeada, o Visualizar mostra a etiqueta sem o valor.
+
+Sem correspondência avançada no navegador (o e-mail e o telefone vão pelo
+servidor, em SHA-256). Ligar isso é decisão à parte, junto da política de
+privacidade.
+
+### No dia
+
+1. Aba Versões: a ativa precisa ser a mais recente.
+2. **O pixel da Tray desligado antes.** Ela gera números de evento próprios: com
+   os dois ligados, cada PageView, ViewContent e compra conta duas vezes. Para
+   conferir, na home da loja: nenhum `facebook-conversion.js` iniciando o pixel
+   (`fbq.getState().pixels` vazio antes do GTM) e o
+   `/nocache/facebook-info.php` sem pixel.
+3. Importar `loja-meta.json` num espaço de trabalho novo, despausar as seis
+   etiquetas, Visualizar na loja: um PageView por página, ViewContent no
+   produto, AddToCart, InitiateCheckout e, numa compra de verdade feita por
+   alguém da casa, a Purchase com `pedido-<número>`.
+4. Publicar com o cartão no RELATÓRIO DE MUDANÇAS, como manda a regra da casa.
+5. Em Integrações, o envio do servidor em teste, conferir em Eventos de teste
+   que a compra chega dos dois lados com o mesmo número e aparece como
+   desduplicada, e só então ligar.
+
+**Para voltar:** pausar as seis etiquetas da pasta e publicar.
 
 ## Espaços de trabalho
 

@@ -99,6 +99,11 @@ export const ROTINAS: Rotina[] = [
   { chave: "gasto-meta", origem: "leitura", id: "anuncios_meta", nome: "Gasto do Meta", paraQue: "Lê quanto foi gasto em anúncio no Meta, de hora em hora.", tolerancia: 4 * HORA, seParar: "Confira o token do Meta em Integrações." },
   { chave: "gasto-google", origem: "leitura", id: "anuncios_google", nome: "Gasto do Google Ads", paraQue: "Lê quanto foi gasto em anúncio no Google, de hora em hora.", tolerancia: 4 * HORA, seParar: AVISAR },
   {
+    chave: "meta-loja", origem: "pulso", id: "meta-loja", nome: "Compras para o Meta",
+    paraQue: "Manda ao Meta, pelo servidor, a compra da loja e a compra paga, de 10 em 10 minutos. Desligada até ligar em Integrações.",
+    tolerancia: HORA, seParar: "Abra o cartão do Meta em Integrações: o token ou o código de teste pode estar faltando.",
+  },
+  {
     chave: "leads", origem: "pulso", id: "leads", nome: "Reenvio de contatos", paraQue: "Tenta de novo, a cada 10 minutos, o contato que não chegou ao destino.", tolerancia: HORA, seParar: AVISAR,
     sobDemanda: { fila: "leads_esperando", um: "contato espera reenvio", varios: "contatos esperam reenvio" },
   },
