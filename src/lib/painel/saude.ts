@@ -113,6 +113,11 @@ export const ROTINAS: Rotina[] = [
     paraQue: "Publica nas redes o que foi agendado, olhando de minuto em minuto.", tolerancia: 30, seParar: AVISAR,
     sobDemanda: { fila: "redes_vencidos", um: "post agendado para as redes já passou da hora", varios: "posts agendados para as redes já passaram da hora" },
   },
+  {
+    chave: "google-conversoes", origem: "pulso", id: "google-conversoes", nome: "Compras no Google Ads",
+    paraQue: "Retira do Google Ads o pedido cancelado e manda a compra paga de quem veio por anúncio do Google, de 15 em 15 minutos.",
+    tolerancia: 90, seParar: "Abra docs/google-compra-paga.md: o último erro diz se falta acesso de edição da conta de serviço ou o número da ação.",
+  },
 ];
 
 const DESTINOS: Record<string, { nome: string; paraQue: string }> = {
