@@ -65,7 +65,7 @@ resolver. Script carregado do próprio domínio roda, por causa do `'self'`.
 | GA4 (G-9V89YVR635) | integração nativa da Tray, fila `dataLayerGa4` | carregado pelo código (`Medicao.tsx`), fila `dataLayerGa4` |
 | Google Ads (AW-16750399342) | GTM: é a ÚNICA fonte da compra (a Tray não manda nada ao Google Ads) | GTM (só remarketing) |
 | Pinterest (2612456931453) | GTM | GTM |
-| Meta Pixel (364357034958645) | integração nativa da Tray (navegador e API de Conversões); as tags do GTM estão pausadas e sem ID (`0000`). **O pixel do navegador da loja depende do token da API de Conversões colado na Tray** (ver 16/11) | GTM, pasta "🟡 JK Portal /guias", só em `/guias` e `/bio` |
+| Meta Pixel (364357034958645) | integração "Facebook e Instagram" da Tray, ligada pelo login do Facebook (navegador e API de Conversões); as tags do GTM estão pausadas e sem ID (`0000`). **O pixel do navegador da loja só liga se o envio pelo servidor da Tray der certo** (ver 16/11) | GTM, pasta "🟡 JK Portal /guias", só em `/guias` e `/bio` |
 
 **Nunca despausar as tags da pasta "🟠GA4 V4COMPANY".** O GA4 já chega pelos
 dois lados sem o GTM. Ligar aquelas tags contaria cada visita duas vezes.
@@ -108,16 +108,37 @@ servidor dela (`/mvc/store/facebook_conversions/event/send`, que repassa para a
 API de Conversões) e **só inicia o pixel do navegador se esse envio der
 certo**. Desde o corte o servidor responde 400, erro 190 do Meta ("The access
 token could not be decrypted"), e `/nocache/facebook-info.php` traz
-"Application has been deleted": o aplicativo dono do token foi apagado. Sem
-token, a loja não manda nada ao Meta, nem pelo navegador. O PageView que segue
-chegando ao pixel é o do portal e da bio, pelo GTM.
+"Error validating application. Application has been deleted.": o aplicativo
+do Meta que a integração usa foi apagado. Sem ele, a loja não manda nada ao
+Meta, nem pelo navegador. O PageView que segue chegando ao pixel é o do portal
+e da bio, pelo GTM.
 
-O conserto é fora do GTM: gerar um token novo da API de Conversões para o
-pixel `364357034958645` no Gerenciador de Eventos e colar na integração do
-Facebook da Tray. **Não ligar as tags da pasta "🔵FACEBOOK V4 COMPANY" para
-cobrir o buraco**: quando o token voltar, a loja passaria a mandar tudo em
-dobro. Para conferir, na home da loja: o console sem "Couldn't send event", e
+**A falha é da Tray, não da JK.** No mesmo dia, duas outras lojas Tray com a
+mesma integração (lojas públicas, cada uma com o próprio pixel) davam exatamente o mesmo
+erro. Não houve mudança no conjunto de dados da JK nesse dia (o histórico do
+Gerenciador de Eventos não tem nada em 15/11). A integração não usa token
+colado: ela é ligada em "Marketing, Facebook e Instagram" pelo login do
+Facebook, escolhendo portfólio, página, Instagram, catálogo, conta de anúncios
+e pixel. O conserto é da Tray (chamado), e só ela diz se a loja precisa
+reiniciar a integração depois. **Não desativar nem refazer a integração por
+conta própria**: ela também carrega o catálogo e a loja do Facebook e do
+Instagram, e a própria Tray avisa que remover tira os produtos.
+
+**Não ligar as tags da pasta "🔵FACEBOOK V4 COMPANY" para cobrir o buraco**:
+quando a Tray voltar, a loja passaria a mandar tudo em dobro. Uma ponte pelo
+GTM só serve se disparar APENAS quando o pixel da Tray não iniciou. Para
+conferir a volta, na home da loja: o console sem "Couldn't send event",
+`/nocache/facebook-info.php` sem `authentication_error`, e
 `fbq.getState().pixels` com o pixel.
+
+**Não existe GTM de servidor ligado à loja.** A conta do GTM tem só dois
+contêineres de site (`GTM-WWT3T789` e o antigo `GTM-NWWGSTGS`, que não está na
+loja), o Meta só recebe do navegador e da "API de Conversões via Tray", e o
+endereço `track.jkaliancas.com.br` (registro de DNS de agosto, época da V4)
+aponta para uma máquina do Google Cloud que responde "404 page not found" para
+tudo, sem certificado válido. O único sinal de servidor fora da Tray foi o
+evento personalizado `CompraPaga` (39 eventos de 18/10 a 02/11, depois parou),
+com a conversão personalizada "Compra Paga"; quem mandava não aparece no Meta.
 
 ## O que o portal manda para o `dataLayer`
 

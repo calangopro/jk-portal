@@ -801,9 +801,11 @@ segredo não depender do Worker. O SQL faz `url || '/api/cron/publicar'`.
 ⚠️ **Pendências:** **Supabase ainda com Site URL da Vercel e SMTP de teste** (só entrega
 para membro do time do projeto no Supabase), ver `docs/acesso-e-medicao.md`. O `AW-AW-16750399342` do GTM não existe mais
 (versão 26): a etiqueta de compra do GTM é a ÚNICA fonte da compra no Google Ads e não se
-pausa. **Desde 15/11 a loja não manda nada ao Meta** (token da API de Conversões da
-integração da Tray morto, e o pixel da Tray só liga depois do envio pelo servidor); conserto
-e regras do contêiner em `infra/gtm/README.md`, seção de 16/11. **Desligar o cadastro público no painel do Supabase**
+pausa. **Desde 15/11 a loja não manda nada ao Meta**: falha GERAL da integração
+"Facebook e Instagram" da Tray (o aplicativo do Meta que ela usa foi apagado; outras lojas
+Tray dão o mesmo erro), e o pixel da Tray só liga depois do envio pelo servidor. O conserto é
+chamado na Tray, não refazer a integração por conta própria; detalhes e regras do contêiner
+em `infra/gtm/README.md`, seção de 16/11. **Desligar o cadastro público no painel do Supabase**
 (Authentication → Sign In / Providers → "Allow new users to sign up"), que hoje
 está ligado e é a única parte da falha de 0020 que não dá para fechar por
 migration. Trocar a senha temporária do master e rotacionar a chave da OpenAI.
