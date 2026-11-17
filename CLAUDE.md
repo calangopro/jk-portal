@@ -799,9 +799,11 @@ escrito no Worker; se mudar, ajustar `infra/cloudflare/worker.js` e republicar.
 segredo não depender do Worker. O SQL faz `url || '/api/cron/publicar'`.
 ⚠️ **A primeira montagem da prévia na Vercel às vezes falha em cerca de 20 segundos**, antes de o build terminar e sem motivo que se repita (PRs 57 e 59; a mesma árvore passa na segunda vez e o build limpo passa aqui). Um commit vazio dispara de novo. O log só abre com login na Vercel (`npx vercel inspect <id> --logs`), e ninguém leu ainda: a suspeita é a busca das fontes do `next/font/google` na hora do build. **A mesma falha apareceu no build LOCAL em 16/11**, e ali o motivo estava escrito: `An error occurred in next/font`, com `TypeError: Cannot read properties of null (reading '1')` dentro do carregador do Google, em `src/app/layout.tsx`, e "Build failed because of webpack errors" segundos depois de começar. Rodar de novo passou, sem mudar nada. Então, build que morre no começo com erro de `next/font` é a rede das fontes, não o código.
 ⚠️ **Pendências:** **Supabase ainda com Site URL da Vercel e SMTP de teste** (só entrega
-para membro do time do projeto no Supabase), ver `docs/acesso-e-medicao.md`. O `AW-AW-16750399342` do GTM é
-conhecido e **não se corrige** (Trello WM-025: contaria compra em dobro com a conversão
-nativa da Tray); regras do contêiner em `infra/gtm/README.md`. **Desligar o cadastro público no painel do Supabase**
+para membro do time do projeto no Supabase), ver `docs/acesso-e-medicao.md`. O `AW-AW-16750399342` do GTM não existe mais
+(versão 26): a etiqueta de compra do GTM é a ÚNICA fonte da compra no Google Ads e não se
+pausa. **Desde 15/11 a loja não manda nada ao Meta** (token da API de Conversões da
+integração da Tray morto, e o pixel da Tray só liga depois do envio pelo servidor); conserto
+e regras do contêiner em `infra/gtm/README.md`, seção de 16/11. **Desligar o cadastro público no painel do Supabase**
 (Authentication → Sign In / Providers → "Allow new users to sign up"), que hoje
 está ligado e é a única parte da falha de 0020 que não dá para fechar por
 migration. Trocar a senha temporária do master e rotacionar a chave da OpenAI.
