@@ -376,6 +376,75 @@ Para voltar: Versões, versão 24, Publicar. Ou pausar as três tags da pasta
 "🟡 JK Portal /guias" e publicar. A exportação da versão 24 é
 `GTM-WWT3T789_workspace27.json`, de 24/09.
 
+## Pixel do Meta da loja pelo GTM (liga em 01/12)
+
+**Estado em 17/11/2026: preparado em arquivo, NÃO importado e NÃO publicado.**
+É a parte do navegador da medição pelo painel (`docs/medicao-pelo-painel.md`):
+quando a integração da Tray sair, o pixel da loja passa a ser este, e a parte
+do servidor é o envio do painel (cartão "Meta, compra da loja pelo servidor",
+em Integrações).
+
+O arquivo é `loja-meta.json`, gerado por script e conferido com dados de
+exemplo (o JavaScript de cada variável rodou no Node, o número do evento é o
+mesmo do servidor e todas as etiquetas estão pausadas). Importar com
+**Combinar** e "Renomear itens em conflito" (nunca Substituir). Entra tudo
+numa pasta nova, "🟣 JK Loja Meta (liga em 01/12)":
+
+| Etiqueta (pausada) | Quando | O que leva |
+|---|---|---|
+| JK Loja Meta - PageView | toda página, menos `/guias`, `/bio`, `/grupo` e `/qrcode` (que têm o pixel do portal) | nada |
+| JK Loja Meta - ViewContent | página de produto (`pageCategory` = Produto) | código do produto, nome e preço |
+| JK Loja Meta - AddToCart | `jk_add_to_cart` do tema | código, quantidade e valor |
+| JK Loja Meta - InitiateCheckout | etapa 1 do fechamento com produtos (o mesmo acionador do Pinterest) | códigos, peças e valor |
+| JK Loja Meta - Search | página de busca | o termo buscado |
+| JK Loja Meta - Purchase | `purchase` com número de pedido | códigos, peças, valor e o número do pedido, com ID do evento `pedido-{{OrderID}}` |
+
+**O ID do evento da compra é o que evita compra em dobro.** O painel manda a
+mesma compra pelo servidor com `pedido-<número>` (`idDoEvento` em
+`src/lib/meta/compra.ts`), e o Meta junta as duas. Mudou um lado, muda o outro.
+
+**O código do produto é o da Tray**, o mesmo `g:id` do catálogo: na página do
+produto 47 o `dataLayer` traz `idProduct: "47"` (conferido em 17/11). O do
+carrinho, do fechamento e da compra vem do mesmo campo `id` que o Pinterest já
+usa, e precisa ser conferido no Visualizar no dia (no Meta, "Eventos de teste"
+mostra os `content_ids`).
+
+**A compra do cartão recusado NÃO é barrada aqui**, ao contrário do Google: o
+servidor manda a Purchase de todo pedido criado e não sabe do recusado, e uma
+compra que só chega pelo servidor conta do mesmo jeito. No Meta, Purchase é
+"pedido criado", como era na Tray; o pago é a `CompraPaga`, que só sai do
+servidor. Quem quiser otimizar por venda paga troca o evento da campanha.
+
+**Usa variáveis que já existem no contêiner** e não estão no arquivo:
+`OrderData`, `OrderID`, `transactionTotal`, `JK CHK - produtos`,
+`JK CHK - valor`, `JK ATC - dados`, `JK ATC - valor`, `dtl - idProduct`,
+`dtl - nameProduct`, `dtl - priceSell`, `dtl - siteSearchTerm`,
+`dtl - pageCategory`, `dtl - step - checkout` e `Event ID`. Se alguma tiver sido
+apagada ou renomeada, o Visualizar mostra a etiqueta sem o valor.
+
+Sem correspondência avançada no navegador (o e-mail e o telefone vão pelo
+servidor, em SHA-256). Ligar isso é decisão à parte, junto da política de
+privacidade.
+
+### No dia
+
+1. Aba Versões: a ativa precisa ser a mais recente.
+2. **O pixel da Tray desligado antes.** Ela gera números de evento próprios: com
+   os dois ligados, cada PageView, ViewContent e compra conta duas vezes. Para
+   conferir, na home da loja: nenhum `facebook-conversion.js` iniciando o pixel
+   (`fbq.getState().pixels` vazio antes do GTM) e o
+   `/nocache/facebook-info.php` sem pixel.
+3. Importar `loja-meta.json` num espaço de trabalho novo, despausar as seis
+   etiquetas, Visualizar na loja: um PageView por página, ViewContent no
+   produto, AddToCart, InitiateCheckout e, numa compra de verdade feita por
+   alguém da casa, a Purchase com `pedido-<número>`.
+4. Publicar com o cartão no RELATÓRIO DE MUDANÇAS, como manda a regra da casa.
+5. Em Integrações, o envio do servidor em teste, conferir em Eventos de teste
+   que a compra chega dos dois lados com o mesmo número e aparece como
+   desduplicada, e só então ligar.
+
+**Para voltar:** pausar as seis etiquetas da pasta e publicar.
+
 ## Espaços de trabalho
 
 O GTM gratuito dá **3** espaços. O "Default Workspace" não some: apagado, o GTM

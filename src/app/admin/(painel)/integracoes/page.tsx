@@ -18,6 +18,7 @@ import { LigacoesDasRedes } from "@/components/redes/Ligacoes";
 import { estadoDoArmazenamento } from "@/lib/redes/armazenamento";
 import { lerLigacoes } from "@/lib/redes/painel";
 import { CartaoDoArmazenamento } from "./CartaoDoArmazenamento";
+import { CartaoDaCompraNoMeta, type ResumoDaCompraNoMeta } from "./CartaoDaCompraNoMeta";
 import { desligarContaDaRede, ligarRedeComToken, salvarAplicativoDaRede } from "./redes-actions";
 
 export const metadata = { title: "Integrações" };
@@ -67,6 +68,23 @@ export default async function IntegracoesPage({
     ).then((pares) => Object.fromEntries(pares) as Record<Destino, number>),
     chaves.kommo ? funisDaKommo(chaves.kommo) : Promise.resolve(null),
   ]);
+  // A compra da loja pelo servidor (0120): o resumo sai com a sessão de quem olha, sem dado de cliente.
+  const { data: resumoBruto } = await supabase.rpc("meta_resumo_da_loja");
+  const r = (resumoBruto ?? {}) as {
+    modo?: ResumoDaCompraNoMeta["modo"]; desde?: string | null; tem_codigo_de_teste?: boolean; por_estado?: Record<string, number>;
+    ultimo_envio?: string | null; erros?: ResumoDaCompraNoMeta["erros"]; sinais_7_dias?: number;
+  };
+  const resumoDaCompra: ResumoDaCompraNoMeta = {
+    modo: r.modo ?? "desligado",
+    desde: r.desde ?? null,
+    temCodigoDeTeste: Boolean(r.tem_codigo_de_teste),
+    porEstado: r.por_estado ?? {},
+    ultimoEnvio: r.ultimo_envio ?? null,
+    erros: r.erros ?? [],
+    sinais7Dias: r.sinais_7_dias ?? 0,
+    temToken: Boolean(chaves.meta_capi),
+  };
+
   const funilAtual = chaves.kommo?.meta.funil_id
     ? `${chaves.kommo.meta.funil_id}:${chaves.kommo.meta.etapa_id ?? ""}`
     : "";
@@ -145,6 +163,18 @@ export default async function IntegracoesPage({
             contaDeServico={anuncio("google").contaDeServico}
             cliente={CLIENTE_DO_GOOGLE_ADS.replace(/(\d{3})(\d{3})(\d{4})/, "$1-$2-$3")}
           />
+        </div>
+      </section>
+
+      <section className="mt-12 scroll-mt-24" id="medicao">
+        <p className="eyebrow">Medição da loja</p>
+        <h2 className="font-display mt-2 text-2xl text-ink">O que a loja conta às plataformas</h2>
+        <p className="mt-2 max-w-3xl text-sm text-muted">
+          A partir de 01/12/2026 a medição da loja sai do painel, e não mais da integração da Tray, que parou de mandar
+          ao Meta em 15/11. O plano inteiro, com o roteiro do dia de ligar e o caminho de volta, está em docs/medicao-pelo-painel.md.
+        </p>
+        <div className="mt-6 grid gap-5 lg:grid-cols-2">
+          <CartaoDaCompraNoMeta resumo={resumoDaCompra} />
         </div>
       </section>
 

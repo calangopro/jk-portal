@@ -27,7 +27,9 @@ import {
  * prazo que a gente pede; o gravado por script, no iPhone, cai em sete dias (e
  * em um dia quando o endereço traz `fbclid` ou `gclid`), que é justamente o
  * caso de quem chega de anúncio. O cookie não carrega dado nenhum além do
- * número, e nada aqui guarda IP, navegador, nome, telefone ou e-mail.
+ * número, e nada aqui guarda nome, telefone ou e-mail. IP, navegador e os
+ * cookies do pixel do Meta só são guardados na página de confirmação do pedido
+ * e só com o envio ao Meta ligado (`guardarSinais`, 0120), e somem em 30 dias.
  */
 
 export const COOKIE_DO_VISITANTE = "jk_v";
@@ -89,11 +91,41 @@ export function anuncioDoRecado(recado: Recado, agente: string | null): string |
   return chegada && ehCliqueDeAnuncio(chegada) ? anuncioParaCookie(chegada) || null : null;
 }
 
+/** O que só o navegador sabe e o Meta usa para casar a compra com quem viu o anúncio (0120). */
+export type SinaisDoRecado = { fbp?: string | null; fbc?: string | null; ip?: string | null };
+
+const COOKIE_DO_PIXEL = /^fb\.\d\.\d{10,13}\.[A-Za-z0-9_-]{1,500}$/;
+
+/** Cookie do pixel com cara de cookie do pixel; o resto vira nulo. */
+export function cookieDoPixel(valor: string | undefined | null): string | null {
+  return valor && valor.length <= 600 && COOKIE_DO_PIXEL.test(valor) ? valor : null;
+}
+
+/**
+ * Guarda os sinais do navegador junto do número do pedido, para o servidor
+ * mandar a compra ao Meta (`lib/meta/loja.ts`). Só na página de confirmação
+ * (é quando o recado traz o pedido) e só com o envio ao Meta em teste ou
+ * ligado: desligado, o coletor continua sem guardar navegador nem IP.
+ */
+async function guardarSinais(db: SupabaseClient, pedido: number, agente: string | null, sinais: SinaisDoRecado): Promise<void> {
+  const { data: config } = await db.from("meta_loja_config").select("modo").eq("id", true).maybeSingle();
+  if (!config || config.modo === "desligado") return;
+  const linha = {
+    pedido,
+    fbp: cookieDoPixel(sinais.fbp),
+    fbc: cookieDoPixel(sinais.fbc),
+    navegador: agente ? agente.slice(0, 500) : null,
+    ip: sinais.ip ? sinais.ip.slice(0, 64) : null,
+  };
+  const { error } = await db.from("meta_sinais").upsert(linha, { onConflict: "pedido", ignoreDuplicates: true });
+  if (error) console.error("[origem] sinais do pedido não gravados:", error.message);
+}
+
 /**
  * Grava o que o recado do navegador traz. Nunca lança: o coletor não pode
  * derrubar página de ninguém, e um recado perdido é só uma chegada a menos.
  */
-export async function registrarRecado(db: SupabaseClient, visitante: string, recado: Recado, agente: string | null): Promise<void> {
+export async function registrarRecado(db: SupabaseClient, visitante: string, recado: Recado, agente: string | null, sinais: SinaisDoRecado = {}): Promise<void> {
   try {
     if (ehRobo(agente)) return;
     const sessao = sessaoValida(recado.s);
@@ -138,6 +170,7 @@ export async function registrarRecado(db: SupabaseClient, visitante: string, rec
     if (pedido) {
       const { error } = await db.from("origem_pedidos").upsert({ pedido, visitante, sessao }, { onConflict: "pedido", ignoreDuplicates: true });
       if (error) console.error("[origem] pedido não gravado:", error.message);
+      await guardarSinais(db, pedido, agente, sinais);
     }
   } catch (e) {
     console.error("[origem] recado perdido:", e instanceof Error ? e.message : e);
