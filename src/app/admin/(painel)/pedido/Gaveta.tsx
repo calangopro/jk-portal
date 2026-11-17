@@ -18,7 +18,7 @@ import { SeloDeTom } from "../Pecas";
 import { botaoCheio, botaoClaro } from "../biblioteca/pecas";
 import { CascaDoHistorico } from "./Casca";
 import { OrigemDoPedido } from "./Origem";
-import { fecharHistoricoDoPedido } from "./abrir";
+import { avisarQueOPedidoMudou, fecharHistoricoDoPedido } from "./abrir";
 
 /**
  * A gaveta do histórico do pedido. Tudo vem de UMA função do banco
@@ -148,6 +148,7 @@ export function Historico({ h, recarregar }: { h: HistoricoDoPedido; recarregar:
     setOcupado(false);
     if (!r.ok) return setErro(r.erro);
     setOutro("");
+    avisarQueOPedidoMudou();
     await recarregar();
   };
 

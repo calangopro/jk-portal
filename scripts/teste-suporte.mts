@@ -13,6 +13,10 @@ import {
 } from "../src/lib/suporte/casos.ts";
 import { TEMAS } from "../src/lib/time/biblioteca.ts";
 import { lerHistorico, lerNumeroDoPedido, pessoasDoPedido, textoDoEvento, type EventoDoPedido } from "../src/lib/pedidos/historico.ts";
+import {
+  FILTROS, INICIO_DOS_PEDIDOS, PERIODOS_DO_PEDIDO, donoDoPedido, intervaloDoPedido, lerFiltro, lerMeuMes, lerPedidosDoSite, lerPeriodoDoPedido, nomeDoMes,
+  pecasEmPalavra, podeEscolherNaLeva, totalDoMes,
+} from "../src/lib/pedidos/do-site.ts";
 import { SETORES, setoresDe } from "../src/lib/painel/setores.ts";
 
 let falhas = 0;
@@ -196,6 +200,38 @@ console.log("\nO histórico do pedido (0103)");
   confere("o valor só aparece quando o banco manda", outros[2].detalhe?.replace(/\s/g, " ") === "R$ 1.500,00. Pagou no Pix" && outros[3].detalhe === "Pix", outros[2].detalhe ?? "");
   confere("nenhum texto do histórico tem travessão", ![...textos, ...outros].some((t) => /[—–]/.test(`${t.titulo} ${t.detalhe ?? ""}`)));
   confere("o número do pedido digitado", lerNumeroDoPedido(" #12345 ") === 12345 && lerNumeroDoPedido("12a") === null && lerNumeroDoPedido("0") === null);
+}
+
+console.log("\nOs pedidos do site (0105)");
+{
+  confere("30 dias", JSON.stringify(intervaloDoPedido("30d", "2026-11-17")) === JSON.stringify({ de: "2026-10-18", ate: "2026-11-17" }));
+  confere("este mês", JSON.stringify(intervaloDoPedido("mes", "2026-11-17")) === JSON.stringify({ de: "2026-11-01", ate: "2026-11-17" }));
+  confere("mês passado, inclusive em janeiro", JSON.stringify(intervaloDoPedido("mes_passado", "2027-01-05")) === JSON.stringify({ de: "2026-12-01", ate: "2026-12-31" }));
+  confere("desde maio é o começo dos pedidos no painel", intervaloDoPedido("tudo", "2026-11-17").de === INICIO_DOS_PEDIDOS);
+  confere("período e filtro desconhecidos voltam ao padrão", lerPeriodoDoPedido("x") === "30d" && lerFiltro("x") === "sem_vendedor");
+  const l = lerPedidosDoSite({
+    eu: "u1", de: "2026-10-18", ate: "2026-11-17", busca: "texto", encontrados: 2, pode: { atribuir: false, ve_valor: false }, vendedores: null,
+    pedidos: [
+      { numero: 11, dia: "2026-11-10", cliente: "Cliente Inventado", cidade: "Cidade", uf: "SP", pecas: ["Par A", "Caixinha", "Brinde"], n_pecas: 4, vendedor: null, meu: false, total: null },
+      { numero: 12, dia: "2026-11-11", pecas: [], n_pecas: 0, vendedor: { id: "u1", nome: "Pessoa Vendedora" }, so_por_fora: true, meu: true, total: 1299.9 },
+      { numero: 0 },
+    ],
+  });
+  confere("lê a lista e descarta o pedido sem número", l !== null && l.pedidos.length === 2 && l.busca === "texto" && l.vendedores.length === 0);
+  const [a, b] = l?.pedidos ?? [];
+  confere("sem vendedor e sem valor", donoDoPedido(a).palavra === "Sem vendedor" && a.total === null);
+  confere("o pedido da pessoa diz que é dela e de onde veio", donoDoPedido(b).palavra === "Sua venda (por fora)" && donoDoPedido(b).tom === "bom" && b.total === 1299.9);
+  confere("o de outra pessoa diz o primeiro nome", donoDoPedido({ vendedor: { id: "u2", nome: "Ana Teste" }, meu: false, soPorFora: false }).palavra === "Venda de Ana");
+  confere("na leva só entra o pedido sem vendedor", podeEscolherNaLeva(a, false) && !podeEscolherNaLeva(b, false));
+  confere("quem pode marcar outra pessoa escolhe qualquer um", podeEscolherNaLeva(b, true));
+  confere("as peças: duas e quantas mais", pecasEmPalavra(a) === "Par A · Caixinha (mais 2)" && pecasEmPalavra(b) === "Sem itens no painel");
+  confere("lista estranha é nula", lerPedidosDoSite(null) === null);
+  const m = lerMeuMes({ mes: "2026-11-01", fora_vendas: 2, fora_valor: 300, loja_pedidos: 1, loja_valor: 1299.9, mes_passado: 0, posicao: 1, no_ranking: 2, sem_vendedor_30d: 41 });
+  confere("o mês soma por fora e pedido do site", m !== null && totalDoMes(m) === 1599.9 && m.posicao === 1 && m.semVendedor30d === 41);
+  confere("o nome do mês", nomeDoMes("2026-11-01") === "novembro");
+  confere("os textos dos filtros sem travessão", ![...FILTROS, ...PERIODOS_DO_PEDIDO].some((x) => /[—–]/.test(x.nome)));
+  const item = SETORES.flatMap((s) => s.itens).find((i) => i.href === "/admin/pedidos-do-site");
+  confere("a tela está no menu do vendedor, com a área de quem lança venda", item?.area === "lancar_venda" && setoresDe(["consulta", "lancar_venda", "recuperacao", "time"]).some((s) => s.itens.some((i) => i.href === "/admin/pedidos-do-site")));
 }
 
 console.log("\nO menu");
