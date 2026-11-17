@@ -7,6 +7,7 @@ import { LinkRapido } from "@/components/ui/LinkRapido";
 import {
   NOME_DO_TIPO, dataPorExtenso, listaQueVale, prazoEmPalavra, tomDoPrazo, type Decisao, type Oportunidade,
 } from "@/lib/clientes/oportunidades";
+import { avisarQueAsContagensMudaram } from "../ContagensDoMenu";
 import { SeloDeTom } from "../Pecas";
 
 /**
@@ -85,6 +86,8 @@ export function useMarcacao<T extends OportunidadeNaTela>(marcar: Marcar) {
       setErro({ id, texto: r.erro });
       return;
     }
+    // O número do menu é a contagem das oportunidades abertas: marcou ou reabriu, ele muda.
+    avisarQueAsContagensMudaram();
     const semEla = <X extends { o: T } | T>(lista: X[]) => lista.filter((m) => idDaOportunidade("o" in m ? m.o : m) !== id);
     if (decisao === "reaberta") {
       setAgora((lista) => semEla(lista));

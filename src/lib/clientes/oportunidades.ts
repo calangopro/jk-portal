@@ -537,6 +537,24 @@ export function listaQueVale<T extends { ocorrencia: string }>(doServidor: T[], 
 // ------------------------------------------------------------------- o prazo
 
 /** "hoje", "amanhã", "em 12 dias", "ontem", "há 3 dias". */
+/** O endereço da tela de oportunidades, que é a chave do número dela no menu. */
+export const ENDERECO_DAS_OPORTUNIDADES = "/admin/oportunidades";
+
+/** Até quantos dias à frente uma oportunidade entra no aviso do Início e no número do menu. */
+export const DIAS_DO_AVISO = 7;
+
+/**
+ * O que pede ação agora, em duas partes: o que vence em até sete dias e o que
+ * já passou da data sem ninguém marcar. O cartão do Início e o número do menu
+ * saem DAQUI, para os dois nunca discordarem. `lista` é a que `lerOportunidades`
+ * devolve para a janela de `DIAS_DO_AVISO` (o que já foi marcado não vem).
+ */
+export function separarParaOAviso<T extends { emDias: number }>(lista: T[]): { daSemana: T[]; atrasadas: number; total: number } {
+  const daSemana = lista.filter((o) => o.emDias >= 0 && o.emDias <= DIAS_DO_AVISO);
+  const atrasadas = lista.filter((o) => o.emDias < 0).length;
+  return { daSemana, atrasadas, total: daSemana.length + atrasadas };
+}
+
 export function prazoEmPalavra(emDias: number): string {
   if (emDias === 0) return "hoje";
   if (emDias === 1) return "amanhã";

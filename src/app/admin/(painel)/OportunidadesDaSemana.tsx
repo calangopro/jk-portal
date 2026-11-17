@@ -2,7 +2,7 @@ import type { CSSProperties } from "react";
 import { ArrowUpRight, BellRing } from "lucide-react";
 import { LinkRapido } from "@/components/ui/LinkRapido";
 import type { OportunidadeDaLista } from "@/lib/clientes/dados";
-import { NOME_DO_TIPO, prazoEmPalavra } from "@/lib/clientes/oportunidades";
+import { NOME_DO_TIPO, prazoEmPalavra, separarParaOAviso } from "@/lib/clientes/oportunidades";
 import { SETORES } from "@/lib/painel/setores";
 
 /**
@@ -14,9 +14,9 @@ import { SETORES } from "@/lib/painel/setores";
  * A cor é a do setor de Vendas, porque é para lá que o bloco leva.
  */
 export function OportunidadesDaSemana({ lista }: { lista: OportunidadeDaLista[] }) {
-  const daSemana = lista.filter((o) => o.emDias >= 0 && o.emDias <= 7);
-  const atrasadas = lista.filter((o) => o.emDias < 0).length;
-  if (daSemana.length === 0 && atrasadas === 0) return null;
+  // A mesma conta do número do menu (`separarParaOAviso`): o cartão e o menu nunca discordam.
+  const { daSemana, atrasadas, total } = separarParaOAviso(lista);
+  if (total === 0) return null;
 
   const cor = SETORES.find((s) => s.id === "vendas")?.cor;
   const titulo =

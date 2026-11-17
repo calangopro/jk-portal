@@ -69,8 +69,11 @@ function SeloDoSetor({ setor, ativo, tamanho = 36 }: { setor: Setor; ativo: bool
 
 function Contador({ n }: { n: number }) {
   if (n <= 0) return null;
+  // `relative` de propósito: o texto para leitor de tela (`sr-only`) é `absolute`, e sem um pai posicionado ele
+  // escapa do corte da fila de abas que rola de lado. Com o contador numa aba fora da tela (a quarta, no celular),
+  // a página inteira ganhava rolagem lateral e a barra de baixo saía com 464 px num aparelho de 375.
   return (
-    <span className="shrink-0 rounded-full bg-wine px-1.5 py-0.5 text-[0.62rem] font-bold leading-none text-white">
+    <span className="relative shrink-0 rounded-full bg-wine px-1.5 py-0.5 text-[0.62rem] font-bold leading-none text-white">
       {n > 99 ? "99+" : n}
       <span className="sr-only"> aguardando</span>
     </span>

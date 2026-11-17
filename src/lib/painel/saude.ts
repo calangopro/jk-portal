@@ -91,6 +91,11 @@ export const ROTINAS: Rotina[] = [
     paraQue: "Traz de onde veio cada pedido, que a API da Tray não informa, pela exportação do painel da loja. Roda no Mac do Filipe.",
     tolerancia: 26 * HORA, seParar: "Os pedidos continuam entrando pela API, só a origem fica para trás. Confira se o Mac está ligado, o Chrome aberto e a Tray logada.",
   },
+  {
+    chave: "catalogo-detalhes", origem: "pulso", id: "catalogo-detalhes", nome: "Detalhes do catálogo",
+    paraQue: "Lê pela API da Tray as fotos, a descrição, o peso e as medidas dos produtos, que o arquivo do catálogo do Meta e do Google usa. De 10 em 10 minutos, poucos produtos por vez.",
+    tolerancia: 2 * HORA, seParar: "Abra o cartão da Tray em Integrações. Se a loja aparecer como não autorizada, o aplicativo precisa ser autorizado de novo. Enquanto isso, o arquivo do catálogo sai com os detalhes da última leitura.",
+  },
   { chave: "gasto-meta", origem: "leitura", id: "anuncios_meta", nome: "Gasto do Meta", paraQue: "Lê quanto foi gasto em anúncio no Meta, de hora em hora.", tolerancia: 4 * HORA, seParar: "Confira o token do Meta em Integrações." },
   { chave: "gasto-google", origem: "leitura", id: "anuncios_google", nome: "Gasto do Google Ads", paraQue: "Lê quanto foi gasto em anúncio no Google, de hora em hora.", tolerancia: 4 * HORA, seParar: AVISAR },
   {

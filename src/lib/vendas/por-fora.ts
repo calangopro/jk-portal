@@ -76,6 +76,54 @@ export async function lerResumoPorFora(db: SupabaseClient, de: string, ate: stri
 }
 
 /** Em que etapa da fábrica está uma venda por fora (0075). */
+/**
+ * Até quantos dias para trás a venda por fora pode ser datada. O mesmo número
+ * mora em `registrar_venda_avulsa` (0115): mudou um, muda o outro. Fora desse
+ * intervalo o banco RECUSA a venda, em vez de trocar a data por conta própria.
+ */
+export const DIAS_PARA_TRAS = 365;
+
+/** Venda lançada hoje ou ontem, seja qual for o dia em que aconteceu. */
+export type VendaLancadaAgora = {
+  id: string;
+  dia: string;
+  valor: number;
+  forma: string;
+  cliente: string | null;
+  produto: string | null;
+  conferir: string | null;
+};
+
+/**
+ * O que a pessoa lançou hoje e ontem (pelo dia em que LANÇOU, não pelo dia da
+ * venda). Existe por causa da venda antiga: lançada com a data de agosto, ela
+ * não aparece na lista do mês, e quem errou precisa achar para estornar. A
+ * tabela tem RLS: o vendedor recebe só as dele, e quem vê todas, todas.
+ * `null` quando a leitura falhou.
+ */
+export async function lerLancadasAgora(db: SupabaseClient, ontem: string): Promise<VendaLancadaAgora[] | null> {
+  const { data, error } = await db
+    .from("vendas_avulsas")
+    .select("id, dia, valor, forma, cliente_nome, produto, conferir")
+    .is("estornada_em", null)
+    .gte("criada_em", `${ontem}T00:00:00-03:00`)
+    .order("criada_em", { ascending: false })
+    .limit(300);
+  if (error) {
+    console.error("[vendas] lerLancadasAgora:", error.message);
+    return null;
+  }
+  return (data ?? []).map((v) => ({
+    id: String(v.id),
+    dia: String(v.dia),
+    valor: Number(v.valor) || 0,
+    forma: String(v.forma ?? ""),
+    cliente: (v.cliente_nome as string | null) ?? null,
+    produto: (v.produto as string | null) ?? null,
+    conferir: (v.conferir as string | null) ?? null,
+  }));
+}
+
 export type VendaNaFabrica = { etapa: string; entrega: string | null; rastreio: string | null };
 
 /**
