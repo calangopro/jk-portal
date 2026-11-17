@@ -113,9 +113,13 @@ do Meta que a integração usa foi apagado. Sem ele, a loja não manda nada ao
 Meta, nem pelo navegador. O PageView que segue chegando ao pixel é o do portal
 e da bio, pelo GTM.
 
-**A falha é da Tray, não da JK.** No mesmo dia, duas outras lojas Tray com a
-mesma integração (lojas públicas, cada uma com o próprio pixel) davam exatamente o mesmo
-erro. Não houve mudança no conjunto de dados da JK nesse dia (o histórico do
+**A falha é da Tray, não da JK.** Na noite de 16/11, 15 lojas Tray públicas
+com essa integração (cada uma com o próprio pixel, várias anunciando no Meta
+naquela hora) davam exatamente o mesmo erro, conferido no navegador e por
+chamada direta sem cookie a `/nocache/facebook-info.php`. Nenhuma loja com a
+integração funcionando foi encontrada. O script da Tray
+(`facebook-conversion.js`) não muda desde 27/08, então a quebra é do servidor
+da Tray ou do aplicativo dela no Meta. Não houve mudança no conjunto de dados da JK nesse dia (o histórico do
 Gerenciador de Eventos não tem nada em 15/11). A integração não usa token
 colado: ela é ligada em "Marketing, Facebook e Instagram" pelo login do
 Facebook, escolhendo portfólio, página, Instagram, catálogo, conta de anúncios
