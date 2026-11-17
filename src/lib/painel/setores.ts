@@ -1,10 +1,9 @@
 import type { LucideIcon } from "lucide-react";
 import {
-  Activity, Banknote, BellRing, BookCheck, Bot, CalendarDays, Cable, Contact, Crosshair, FileText, Filter, Flame, Globe, Hammer, HandCoins, Handshake,
-  HeartPulse, History, ImageIcon, LayoutDashboard, LayoutTemplate, LibraryBig, LifeBuoy, Lightbulb, ListChecks, MapPin, MessageCircle, MessageSquareText, MessagesSquare, Milestone,
-  Package, PackageSearch, Palette, PenLine,
-  Percent, Plug, QrCode, RotateCcw, Route, Send, Settings, Share2, Smartphone, Sparkles, Star, Store, Table2, Tags, TrendingUp, Trophy, Users,
-  UsersRound, Wallet, Workflow,
+  Activity, Banknote, BellRing, BookCheck, Bot, Cable, CalendarDays, Contact, Crosshair, FileText, Filter, Flame, Globe, Hammer, HandCoins,
+  Handshake, HeartPulse, History, ImageIcon, LayoutDashboard, LayoutTemplate, LibraryBig, LifeBuoy, Lightbulb, ListChecks, MapPin, MessageCircle,
+  MessageSquareText, MessagesSquare, Milestone, Package, PackageSearch, Palette, PenLine, Percent, Plug, QrCode, RotateCcw, Route, Send, Settings,
+  Share2, ShoppingBag, Smartphone, Sparkles, Star, Store, Table2, Tags, TrendingUp, Trophy, Users, UsersRound, Wallet, Workflow,
 } from "lucide-react";
 import type { Area } from "@/lib/auth/acessos";
 
@@ -77,6 +76,7 @@ export const SETORES: Setor[] = [
       { href: "/admin/vendas", area: "vendas", label: "Pedidos da loja", curto: "Pedidos", Icone: Banknote, desc: "O que foi pago, por dia e por origem" },
       { href: "/admin/consulta", area: "consulta", label: "Consulta", Icone: PackageSearch, desc: "Produto, pronta entrega e prazo" },
       { href: "/admin/registrar-venda", area: "lancar_venda", label: "Registrar venda", curto: "Registrar", Icone: HandCoins, desc: "O que foi fechado fora da loja" },
+      { href: "/admin/pedidos-do-site", area: "lancar_venda", label: "Pedidos do site", curto: "Do site", Icone: ShoppingBag, desc: "Ache a venda que você fez pelo site e marque como sua" },
       // Passar é de quem vende (`lancar_venda`); assumir e fechar é da área `suporte`, que a própria tela confere por dentro.
       { href: "/admin/suporte", area: "lancar_venda", label: "Suporte pós-venda", curto: "Suporte", Icone: LifeBuoy, desc: "Passe o caso do cliente para o gerente" },
       { href: "/admin/oportunidades", area: "lancar_venda", label: "Oportunidades", curto: "Chamar", Icone: BellRing, desc: "Quem vale chamar nos próximos dias" },
