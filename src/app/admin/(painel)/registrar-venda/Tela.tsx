@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { Hammer, HandCoins, Receipt, Sun } from "lucide-react";
 import { NOME_DA_ETAPA, lerEtapa } from "@/lib/fabrica/etapas";
-import { CANAIS, FORMAS, NOME_DA_FORMA, NOME_DO_CANAL_DE_VENDA, type ResumoPorFora, type VendaNaFabrica } from "@/lib/vendas/por-fora";
-import { diaCurto, nomeDoMes, somarDias } from "@/lib/vendas/periodo";
+import { CANAIS, DIAS_PARA_TRAS, FORMAS, NOME_DA_FORMA, NOME_DO_CANAL_DE_VENDA, type ResumoPorFora, type VendaLancadaAgora, type VendaNaFabrica } from "@/lib/vendas/por-fora";
+import { diaCurto, nomeDoMes, primeiroDoMes, somarDias } from "@/lib/vendas/periodo";
 import { Cartao, Dinheiro, reais } from "../vendas/PainelDeVendas";
 import { BotaoDeAcao } from "../recuperacao/BotaoDeAcao";
 import { FormularioDeVenda } from "./FormularioDeVenda";
@@ -10,8 +10,10 @@ import type { ProdutoDoFormulario } from "./ProducaoDaVenda";
 
 /** A parte da tela de registrar venda que só desenha. Sem `estornar` (na prévia) o botão de estorno não aparece. */
 export function TelaDeRegistrarVenda({
-  mes, vendedores, veTodas, hoje, estornar, naFabrica = {}, produtos, lojas,
+  mes, lancadas = null, vendedores, veTodas, hoje, estornar, naFabrica = {}, produtos, lojas,
 }: {
+  /** O que a pessoa lançou hoje e ontem, seja qual for o dia da venda. É de onde sai quem ela ainda pode estornar. */
+  lancadas?: VendaLancadaAgora[] | null;
   /** A etapa da fábrica das vendas que foram para lá, pelo código da venda. */
   naFabrica?: Record<string, VendaNaFabrica>;
   /** O catálogo e as lojas, para a parte do formulário que vai para a fábrica. */
@@ -25,7 +27,12 @@ export function TelaDeRegistrarVenda({
   estornar?: (f: FormData) => Promise<void>;
 }) {
   const doDia = mes?.por_dia.find((d) => d.dia === hoje);
-  const ontem = somarDias(hoje, -1);
+  // O vendedor estorna o que LANÇOU hoje ou ontem (a regra é do banco, 0115). Venda antiga lançada agora fica de
+  // fora da lista do mês, e por isso ganha a própria lista embaixo.
+  const lancadasAgora = new Set((lancadas ?? []).map((v) => v.id));
+  const inicioDoMes = primeiroDoMes(hoje);
+  const antigas = (lancadas ?? []).filter((v) => v.dia < inicioDoMes);
+  const comAno = (dia: string) => dia.split("-").reverse().join("/");
 
   return (
     <div data-painel-largo>
@@ -34,7 +41,7 @@ export function TelaDeRegistrarVenda({
         <h1 className="font-display mt-2 text-4xl text-ink">Registrar venda</h1>
         <p className="mt-3 max-w-3xl text-muted">
           Toda venda fechada fora do site entra aqui: Pix direto, link de pagamento, venda pelo WhatsApp. Pedido pago
-          pelo site não precisa, porque já vem da Tray.
+          pelo site não precisa, porque já vem da Tray. Venda antiga entra com o dia em que aconteceu, até um ano para trás.
           {veTodas ? " Você vê as vendas de todos; cada vendedor vê só as dele." : " Aqui aparecem só as suas vendas."}
         </p>
       </header>
@@ -58,6 +65,7 @@ export function TelaDeRegistrarVenda({
           canais={CANAIS.filter((c) => c.chave !== "recuperacao").map((c) => ({ ...c }))}
           vendedores={vendedores}
           hoje={hoje}
+          maisAntigo={somarDias(hoje, -DIAS_PARA_TRAS)}
           produtos={produtos}
           lojas={lojas}
         />
@@ -114,7 +122,7 @@ export function TelaDeRegistrarVenda({
                     <td className="numeros py-2.5 text-right text-sm text-ink sm:pr-4">
                       {reais(Number(v.valor))}
                       {/* No celular o estorno fica embaixo do valor: uma coluna só para o botão espremia o nome do cliente. */}
-                      {estornar && (veTodas || v.dia >= ontem) ? (
+                      {estornar && (veTodas || lancadasAgora.has(v.id)) ? (
                         <form action={estornar} className="mt-1.5 sm:hidden">
                           <input type="hidden" name="id" value={v.id} />
                           <BotaoDeAcao>Estornar</BotaoDeAcao>
@@ -122,7 +130,7 @@ export function TelaDeRegistrarVenda({
                       ) : null}
                     </td>
                     <td className="hidden py-2.5 text-right sm:table-cell">
-                      {estornar && (veTodas || v.dia >= ontem) ? (
+                      {estornar && (veTodas || lancadasAgora.has(v.id)) ? (
                         <form action={estornar}>
                           <input type="hidden" name="id" value={v.id} />
                           <BotaoDeAcao>Estornar</BotaoDeAcao>
@@ -136,9 +144,42 @@ export function TelaDeRegistrarVenda({
           </div>
         )}
         <p className="mt-3 text-xs text-muted">
-          Venda lançada errada se estorna, não se apaga. O vendedor estorna a própria venda de hoje ou de ontem.
+          Venda lançada errada se estorna, não se apaga. O vendedor estorna a própria venda lançada hoje ou ontem.
         </p>
       </section>
+
+      {antigas.length > 0 ? (
+        <section className="glass mt-6 rounded-[18px] p-5" aria-labelledby="vendas-antigas">
+          <h2 id="vendas-antigas" className="font-display text-2xl text-ink">Vendas antigas lançadas hoje e ontem</h2>
+          <p className="mt-1 max-w-3xl text-sm text-muted">
+            São de outros meses, então não aparecem na lista de cima. Cada uma entra no mês em que aconteceu.
+          </p>
+          <ul className="mt-3 grid grid-cols-1 divide-y divide-border/50">
+            {antigas.map((v) => (
+              <li key={v.id} className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1.5 py-2.5">
+                <div className="min-w-0 flex-1 basis-56">
+                  <p className="text-sm text-ink [overflow-wrap:anywhere]">
+                    <span className="numeros font-semibold">{comAno(v.dia)}</span> {v.cliente ?? "Sem nome"}
+                  </p>
+                  <p className="text-xs text-muted [overflow-wrap:anywhere]">
+                    {v.produto ?? "Sem descrição"}, {NOME_DA_FORMA[v.forma] ?? v.forma}
+                  </p>
+                  {v.conferir ? <p className="mt-0.5 text-xs font-semibold" style={{ color: "#b45309" }}>Conferir: {v.conferir}</p> : null}
+                </div>
+                <div className="flex shrink-0 items-center gap-3">
+                  <span className="numeros text-sm text-ink">{reais(v.valor)}</span>
+                  {estornar ? (
+                    <form action={estornar}>
+                      <input type="hidden" name="id" value={v.id} />
+                      <BotaoDeAcao>Estornar</BotaoDeAcao>
+                    </form>
+                  ) : null}
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
     </div>
   );
 }
