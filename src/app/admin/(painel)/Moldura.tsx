@@ -15,6 +15,7 @@ import { BotaoSair } from "./BotaoSair";
 import type { ApiDoChat } from "./chat/api";
 import type { ApiDoSuporte } from "./suporte/api";
 import { useAvisosAoVivo, useTituloComAviso } from "./AvisosAoVivo";
+import { useContagensDoMenu } from "./ContagensDoMenu";
 import { BotaoDoChatNoTopo, ChatFlutuante, useChatFlutuante } from "./ChatFlutuante";
 import { HistoricoDoPedidoNaMoldura } from "./pedido/NaMoldura";
 import { AbasDoSetor, BarraDeBaixo, FolhaMais, Lateral, corDoSetor, type Avisos } from "./Navegacao";
@@ -35,7 +36,10 @@ import { AbasDoSetor, BarraDeBaixo, FolhaMais, Lateral, corDoSetor, type Avisos 
  */
 export function Moldura({
   nome, papel, areas, pendentes, avisos: avisosDoServidor, meuId, souAdmin = false, sair, children, caminhoDaPrevia, apiDoChatDaPrevia, apiDoSuporteDaPrevia,
+  contagensDaPrevia,
 }: {
+  /** Só para a prévia de desenvolvimento: as contagens do menu, que no painel vêm do servidor pela sessão. */
+  contagensDaPrevia?: Avisos;
   nome: string;
   papel: string;
   areas: Area[];
@@ -62,6 +66,10 @@ export function Moldura({
   // O canal ao vivo fica ligado em TODA tela do painel: "online" é estar com o painel aberto, não só com o chat.
   useAoVivo(meuId, caminhoDaPrevia === undefined);
   useTituloComAviso(avisos, caminho);
+  // As contagens (oportunidades abertas) aparecem no menu, mas ficam FORA do título da aba e do botão do chat:
+  // quem soma no título é só o que está esperando a pessoa. Por isso o menu recebe os dois juntos e o resto, só os avisos.
+  const contagens = useContagensDoMenu(caminhoDaPrevia === undefined && areas.includes("lancar_venda")) ?? contagensDaPrevia;
+  const numerosDoMenu = useMemo(() => (contagens ? { ...contagens, ...avisos } : avisos), [contagens, avisos]);
   // O chat flutuante: o botão com o número do menu e a janela que abre por cima da tela, em qualquer tela menos a do próprio chat.
   const flutuante = useChatFlutuante(caminho, Boolean(meuId) && (caminhoDaPrevia === undefined || apiDoChatDaPrevia !== undefined));
   const numeroDoChat = avisos?.[ENDERECO_DO_CHAT] ?? 0;
@@ -118,7 +126,7 @@ export function Moldura({
       <aside className="hidden border-r border-ink/[0.07] bg-[rgb(var(--jk-bg-rgb))] lg:sticky lg:top-0 lg:flex lg:h-dvh lg:flex-col">
         <div className="px-5 pb-4 pt-5">{marca}</div>
         <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-4">
-          <Lateral setores={setores} atual={setor} item={item} pendentes={pendentes} avisos={avisos} />
+          <Lateral setores={setores} atual={setor} item={item} pendentes={pendentes} avisos={numerosDoMenu} />
         </div>
         <div className="flex items-center gap-3 border-t border-ink/[0.07] px-4 py-3">
           <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-ink text-xs font-bold text-brand-light" aria-hidden="true">
@@ -161,7 +169,7 @@ export function Moldura({
               </button>
             </div>
           </div>
-          {setor ? <AbasDoSetor setor={setor} item={item} pendentes={pendentes} avisos={avisos} /> : null}
+          {setor ? <AbasDoSetor setor={setor} item={item} pendentes={pendentes} avisos={numerosDoMenu} /> : null}
 
           {/* Computador: onde a pessoa está, e a saída para o site. */}
           <div className="hidden items-center justify-between gap-4 px-8 py-3 lg:flex">
@@ -198,7 +206,7 @@ export function Moldura({
         atual={setor}
         item={item}
         pendentes={pendentes}
-        avisos={avisos}
+        avisos={numerosDoMenu}
         maisAberto={mais}
         onMais={() => setMais((v) => !v)}
       />
@@ -209,7 +217,7 @@ export function Moldura({
         atual={setor}
         item={item}
         pendentes={pendentes}
-        avisos={avisos}
+        avisos={numerosDoMenu}
         nome={nome}
         papel={papel}
         sair={sair}

@@ -15,6 +15,7 @@ import {
   dataPorExtenso, datasNaGravacao, diasEntre, interpretarDataDigitada, lerDataParcial, listaQueVale, lojaParaConvidar,
   ocorrenciaNoAno, oportunidadesDoCliente, prazoEmPalavra, somarMeses, sugestoesDaGravacao, tipoDaPeca, tomDoPrazo,
   type ClienteParaConta, type CompraParaConta, type FichaParaConta,
+  DIAS_DO_AVISO, ENDERECO_DAS_OPORTUNIDADES, separarParaOAviso,
 } from "../src/lib/clientes/oportunidades.ts";
 
 let falhas = 0;
@@ -233,6 +234,17 @@ console.log("\nA lista na tela, sem esperar o redesenho da página");
   confere("reaberta agora e o servidor já com ela: não aparece duas vezes", vale([A, B, C], [], [B]) === "a,b,c");
   confere("marcar de novo o que foi reaberto tira da lista", vale([A, C], [B], [B]) === "a,c");
   confere("a que voltou entra na ordem da data, não no fim", vale([C], [], [A]) === "a,c");
+}
+
+console.log("\nO número do menu e o cartão do Início");
+{
+  const em = (dias: number[]) => dias.map((emDias) => ({ emDias }));
+  const r = separarParaOAviso(em([-10, -1, 0, 3, 7, 8, 30]));
+  confere("vence em até sete dias, com hoje dentro e o oitavo dia fora", r.daSemana.map((o) => o.emDias).join() === "0,3,7");
+  confere("o que passou da data e ninguém marcou conta como atrasada", r.atrasadas === 2);
+  confere("o número do menu é a soma das duas partes", r.total === 5);
+  confere("sem nada aberto, o número é zero e o cartão some", separarParaOAviso([]).total === 0 && separarParaOAviso(em([9, 40])).total === 0);
+  confere("a janela é de sete dias e o número mora no endereço da tela", DIAS_DO_AVISO === 7 && ENDERECO_DAS_OPORTUNIDADES === "/admin/oportunidades");
 }
 
 if (falhas > 0) {

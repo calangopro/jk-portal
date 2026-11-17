@@ -1,8 +1,8 @@
 import { requireArea } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { lerLojasDaConsulta, lerProdutosDaConsulta } from "@/lib/consulta/dados";
-import { lerEtapasDasVendas, lerResumoPorFora } from "@/lib/vendas/por-fora";
-import { hojeEmSaoPaulo, primeiroDoMes } from "@/lib/vendas/periodo";
+import { lerEtapasDasVendas, lerLancadasAgora, lerResumoPorFora } from "@/lib/vendas/por-fora";
+import { hojeEmSaoPaulo, primeiroDoMes, somarDias } from "@/lib/vendas/periodo";
 import { estornarVenda } from "./actions";
 import { TelaDeRegistrarVenda } from "./Tela";
 
@@ -23,8 +23,10 @@ export default async function RegistrarVendaPage() {
   const db = await createClient();
   const hoje = hojeEmSaoPaulo();
 
-  const [mes, vendedores, produtos, lojas] = await Promise.all([
+  const [mes, lancadas, vendedores, produtos, lojas] = await Promise.all([
     lerResumoPorFora(db, primeiroDoMes(hoje), hoje),
+    // O que foi lançado hoje e ontem, pelo dia em que foi lançado: é o que o vendedor ainda pode estornar.
+    lerLancadasAgora(db, somarDias(hoje, -1)),
     veTodas
       ? db.from("profiles").select("id, full_name, role").eq("is_active", true).in("role", ["vendas", "gerente"]).order("full_name")
       : null,
@@ -37,6 +39,7 @@ export default async function RegistrarVendaPage() {
   return (
     <TelaDeRegistrarVenda
       mes={mes}
+      lancadas={lancadas}
       veTodas={veTodas}
       hoje={hoje}
       estornar={estornarVenda}

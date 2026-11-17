@@ -4,6 +4,7 @@ import { requireSessao, ROLE_LABEL, type Profile } from "@/lib/auth/session";
 import { ehAdmin } from "@/lib/auth/acessos";
 import { createClient } from "@/lib/supabase/server";
 import { lerLojasFisicas, lerOportunidades } from "@/lib/clientes/dados";
+import { DIAS_DO_AVISO } from "@/lib/clientes/oportunidades";
 import { contaDoMes } from "@/lib/custos/conta";
 import { lerDespesas } from "@/lib/custos/dados";
 import { lerFilaDaFabrica } from "@/lib/fabrica/dados";
@@ -65,7 +66,7 @@ async function lerPainel(profile: Profile) {
     pode("trafego") ? lerResumoDeGasto(db, de, hoje) : null,
     ehAdmin(profile.role) ? lerResumoDeGasto(db, primeiroDoMes(hoje), hoje) : null,
     // O que vence para os clientes nos próximos sete dias, para quem atende.
-    pode("lancar_venda") ? lerLojasFisicas().then((lojas) => lerOportunidades(db, hoje, 7, lojas)) : null,
+    pode("lancar_venda") ? lerLojasFisicas().then((lojas) => lerOportunidades(db, hoje, DIAS_DO_AVISO, lojas)) : null,
   ]);
 
   // O faturamento do mês é a loja mais o que foi registrado por fora dela.
