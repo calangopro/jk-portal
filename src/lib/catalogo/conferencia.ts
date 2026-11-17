@@ -67,6 +67,9 @@ export const CAMPOS_CRITICOS = new Set<string>(["price", "sale_price", "sale_pri
 
 export type DiferencaDeCampo = { id: string; tray: string[]; painel: string[] };
 
+/** Diz por que um campo difere quando o motivo é conhecido, ou `null`. */
+export type Explicacao = (tray: string[], painel: string[]) => string | null;
+
 export type Conferencia = {
   naTray: number;
   noPainel: number;
@@ -78,7 +81,10 @@ export type Conferencia = {
   repetidos: { tray: string[]; painel: string[] };
   /** Itens presentes nos dois, idênticos em todos os campos conferidos. */
   iguais: number;
+  /** Diferenças sem motivo conhecido: são as que precisam ser olhadas. */
   porCampo: Record<string, DiferencaDeCampo[]>;
+  /** Diferenças com motivo conhecido, agrupadas por campo e por motivo. */
+  explicadas: Record<string, Record<string, string[]>>;
   /** Quantas diferenças pedem atenção antes de trocar o endereço. */
   criticas: number;
 };
@@ -94,10 +100,15 @@ function repetidos(itens: ItemDoArquivo[]): string[] {
 
 const porNumero = (a: string, b: string) => Number(a) - Number(b) || a.localeCompare(b);
 
-export function compararArquivos(tray: ItemDoArquivo[], painel: ItemDoArquivo[]): Conferencia {
+export function compararArquivos(
+  tray: ItemDoArquivo[],
+  painel: ItemDoArquivo[],
+  explicar: Partial<Record<string, Explicacao>> = {},
+): Conferencia {
   const doPainel = new Map(painel.map((i) => [i.id, i]));
   const daTray = new Map(tray.map((i) => [i.id, i]));
   const porCampo: Record<string, DiferencaDeCampo[]> = {};
+  const explicadas: Record<string, Record<string, string[]>> = {};
   let iguais = 0;
 
   for (const t of daTray.values()) {
@@ -109,7 +120,9 @@ export function compararArquivos(tray: ItemDoArquivo[], painel: ItemDoArquivo[])
       const b = valores(p, campo);
       if (a.length === b.length && a.every((v, i) => v === b[i])) continue;
       igual = false;
-      (porCampo[campo] ??= []).push({ id: t.id, tray: a, painel: b });
+      const motivo = explicar[campo]?.(a, b) ?? null;
+      if (motivo) ((explicadas[campo] ??= {})[motivo] ??= []).push(t.id);
+      else (porCampo[campo] ??= []).push({ id: t.id, tray: a, painel: b });
     }
     if (igual) iguais++;
   }
@@ -128,6 +141,7 @@ export function compararArquivos(tray: ItemDoArquivo[], painel: ItemDoArquivo[])
     repetidos: { tray: repetidos(tray), painel: repetidos(painel) },
     iguais,
     porCampo,
+    explicadas,
     criticas,
   };
 }

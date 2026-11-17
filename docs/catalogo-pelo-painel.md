@@ -35,7 +35,7 @@ origem (`docs/origem-do-pedido.md`) reconhecem a venda que veio do catálogo.
 | `link` | `products.url` mais o `parceiro` |
 | `price`, `sale_price`, `sale_price_effective_date` | `products`, pela MESMA conta do site (`precoVigente`), com as datas da promoção do `raw`. Promoção vencida ou que ainda não começou não entra |
 | `availability` | `in stock` para todo item, porque só entra produto disponível (`products.status`), como na Tray |
-| `image_link`, `additional_image_link` | todas as fotos, na ordem da loja, pela API da Tray |
+| `image_link`, `additional_image_link` | as fotos na ordem da loja, pela API da Tray: a principal e no máximo mais três, como a Tray |
 | `description` | a descrição completa da loja, pela API, sem as marcações HTML e cortada em 5.000 caracteres |
 | `brand` | `raw.brand`; produto sem marca na loja sai sem marca, como na Tray |
 | `product_type` | o caminho da categoria principal na árvore da loja |
@@ -49,7 +49,7 @@ foto só e a descrição curta. Fotos, descrição completa, referência, modelo
 EAN, peso e medidas vêm de `GET /products/{id}`, uma rota que o aplicativo já
 usa e que está homologada (`docs/tray-api-de-pedidos.md`).
 
-### Dois detalhes que parecem defeito e ficam iguais de propósito
+### Três detalhes que parecem defeito e ficam iguais de propósito
 
 - **O `&gt;` no tipo do produto.** A Tray escapa o separador duas vezes, e o
   Meta recebe "Anéis &gt; Anéis de Formatura &gt; Anel de Ouro 18k", com o
@@ -59,8 +59,13 @@ usa e que está homologada (`docs/tray-api-de-pedidos.md`).
   conjunto sem ninguém ver. Corrigir para " > " é uma decisão para depois de
   conferir os filtros dos conjuntos.
 - **A descrição não junta espaços.** A Tray tira as marcações, troca cada
-  quebra de linha por um espaço e apaga a tabulação, sem juntar os espaços que
-  sobram. O painel faz o mesmo, para o texto sair idêntico.
+  quebra de linha por um espaço, apaga a tabulação, troca travessão por hífen
+  e apara as pontas, sem juntar os espaços que sobram no meio. O painel faz o
+  mesmo, para o texto sair idêntico.
+- **Três fotos extras, no máximo.** Nenhum item da Tray tem mais de três
+  `additional_image_link`, e 292 produtos têm mais fotos que isso na loja. O
+  Meta aceita até vinte. Ficar em três deixa a troca sem mudança nas fotos;
+  subir é mudar `LIMITE_DE_FOTOS_EXTRAS`.
 
 ## Quem entra no arquivo
 
@@ -96,10 +101,40 @@ essas listas, e é decisão de tráfego, não de código.
   (pedidos feitos sob medida, sem foto na loja).
 - **Descrição vazia vira a descrição curta**, e sem ela o nome. A Tray mandava
   vazio em três produtos, e o Meta marca item sem descrição como erro.
+- **Entidade HTML vira o caractere.** A Tray deixa como texto a entidade que
+  não cabe em Latin-1, e o Meta mostrava, na descrição de cinco produtos,
+  "&ldquo;querido&rdquo;", "&bull;" e "&zwj;" escritos assim. Aqui viram as
+  aspas, o marcador e o emoji de verdade.
+- **O corte da descrição.** A Tray conta cada entidade inteira no limite de
+  5.000 (um emoji vale nove caracteres), então corta antes, às vezes no meio
+  de uma entidade. O painel corta em 5.000 caracteres de texto.
 - **UTF-8 em vez de ISO-8859-1**, com o caractere direto em vez da entidade
   numérica. Para quem lê o arquivo, o texto é o mesmo.
 
-RESULTADO_DA_CONFERENCIA
+## O resultado da conferência, em 17/11/2026
+
+Arquivo da Tray gerado às 00h48, contra o do painel montado na mesma hora
+(servidor local, com o banco de produção e a tabela de detalhes cheia):
+
+| | |
+|---|---|
+| Itens na Tray | 711 |
+| Itens no painel | 706 |
+| Idênticos em todos os campos | 672 |
+| Diferentes só na descrição, com causa conhecida | 34 |
+| Só na Tray | 5, todos sem foto nenhuma na loja ("PERSONALIZADO") |
+| Só no painel | nenhum |
+
+Em `title`, `link`, `price`, `sale_price`, `sale_price_effective_date`,
+`availability`, `image_link`, `additional_image_link`, `brand`,
+`product_type`, `mpn`, `gtin`, `condition`, `shipping_weight` e
+`shipping_size`, os 706 itens em comum batem um a um. As 34 descrições
+diferentes: 27 pelo corte da Tray (ela para antes dos 5.000), 5 pela entidade
+que a Tray deixa como texto e 2 que a Tray manda vazias. Os códigos são os
+mesmos: nenhum código do painel deixa de existir na Tray.
+
+O arquivo do painel tem 3,3 MB (o da Tray, 3,9 MB, porque escreve cada acento
+como entidade).
 
 ## Os detalhes pela API
 
@@ -113,8 +148,11 @@ A rotina `/api/cron/catalogo-detalhes` (`src/lib/catalogo/detalhes.ts`) roda de
 dez em dez minutos pelo `pg_cron` (migration 0131, minutos 8, 18, 28...). Cada
 rodada lê no máximo 40 produtos, um por chamada, com meio segundo entre uma e
 outra (perto de 100 chamadas por minuto: o limite da Tray é de 180 por minuto e
-10 mil por dia, e a leitura de pedidos divide esse limite). Ela lê, nesta
-ordem:
+10 mil por dia, e a leitura de pedidos divide esse limite). Cada chamada tem 15
+segundos de prazo, nenhuma chamada nova começa depois de 35 segundos, e a
+rodada grava de dez em dez produtos: no primeiro enchimento, uma chamada ficou
+oito minutos sem resposta, e sem isso a função da Vercel morreria no limite de
+60 segundos levando junto o que já tinha lido. Ela lê, nesta ordem:
 
 1. o produto que nunca foi lido;
 2. o que tem a foto principal diferente da que o espelho mostra (alguém mexeu
@@ -160,9 +198,13 @@ o da Tray e o do painel em produção. Compara item a item e imprime:
 - cada campo com diferença, com exemplos (na descrição, o ponto onde os dois
   textos começam a diferir).
 
-Sai com 1 quando há diferença crítica (código que falta ou sobra, preço,
-promoção, disponibilidade, link ou foto principal) e com 2 quando não conseguiu
-baixar um dos arquivos. Antes do merge, compare com a prévia ou com o servidor
+Diferença crítica (código que falta ou sobra, preço, promoção,
+disponibilidade, link ou foto principal) é explicada pelo banco. A que tem
+causa conhecida não segura a troca: produto sem foto nenhuma (o Meta recusa) e
+produto que mudou no espelho depois que a Tray gerou o arquivo dela. A que não
+tem sai marcada com OLHAR, e o script sai com 1. Sai com 2 quando não
+conseguiu baixar um dos arquivos. Na descrição, as três diferenças da Tray
+descritas acima aparecem agrupadas, com a contagem de cada uma. Antes do merge, compare com a prévia ou com o servidor
 local:
 
 ```bash
@@ -176,7 +218,7 @@ com ele em mãos: `npm run verificar:catalogo -- --destino=google --tray=<endere
 Diferença de preço ou de disponibilidade em poucos itens costuma ser hora: o
 arquivo da Tray é refeito de hora em hora e o espelho de quinze em quinze
 minutos. A conferência mostra a hora em que a Tray gerou o arquivo e, para cada
-código diferente, se o produto mudou no espelho depois disso.
+diferença crítica, se o produto mudou no espelho depois disso.
 
 ## O passo de 01/12
 

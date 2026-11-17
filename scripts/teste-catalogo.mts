@@ -12,9 +12,12 @@
  * A conferência baixa os dois arquivos, compara item a item (códigos que
  * faltam ou sobram, preço, promoção, disponibilidade, link, fotos, descrição e
  * o resto dos campos) e, com o `.env.local` presente, explica pelo banco cada
- * código que só um dos dois tem. Sai com 1 quando há diferença crítica (código,
- * preço, promoção, disponibilidade, link ou foto principal), e com 2 quando não
- * conseguiu baixar um dos arquivos. Passo a passo em `docs/catalogo-pelo-painel.md`.
+ * diferença crítica (código, preço, promoção, disponibilidade, link ou foto
+ * principal). Diferença com causa conhecida não segura a troca: produto sem
+ * foto (o Meta recusa) e produto que mudou no espelho depois que a Tray gerou
+ * o arquivo dela. Sai com 1 quando sobra diferença crítica sem causa conhecida
+ * (marcada com OLHAR), e com 2 quando não conseguiu baixar um dos arquivos.
+ * Passo a passo em `docs/catalogo-pelo-painel.md`.
  *
  * Os produtos e textos dos testes são INVENTADOS, só com a forma do que a Tray
  * entrega. Nada de produto de verdade mora neste arquivo.
@@ -22,8 +25,8 @@
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import {
-  CATEGORIAS_QUE_ENTRAM_SOZINHAS, MOTIVO_EM_PALAVRAS, PARCEIRO, RAMOS_QUE_ENTRAM, SEPARADOR_DO_TIPO,
-  caminhoDaCategoria, categoriaEntra, categoriasDaArvore, cortar, descricaoEmTexto, detalheDaApi,
+  CATEGORIAS_QUE_ENTRAM_SOZINHAS, LIMITE_DE_FOTOS_EXTRAS, MOTIVO_EM_PALAVRAS, PARCEIRO, RAMOS_QUE_ENTRAM, SEPARADOR_DO_TIPO,
+  caminhoDaCategoria, categoriaEntra, categoriasDaArvore, cortar, descricaoEmTexto, detalheDaApi, porQueADescricaoDifere,
   itemDoArquivo, linkComParceiro, montarItens, motivoDeFora, quemLer, xmlDoArquivo,
   type Categoria, type DetalheDaLoja, type ProdutoDoArquivo,
 } from "../src/lib/catalogo/arquivo.ts";
@@ -131,11 +134,13 @@ console.log("\nDescrição");
   const texto = descricaoEmTexto(PRODUTO_DA_API.description);
   confere(
     "sem marcação, entidade trocada, quebra de linha vira espaço e tabulação some",
-    texto === "Primeira linha\u00a0com acento: aliança 💎  \u00a0   Item um; Item dois & três ",
+    texto === "Primeira linha\u00a0com acento: aliança 💎  \u00a0   Item um; Item dois & três",
     JSON.stringify(texto),
   );
   confere("descrição vazia vira texto vazio", descricaoEmTexto(null) === "" && descricaoEmTexto("<p></p>") === "");
-  confere("espaço da ponta fica, como na Tray", descricaoEmTexto("<p>\u00a0a</p>\n") === "\u00a0a ");
+  confere("pontas aparadas como o trim do PHP: sai o espaço, fica o inseparável", descricaoEmTexto("\n<p>\u00a0a</p>\n ") === "\u00a0a");
+  confere("travessão e meia-risca viram hífen, como a Tray faz", descricaoEmTexto("a &ndash; b &mdash; c \u2013 d") === "a - b - c - d");
+  confere("entidade que a Tray deixa como texto vira caractere aqui", descricaoEmTexto("&ldquo;oi&rdquo; &bull; x") === "\u201coi\u201d \u2022 x");
   confere("comentário e script saem", descricaoEmTexto("a<!-- x -->b<script>alert(1)</script>c") === "abc");
   confere("entidade desconhecida fica como está", descricaoEmTexto("a &naoexiste; b") === "a &naoexiste; b");
   confere("cortar não parte emoji", cortar("ab💎cd", 3) === "ab💎" && cortar("abc", 5) === "abc");
@@ -212,6 +217,9 @@ console.log("\nO item");
   confere("peso zero sai 0 g e medida toda zero não sai", valor(csZ, "shipping_weight")[0] === "0 g" && valor(csZ, "shipping_size").length === 0 && valor(csZ, "gtin").length === 0);
   const umaMedida = campos(produto({ detalhe: { ...zerado, comprimento: 55 } }));
   confere("uma medida só já sai, como a Tray faz (55x0x0)", valor(umaMedida, "shipping_size")[0] === "55x0x0 cm");
+
+  const muitasFotos = campos(produto({ detalhe: { ...detalhe, imagens: ["https://img.exemplo.test/9001_1.jpg", "b", "c", "d", "e", "f"] } }));
+  confere("no máximo três fotos extras, como a Tray", LIMITE_DE_FOTOS_EXTRAS === 3 && valor(muitasFotos, "additional_image_link").join() === "b,c,d");
 
   const longa = campos(produto({ detalhe: { ...detalhe, descricaoHtml: `<p>${"a".repeat(6000)}</p>` } }));
   confere("descrição cortada em 5.000 caracteres", Array.from(valor(longa, "description")[0]).length === 5000);
@@ -331,8 +339,23 @@ console.log("\nComparação");
   confere("críticas somam códigos e campos críticos", c.criticas === 3 && CAMPOS_CRITICOS.has("price"));
   confere("repetido dentro do mesmo arquivo é apontado", compararArquivos([...base, base[0]], base).repetidos.tray.join() === "1");
   confere("todo campo crítico é conferido", [...CAMPOS_CRITICOS].every((cc) => (CAMPOS_CONFERIDOS as readonly string[]).includes(cc)));
+  const explicada = compararArquivos(base, outro, { price: (a, b) => (a[0] === "499.90 BRL" && b[0] === "450.00 BRL" ? "motivo de teste" : null) });
+  confere(
+    "diferença com motivo conhecido sai das críticas e vai para as explicadas",
+    !explicada.porCampo.price && explicada.explicadas.price?.["motivo de teste"]?.join() === "2" && explicada.criticas === 2,
+  );
   const onde = ondeDifere("abcdef", "abcXef");
   confere("onde dois textos diferem", onde?.posicao === 3 && ondeDifere("a", "a") === null);
+}
+
+console.log("\nDescrição: diferenças que são da Tray");
+{
+  confere("vazia na Tray e curta no painel", porQueADescricaoDifere("", "Curta.")?.includes("vazio") === true);
+  confere("entidade como texto na Tray", porQueADescricaoDifere("o &ldquo;sim&rdquo;", "o \u201csim\u201d")?.includes("entidade") === true);
+  const longo = "x".repeat(4950);
+  confere("Tray corta antes, até no meio de uma entidade", porQueADescricaoDifere(`${longo} fim &#1283`, `${longo} fim \u{1F48E} e mais`)?.includes("corta") === true);
+  confere("texto diferente de verdade não tem desculpa", porQueADescricaoDifere("um texto", "outro texto") === null);
+  confere("corte só vale para descrição comprida", porQueADescricaoDifere("abc", "abcdef") === null);
 }
 
 console.log("\nAs rotas");
@@ -389,15 +412,16 @@ function lerEnv(): Record<string, string> {
 
 type NoBanco = {
   tray_id: string; is_active: boolean; status: string | null; updated_at: string | null;
-  categoria: string | null; nome_categoria: string | null;
+  categoria: string | null; main_image_url: string | null;
 };
+type Explicado = NoBanco & { detalhe: boolean; fotosDaApi: number; caminho: string | null; entra: boolean | null };
 
-/** O que o banco sabe de cada código que só um dos arquivos tem. */
-async function explicar(ids: string[]): Promise<Map<string, NoBanco & { detalhe: boolean; caminho: string | null; entra: boolean | null }>> {
+/** O que o banco sabe de cada código que difere entre os dois arquivos. */
+async function explicar(ids: string[]): Promise<Map<string, Explicado>> {
   const env = { ...lerEnv(), ...process.env } as Record<string, string | undefined>;
   const url = env.NEXT_PUBLIC_SUPABASE_URL;
   const chave = env.SUPABASE_SERVICE_ROLE_KEY;
-  const saida = new Map<string, NoBanco & { detalhe: boolean; caminho: string | null; entra: boolean | null }>();
+  const saida = new Map<string, Explicado>();
   if (!url || !chave || ids.length === 0) return saida;
   const pedir = async (caminhoRest: string) => {
     const r = await fetch(`${url}/rest/v1/${caminhoRest}`, { headers: { apikey: chave, Authorization: `Bearer ${chave}` } });
@@ -406,15 +430,24 @@ async function explicar(ids: string[]): Promise<Map<string, NoBanco & { detalhe:
   };
   const categorias = ((await pedir("catalogo_categorias?select=tray_id,nome,pai")) as { tray_id: string; nome: string; pai: string | null }[]).map((c) => ({ id: c.tray_id, nome: c.nome, pai: c.pai }));
   const mapa = new Map(categorias.map((c) => [c.id, c]));
-  for (let i = 0; i < ids.length; i += 100) {
-    const lote = ids.slice(i, i + 100).join(",");
+  const unicos = [...new Set(ids)];
+  for (let i = 0; i < unicos.length; i += 100) {
+    const lote = unicos.slice(i, i + 100).join(",");
     const produtos = (await pedir(
-      `products?select=tray_id,is_active,status,updated_at,categoria:raw->>category_id,nome_categoria:raw->Category->>name&tray_id=in.(${lote})`,
+      `products?select=tray_id,is_active,status,updated_at,main_image_url,categoria:raw->>category_id&tray_id=in.(${lote})`,
     )) as NoBanco[];
-    const detalhes = new Set(((await pedir(`catalogo_detalhes?select=tray_id&encontrado=eq.true&tray_id=in.(${lote})`)) as { tray_id: string }[]).map((d) => d.tray_id));
+    const detalhes = new Map(
+      ((await pedir(`catalogo_detalhes?select=tray_id,imagens&encontrado=eq.true&tray_id=in.(${lote})`)) as { tray_id: string; imagens: string[] | null }[]).map((d) => [d.tray_id, d.imagens?.length ?? 0]),
+    );
     for (const p of produtos) {
       const cam = caminhoDaCategoria(p.categoria, mapa);
-      saida.set(p.tray_id, { ...p, detalhe: detalhes.has(p.tray_id), caminho: cam ? cam.map((c) => c.nome).join(" > ") : null, entra: cam ? categoriaEntra(cam) : null });
+      saida.set(p.tray_id, {
+        ...p,
+        detalhe: detalhes.has(p.tray_id),
+        fotosDaApi: detalhes.get(p.tray_id) ?? 0,
+        caminho: cam ? cam.map((c) => c.nome).join(" > ") : null,
+        entra: cam ? categoriaEntra(cam) : null,
+      });
     }
   }
   return saida;
@@ -440,7 +473,9 @@ try {
 
 const itensDaTray = lerArquivo(tray.texto);
 const itensDoPainel = lerArquivo(painel.texto);
-const c = compararArquivos(itensDaTray, itensDoPainel);
+const c = compararArquivos(itensDaTray, itensDoPainel, {
+  description: (a, b) => porQueADescricaoDifere(a[0] ?? "", b[0] ?? ""),
+});
 const geradoPelaTray = tray.quando ? new Date(tray.quando).toISOString() : null;
 
 console.log(`\n  Arquivo da Tray gerado em ${horaSP(geradoPelaTray)} (São Paulo).`);
@@ -449,38 +484,59 @@ const semDetalhe = painel.cabecalhos.get("x-catalogo-sem-detalhe");
 if (semDetalhe && semDetalhe !== "0") console.log(`  O painel avisou ${semDetalhe} itens sem os detalhes da API (uma foto só, descrição curta).`);
 if (c.repetidos.tray.length || c.repetidos.painel.length) console.log(`  Códigos repetidos: Tray ${c.repetidos.tray.join(", ") || "nenhum"}; painel ${c.repetidos.painel.join(", ") || "nenhum"}.`);
 
-const explicacoes = await explicar([...c.soNaTray, ...c.soNoPainel]).catch((e) => {
+const camposCriticosDiferentes = Object.entries(c.porCampo).filter(([campo]) => CAMPOS_CRITICOS.has(campo));
+const explicacoes = await explicar([...c.soNaTray, ...c.soNoPainel, ...camposCriticosDiferentes.flatMap(([, l]) => l.map((d) => d.id))]).catch((e) => {
   console.log(`  (sem explicação pelo banco: ${(e as Error).message})`);
-  return new Map();
+  return new Map<string, Explicado>();
 });
 
-function porQue(id: string, lado: "tray" | "painel"): string {
+/**
+ * O porquê de uma diferença, e se a causa é conhecida. Causa conhecida não
+ * segura a troca: produto sem foto (o Meta recusa) e produto que mudou no
+ * espelho depois que a Tray gerou o arquivo (o arquivo dela é de hora em hora).
+ */
+function porQue(id: string, lado: "tray" | "painel" | "campo"): { texto: string; conhecida: boolean } {
   const e = explicacoes.get(id);
-  if (!e) return explicacoes.size ? "não existe no espelho do painel" : "";
+  if (!e) return { texto: explicacoes.size ? "não existe no espelho do painel" : "(sem o banco para explicar)", conhecida: false };
+  const depois = Boolean(e.updated_at && geradoPelaTray && Date.parse(e.updated_at) > Date.parse(geradoPelaTray));
   const partes: string[] = [];
-  if (!e.is_active) partes.push("desativado no espelho");
-  else if (e.status !== "available") partes.push("indisponível no espelho");
-  else if (e.entra === false) partes.push(`categoria fora da regra (${e.caminho})`);
-  else if (e.entra === null) partes.push(`categoria ${e.categoria} fora da árvore guardada`);
-  else partes.push(`disponível, categoria ${e.caminho}`);
-  if (e.updated_at && geradoPelaTray && Date.parse(e.updated_at) > Date.parse(geradoPelaTray)) partes.push(`mudou no espelho às ${horaSP(e.updated_at)}, depois do arquivo da Tray`);
-  if (lado === "painel" && !e.detalhe) partes.push("ainda sem detalhe da API");
-  return partes.join("; ");
+  let conhecida = depois;
+  if (lado !== "campo") {
+    if (!e.is_active) partes.push("desativado no espelho");
+    else if (e.status !== "available") partes.push("indisponível no espelho");
+    else if (e.entra === false) partes.push(`categoria fora da regra (${e.caminho})`);
+    else if (e.entra === null) partes.push(`categoria ${e.categoria} fora da árvore guardada`);
+    else if (!e.main_image_url && e.fotosDaApi === 0) {
+      partes.push(`sem foto nenhuma na loja, e o Meta recusa item sem foto (categoria ${e.caminho})`);
+      conhecida = true;
+    } else partes.push(`disponível, categoria ${e.caminho}`);
+    if (lado === "painel" && !e.detalhe) partes.push("ainda sem detalhe da API");
+  }
+  if (depois) partes.push(`mudou no espelho às ${horaSP(e.updated_at)}, depois do arquivo da Tray`);
+  else if (lado === "campo") partes.push(`sem mudança no espelho depois do arquivo da Tray (última às ${horaSP(e.updated_at)})`);
+  return { texto: partes.join("; "), conhecida };
 }
 
-if (c.soNaTray.length) {
-  console.log(`\n  Só na Tray (${c.soNaTray.length}):`);
-  for (const id of c.soNaTray) console.log(`    ${id}: ${porQue(id, "tray")}`);
+let semCausa = 0;
+for (const [titulo, ids, lado] of [["Só na Tray", c.soNaTray, "tray"], ["Só no painel", c.soNoPainel, "painel"]] as const) {
+  if (!ids.length) continue;
+  console.log(`\n  ${titulo} (${ids.length}):`);
+  for (const id of ids) {
+    const r = porQue(id, lado);
+    if (!r.conhecida) semCausa++;
+    console.log(`    ${id}: ${r.texto}${r.conhecida ? "" : "  << OLHAR"}`);
+  }
 }
-if (c.soNoPainel.length) {
-  console.log(`\n  Só no painel (${c.soNoPainel.length}):`);
-  for (const id of c.soNoPainel) console.log(`    ${id}: ${porQue(id, "painel")}`);
-}
+console.log("");
 
+const emComum = c.naTray - c.soNaTray.length;
 for (const campo of CAMPOS_CONFERIDOS) {
   const lista = c.porCampo[campo];
+  const explicadas = Object.entries(c.explicadas[campo] ?? {});
+  const nExplicadas = explicadas.reduce((s, [, ids]) => s + ids.length, 0);
   if (!lista?.length) {
-    console.log(`  ok  ${campo}: igual nos ${c.naTray - c.soNaTray.length} itens em comum`);
+    console.log(`  ok  ${campo}: igual nos ${emComum - nExplicadas} itens em comum${nExplicadas ? `; ${nExplicadas} com diferença de causa conhecida:` : ""}`);
+    for (const [motivo, ids] of explicadas) console.log(`        ${ids.length}: ${motivo} (${ids.slice(0, 6).join(", ")}${ids.length > 6 ? ", ..." : ""})`);
     continue;
   }
   console.log(`\n  ${CAMPOS_CRITICOS.has(campo) ? "CRÍTICO" : "difere"} ${campo}: ${lista.length} itens`);
@@ -495,7 +551,14 @@ for (const campo of CAMPOS_CONFERIDOS) {
     }
   }
   if (lista.length > 8) console.log(`    ... e mais ${lista.length - 8}`);
+  if (CAMPOS_CRITICOS.has(campo)) {
+    for (const d of lista) {
+      const r = porQue(d.id, "campo");
+      if (!r.conhecida) semCausa++;
+      if (lista.length <= 30 || !r.conhecida) console.log(`      ${d.id}: ${r.texto}${r.conhecida ? "" : "  << OLHAR"}`);
+    }
+  }
 }
 
-console.log(`\n  Diferenças críticas: ${c.criticas}.`);
-process.exit(c.criticas > 0 ? 1 : 0);
+console.log(`\n  Diferenças críticas: ${c.criticas}, ${semCausa === 0 ? "todas com causa conhecida" : `${semCausa} sem causa conhecida (marcadas com OLHAR)`}.`);
+process.exit(semCausa > 0 ? 1 : 0);

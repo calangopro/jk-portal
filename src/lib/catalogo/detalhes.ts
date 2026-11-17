@@ -45,10 +45,31 @@ export type ResultadoDosDetalhes = {
  * perto demais do limite de 180 que a leitura de pedidos divide).
  */
 const PAUSA_MS = 500;
-const TEMPO_MAXIMO_MS = 45_000;
+/**
+ * Depois disto a rodada não começa chamada nova. Somado ao prazo de uma
+ * chamada, fica abaixo dos 60 segundos da função na Vercel.
+ */
+const TEMPO_MAXIMO_MS = 35_000;
+/**
+ * Prazo de uma chamada à Tray. Medido em 17/11/2026: uma chamada ficou sem
+ * resposta e segurou a rodada por oito minutos. Sem prazo, na Vercel a função
+ * morreria no meio e levaria junto o que já tinha lido.
+ */
+const PRAZO_DA_CHAMADA_MS = 15_000;
+/** De quantos em quantos produtos a rodada grava, para uma queda não perder a rodada inteira. */
+const GRAVAR_A_CADA = 10;
 const PAGINA = 1000;
 
 const esperar = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/** A promessa, ou erro depois de `ms`. A chamada que estourou o prazo é abandonada. */
+function comPrazo<T>(promessa: Promise<T>, ms: number): Promise<T> {
+  let relogio: ReturnType<typeof setTimeout> | undefined;
+  const estouro = new Promise<never>((_, recusar) => {
+    relogio = setTimeout(() => recusar(new Error(`a Tray não respondeu em ${ms / 1000} segundos`)), ms);
+  });
+  return Promise.race([promessa, estouro]).finally(() => clearTimeout(relogio));
+}
 
 /** Árvore de categorias da loja pela rota pública. `[]` quando a loja não respondeu. */
 async function lerArvore(): Promise<Categoria[]> {
@@ -145,46 +166,58 @@ export async function lerDetalhesDaLoja(opcoes: { maximo?: number } = {}): Promi
     Number.MAX_SAFE_INTEGER,
   );
 
-  const linhas: ReturnType<typeof linhaDoDetalhe>[] = [];
+  let pendentesDeGravar: ReturnType<typeof linhaDoDetalhe>[] = [];
+  let lidos = 0;
+  let naoEncontrados = 0;
   let falhas = 0;
   let seguidas = 0;
   let aviso: string | null = avisoDaArvore;
   let feitos = 0;
 
-  for (const { trayId } of fila.slice(0, maximo)) {
-    if (Date.now() - inicio > TEMPO_MAXIMO_MS) break;
-    feitos++;
-    try {
-      const cru = await cliente.produto(trayId);
-      linhas.push(linhaDoDetalhe(trayId, cru ? detalheDaApi(cru) : DETALHE_NAO_ENCONTRADO, new Date().toISOString()));
-      seguidas = 0;
-    } catch (e) {
-      falhas++;
-      seguidas++;
-      const msg = (e as Error).message;
-      if (/\b429\b/.test(msg)) {
-        aviso = "A Tray pediu para ir mais devagar (429). O resto fica para a próxima rodada.";
-        break;
-      }
-      if (seguidas >= 3) {
-        aviso = `Três falhas seguidas, a rodada parou: ${msg}`;
-        break;
-      }
-    }
-    await esperar(PAUSA_MS);
-  }
+  const gravar = async () => {
+    if (pendentesDeGravar.length === 0) return;
+    const lote = pendentesDeGravar;
+    pendentesDeGravar = [];
+    const { error } = await db.from("catalogo_detalhes").upsert(lote, { onConflict: "tray_id" });
+    if (error) throw new Error(`Não foi possível gravar os detalhes: ${error.message}`);
+    for (const l of lote) (l.encontrado ? lidos++ : naoEncontrados++);
+  };
 
-  if (linhas.length > 0) {
-    const { error } = await db.from("catalogo_detalhes").upsert(linhas, { onConflict: "tray_id" });
-    if (error) {
-      return { ok: false, ...vazio, falhas, categorias: arvore.length, aviso, erro: `Não foi possível gravar os detalhes: ${error.message}`, duracaoMs: Date.now() - inicio };
+  try {
+    for (const { trayId } of fila.slice(0, maximo)) {
+      if (Date.now() - inicio > TEMPO_MAXIMO_MS) break;
+      feitos++;
+      let parar = false;
+      try {
+        const cru = await comPrazo(cliente.produto(trayId), PRAZO_DA_CHAMADA_MS);
+        pendentesDeGravar.push(linhaDoDetalhe(trayId, cru ? detalheDaApi(cru) : DETALHE_NAO_ENCONTRADO, new Date().toISOString()));
+        seguidas = 0;
+      } catch (e) {
+        falhas++;
+        seguidas++;
+        const msg = (e as Error).message;
+        if (/\b429\b/.test(msg)) {
+          aviso = "A Tray pediu para ir mais devagar (429). O resto fica para a próxima rodada.";
+          parar = true;
+        } else if (seguidas >= 3) {
+          aviso = `Três falhas seguidas, a rodada parou: ${msg}`;
+          parar = true;
+        }
+      }
+      // Fora do `try` da chamada: falha ao gravar é do banco, não da Tray, e encerra a rodada.
+      if (pendentesDeGravar.length >= GRAVAR_A_CADA) await gravar();
+      if (parar) break;
+      await esperar(PAUSA_MS);
     }
+    await gravar();
+  } catch (e) {
+    return { ok: false, ...vazio, lidos, naoEncontrados, falhas, categorias: arvore.length, aviso, erro: (e as Error).message, duracaoMs: Date.now() - inicio };
   }
 
   return {
-    ok: falhas === 0 || linhas.length > 0,
-    lidos: linhas.filter((l) => l.encontrado).length,
-    naoEncontrados: linhas.filter((l) => !l.encontrado).length,
+    ok: falhas === 0 || lidos + naoEncontrados > 0,
+    lidos,
+    naoEncontrados,
     falhas,
     pendentes: Math.max(0, fila.length - feitos),
     categorias: arvore.length,

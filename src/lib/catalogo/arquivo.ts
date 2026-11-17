@@ -54,6 +54,14 @@ export const CANAL = {
 export const LIMITE_DA_DESCRICAO = 5000;
 
 /**
+ * A Tray manda no máximo três fotos além da principal (medido em 17/11/2026:
+ * nenhum item com mais de três `additional_image_link`, e em 292 produtos a
+ * loja tem mais fotos que isso). O Meta aceita até vinte; ficar em três deixa
+ * a troca de 01/12 sem mudança nenhuma nas fotos. Subir é mudar este número.
+ */
+export const LIMITE_DE_FOTOS_EXTRAS = 3;
+
+/**
  * O separador do caminho da categoria em `g:product_type`. A Tray escapa duas
  * vezes, e o valor que chega ao Meta é "Anéis &gt; Anéis de Prata", com o
  * `&gt;` escrito por extenso. Fica igual de propósito: conjunto de produtos do
@@ -263,10 +271,19 @@ export function decodificarEntidades(texto: string): string {
 }
 
 /**
- * A descrição da loja (HTML) como texto, do jeito que a Tray põe no arquivo:
- * sem as marcações, com as entidades trocadas pelo caractere, cada quebra de
- * linha virando um espaço e a tabulação sumindo. Não junta nem apara espaços:
- * a Tray não faz isso, e o objetivo é o mesmo texto.
+ * A descrição da loja (HTML) como texto, do jeito que a Tray põe no arquivo
+ * (medido contra o arquivo dela em 17/11/2026):
+ *
+ * - sem as marcações, e cada quebra de linha virando um espaço, a tabulação
+ *   sumindo e os espaços que sobram ficando (a Tray não junta espaços);
+ * - travessão e meia-risca viram hífen, como a Tray faz com `&ndash;` e
+ *   `&mdash;` (e como a regra da casa pede);
+ * - pontas aparadas como o `trim` do PHP: espaço, tabulação e quebra de linha,
+ *   mas NÃO o espaço inseparável.
+ *
+ * Uma diferença de propósito: a Tray deixa como texto a entidade que não cabe
+ * em Latin-1 (o Meta mostrava "&ldquo;querido&rdquo;" escrito assim), e aqui
+ * ela vira o caractere.
  */
 export function descricaoEmTexto(html: string | null | undefined): string {
   if (!html) return "";
@@ -274,7 +291,31 @@ export function descricaoEmTexto(html: string | null | undefined): string {
     .replace(/<!--[\s\S]*?-->/g, "")
     .replace(/<(script|style)\b[\s\S]*?<\/\1\s*>/gi, "")
     .replace(/<\/?[a-zA-Z][^>]*>/g, "");
-  return decodificarEntidades(semMarcacao).replace(/\r/g, "").replace(/\n/g, " ").replace(/\t/g, "");
+  return decodificarEntidades(semMarcacao)
+    .replace(/\r/g, "")
+    .replace(/\n/g, " ")
+    .replace(/\t/g, "")
+    .replace(/[\u2013\u2014]/g, "-")
+    .replace(/^[ \t\n\r\0\x0b]+|[ \t\n\r\0\x0b]+$/g, "");
+}
+
+/**
+ * Por que a descrição da Tray e a do painel diferem, quando é por um motivo
+ * conhecido. `null` quando a diferença não tem explicação e precisa ser
+ * olhada. Usada pela conferência, para separar o que é defeito da Tray do que
+ * é diferença de verdade.
+ */
+export function porQueADescricaoDifere(tray: string, painel: string): string | null {
+  if (!tray && painel) return "a Tray manda vazio; o painel manda a descrição curta ou o nome";
+  const decodificada = decodificarEntidades(tray);
+  if (decodificada === painel) return "a Tray deixa como texto a entidade que não cabe em Latin-1 (&ldquo;, &bull;, &zwj;)";
+  // A Tray conta cada entidade inteira no limite de 5.000 (um emoji vale nove
+  // caracteres), então corta antes, às vezes no meio de uma entidade.
+  const semPontaQuebrada = decodificada.replace(/&#?[a-zA-Z0-9]*$/, "").replace(/[ \t\n\r\0\x0b]+$/, "");
+  if (Array.from(tray).length >= 4000 && semPontaQuebrada.length > 0 && painel.startsWith(semPontaQuebrada)) {
+    return "a Tray corta antes dos 5.000 caracteres, porque conta cada entidade inteira";
+  }
+  return null;
 }
 
 /** Corta em `limite` caracteres sem partir emoji ao meio. */
@@ -372,7 +413,7 @@ export function itemDoArquivo(p: ProdutoDoArquivo, caminho: Categoria[], destino
   const promocao = p.preco.anterior != null ? (p.preco.atual as number) : null;
 
   const daLoja = descricaoEmTexto(d?.descricaoHtml);
-  let descricao = daLoja.replace(/[\s\u00a0]/g, "") ? cortar(daLoja, LIMITE_DA_DESCRICAO) : "";
+  let descricao = daLoja.replace(/[\s\u00a0]/g, "") ? cortar(daLoja, LIMITE_DA_DESCRICAO).replace(/[ \t\n\r\0\x0b]+$/, "") : "";
   // Descrição vazia deixa o item com erro no Meta. A Tray mandava vazio em três
   // produtos; aqui vale a descrição curta e, sem ela, o nome.
   if (!descricao) descricao = cortar((p.descricaoCurta ?? "").trim() || p.nome.trim(), LIMITE_DA_DESCRICAO);
@@ -385,7 +426,7 @@ export function itemDoArquivo(p: ProdutoDoArquivo, caminho: Categoria[], destino
   por("description", descricao);
   por("brand", p.marca?.trim() ? p.marca : null);
   por("image_link", fotos[0] ?? null);
-  for (const extra of fotos.slice(1)) por("additional_image_link", extra);
+  for (const extra of fotos.slice(1, 1 + LIMITE_DE_FOTOS_EXTRAS)) por("additional_image_link", extra);
   por("product_type", caminho.map((c) => c.nome).join(SEPARADOR_DO_TIPO));
   por("availability", "in stock");
   if (promocao != null) {
