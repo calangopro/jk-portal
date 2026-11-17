@@ -58,22 +58,57 @@ O Meta casa melhor a compra com quem viu o anúncio quando recebe, além do
 e-mail e do telefone, os cookies `_fbp` e `_fbc` do pixel, o navegador e o IP.
 Para eventos de site, o navegador (`client_user_agent`) é obrigatório.
 
-O coletor (`public/o.js`) não guarda navegador nem IP, de propósito. A proposta:
-na página de confirmação do pedido, e só nela, o coletor manda também `_fbp`,
-`_fbc` e o navegador, e o servidor guarda isso junto do número do pedido, com o
-IP que o Worker repassa. Apagado em 30 dias. Precisa entrar na política de
-privacidade antes de ligar (Kathleen).
+O coletor (`public/o.js`) não guarda navegador nem IP no que anota, de
+propósito, e **não precisou mudar**: ele já chama `/api/origem` na página de
+confirmação com o número do pedido, e essa chamada é do mesmo domínio, então os
+cookies `_fbp` e `_fbc` chegam sozinhos ao servidor. A rota lê os dois, o
+navegador e o IP que o Worker repassa (`x-jk-ip-cliente`), e
+`registrarRecado` guarda em `meta_sinais` só quando há número de pedido e só
+com o envio em teste ou ligado. Apagado em 30 dias (`limpar_meta_sinais`, às
+4h40). Precisa entrar na política de privacidade antes de ligar (Kathleen).
+
+### Como o envio do servidor decide
+
+A conta é pura, em `src/lib/meta/compra.ts`, com 53 conferências em
+`npm run verificar:meta` (no build):
+
+- **Purchase** só vai com o navegador de quem comprou (evento de site sem
+  `client_user_agent` o Meta recusa). Sem ele, espera 30 minutos pelo recado da
+  confirmação e depois deixa de lado: o pixel cobre.
+- **CompraPaga** vai como `website` com o navegador e como `system_generated`
+  sem ele, porque o pagamento acontece longe do site.
+- O Meta só aceita evento de até 7 dias. O corte escolhido ao ligar ("de agora
+  em diante" ou "os últimos 7 dias") impede mandar compra que a Tray já mandou
+  com outro número.
+- Erro é tentado de novo até 5 vezes; mandado em teste não repete em teste e
+  vai de novo ao ligar de verdade.
+- **Se a Tray voltar a mandar ao Meta** (`/nocache/facebook-info.php` com
+  pixel e sem erro de autenticação), a Purchase fica em pausa e só a
+  `CompraPaga` segue: a compra não conta duas vezes.
+- O código de "Eventos de teste" da compra é próprio, separado do código do
+  Lead: testar a compra não põe o Lead em teste.
+- "Simular agora", no cartão, monta o que iria sem mandar nem gravar e diz
+  quantos eventos e quais campos de cliente.
 
 ## As frentes
 
 | # | Frente | Onde | Migrations | Estado |
 |---|---|---|---|---|
-| 1 | Envio ao Meta pelo servidor: `Purchase` e `CompraPaga`, fila com nova tentativa, modo de teste, chave em Integrações, linha na Saúde | este ramo | 0120 a 0124 | a construir |
-| 2 | Coletor manda `_fbp`, `_fbc` e navegador na confirmação | este ramo | junto da 1 | a construir |
-| 3 | Pixel do Meta da loja no GTM, num espaço de trabalho, sem publicar | GTM | nenhuma | a preparar |
+| 1 | Envio ao Meta pelo servidor: `Purchase` e `CompraPaga`, fila com nova tentativa, modo de teste, chave em Integrações, linha na Saúde | este ramo | 0120 | construída, desligada; a 0120 entra depois do deploy |
+| 2 | Sinais do navegador (`_fbp`, `_fbc`, navegador, IP) guardados na confirmação | este ramo | junto da 1 | construída, sem mudar o `o.js` |
+| 3 | Pixel do Meta da loja no GTM, sem publicar | `infra/gtm/loja-meta.json` | nenhuma | arquivo pronto e testado, etiquetas pausadas; importa no dia |
 | 4 | Arquivo do catálogo do Meta (e o do Google Merchant) gerado pelo painel, conferido item a item contra o da Tray | ramo próprio | 0130 a 0134, se precisar | a construir |
 | 5 | Google Ads: "Compra paga" e retirada dos cancelados pela API, primeiro em validação | ramo próprio | 0135 a 0139, se precisar | a construir |
-| 6 | Tela única de acompanhamento: o que saiu para cada plataforma, o que falhou, chave liga e desliga | este ramo | junto da 1 | a construir |
+| 6 | Tela única de acompanhamento: o que saiu para cada plataforma, o que falhou, chave liga e desliga | este ramo | junto da 1 | o cartão do Meta em Integrações ("Medição da loja") e a linha "Compras para o Meta" na Saúde; Google e catálogo entram com as frentes 4 e 5 |
+
+### A ordem de subir
+
+Deploy primeiro, a 0120 depois, pela API de gestão (ela leva `delete`, que o
+conector do Supabase recusa). Sem a migration o código novo não quebra nada: o
+cartão aparece como "Desligado" e o coletor não guarda sinal nenhum, porque a
+configuração não existe. A 0120 cria o relógio de dez em dez minutos, que só
+deixa o pulso enquanto o modo estiver desligado. Pode entrar bem antes de
+01/12: ligado mesmo, só pela tela.
 
 ## O que depende do Filipe
 
@@ -91,10 +126,12 @@ privacidade antes de ligar (Kathleen).
 
 1. Conferir na aba Versões do GTM se a ativa é a mais recente.
 2. Desligar o pixel da integração da Tray (pelo caminho que a Tray indicar).
-3. Publicar no GTM a versão com o pixel da loja.
-4. Ligar o envio do servidor (Integrações), primeiro com o código de teste do
-   Meta, conferir em "Eventos de teste" que navegador e servidor chegam com o
-   mesmo número, tirar o código.
+3. Importar `infra/gtm/loja-meta.json`, despausar, Visualizar e publicar
+   (passo a passo em `infra/gtm/README.md`, "Pixel do Meta da loja pelo GTM").
+4. Ligar o envio do servidor em Integrações, primeiro em **Em teste** com o
+   código de "Eventos de teste" do Meta, conferir que navegador e servidor
+   chegam com o mesmo número, e então **Ligado**, com o corte "de agora em
+   diante".
 5. Trocar no Commerce Manager o endereço do arquivo do catálogo pelo do painel.
 6. Conferir no dia seguinte: uma `Purchase` por pedido, desduplicação "atende
    às boas práticas", catálogo sem erro, `CompraPaga` igual aos pedidos pagos.
