@@ -134,8 +134,10 @@ Para o Erick, ou qualquer pessoa da diretoria, no computador dela:
    **Nova chave**, com escopo completo. A chave aparece uma vez só.
 2. No terminal:
    ```bash
-   claude mcp add --transport http jk https://www.jkaliancas.com.br/guias/api/mcp --header "Authorization: Bearer jk_..."
+   claude mcp add --transport http jk-erick https://www.jkaliancas.com.br/guias/api/mcp --header "Authorization: Bearer jk_..."
    ```
+   O nome diz de quem é o conector (`jk-erick`, `jk-filipe`). A tela do
+   Conector já monta o comando com o primeiro nome de quem está logado.
 3. Para o `npm run roadmap` funcionar no mesmo computador, uma linha no
    `.env.local` do projeto:
    ```bash
@@ -144,6 +146,17 @@ Para o Erick, ou qualquer pessoa da diretoria, no computador dela:
 
 A chave é pessoal. O quadro grava cada mudança no nome do dono da chave,
 marcada como "pelo Claude". Chave perdida se revoga na mesma tela.
+
+## Quem está mexendo
+
+O Filipe e o Erick dividem o mesmo Claude. Toda conversa começa com
+"Quem está mexendo? (Erick | Filipe)", e o Claude usa só o conector da conta
+de quem respondeu (confere com `painel.eu`). No Claude Code do projeto a
+pergunta chega sozinha pelo gatilho `SessionStart` de `.claude/settings.json`,
+e no claude.ai o próprio conector pede. Detalhe no topo do `CLAUDE.md`.
+
+No mesmo computador, o `.env.local` guarda UMA chave: o `npm run roadmap` grava
+no nome do dono dela. Quem não for o dono usa o conector dele, não o script.
 
 ## Sem o conector
 
