@@ -32,6 +32,9 @@ import { PainelGeral, type DadosDeVendas } from "./PainelGeral";
 import { ResultadoDoMes, type Resultado } from "./ResultadoDoMes";
 import { Salas, type NumerosDasSalas } from "./Salas";
 import { SuporteParaMim } from "./SuporteParaMim";
+import { MeuMesNoInicio } from "./MeuMes";
+import { lerMeuMesNoServidor } from "@/lib/pedidos/dados";
+import { totalDoMes, nomeDoMes } from "@/lib/pedidos/do-site";
 
 /** Quantos dias o painel compara: os últimos 30 contra os 30 anteriores. */
 const DIAS = 30;
@@ -173,12 +176,23 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
   const chatDoTime = profile.areas.includes("time") ? createClient().then(lerResumoDoChat) : null;
   // E o suporte pós-venda: caso sem dono para quem atende, caso que fechou para quem passou. Também começa já.
   const suporteDoTime = profile.areas.includes("lancar_venda") || profile.areas.includes("suporte") ? createClient().then(lerResumoDoSuporteNoServidor) : null;
+  // O mês de quem vende: por fora mais pedido do site marcado (0105). Também começa já.
+  const meuMesDeVendas = profile.areas.includes("lancar_venda") ? createClient().then(lerMeuMesNoServidor) : null;
   const [{ vendas, sinais, andamento, hoje, porForaNoMes, resultado, salas, podeVerMeta, oportunidades }, conteudo] = await Promise.all([
     lerPainel(profile),
     profile.areas.includes("conteudo") ? lerConteudo() : null,
   ]);
   const chat = (await chatDoTime) ?? SEM_RESUMO;
   const suporte = (await suporteDoTime) ?? SEM_RESUMO_DO_SUPORTE;
+  // O bloco do vendedor aparece para quem vende e não vê o faturamento, e para quem vê mas vendeu alguma coisa no mês.
+  const meuMes = await meuMesDeVendas;
+  const mostrarMeuMes = meuMes !== null && (!profile.areas.includes("vendas") || totalDoMes(meuMes) > 0);
+  if (meuMes && !salas.vendas && totalDoMes(meuMes) > 0) {
+    salas.vendas = {
+      valor: `R$ ${Math.round(totalDoMes(meuMes)).toLocaleString("pt-BR")}`,
+      apoio: `vendidos por você em ${nomeDoMes(meuMes.mes)}`,
+    };
+  }
   const esperandoPorMim = esperandoNoChat(chat);
   if (esperandoPorMim > 0) {
     salas.time = {
@@ -186,7 +200,7 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
       apoio: esperandoPorMim === 1 ? "mensagem esperando você no chat" : "mensagens esperando você no chat",
     };
   }
-  const semNada = !vendas && sinais.length === 0 && !conteudo && oportunidades.length === 0 && !saude && esperandoPorMim === 0 && suporte.fila + suporte.comigo + suporte.novidades === 0;
+  const semNada = !vendas && sinais.length === 0 && !conteudo && oportunidades.length === 0 && !saude && esperandoPorMim === 0 && suporte.fila + suporte.comigo + suporte.novidades === 0 && !mostrarMeuMes;
   if (conteudo) {
     const [posts, , produtos] = conteudo;
     salas.conteudo = { valor: posts.value.toLocaleString("pt-BR"), apoio: `conteúdos, ${posts.hint}` };
@@ -225,6 +239,8 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
           </span>
         </p>
       ) : null}
+
+      {mostrarMeuMes && meuMes ? <MeuMesNoInicio m={meuMes} areas={profile.areas} /> : null}
 
       {podeVerMeta ? (
         <MetaDoMes andamento={andamento} hoje={hoje} porFora={porForaNoMes} acao={ehAdmin(profile.role) ? definirMeta : undefined} />

@@ -1,16 +1,19 @@
 import { NextResponse } from "next/server";
+import { ehAdmin } from "@/lib/auth/acessos";
 import { getSessionProfile } from "@/lib/auth/session";
 import { lerLojasFisicas, lerOportunidades } from "@/lib/clientes/dados";
 import { DIAS_DO_AVISO, ENDERECO_DAS_OPORTUNIDADES, separarParaOAviso } from "@/lib/clientes/oportunidades";
+import { ENDERECO_DAS_SUGESTOES } from "@/lib/sugestoes/sugestoes";
 import { createClient } from "@/lib/supabase/server";
 import { hojeEmSaoPaulo } from "@/lib/vendas/periodo";
 
 export const dynamic = "force-dynamic";
 
 /**
- * As CONTAGENS do menu: números que aparecem no item, mas não são aviso. Hoje,
- * as oportunidades de venda abertas (o que vence em até sete dias mais o que
- * passou da data e ninguém marcou), a mesma conta do cartão do Início.
+ * As CONTAGENS do menu: números que aparecem no item, mas não são aviso. São
+ * duas: as oportunidades de venda abertas, para quem vende (o que vence em até
+ * sete dias mais o que passou da data e ninguém marcou, a mesma conta do cartão
+ * do Início), e as sugestões de melhoria novas, para a diretoria.
  *
  * É um endereço à parte de `/api/painel/avisos`, de propósito. Aquele é
  * perguntado a cada minuto e precisa ser leve. Esta conta pede ao banco a base
@@ -26,14 +29,23 @@ export async function GET() {
   const semGuardar = { "Cache-Control": "no-store" };
   const perfil = await getSessionProfile();
   if (!perfil || !perfil.isActive) return NextResponse.json({ erro: "sem sessão" }, { status: 401, headers: semGuardar });
-  if (!perfil.areas.includes("lancar_venda")) return NextResponse.json({ contagens: {} }, { headers: semGuardar });
+  const vende = perfil.areas.includes("lancar_venda");
+  const diretoria = ehAdmin(perfil.role);
+  if (!vende && !diretoria) return NextResponse.json({ contagens: {} }, { headers: semGuardar });
 
-  const [db, lojas] = await Promise.all([createClient(), lerLojasFisicas()]);
-  const dados = await lerOportunidades(db, hojeEmSaoPaulo(), DIAS_DO_AVISO, lojas);
-  // Leitura que falhou não vira zero: a moldura fica com o último número que tinha.
-  if (!dados) return NextResponse.json({ contagens: null }, { headers: semGuardar });
-  return NextResponse.json(
-    { contagens: { [ENDERECO_DAS_OPORTUNIDADES]: separarParaOAviso(dados.lista).total } },
-    { headers: { "Cache-Control": "private, max-age=300" } },
-  );
+  const db = await createClient();
+  const contagens: Record<string, number> = {};
+  if (vende) {
+    const dados = await lerOportunidades(db, hojeEmSaoPaulo(), DIAS_DO_AVISO, await lerLojasFisicas());
+    // Leitura que falhou não vira zero: a moldura fica com o último número que tinha.
+    if (!dados) return NextResponse.json({ contagens: null }, { headers: semGuardar });
+    contagens[ENDERECO_DAS_OPORTUNIDADES] = separarParaOAviso(dados.lista).total;
+  }
+  if (diretoria) {
+    // As sugestões de melhoria que ninguém da diretoria olhou ainda (`sugestoes_novas`, 0140).
+    const { data, error } = await db.rpc("sugestoes_novas");
+    if (error) return NextResponse.json({ contagens: null }, { headers: semGuardar });
+    contagens[ENDERECO_DAS_SUGESTOES] = Number(data) || 0;
+  }
+  return NextResponse.json({ contagens }, { headers: { "Cache-Control": "private, max-age=300" } });
 }

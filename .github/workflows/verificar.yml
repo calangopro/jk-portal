@@ -1,0 +1,37 @@
+name: Verificar
+
+# Tipos e testes em todo pedido de revisão, de novo depois que ele junta ao
+# main. Não depende da Vercel nem de segredo: roda as conferências puras do
+# projeto (as mesmas do build) sobre o código como ele vai ficar.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: verificar-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  verificar:
+    name: verificar
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Instalar
+        run: npm ci --no-audit --no-fund
+      - name: Tipos
+        run: npx tsc --noEmit -p .
+      - name: Testes
+        run: npm run verificar:tudo

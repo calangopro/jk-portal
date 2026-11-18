@@ -184,9 +184,22 @@ export async function toggleActive(formData: FormData) {
   if (userId === me.id) return;
 
   const supabase = await createClient();
-  await supabase
+  const { error } = await supabase
     .from("profiles")
     .update({ is_active: !isActive })
     .eq("id", userId);
+  if (error) return;
+
+  // Desativar também bloqueia o login no Supabase. O `is_active` só é
+  // conferido pelo painel e pelas regras do banco: o Supabase continuava
+  // dando sessão nova a quem foi desativado, que seguia com a chave anônima
+  // na mão. Reativar tira o bloqueio. (Auditoria de segurança, 18/11/2026.)
+  if (process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    const { createAdminClient } = await import("@/lib/supabase/admin");
+    const { error: erroDoBloqueio } = await createAdminClient().auth.admin.updateUserById(userId, {
+      ban_duration: isActive ? "876000h" : "none",
+    });
+    if (erroDoBloqueio) console.error("[usuarios] o login não foi bloqueado:", erroDoBloqueio.message);
+  }
   revalidatePath("/admin/usuarios");
 }

@@ -1,0 +1,44 @@
+name: Roadmap
+
+# Conta ao Roadmap do painel (/guias/admin/roadmap) o que cada ramo e cada
+# pedido de revisão mexe: os arquivos de verdade, quantos commits está atrás
+# do main e o estado do pedido. O cartão anda sozinho, e o pedido ganha um
+# comentário com os cruzamentos. Guia: docs/roadmap.md.
+#
+# A identidade vai pelo token OIDC que o próprio GitHub assina (id-token:
+# write): não existe segredo guardado. Pedido vindo de fork não recebe esse
+# token, e o painel não é avisado.
+
+on:
+  push:
+    branches-ignore: [main]
+  pull_request:
+    types: [opened, reopened, synchronize, ready_for_review, converted_to_draft, edited, closed]
+
+permissions:
+  contents: read
+  id-token: write
+  pull-requests: write
+
+concurrency:
+  group: roadmap-${{ github.event_name }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  roadmap:
+    # O nome da checagem do pedido de revisão é "roadmap"; a do envio de ramo tem outro
+    # nome, para as duas não disputarem a mesma checagem obrigatória.
+    name: ${{ github.event_name == 'pull_request' && 'roadmap' || 'roadmap (ramo)' }}
+    if: ${{ !github.event.deleted }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - name: Contar ao Roadmap
+        env:
+          PAINEL: https://www.jkaliancas.com.br/guias/api/roadmap/github
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node .github/roadmap/avisar.mjs

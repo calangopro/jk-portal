@@ -444,7 +444,10 @@ console.log("\nTextos e imagem");
 console.log("\nO setor Time no menu");
 {
   const time = SETORES.find((s) => s.id === "time");
-  confere("o setor existe, com o tutor, a biblioteca e o chat", time?.itens.map((i) => i.href).join() === "/admin/tutor,/admin/biblioteca,/admin/chat" && time.itens.every((i) => i.area === "time"));
+  confere(
+    "o setor existe, com o tutor, a biblioteca, o chat e as sugestões de melhoria",
+    time?.itens.map((i) => i.href).join() === "/admin/tutor,/admin/biblioteca,/admin/chat,/admin/sugestoes" && time.itens.every((i) => i.area === "time"),
+  );
   confere("a cor do setor não é verde, âmbar nem vermelho de estado", time !== undefined && !["#046c4e", "#9a4a07", "#b01919"].includes(time.cor) && new Set(SETORES.map((s) => s.cor)).size === SETORES.length);
 
   const vendedor = setoresDe(["consulta", "lancar_venda", "recuperacao", "time"]);

@@ -74,3 +74,15 @@ export function BotaoDoHistorico({ numero, rotulo = "Histórico", className }: {
     </button>
   );
 }
+
+const MUDOU = "jk:pedido-mudou";
+
+/** Quem marca quem vendeu (a gaveta, a lista de pedidos do site) avisa, e quem mostra pedido refaz a leitura. */
+export function avisarQueOPedidoMudou() {
+  if (typeof window !== "undefined") window.dispatchEvent(new Event(MUDOU));
+}
+
+export function aoMudarOPedido(f: () => void): () => void {
+  window.addEventListener(MUDOU, f);
+  return () => window.removeEventListener(MUDOU, f);
+}
