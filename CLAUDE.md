@@ -253,6 +253,18 @@ docs/                identidade-visual-jk.md (marca)
   `postgres` mudarem nível e ativação). Desativar também bloqueia o login no
   Supabase (`toggleActive`). Achado da auditoria de segurança de 18/11, com o
   resto das pistas em `~/security-audit-skill/jk-portal/run-1/REPORT.md`.
+- **Policy por tabela não trava chave, e `site_settings` guardava o destino do
+  segredo.** A chave `cron` é o endereço para onde as funções `disparar_*`
+  mandam o `x-cron-secret`, e `site_settings_staff_write` (0021) deixava todo
+  `is_staff()` gravar qualquer chave: editor, autor, gerente e tráfego trocavam
+  o endereço pela API e receberiam o segredo na rodada seguinte (provado numa
+  transação desfeita em 18/11). Fechado na 0151 com o gatilho
+  `site_settings_trava_diretoria`, que deixa só diretoria, chave de serviço e
+  `postgres` criar, mudar, apagar ou renomear `cron`, `tema` e
+  `vendas:entrega`; as `google:*` têm o gatilho da 0135. Chave nova que guarde
+  destino de segredo, endereço de rotina ou regra que só a diretoria muda entra
+  na lista `v_trancadas` (nova migration), e home, bio e grupo seguem com a
+  área `site`. Conferir com JWT falso de cada nível, como na 0151.
 - **`is_staff()` é só "tem perfil ativo", não "foi convidado".** Todo usuário do
   auth ganha perfil pelo trigger `handle_new_user`. A trava de convite mora no
   `is_active`, que agora sai de `invited_at`.
