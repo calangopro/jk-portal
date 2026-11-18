@@ -18,6 +18,7 @@ import { useAvisosAoVivo, useTituloComAviso } from "./AvisosAoVivo";
 import { useContagensDoMenu } from "./ContagensDoMenu";
 import { BotaoDoChatNoTopo, ChatFlutuante, useChatFlutuante } from "./ChatFlutuante";
 import { HistoricoDoPedidoNaMoldura } from "./pedido/NaMoldura";
+import { BotaoDeSugerir, SugerirMelhoria } from "./sugestoes/SugerirMelhoria";
 import { AbasDoSetor, BarraDeBaixo, FolhaMais, Lateral, corDoSetor, type Avisos } from "./Navegacao";
 
 /**
@@ -68,7 +69,8 @@ export function Moldura({
   useTituloComAviso(avisos, caminho);
   // As contagens (oportunidades abertas) aparecem no menu, mas ficam FORA do título da aba e do botão do chat:
   // quem soma no título é só o que está esperando a pessoa. Por isso o menu recebe os dois juntos e o resto, só os avisos.
-  const contagens = useContagensDoMenu(caminhoDaPrevia === undefined && areas.includes("lancar_venda")) ?? contagensDaPrevia;
+  // Quem vende tem as oportunidades; a diretoria, as sugestões de melhoria que esperam ela olhar.
+  const contagens = useContagensDoMenu(caminhoDaPrevia === undefined && (areas.includes("lancar_venda") || souAdmin)) ?? contagensDaPrevia;
   const numerosDoMenu = useMemo(() => (contagens ? { ...contagens, ...avisos } : avisos), [contagens, avisos]);
   // O chat flutuante: o botão com o número do menu e a janela que abre por cima da tela, em qualquer tela menos a do próprio chat.
   const flutuante = useChatFlutuante(caminho, Boolean(meuId) && (caminhoDaPrevia === undefined || apiDoChatDaPrevia !== undefined));
@@ -156,6 +158,7 @@ export function Moldura({
               </div>
             </div>
             <div className="flex shrink-0 items-center gap-2">
+              <BotaoDeSugerir compacto />
               <BotaoDoChatNoTopo f={flutuante} chat={numeroDoChat} suporte={numeroDoSuporte} />
               <button
                 type="button"
@@ -183,14 +186,17 @@ export function Moldura({
                 </>
               ) : null}
             </p>
-            <a
-              href={comBasePath("/")}
-              target="_blank"
-              rel="noopener"
-              className="flex shrink-0 items-center gap-1.5 text-sm text-muted transition-colors hover:text-brand-nav"
-            >
-              Ver o site <ExternalLink size={13} aria-hidden="true" />
-            </a>
+            <div className="flex shrink-0 items-center gap-4">
+              <BotaoDeSugerir />
+              <a
+                href={comBasePath("/")}
+                target="_blank"
+                rel="noopener"
+                className="flex shrink-0 items-center gap-1.5 text-sm text-muted transition-colors hover:text-brand-nav"
+              >
+                Ver o site <ExternalLink size={13} aria-hidden="true" />
+              </a>
+            </div>
           </div>
         </header>
 
@@ -225,6 +231,11 @@ export function Moldura({
       {meuId ? <ChatFlutuante f={flutuante} chat={numeroDoChat} suporte={numeroDoSuporte} temSuporte={temSuporte} meuId={meuId} souAdmin={souAdmin} podeMeta={areas.includes("vendas")} apiDaPrevia={apiDoChatDaPrevia} apiDoSuporteDaPrevia={apiDoSuporteDaPrevia} /> : null}
       {/* O histórico do pedido abre por cima de qualquer tela, inclusive da janela do chat (`pedido/abrir.tsx`). */}
       <HistoricoDoPedidoNaMoldura />
+      {/* "Sugerir melhoria", no topo de toda tela: a janela é uma só, e vai com o nome da tela de onde a pessoa veio. */}
+      <SugerirMelhoria
+        caminho={caminho}
+        telaNome={setor ? (item && setor.itens.length > 1 ? `${nomeDoSetor(setor)} › ${item.label}` : nomeDoSetor(setor)) : "Painel"}
+      />
     </div>
   );
 }

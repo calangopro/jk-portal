@@ -6,7 +6,8 @@ import type { Avisos } from "./Navegacao";
 
 /**
  * As contagens do menu: números que aparecem no item sem serem AVISO. Hoje, as
- * oportunidades de venda abertas.
+ * oportunidades de venda abertas (para quem vende) e as sugestões de melhoria
+ * novas (para a diretoria).
  *
  * A diferença para `AvisosAoVivo` é o que se faz com o número. Aviso (mensagem
  * do chat, caso de suporte) vai para o título da aba e para o botão flutuante,

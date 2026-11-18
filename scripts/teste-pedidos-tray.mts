@@ -31,6 +31,7 @@ import { juntarMeios, mapearGargalos, meioDePagamento } from "../src/lib/painel/
 import { voltaParaEmpatar } from "../src/lib/painel/premissas.ts";
 import { alteradosEm, compararComOBanco, pedidoDaApi, semOsJaLidos, ultimaAlteracao } from "../src/lib/vendas/tray-api.ts";
 import vm from "node:vm";
+import { ABERTAS, contarPorEstado, lerRoadmap, origemDaCasa, telaDoPainel } from "../src/lib/sugestoes/sugestoes.ts";
 import { scriptDaOrigemDaBio } from "../src/lib/bio/origem-script.ts";
 import {
   COOKIE_DO_ANUNCIO,
@@ -1422,6 +1423,41 @@ console.log("\nLink da bio: de anúncio ou sem anúncio");
     recusou = true;
   }
   confere("nome de cookie que quebraria a expressão é recusado", recusou);
+}
+
+console.log("\nSugestões de melhoria");
+{
+  const eu = "11111111-2222-4333-8444-555555555555";
+  const roadmap = lerRoadmap({
+    diretoria: true,
+    itens: [
+      { id: 3, criada_em: "2026-11-17T20:00:00Z", minha: false, autor: "Pessoa de Ensaio", tela: "/admin/consulta", tela_nome: "Vendas › Consulta", aparelho: "celular", janela: "390x844", texto: "Filtro por loja", imagens: [`${eu}/aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee.webp`, "../fora.webp", 7], estado: "nova" },
+      { id: 2, criada_em: "2026-11-16T20:00:00Z", minha: true, tela: "/admin", texto: "Outra", estado: "feita", resposta: "Pronto", estado_por: "Diretoria de Ensaio" },
+      { id: 0, criada_em: "2026-11-16T20:00:00Z", texto: "sem id" },
+      { id: 4, criada_em: "2026-11-16T20:00:00Z", texto: "   " },
+      { id: 5, criada_em: "2026-11-15T20:00:00Z", texto: "Estado desconhecido vira nova", estado: "inventado", aparelho: "tablet" },
+    ],
+  })!;
+  confere("lê o roadmap e descarta linha sem id ou sem texto", roadmap.diretoria && roadmap.itens.map((s) => s.id).join() === "3,2,5");
+  confere("só guarda caminho de print no formato do servidor", roadmap.itens[0].imagens.length === 1 && roadmap.itens[0].imagens[0].startsWith(eu));
+  confere("estado e aparelho desconhecidos não passam", roadmap.itens[2].estado === "nova" && roadmap.itens[2].aparelho === null);
+  confere("formato estranho não vira lista", lerRoadmap(null) === null && lerRoadmap({ itens: "x" }) === null);
+  const conta = contarPorEstado(roadmap.itens);
+  confere("conta por estado, e abertas são nova, planejada e em andamento", conta.nova === 2 && conta.feita === 1 && conta.recusada === 0 && ABERTAS.join() === "nova,planejada,em_andamento");
+  confere("só tela do painel vira link", telaDoPainel("/admin/consulta") && telaDoPainel("/admin") && !telaDoPainel("https://outro.site/admin") && !telaDoPainel("/admin/../../x?y=1"));
+  confere(
+    "aceita envio do domínio da JK, da própria prévia e do computador local fora da produção",
+    origemDaCasa("https://www.jkaliancas.com.br", "jk-portal.vercel.app", true) &&
+      origemDaCasa("https://jk-portal-git-x.vercel.app", "jk-portal-git-x.vercel.app", true) &&
+      origemDaCasa("http://localhost:3000", "localhost:3000", false),
+  );
+  confere(
+    "recusa envio de outro site, sem origem, ou do computador local em produção",
+    !origemDaCasa("https://outro.site", "jk-portal.vercel.app", true) &&
+      !origemDaCasa(null, "jk-portal.vercel.app", true) &&
+      !origemDaCasa("https://jkaliancas.com.br.outro.site", "jk-portal.vercel.app", true) &&
+      !origemDaCasa("http://localhost:3000", "jk-portal.vercel.app", true),
+  );
 }
 
 // A conferência das falhas é a ÚLTIMA coisa do arquivo, de propósito. Ela ficou meses no meio dele
