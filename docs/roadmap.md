@@ -44,6 +44,33 @@ Erick e o Claude de cada um não mexerem no mesmo lugar ao mesmo tempo.
 6. **Juntar e publicar**, e então `roadmap.concluir`: vai para No ar, com uma
    nota do que entrou.
 
+## Ligado ao GitHub
+
+Dois workflows do repositório fazem o quadro andar sozinho e conferem cada
+pedido de revisão. O detalhe, e a regra do `main` que só o administrador liga,
+estão em `infra/github/README.md`.
+
+| No GitHub | No quadro |
+|---|---|
+| Commit num ramo de cartão em Ideias ou A fazer | Vai para Fazendo, com o dono pelo login |
+| Pedido de revisão aberto | Vai para Em revisão (rascunho fica em Fazendo) |
+| Pedido juntado ao main | Vai para No ar, e quem mexe nos mesmos arquivos ganha "traga o main" |
+| Pedido fechado sem juntar | Volta para Fazendo |
+| Ramo que nenhum cartão reconhece | Aparece no topo: "ramo no GitHub sem cartão no quadro" |
+
+O cartão é achado, nesta ordem: pelo pedido já ligado, pelo ramo registrado ao
+pegar, pelo número no começo do nome do ramo (`erick/12-...`) e por "Cartão 12"
+no título ou na descrição do pedido.
+
+No pedido de revisão aparece um comentário do Roadmap com o cartão, os
+cruzamentos e o atraso contra o main. A checagem `roadmap` falha quando o
+pedido aberto não tem cartão ou quando uma migration nova repete um número que
+já existe no main. A checagem `verificar` roda tipos e todos os testes.
+
+O cruzamento usa os caminhos declarados E os arquivos que o ramo mexe de
+verdade. Migration cruza pelo número; `CLAUDE.md`, `package.json` e outros
+arquivos de todos cruzam num aviso leve.
+
 ## O cruzamento de caminhos
 
 Dois caminhos cruzam quando são o mesmo ou quando um está dentro do outro:
@@ -55,6 +82,8 @@ Dois caminhos cruzam quando são o mesmo ou quando um está dentro do outro:
 | `./SRC/LIB/TIME/chat.ts` | `src/lib/time/chat.ts` | sim (maiúscula e `./` não escondem) |
 | `src/lib/timeline` | `src/lib/time` | não |
 | `supabase/migrations/0150Xx.sql` | `supabase/migrations/0150_x.sql` | não (o `_` não é curinga) |
+| `supabase/migrations/0150_a.sql` | `supabase/migrations/0150_b.sql` | sim (migration cruza pelo número) |
+| `CLAUDE.md` | `CLAUDE.md` | sim, mas leve (arquivo de todos) |
 
 A comparação vale contra os cartões em Fazendo e Em revisão. Arquivo que
 todo mundo toca (`CLAUDE.md`, `src/lib/painel/setores.ts`, `package.json`)

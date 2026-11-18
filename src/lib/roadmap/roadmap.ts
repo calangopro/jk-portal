@@ -71,7 +71,13 @@ export const TETO_DO_TITULO = 160;
 export const TETO_DA_DESCRICAO = 8000;
 export const TETO_DA_NOTA = 2000;
 
-export type Cruzamento = { meu: string; dele: string };
+/** `comum`: os dois lados são "arquivo de todos" (CLAUDE.md, package.json...), que o git costuma juntar sozinho. */
+export type Cruzamento = { meu: string; dele: string; comum: boolean };
+
+export const ESTADOS_DO_PR = ["rascunho", "aberto", "juntado", "fechado"] as const;
+export type EstadoDoPr = (typeof ESTADOS_DO_PR)[number];
+export const NOME_DO_ESTADO_DO_PR: Record<EstadoDoPr, string> = { rascunho: "Rascunho", aberto: "Aberto", juntado: "Juntado", fechado: "Fechado" };
+const ehEstadoDoPr = (v: unknown): v is EstadoDoPr => typeof v === "string" && (ESTADOS_DO_PR as readonly string[]).includes(v);
 
 export type Conflito = {
   id: number;
@@ -84,6 +90,8 @@ export type Conflito = {
   ramo: string | null;
   prUrl: string | null;
   cruzam: Cruzamento[];
+  /** Só "arquivo de todos" em comum: aviso leve. */
+  soComum: boolean;
 };
 
 export type Cartao = {
@@ -100,6 +108,14 @@ export type Cartao = {
   ramo: string | null;
   prUrl: string | null;
   caminhos: string[];
+  /** O que o GitHub viu (0143): pedido de revisão, arquivos de verdade e o atraso contra o main. */
+  prNumero: number | null;
+  prEstado: EstadoDoPr | null;
+  arquivos: string[];
+  atrasDoMain: number | null;
+  avisoMain: string | null;
+  githubLogin: string | null;
+  githubEm: string | null;
   sugestaoId: number | null;
   origem: string;
   referencia: string | null;
@@ -125,12 +141,29 @@ export type SugestaoNova = {
   prints: number;
 };
 
-export type Quadro = { eu: string; cartoes: Cartao[]; pessoas: Pessoa[]; sugestoes: SugestaoNova[] };
+/** Ramo que o GitHub viu e nenhum cartão reconheceu: trabalho fora do quadro. */
+export type RamoForaDoQuadro = {
+  ramo: string;
+  githubLogin: string | null;
+  pessoa: string | null;
+  prNumero: number | null;
+  prEstado: EstadoDoPr | null;
+  titulo: string | null;
+  arquivos: number;
+  atrasDoMain: number | null;
+  avisoMain: string | null;
+  vistoEm: string;
+  /** Os cartões em trabalho com que ele cruza (fora os arquivos de todos). */
+  cruzaCom: number[];
+};
+
+export type Quadro = { eu: string; cartoes: Cartao[]; pessoas: Pessoa[]; sugestoes: SugestaoNova[]; ramos: RamoForaDoQuadro[]; githubEm: string | null };
 
 export type Movimento = {
   em: string;
   por: string | null;
   peloConector: boolean;
+  peloGithub: boolean;
   acao: string;
   de: Coluna | null;
   para: Coluna | null;
@@ -178,9 +211,10 @@ function lerConflito(cru: unknown): Conflito | null {
           const o = (x ?? {}) as Record<string, unknown>;
           const meu = texto(o.meu);
           const dele = texto(o.dele);
-          return meu && dele ? [{ meu, dele }] : [];
+          return meu && dele ? [{ meu, dele, comum: o.comum === true }] : [];
         })
       : [],
+    soComum: c.so_comum === true,
   };
 }
 
@@ -206,6 +240,13 @@ export function lerCartao(cru: unknown): Cartao | null {
     ramo: texto(c.ramo),
     prUrl: texto(c.pr_url),
     caminhos: listaDeTexto(c.caminhos),
+    prNumero: inteiro(c.pr_numero),
+    prEstado: ehEstadoDoPr(c.pr_estado) ? c.pr_estado : null,
+    arquivos: listaDeTexto(c.arquivos),
+    atrasDoMain: Number.isInteger(c.atras_do_main) && (c.atras_do_main as number) >= 0 ? (c.atras_do_main as number) : null,
+    avisoMain: texto(c.aviso_main),
+    githubLogin: texto(c.github_login),
+    githubEm: texto(c.github_em),
     sugestaoId: inteiro(c.sugestao_id),
     origem: texto(c.origem) ?? "manual",
     referencia: texto(c.referencia),
@@ -251,6 +292,28 @@ export function lerQuadro(cru: unknown): Quadro | null {
           return [{ id, criadaEm, autor: texto(s.autor), tela: texto(s.tela) ?? "/admin", telaNome: texto(s.tela_nome), texto: corpo, prints: Number(s.prints) || 0 }];
         })
       : [],
+    ramos: Array.isArray(o.ramos)
+      ? o.ramos.flatMap((x) => {
+          const g = (x ?? {}) as Record<string, unknown>;
+          const ramo = texto(g.ramo);
+          const vistoEm = texto(g.visto_em);
+          if (!ramo || !vistoEm) return [];
+          return [{
+            ramo,
+            githubLogin: texto(g.github_login),
+            pessoa: texto(g.pessoa),
+            prNumero: inteiro(g.pr_numero),
+            prEstado: ehEstadoDoPr(g.pr_estado) ? g.pr_estado : null,
+            titulo: texto(g.titulo),
+            arquivos: Number(g.arquivos) || 0,
+            atrasDoMain: Number.isInteger(g.atras_do_main) ? (g.atras_do_main as number) : null,
+            avisoMain: texto(g.aviso_main),
+            vistoEm,
+            cruzaCom: Array.isArray(g.cruza_com) ? g.cruza_com.flatMap((n) => inteiro(n) ?? []) : [],
+          }];
+        })
+      : [],
+    githubEm: texto(o.github_em),
   };
 }
 
@@ -275,6 +338,7 @@ export function lerCartaoInteiro(cru: unknown): CartaoInteiro | null {
             em,
             por: texto(h.por),
             peloConector: h.pelo_conector === true,
+            peloGithub: h.pelo_github === true,
             acao,
             de: ehColuna(h.de) ? h.de : null,
             para: ehColuna(h.para) ? h.para : null,
@@ -314,15 +378,15 @@ export function porColuna(cartoes: readonly Cartao[]): Record<Coluna, Cartao[]> 
  * para o aviso no topo do quadro. O cruzamento vem pronto do banco: aqui só se
  * junta A com B e B com A numa linha só.
  */
-export function paresQueCruzam(cartoes: readonly Cartao[]): { a: Cartao; b: Cartao; cruzam: Cruzamento[] }[] {
+export function paresQueCruzam(cartoes: readonly Cartao[]): { a: Cartao; b: Cartao; cruzam: Cruzamento[]; soComum: boolean }[] {
   const porId = new Map(cartoes.map((c) => [c.id, c]));
-  const pares: { a: Cartao; b: Cartao; cruzam: Cruzamento[] }[] = [];
+  const pares: { a: Cartao; b: Cartao; cruzam: Cruzamento[]; soComum: boolean }[] = [];
   for (const a of cartoes) {
     if (!EM_TRABALHO.includes(a.coluna)) continue;
     for (const conflito of a.conflitos) {
       const b = porId.get(conflito.id);
       if (!b || b.id <= a.id) continue;
-      pares.push({ a, b, cruzam: conflito.cruzam });
+      pares.push({ a, b, cruzam: conflito.cruzam, soComum: conflito.soComum });
     }
   }
   return pares;
@@ -385,6 +449,24 @@ export const ramoValido = (v: string): boolean => v.length > 0 && v.length <= 20
 
 /** O pedido de revisão que o banco aceita: só pedido do GitHub. */
 export const prValido = (v: string): boolean => v.length <= 300 && /^https:\/\/github\.com\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+\/pull\/[0-9]+$/.test(v);
+
+/** Os cruzamentos de verdade de um cartão: sem os que são só de arquivo de todos. */
+export const cruzamentosDeVerdade = (c: Pick<Cartao, "conflitos">): Conflito[] => c.conflitos.filter((k) => !k.soComum);
+
+/** Um cruzamento em palavras: o caminho, ou "o meu cruza com o dele". */
+export const cruzamentoEmPalavras = (x: Cruzamento): string => (x.meu === x.dele ? x.meu : `${x.meu} cruza com ${x.dele}`);
+
+/** Há quanto tempo, em palavras curtas, para o "último aviso do GitHub". */
+export function haQuanto(iso: string | null, agora = Date.now()): string | null {
+  if (!iso) return null;
+  const min = Math.max(0, Math.round((agora - Date.parse(iso)) / 60_000));
+  if (min < 1) return "agora";
+  if (min < 60) return `há ${min} min`;
+  const h = Math.round(min / 60);
+  if (h < 24) return `há ${h} h`;
+  const d = Math.round(h / 24);
+  return d === 1 ? "há 1 dia" : `há ${d} dias`;
+}
 
 /** O número do pedido de revisão, para o rótulo do link. */
 export const numeroDoPr = (url: string | null): string | null => (url ? (/\/pull\/(\d+)$/.exec(url)?.[1] ?? null) : null);
@@ -457,5 +539,6 @@ export const REGRA_DO_TRABALHO = [
   "Pegue o cartão (roadmap.pegar) dizendo o ramo e os caminhos que vai mexer. Se vier cruzamento, avise a pessoa antes de seguir: outro cartão em trabalho mexe no mesmo lugar.",
   "Trabalhe num ramo próprio, com o nome de quem faz e do cartão (o ramo sugerido vem na resposta). Nunca direto no main.",
   "Ao abrir o pedido de revisão, ligue ao cartão (roadmap.ligar_pr): ele vai para Em revisão.",
-  "Depois de juntado ao main e publicado, mova para No ar (roadmap.concluir).",
+  "Depois de juntado ao main e publicado, mova para No ar (roadmap.concluir). Com o workflow do Roadmap no repositório, o GitHub já faz isso sozinho: pedido aberto leva para Em revisão e pedido juntado leva para No ar.",
+  "Se o cartão tiver aviso de main (outro pedido juntou mudanças nos mesmos arquivos), traga o main para o seu ramo e rode os testes antes de juntar.",
 ] as const;

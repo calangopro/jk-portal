@@ -1,6 +1,6 @@
 import { Bot, RefreshCw, ShieldAlert, Sparkles, TriangleAlert, Wrench, type LucideIcon } from "lucide-react";
 import { COR_DO_TOM } from "@/lib/painel/tons";
-import { NOME_DA_COLUNA, NOME_DA_PRIORIDADE, NOME_DO_TIPO, type Conflito, type Prioridade, type Tipo } from "@/lib/roadmap/roadmap";
+import { NOME_DA_COLUNA, NOME_DA_PRIORIDADE, NOME_DO_TIPO, cruzamentoEmPalavras, type Conflito, type Prioridade, type Tipo } from "@/lib/roadmap/roadmap";
 import { SeloDeTom } from "../Pecas";
 
 /** Pedaços que o quadro e a gaveta do cartão dividem. */
@@ -67,10 +67,19 @@ export const quando = (iso: string) =>
  * O aviso de cruzamento: cada cartão em trabalho que mexe no mesmo lugar, com
  * os caminhos que se sobrepõem. É aviso (âmbar), não trava.
  */
-export function ListaDeCruzamentos({ conflitos, titulo }: { conflitos: Conflito[]; titulo: string }) {
-  if (conflitos.length === 0) return null;
+export function ListaDeCruzamentos({ conflitos: todos, titulo }: { conflitos: Conflito[]; titulo: string }) {
+  if (todos.length === 0) return null;
+  const conflitos = todos.filter((c) => !c.soComum);
+  const deTodos = todos.filter((c) => c.soComum);
   const tom = COR_DO_TOM.atencao;
+  const leve = deTodos.length ? (
+    <p className="text-xs text-muted">
+      Só arquivo de todos em comum com {deTodos.map((c) => `o cartão ${c.id}`).join(", ")} ({[...new Set(deTodos.flatMap((c) => c.cruzam.map((x) => x.meu)))].slice(0, 3).join(", ")}): o git costuma juntar sozinho; quem juntar depois traz o main antes.
+    </p>
+  ) : null;
+  if (conflitos.length === 0) return leve;
   return (
+    <>
     <div role="status" className="rounded-[12px] px-3 py-2.5 text-sm" style={{ background: tom.fundo, color: tom.texto }}>
       <p className="flex items-start gap-1.5 font-semibold">
         <TriangleAlert size={15} className="mt-0.5 shrink-0" aria-hidden="true" />
@@ -89,16 +98,19 @@ export function ListaDeCruzamentos({ conflitos, titulo }: { conflitos: Conflito[
               {c.ramo ? `, ramo ${c.ramo}` : ""})
             </span>
             <ul className="mt-0.5">
-              {c.cruzam.map((x) => (
+              {c.cruzam.filter((x) => !x.comum).slice(0, 8).map((x) => (
                 <li key={`${x.meu}|${x.dele}`} className="font-mono text-[0.72rem] [overflow-wrap:anywhere]">
-                  {x.meu === x.dele ? x.meu : `${x.meu} cruza com ${x.dele}`}
+                  {cruzamentoEmPalavras(x)}
                 </li>
               ))}
+              {c.cruzam.filter((x) => !x.comum).length > 8 ? <li className="text-[0.72rem]">e mais {c.cruzam.filter((x) => !x.comum).length - 8}</li> : null}
             </ul>
           </li>
         ))}
       </ul>
     </div>
+    {leve}
+    </>
   );
 }
 

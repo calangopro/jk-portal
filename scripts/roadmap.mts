@@ -57,7 +57,10 @@ async function chamar(ferramenta: string, args: Record<string, unknown>): Promis
 
 type Cruzamento = { meu: string; dele: string };
 type Conflito = { cartao: number; titulo: string; coluna: string; com: string | null; ramo: string | null; cruzam: Cruzamento[] };
-type Cartao = { id: number; titulo: string; tipo: string; prioridade: string; coluna: string; com: string | null; pelo_claude: boolean; ramo: string | null; pr: string | null; caminhos: string[]; cruza_com: Conflito[] };
+type Cartao = {
+  id: number; titulo: string; tipo: string; prioridade: string; coluna: string; com: string | null; pelo_claude: boolean; ramo: string | null; pr: string | null;
+  pr_estado: string | null; caminhos: string[]; atras_do_main: number | null; aviso_main: string | null; cruza_com: Conflito[];
+};
 
 const cruzamentoEmTexto = (x: Cruzamento) => (x.meu === x.dele ? x.meu : `${x.meu} cruza com ${x.dele}`);
 
@@ -70,7 +73,9 @@ async function quadro() {
   for (const c of emTrabalho) {
     console.log(`  ${c.id}. ${c.titulo}  [${c.coluna === "fazendo" ? "fazendo" : "em revisão"}, com ${c.com ?? "ninguém"}${c.pelo_claude ? ", pelo Claude" : ""}]`);
     if (c.ramo) console.log(`     ramo: ${c.ramo}`);
-    if (c.pr) console.log(`     pedido de revisão: ${c.pr}`);
+    if (c.pr) console.log(`     pedido de revisão: ${c.pr}${c.pr_estado ? ` (${c.pr_estado})` : ""}`);
+    if (c.atras_do_main) console.log(`     ${c.atras_do_main} commit(s) atrás do main`);
+    if (c.aviso_main) console.log(`     ATENÇÃO: ${c.aviso_main}`);
     if (c.caminhos.length) console.log(`     mexe em: ${c.caminhos.join(", ")}`);
   }
   const cruzamentos = (q.cruzamentos ?? []) as { a: string; b: string; cruzam: Cruzamento[] }[];
@@ -78,13 +83,19 @@ async function quadro() {
     console.log("\nCUIDADO: CARTÕES EM TRABALHO NO MESMO LUGAR");
     for (const x of cruzamentos) console.log(`  ${x.a} e ${x.b}: ${x.cruzam.map(cruzamentoEmTexto).join("; ")}`);
   }
+  const fora = (q.fora_do_quadro ?? []) as { ramo: string; de: string | null; pr: number | null; arquivos: number; cruza_com: number[] }[];
+  if (fora.length) {
+    console.log("\nRAMOS NO GITHUB SEM CARTÃO");
+    for (const g of fora) console.log(`  ${g.ramo} (${g.de ?? "alguém"}${g.pr ? `, PR ${g.pr}` : ""}, ${g.arquivos} arquivo(s))${g.cruza_com.length ? `  cruza com o cartão ${g.cruza_com.join(", ")}` : ""}`);
+  }
   const aFazer = cartoes.filter((c) => c.coluna === "a_fazer");
   console.log(`\nA FAZER (${aFazer.length})`);
   for (const c of aFazer.slice(0, 25)) console.log(`  ${c.id}. ${c.titulo}  [${c.tipo}, ${c.prioridade}]`);
   if (aFazer.length > 25) console.log(`  ... e mais ${aFazer.length - 25}`);
   const sugestoes = (q.sugestoes_novas ?? []) as unknown[];
   if (sugestoes.length) console.log(`\n${sugestoes.length} sugestão(ões) do time esperando ir para o quadro.`);
-  console.log(`\nQuadro inteiro: ${q.painel}`);
+  console.log(`\nGitHub: ${q.github_avisou ? `último aviso ${q.github_avisou}` : "ainda não avisou nada"}.`);
+  console.log(`Quadro inteiro: ${q.painel}`);
   console.log("Antes de mexer: pegue o cartão (roadmap.pegar, pelo conector) com o ramo e os caminhos.\n");
 }
 

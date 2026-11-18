@@ -2,10 +2,11 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Bot, Check, CircleAlert, Copy, GitBranch, GitPullRequest, Lightbulb, Loader2 } from "lucide-react";
+import { ArrowDownToLine, Bot, Check, CircleAlert, Copy, GitBranch, GitMerge, GitPullRequest, Lightbulb, Loader2 } from "lucide-react";
+import { COR_DO_TOM } from "@/lib/painel/tons";
 import {
-  COLUNAS, EM_TRABALHO, NOME_DA_COLUNA, NOME_DA_PRIORIDADE, NOME_DO_TIPO, PRIORIDADES, TETO_DA_DESCRICAO, TETO_DA_NOTA, TETO_DO_TITULO, TIPOS,
-  lerCaminhos, movimentoEmPalavras, numeroDoPr, prValido, ramoSugerido, ramoValido,
+  COLUNAS, EM_TRABALHO, NOME_DA_COLUNA, NOME_DA_PRIORIDADE, NOME_DO_ESTADO_DO_PR, NOME_DO_TIPO, PRIORIDADES, TETO_DA_DESCRICAO, TETO_DA_NOTA, TETO_DO_TITULO, TIPOS,
+  haQuanto, lerCaminhos, movimentoEmPalavras, numeroDoPr, prValido, ramoSugerido, ramoValido,
   type Cartao, type CartaoInteiro, type Coluna, type Conflito, type Pessoa, type Prioridade, type Tipo,
 } from "@/lib/roadmap/roadmap";
 import { NOME_DO_ESTADO, ehEstado } from "@/lib/sugestoes/sugestoes";
@@ -84,9 +85,16 @@ function Conteudo({ inteiro, eu, pessoas, acoes, aoMudar }: { inteiro: CartaoInt
         />
       ) : null}
 
+      {c.avisoMain && !concluido ? (
+        <p role="status" className="flex items-start gap-2 rounded-[12px] px-3 py-2.5 text-sm" style={{ background: COR_DO_TOM.atencao.fundo, color: COR_DO_TOM.atencao.texto }}>
+          <ArrowDownToLine size={15} className="mt-0.5 shrink-0" aria-hidden="true" />
+          <span>{c.avisoMain}</span>
+        </p>
+      ) : null}
+
       {c.descricao ? <p className="whitespace-pre-wrap text-sm leading-relaxed text-ink [overflow-wrap:anywhere]">{c.descricao}</p> : null}
 
-      {c.ramo || c.prUrl || c.caminhos.length > 0 ? (
+      {c.ramo || c.prUrl || c.caminhos.length > 0 || c.arquivos.length > 0 ? (
         <section className="glass min-w-0 rounded-[14px] p-3.5 text-sm">
           {c.ramo ? (
             <div className="flex min-w-0 items-center gap-2">
@@ -98,17 +106,38 @@ function Conteudo({ inteiro, eu, pessoas, acoes, aoMudar }: { inteiro: CartaoInt
           {c.prUrl ? (
             <a href={c.prUrl} target="_blank" rel="noopener noreferrer" className="mt-2 flex items-center gap-2 font-semibold text-brand-nav underline decoration-brand-nav/30 underline-offset-2 hover:decoration-brand-nav">
               <GitPullRequest size={14} aria-hidden="true" /> Pedido de revisão {pr}
+              {c.prEstado ? <span className="font-normal text-muted no-underline">({NOME_DO_ESTADO_DO_PR[c.prEstado].toLowerCase()})</span> : null}
             </a>
+          ) : null}
+          {c.githubEm ? (
+            <p className="mt-2 flex flex-wrap items-center gap-x-1.5 text-xs text-muted">
+              <GitMerge size={12} aria-hidden="true" />
+              GitHub avisou {haQuanto(c.githubEm)}
+              {c.githubLogin ? `, pelo envio de ${c.githubLogin}` : ""}
+              {c.atrasDoMain !== null ? `. ${c.atrasDoMain === 0 ? "Em dia com o main" : `${c.atrasDoMain} ${c.atrasDoMain === 1 ? "commit" : "commits"} atrás do main`}` : ""}.
+            </p>
           ) : null}
           {c.caminhos.length > 0 ? (
             <div className="mt-2.5">
-              <p className="text-[0.7rem] font-semibold uppercase tracking-wider text-muted">Onde mexe</p>
+              <p className="text-[0.7rem] font-semibold uppercase tracking-wider text-muted">Onde disse que mexe</p>
               <ul className="mt-1 grid grid-cols-1 gap-0.5">
                 {c.caminhos.map((x) => (
                   <li key={x} className="font-mono text-xs text-ink [overflow-wrap:anywhere]">{x}</li>
                 ))}
               </ul>
             </div>
+          ) : null}
+          {c.arquivos.length > 0 ? (
+            <details className="mt-2.5">
+              <summary className="cursor-pointer text-[0.7rem] font-semibold uppercase tracking-wider text-muted">
+                O que o ramo mexe de verdade ({c.arquivos.length} {c.arquivos.length === 1 ? "arquivo" : "arquivos"})
+              </summary>
+              <ul className="mt-1 grid max-h-64 grid-cols-1 gap-0.5 overflow-y-auto">
+                {c.arquivos.map((x) => (
+                  <li key={x} className="font-mono text-xs text-ink [overflow-wrap:anywhere]">{x}</li>
+                ))}
+              </ul>
+            </details>
           ) : null}
         </section>
       ) : null}
@@ -167,10 +196,15 @@ function Conteudo({ inteiro, eu, pessoas, acoes, aoMudar }: { inteiro: CartaoInt
             {inteiro.historico.map((h, i) => (
               <li key={`${h.em}-${i}`} className="min-w-0 text-sm">
                 <p className="text-ink">
-                  <span className="font-semibold">{h.por ?? "Alguém"}</span> {movimentoEmPalavras(h).replace(/^./, (l) => l.toLowerCase())}
+                  <span className="font-semibold">{h.por ?? (typeof h.detalhe.login === "string" ? h.detalhe.login : "Alguém")}</span> {movimentoEmPalavras(h).replace(/^./, (l) => l.toLowerCase())}
                   {h.peloConector ? (
                     <span className="ml-1 inline-flex items-center gap-0.5 text-xs text-muted">
                       <Bot size={11} aria-hidden="true" /> pelo Claude
+                    </span>
+                  ) : null}
+                  {h.peloGithub ? (
+                    <span className="ml-1 inline-flex items-center gap-0.5 text-xs text-muted">
+                      <GitMerge size={11} aria-hidden="true" /> pelo GitHub
                     </span>
                   ) : null}
                 </p>

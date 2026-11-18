@@ -1,12 +1,12 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { CircleCheck, FolderTree, GitBranch, GitPullRequest, Inbox, Loader2, Plus, TriangleAlert } from "lucide-react";
+import { ArrowDownToLine, CircleCheck, FolderTree, GitBranch, GitMerge, GitPullRequest, Inbox, Loader2, Plus, TriangleAlert } from "lucide-react";
 import { COR_DO_TOM } from "@/lib/painel/tons";
 import {
   COLUNAS, COLUNAS_DO_QUADRO, FRASE_DA_COLUNA, NOME_DA_COLUNA, NOME_DA_PRIORIDADE, NOME_DO_TIPO, PRIORIDADES, TIPOS,
-  filtrarCartoes, numeroDoPr, paresQueCruzam, porColuna, quemEstaFazendo,
-  type Cartao, type Coluna, type FiltroDePessoa, type FiltroDeTipo, type Prioridade, type Quadro, type SugestaoNova, type Tipo,
+  NOME_DO_ESTADO_DO_PR, cruzamentoEmPalavras, cruzamentosDeVerdade, filtrarCartoes, haQuanto, numeroDoPr, paresQueCruzam, porColuna, quemEstaFazendo,
+  type Cartao, type Coluna, type FiltroDePessoa, type FiltroDeTipo, type Prioridade, type Quadro, type RamoForaDoQuadro, type SugestaoNova, type Tipo,
 } from "@/lib/roadmap/roadmap";
 import { GavetaDoCartao } from "./Gaveta";
 import { NovoCartao } from "./NovoCartao";
@@ -35,7 +35,9 @@ export function QuadroDoRoadmap({ quadro, eu, abrir, acoes }: { quadro: Quadro |
   const cartoes = useMemo(() => quadro?.cartoes ?? [], [quadro]);
   const visiveis = useMemo(() => filtrarCartoes(cartoes, pessoa, tipo), [cartoes, pessoa, tipo]);
   const colunas = useMemo(() => porColuna(visiveis), [visiveis]);
-  const pares = useMemo(() => paresQueCruzam(cartoes), [cartoes]);
+  const todosOsPares = useMemo(() => paresQueCruzam(cartoes), [cartoes]);
+  const pares = todosOsPares.filter((p) => !p.soComum);
+  const paresDeTodos = todosOsPares.filter((p) => p.soComum);
   const fazendo = useMemo(() => quemEstaFazendo(cartoes), [cartoes]);
   const comCartao = useMemo(() => {
     const ids = new Set(cartoes.map((c) => c.responsavelId).filter(Boolean));
@@ -55,7 +57,7 @@ export function QuadroDoRoadmap({ quadro, eu, abrir, acoes }: { quadro: Quadro |
 
   return (
     <div data-painel-largo>
-      <Cabecalho aoCriar={() => setNovo(true)} />
+      <Cabecalho aoCriar={() => setNovo(true)} githubEm={quadro.githubEm} />
 
       {/* Quem está mexendo em quê, e o aviso de dois no mesmo lugar */}
       <section aria-label="Em trabalho agora" className="mt-5 grid grid-cols-1 gap-3">
@@ -96,14 +98,23 @@ export function QuadroDoRoadmap({ quadro, eu, abrir, acoes }: { quadro: Quadro |
                   </button>
                   <span className="text-muted"> ({b.responsavel ?? "sem dono"})</span>
                   <span className="mt-0.5 block font-mono text-[0.72rem] text-muted [overflow-wrap:anywhere]">
-                    {cruzam.map((x) => (x.meu === x.dele ? x.meu : `${x.meu} cruza com ${x.dele}`)).join("; ")}
+                    {cruzam.filter((x) => !x.comum).map(cruzamentoEmPalavras).join("; ")}
                   </span>
                 </li>
               ))}
             </ul>
-            <p className="mt-2 pl-6 text-xs text-ink/80">Combinem quem junta primeiro. O segundo atualiza o ramo depois, antes de juntar.</p>
+            <p className="mt-2 pl-6 text-xs text-ink/80">Combinem quem junta primeiro. O segundo traz o main para o ramo dele antes de juntar.</p>
           </div>
         ) : null}
+
+        {paresDeTodos.length > 0 ? (
+          <p className="min-w-0 px-1 text-xs text-muted">
+            Só arquivo de todos em comum (CLAUDE.md, package.json e afins), que o git costuma juntar sozinho:{" "}
+            {paresDeTodos.map(({ a, b }) => `${a.id} e ${b.id}`).join("; ")}. Quem juntar depois traz o main antes.
+          </p>
+        ) : null}
+
+        {quadro.ramos.length > 0 ? <ForaDoQuadro ramos={quadro.ramos} /> : null}
 
         {quadro.sugestoes.length > 0 ? <Entrada sugestoes={quadro.sugestoes} acoes={acoes} aoLevar={setAberto} /> : null}
       </section>
@@ -167,7 +178,7 @@ export function QuadroDoRoadmap({ quadro, eu, abrir, acoes }: { quadro: Quadro |
   );
 }
 
-function Cabecalho({ aoCriar }: { aoCriar: (() => void) | null }) {
+function Cabecalho({ aoCriar, githubEm = null }: { aoCriar: (() => void) | null; githubEm?: string | null }) {
   return (
     <header>
       <p className="eyebrow">Sistema</p>
@@ -175,6 +186,12 @@ function Cabecalho({ aoCriar }: { aoCriar: (() => void) | null }) {
       <p className="mt-2 max-w-3xl text-sm text-muted sm:text-base">
         O que mexer no código do painel, quem está mexendo e onde. Antes de começar, pegue o cartão e diga os caminhos que vai mexer: o quadro avisa
         quando outro trabalho já está no mesmo lugar.
+      </p>
+      <p className="mt-2 flex items-center gap-1.5 text-xs text-muted">
+        <GitMerge size={13} aria-hidden="true" />
+        {githubEm
+          ? `O GitHub avisou ${haQuanto(githubEm)}. Pedido aberto e pedido juntado movem o cartão sozinhos.`
+          : "O GitHub ainda não avisou nada: o workflow do Roadmap começa a contar quando estiver no main."}
       </p>
       {aoCriar ? (
         <button
@@ -241,7 +258,10 @@ function ColunaDoQuadro({ coluna, cartoes, ativa, aoAbrir }: { coluna: Coluna; c
 
 function CartaoNoQuadro({ c, aoAbrir }: { c: Cartao; aoAbrir: (id: number) => void }) {
   const pr = numeroDoPr(c.prUrl);
-  const cruza = c.conflitos.length > 0 && c.coluna !== "no_ar" && c.coluna !== "descartado";
+  const concluido = c.coluna === "no_ar" || c.coluna === "descartado";
+  const deVerdade = cruzamentosDeVerdade(c);
+  const cruza = deVerdade.length > 0 && !concluido;
+  const lugares = c.arquivos.length || c.caminhos.length;
   return (
     <li className="min-w-0">
       <button
@@ -258,7 +278,16 @@ function CartaoNoQuadro({ c, aoAbrir }: { c: Cartao; aoAbrir: (id: number) => vo
               style={{ color: COR_DO_TOM.atencao.texto, background: COR_DO_TOM.atencao.fundo }}
             >
               <TriangleAlert size={11} aria-hidden="true" />
-              Cruza com {c.conflitos.map((k) => k.id).join(", ")}
+              Cruza com {deVerdade.map((k) => k.id).join(", ")}
+            </span>
+          ) : null}
+          {c.avisoMain && !concluido ? (
+            <span
+              className="inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2 py-0.5 text-[0.68rem] font-bold"
+              style={{ color: COR_DO_TOM.atencao.texto, background: COR_DO_TOM.atencao.fundo }}
+            >
+              <ArrowDownToLine size={11} aria-hidden="true" />
+              Traga o main
             </span>
           ) : null}
         </span>
@@ -276,13 +305,16 @@ function CartaoNoQuadro({ c, aoAbrir }: { c: Cartao; aoAbrir: (id: number) => vo
           {pr ? (
             <span className="inline-flex items-center gap-1 text-muted">
               <GitPullRequest size={12} aria-hidden="true" /> PR {pr}
+              {c.prEstado ? ` (${NOME_DO_ESTADO_DO_PR[c.prEstado].toLowerCase()})` : ""}
             </span>
           ) : null}
-          {c.caminhos.length > 0 ? (
-            <span className="inline-flex items-center gap-1 text-muted" title={c.caminhos.join("\n")}>
-              <FolderTree size={12} aria-hidden="true" /> {c.caminhos.length} {c.caminhos.length === 1 ? "caminho" : "caminhos"}
+          {lugares > 0 ? (
+            <span className="inline-flex items-center gap-1 text-muted" title={(c.arquivos.length ? c.arquivos : c.caminhos).join("\n")}>
+              <FolderTree size={12} aria-hidden="true" /> {lugares}{" "}
+              {c.arquivos.length ? (lugares === 1 ? "arquivo" : "arquivos") : lugares === 1 ? "caminho" : "caminhos"}
             </span>
           ) : null}
+          {c.atrasDoMain && !concluido ? <span className="text-muted">{c.atrasDoMain} atrás do main</span> : null}
         </span>
         {c.coluna === "no_ar" || c.coluna === "descartado" ? (
           <span className="mt-1.5 block text-[0.7rem] text-muted">
@@ -319,6 +351,40 @@ function Descartados({ cartoes, ativa, aoAbrir }: { cartoes: Cartao[]; ativa: bo
         ) : null}
       </div>
     </>
+  );
+}
+
+/**
+ * Trabalho fora do quadro: ramos que o GitHub viu e que nenhum cartão
+ * reconhece. É quem começou sem pegar cartão, e o quadro não tem como avisar
+ * os outros de onde essa pessoa mexe.
+ */
+function ForaDoQuadro({ ramos }: { ramos: RamoForaDoQuadro[] }) {
+  return (
+    <div role="status" className="min-w-0 rounded-[16px] px-4 py-3" style={{ background: COR_DO_TOM.atencao.fundo, color: COR_DO_TOM.atencao.texto }}>
+      <p className="flex items-start gap-2 text-sm font-semibold">
+        <GitBranch size={16} className="mt-0.5 shrink-0" aria-hidden="true" />
+        {ramos.length === 1 ? "1 ramo no GitHub sem cartão no quadro" : `${ramos.length} ramos no GitHub sem cartão no quadro`}
+      </p>
+      <ul className="mt-2 grid grid-cols-1 gap-2 pl-6 text-sm text-ink">
+        {ramos.map((g) => (
+          <li key={g.ramo} className="min-w-0">
+            <span className="font-mono text-xs [overflow-wrap:anywhere]">{g.ramo}</span>
+            <span className="text-muted">
+              {" "}
+              ({g.pessoa ?? g.githubLogin ?? "alguém"}
+              {g.prNumero ? `, PR ${g.prNumero}` : ""}
+              {g.arquivos ? `, ${g.arquivos} ${g.arquivos === 1 ? "arquivo" : "arquivos"}` : ""}, {haQuanto(g.vistoEm)})
+            </span>
+            {g.cruzaCom.length ? <span className="block text-xs font-semibold">Cruza com o cartão {g.cruzaCom.join(", ")}.</span> : null}
+            {g.avisoMain ? <span className="block text-xs">{g.avisoMain}</span> : null}
+          </li>
+        ))}
+      </ul>
+      <p className="mt-2 pl-6 text-xs text-ink/80">
+        Quem está nesse ramo pega um cartão com ele (ou escreve &quot;Cartão N&quot; no pedido de revisão), e ele sai daqui sozinho.
+      </p>
+    </div>
   );
 }
 

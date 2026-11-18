@@ -8,6 +8,7 @@
  * conferido lá, num ensaio desfeito, com JWT falso de cada nível. Os cartões
  * daqui são inventados.
  */
+import { generateKeyPairSync, sign } from "node:crypto";
 import { readFileSync } from "node:fs";
 import {
   COLUNAS, FRASE_DA_COLUNA, MENSAGEM_DO_MOTIVO, NOME_DA_COLUNA, NOME_DA_PRIORIDADE, NOME_DO_TIPO, REGRA_DO_TRABALHO,
@@ -17,6 +18,9 @@ import {
 import { lerRoadmap } from "../src/lib/sugestoes/sugestoes.ts";
 import { SETORES, setoresDe } from "../src/lib/painel/setores.ts";
 import { operacaoLiberada } from "../src/lib/conector/quem-usa.ts";
+import { conferirClaims, verificarToken, PUBLICO_DO_ROADMAP, REPOSITORIO, WORKFLOW_DO_ROADMAP, type ClaimsDoGitHub } from "../src/lib/roadmap/oidc.ts";
+import { MARCA_DO_COMENTARIO, NOME_DA_COLUNA_NO_COMENTARIO, comentarioDoPr, eventoDoGitHub, type RespostaDoGitHub } from "../src/lib/roadmap/github.ts";
+import { cruzamentosDeVerdade, haQuanto } from "../src/lib/roadmap/roadmap.ts";
 
 let falhas = 0;
 function confere(nome: string, ok: boolean, detalhe = "") {
@@ -170,6 +174,105 @@ console.log("\nO banco");
   confere("p_quem só vale para a chave de serviço", /when \(select auth\.uid\(\)\) is not null then \(select auth\.uid\(\)\)\s+when coalesce\(\(select auth\.role\(\)\) = 'service_role', false\) then p_quem/.test(sql));
   confere("o cruzamento compara por começo de caminho, sem LIKE (o sublinhado do nome de arquivo não vira curinga)", sql.includes("starts_with(a, b || '/')") && !/roadmap_cruzam[\s\S]{0,400}\blike\b/i.test(sql));
   confere("toda conferência de área vai dentro de coalesce", !/if not public\.roadmap_pode/.test(sql) && (sql.match(/coalesce\(public\.roadmap_pode\(v_eu\), false\)/g) ?? []).length >= 9);
+}
+
+console.log("\nGitHub: o token que o próprio GitHub assina");
+{
+  const { publicKey, privateKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
+  const jwk = { ...(publicKey.export({ format: "jwk" }) as object), kid: "chave-1", alg: "RS256", use: "sig" };
+  const b64 = (o: unknown) => Buffer.from(JSON.stringify(o)).toString("base64url");
+  const agora = 1_800_000_000;
+  const claims: ClaimsDoGitHub = {
+    iss: "https://token.actions.githubusercontent.com", aud: PUBLICO_DO_ROADMAP, exp: agora + 300, nbf: agora - 5, repository: REPOSITORIO, repository_owner: "calangopro",
+    event_name: "pull_request", ref: "refs/pull/150/merge", head_ref: "erick/12-notinha", actor: "ErickOlih", sha: "abcdef1234567", workflow_ref: `${WORKFLOW_DO_ROADMAP}refs/pull/150/merge`,
+  };
+  const assinar = (c: unknown, kid = "chave-1") => {
+    const corpo = `${b64({ alg: "RS256", typ: "JWT", kid })}.${b64(c)}`;
+    return `${corpo}.${sign("RSA-SHA256", Buffer.from(corpo), privateKey).toString("base64url")}`;
+  };
+  const token = assinar(claims);
+  confere("token assinado pela chave do GitHub é aceito", verificarToken(token, [jwk])?.head_ref === "erick/12-notinha");
+  const [c0, , a0] = token.split(".");
+  confere("token mexido (outro repositório no meio) é recusado", verificarToken(`${c0}.${b64({ ...claims, repository: "outro/repo" })}.${a0}`, [jwk]) === null);
+  confere("chave de outro kid, ou nenhuma chave, recusa", verificarToken(assinar(claims, "chave-2"), [jwk]) === null && verificarToken(token, []) === null && verificarToken("lixo", [jwk]) === null);
+  confere("as informações certas passam", conferirClaims(claims, agora).ok);
+  const motivo = (extra: Partial<ClaimsDoGitHub>) => { const r = conferirClaims({ ...claims, ...extra }, agora); return r.ok ? "ok" : r.motivo; };
+  confere(
+    "outro repositório, outro workflow, outro público, vencido e evento que não é ramo nem pedido: recusados",
+    motivo({ repository: "fork/jk-portal" }) === "repositorio" && motivo({ workflow_ref: `${REPOSITORIO}/.github/workflows/outro.yml@refs/heads/x` }) === "workflow"
+      && motivo({ aud: "sts.amazonaws.com" }) === "publico" && motivo({ exp: agora - 120 }) === "vencido" && motivo({ event_name: "issues" }) === "evento" && motivo({ iss: "https://outro" }) === "emissor",
+  );
+}
+
+console.log("\nGitHub: o evento e o comentário");
+{
+  const doPr: ClaimsDoGitHub = { event_name: "pull_request", ref: "refs/pull/150/merge", head_ref: "erick/12-notinha", actor: "ErickOlih", repository: REPOSITORIO, sha: "abcdef1234567" };
+  const e = eventoDoGitHub(doPr, { acao: "opened", titulo: "Notinha", arquivos: ["a.ts", "a.ts", " b.ts ", 3], atras_do_main: 2, rascunho: false, ramo: "mentira/9-outro" })!;
+  confere("pedido: ramo, login e número saem do token, não do corpo", e.ramo === "erick/12-notinha" && e.login === "ErickOlih" && e.pr_numero === 150 && e.evento === "pull_request");
+  confere("arquivos sem repetição e sem espaço; commits atrás do main", e.arquivos?.join() === "a.ts,b.ts" && e.atras_do_main === 2);
+  const envio = eventoDoGitHub({ event_name: "push", ref: "refs/heads/filipe/3-x", actor: "agenciasetup", repository: REPOSITORIO }, { atras_do_main: -1 })!;
+  confere("envio de ramo: o ramo vem do ref, sem pedido; atraso inválido vira nulo", envio.ramo === "filipe/3-x" && envio.pr_numero === null && envio.atras_do_main === null && envio.arquivos === undefined);
+  confere("tag e pedido sem número não são acompanhados", eventoDoGitHub({ event_name: "push", ref: "refs/tags/v1", repository: REPOSITORIO }, {}) === null && eventoDoGitHub({ ...doPr, ref: "refs/heads/x" }, {}) === null);
+
+  const quadro = "https://www.jkaliancas.com.br/guias/admin/roadmap";
+  const semCartao = comentarioDoPr({ ok: true, fora_do_quadro: true, cartao: null, conflitos: [] }, e, quadro);
+  confere("pedido aberto sem cartão: falha, e o comentário diz como ligar", semCartao.falhar && semCartao.markdown!.startsWith(MARCA_DO_COMENTARIO) && semCartao.markdown!.includes("roadmap.pegar") && semCartao.markdown!.includes("Cartão N"));
+  const comCartao: RespostaDoGitHub = {
+    ok: true, moveu: true, de: "fazendo",
+    cartao: { id: 12, titulo: "Notinha do pedido", coluna: "em_revisao", responsavel: "Erick", atras_do_main: 2, aviso_main: null },
+    conflitos: [
+      { id: 15, titulo: "Conversa privada", coluna: "fazendo", responsavel: "Filipe", so_comum: false, cruzam: [{ meu: "src/lib/fabrica/x.ts", dele: "src/lib/fabrica", comum: false }, { meu: "CLAUDE.md", dele: "CLAUDE.md", comum: true }] },
+      { id: 40, titulo: "Roadmap", coluna: "em_revisao", responsavel: "Filipe", so_comum: true, cruzam: [{ meu: "CLAUDE.md", dele: "CLAUDE.md", comum: true }] },
+    ],
+  };
+  const ok = comentarioDoPr(comCartao, e, quadro);
+  confere("com cartão: não falha, diz o cartão, o movimento e o link", !ok.falhar && ok.markdown!.includes("**Cartão 12: Notinha do pedido** (Em revisão, com Erick)") && ok.markdown!.includes("de Fazendo para Em revisão") && ok.markdown!.includes(`${quadro}?cartao=12`));
+  confere("cruzamento de verdade em destaque, sem o arquivo de todos na linha dele", ok.markdown!.includes("Cartão 15, Conversa privada") && ok.markdown!.includes("`src/lib/fabrica/x.ts` com `src/lib/fabrica`") && !/Cartão 15[^\n]*CLAUDE\.md/.test(ok.markdown!));
+  confere("arquivo de todos vai numa linha leve, e o atraso do main aparece", ok.markdown!.includes("Só arquivo de todos em comum com o cartão 40") && ok.markdown!.includes("**2 commits atrás do main**"));
+  const fechado = comentarioDoPr(comCartao, { ...e, acao: "closed" }, quadro);
+  confere("pedido fechado e envio de ramo não comentam nem falham", fechado.markdown === null && !fechado.falhar && comentarioDoPr({ ok: true, fora_do_quadro: true, cartao: null }, envio, quadro).falhar === false);
+  confere("recusa do painel não falha a checagem", !comentarioDoPr({ ok: false, motivo: "formato" }, e, quadro).falhar);
+  confere("o nome das colunas no comentário é o mesmo do quadro", JSON.stringify(NOME_DA_COLUNA_NO_COMENTARIO) === JSON.stringify(NOME_DA_COLUNA));
+  confere("nenhum texto do comentário com travessão", ![semCartao.markdown, ok.markdown].some((t) => /[—–]/.test(t ?? "")));
+}
+
+console.log("\nGitHub: o quadro");
+{
+  const q = lerQuadro({
+    ...cru,
+    cartoes: [cartao({ id: 1, coluna: "fazendo", responsavel: "Erick", responsavel_id: ERICK, pr_numero: 150, pr_estado: "aberto", arquivos: ["src/a.ts"], atras_do_main: 3, aviso_main: "Traga o main", github_em: "2026-11-18T12:00:00Z",
+      conflitos: [{ ...conflito(2, "Threads", "Filipe", "CLAUDE.md", "CLAUDE.md"), so_comum: true, cruzam: [{ meu: "CLAUDE.md", dele: "CLAUDE.md", comum: true }] }] })],
+    ramos: [{ ramo: "filipe/solto", pessoa: "Filipe", github_login: "agenciasetup", arquivos: 4, visto_em: "2026-11-18T12:00:00Z", cruza_com: ["1"] }, { ramo: "" }],
+    github_em: "2026-11-18T12:00:00Z",
+  })!;
+  const c = q.cartoes[0];
+  confere("o cartão traz o estado do pedido, os arquivos, o atraso e o aviso", c.prEstado === "aberto" && c.arquivos.length === 1 && c.atrasDoMain === 3 && c.avisoMain === "Traga o main");
+  confere("cruzamento só de arquivo de todos não conta como de verdade", c.conflitos[0].soComum && c.conflitos[0].cruzam[0].comum && cruzamentosDeVerdade(c).length === 0);
+  confere("o trabalho fora do quadro chega, e ramo sem nome é descartado", q.ramos.length === 1 && q.ramos[0].cruzaCom.join() === "1" && q.githubEm === "2026-11-18T12:00:00Z");
+  const agora = Date.parse("2026-11-18T12:00:00Z");
+  confere("há quanto tempo, em palavras", haQuanto("2026-11-18T11:55:00Z", agora) === "há 5 min" && haQuanto("2026-11-18T09:00:00Z", agora) === "há 3 h" && haQuanto("2026-11-16T12:00:00Z", agora) === "há 2 dias" && haQuanto(null) === null);
+}
+
+console.log("\nGitHub: workflows e a regra do main");
+{
+  const roadmap = readFileSync(".github/workflows/roadmap.yml", "utf8");
+  const verificar = readFileSync(".github/workflows/verificar.yml", "utf8");
+  const avisar = readFileSync(".github/roadmap/avisar.mjs", "utf8");
+  const regra = JSON.parse(readFileSync("infra/github/ruleset-main.json", "utf8"));
+  const pacote = JSON.parse(readFileSync("package.json", "utf8")) as { scripts: Record<string, string> };
+  confere("o workflow do Roadmap pede o token OIDC, e não usa segredo", roadmap.includes("id-token: write") && !roadmap.includes("secrets."));
+  confere("o público pedido no workflow é o que o painel confere", avisar.includes(`audience=${PUBLICO_DO_ROADMAP}`));
+  confere("ações de terceiros fixadas pelo commit, não pela etiqueta", ![roadmap, verificar].some((w) => /uses: [^\n]+@v\d/.test(w)) && [roadmap, verificar].every((w) => /uses: actions\/checkout@[0-9a-f]{40}/.test(w)));
+  confere("a checagem do pedido se chama roadmap, e a do envio de ramo tem outro nome", roadmap.includes("'roadmap' || 'roadmap (ramo)'"));
+  const exigidas = regra.rules.find((r: { type: string }) => r.type === "required_status_checks").parameters;
+  confere("a regra do main exige verificar, roadmap e Vercel, com o ramo em dia", exigidas.strict_required_status_checks_policy === true && exigidas.required_status_checks.map((c: { context: string }) => c.context).join() === "verificar,roadmap,Vercel");
+  confere("a regra do main bloqueia envio direto, histórico reescrito e apagar o main", ["pull_request", "non_fast_forward", "deletion"].every((t) => regra.rules.some((r: { type: string }) => r.type === t)) && regra.bypass_actors.length === 0);
+  const doBuild = [...pacote.scripts["build:seguro"].matchAll(/verificar:([a-z]+)/g)].map((m) => m[1]).filter((n) => n !== "tokens");
+  const doTudo = [...pacote.scripts["verificar:tudo"].matchAll(/verificar:([a-z]+)/g)].map((m) => m[1]);
+  confere("a verificação do GitHub roda todos os testes do build (menos o de tokens, que pede o build)", doBuild.join() === doTudo.join() && verificar.includes("npm run verificar:tudo") && verificar.includes("tsc --noEmit"), `${doBuild} / ${doTudo}`);
+  confere("nenhum texto dos workflows com travessão", ![roadmap, verificar, avisar].some((t) => /[—–]/.test(t)));
+  const sql = readFileSync("supabase/migrations/0143_roadmap_github.sql", "utf8");
+  confere("o evento do GitHub só a chave de serviço chama", sql.includes("revoke execute on function public.roadmap_github(jsonb) from public, anon, authenticated") && sql.includes("if not coalesce((select auth.role()) = 'service_role', false)"));
 }
 
 if (falhas > 0) {
