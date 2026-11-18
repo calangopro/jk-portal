@@ -1,7 +1,7 @@
 import type { LucideIcon } from "lucide-react";
 import {
   Activity, Banknote, BellRing, BookCheck, Bot, Cable, CalendarDays, Contact, Crosshair, FileText, Filter, Flame, Globe, Hammer, HandCoins,
-  Handshake, HeartPulse, History, ImageIcon, LayoutDashboard, LayoutTemplate, LibraryBig, LifeBuoy, Lightbulb, ListChecks, MapPin, MessageCircle,
+  Handshake, HeartPulse, Kanban, History, ImageIcon, LayoutDashboard, LayoutTemplate, LibraryBig, LifeBuoy, Lightbulb, ListChecks, MapPin, MessageCircle,
   MessageSquareText, MessagesSquare, Milestone, Package, PackageSearch, Palette, PenLine, Percent, Plug, QrCode, RotateCcw, Route, Send, Settings,
   Share2, ShoppingBag, Smartphone, Sparkles, Star, Store, Table2, Tags, TrendingUp, Trophy, Users, UsersRound, Wallet, Workflow,
 } from "lucide-react";
@@ -203,6 +203,7 @@ export const SETORES: Setor[] = [
       { href: "/admin/integracoes", area: "equipe", label: "Integrações", Icone: Plug, desc: "Google, Meta e a loja" },
       { href: "/admin/saude", area: "equipe", label: "Saúde das ligações", curto: "Saúde", Icone: HeartPulse, desc: "O que roda sozinho e o que parou" },
       { href: "/admin/conector", area: "equipe", label: "Conector do Claude", curto: "Conector", Icone: Bot, desc: "Claude lendo e escrevendo aqui" },
+      { href: "/admin/roadmap", area: "roadmap", label: "Roadmap", Icone: Kanban, desc: "O que mexer no código, quem está mexendo e onde" },
     ],
   },
 ];

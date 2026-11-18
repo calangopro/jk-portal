@@ -24,6 +24,8 @@ FLUXO DE UM POST: pautas e oportunidades (o que escrever) -> canibalização (n�
 
 FOTOS DO CATÁLOGO: três por produto (1 produto, 2 face, 3 uso). catalogo.fila_de_fotos -> leia a peça na foto do site (largura, pedras, formato, acabamento) -> gere a partir dela, nunca do zero -> revise ao lado da original e corrija o que divergir -> catalogo.enviar_foto. Aprovar é de gente, no painel. Detalhe em buscar({ guia: "fotos" }).
 
+ROADMAP (só diretoria): antes de mexer no CÓDIGO do painel, consulte roadmap.quadro, ache o cartão do trabalho (ou crie com roadmap.criar) e pegue com roadmap.pegar dizendo o ramo e os caminhos que vai mexer. Se vier cruzamento, avise a pessoa: outro trabalho mexe no mesmo lugar. Trabalhe num ramo próprio (pessoa/número-título). Ao abrir o pedido de revisão, roadmap.ligar_pr; depois de juntado e publicado, roadmap.concluir. Achados em lote (auditoria): roadmap.criar com uma referência por item.
+
 REDES SOCIAIS: redes.contas (o que está ligado) -> redes.regras -> redes.enviar_midia para cada arquivo -> redes.criar_post (nasce RASCUNHO; story com várias mídias vira sequência) -> mostre à pessoa a legenda, as redes e a hora -> redes.agendar ou redes.publicar só com o sim dela. Sai no nome da JK, para o público. O que viralizou: redes.em_alta. Ideias: redes.ideias e redes.criar_ideia. Detalhe em buscar({ guia: "redes" }).
 
 SEGURANÇA:
