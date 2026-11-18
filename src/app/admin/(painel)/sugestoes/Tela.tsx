@@ -16,7 +16,7 @@ export function TelaDeSugestoes({
         <h1 className="font-display mt-2 text-3xl text-ink sm:text-4xl">{diretoria ? "Sugestões de melhoria" : "Suas sugestões"}</h1>
         <p className="mt-2 max-w-3xl text-sm text-muted sm:text-base">
           {diretoria
-            ? "O roadmap do painel, escrito pelo time. Mude o estado e responda: quem sugeriu vê a resposta aqui."
+            ? "O que o time pede para o painel. Leve a que vale para o Roadmap (em Sistema): dali o estado anda com o cartão, e quem sugeriu vê a resposta aqui."
             : "O que você pediu para o painel e em que pé está. Quem cuida do painel lê todas e responde aqui."}
         </p>
         <div className="mt-4">

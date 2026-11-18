@@ -16,7 +16,15 @@ export async function mudarSugestao(id: number, estado: string, resposta: string
   const r = (data ?? {}) as { ok?: boolean; motivo?: string };
   if (error || !r.ok) {
     if (error) console.error("[sugestoes] sugestao_mudar:", error.message);
-    return { ok: false, erro: r.motivo === "nao_achou" ? "Essa sugestão não existe mais." : "Não deu para salvar agora. Tente de novo." };
+    return {
+      ok: false,
+      erro:
+        r.motivo === "nao_achou"
+          ? "Essa sugestão não existe mais."
+          : r.motivo === "no_roadmap"
+            ? "Essa sugestão já está no Roadmap: o estado dela anda com o cartão. Aqui, só a resposta muda."
+            : "Não deu para salvar agora. Tente de novo.",
+    };
   }
   revalidatePath(ENDERECO_DAS_SUGESTOES);
   return { ok: true };

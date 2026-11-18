@@ -49,7 +49,9 @@ export type Area =
   /** As redes sociais: números, publicar, agendar e responder (0083). Ligar conta é de administrador. */
   | "redes"
   /** Atender o suporte pós-venda: assumir e fechar o caso que o vendedor passou (0102). Gerente e diretoria. Passar o caso é de `lancar_venda`. */
-  | "suporte";
+  | "suporte"
+  /** O Roadmap: o quadro de trabalho de quem mexe no código do painel (0141). Administrador, dono e GM. */
+  | "roadmap";
 
 /** Na ordem em que aparecem para quem convida: da empresa para o editorial. */
 export const NIVEIS: { papel: AppRole; nome: string; resumo: string }[] = [

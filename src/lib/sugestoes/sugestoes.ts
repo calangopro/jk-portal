@@ -63,6 +63,8 @@ export type Sugestao = {
   resposta: string | null;
   estadoMudouEm: string | null;
   estadoPor: string | null;
+  /** O cartão do Roadmap (0141) em que a sugestão virou trabalho. Com cartão, o estado anda com ele. */
+  cartao: { id: number; coluna: string } | null;
 };
 
 export type Roadmap = { diretoria: boolean; itens: Sugestao[] };
@@ -97,9 +99,17 @@ export function lerRoadmap(v: unknown): Roadmap | null {
       resposta: texto(s.resposta),
       estadoMudouEm: texto(s.estado_mudou_em),
       estadoPor: texto(s.estado_por),
+      cartao: lerCartaoDaSugestao(s.cartao),
     });
   }
   return { diretoria: o.diretoria === true, itens };
+}
+
+function lerCartaoDaSugestao(v: unknown): { id: number; coluna: string } | null {
+  if (!v || typeof v !== "object") return null;
+  const o = v as Record<string, unknown>;
+  const id = Number(o.id);
+  return Number.isInteger(id) && id > 0 && typeof o.coluna === "string" ? { id, coluna: o.coluna } : null;
 }
 
 /** Quantas em cada estado, para o topo do roadmap. */

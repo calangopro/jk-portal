@@ -3,9 +3,10 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { CircleAlert, Lightbulb, Loader2, Monitor, Smartphone } from "lucide-react";
+import { CircleAlert, Kanban, Lightbulb, Loader2, Monitor, Smartphone } from "lucide-react";
 import type { SugestaoNaTela } from "@/lib/sugestoes/dados";
 import { ABERTAS, ESTADOS, NOME_DO_ESTADO, contarPorEstado, telaDoPainel, type EstadoDaSugestao } from "@/lib/sugestoes/sugestoes";
+import { ENDERECO_DO_ROADMAP, NOME_DA_COLUNA, ehColuna } from "@/lib/roadmap/roadmap";
 import type { Tom } from "@/lib/painel/tons";
 import { avisarQueAsContagensMudaram } from "../ContagensDoMenu";
 import { SeloDeTom } from "../Pecas";
@@ -117,6 +118,26 @@ function CartaoDaSugestao({ s, diretoria, mudar }: { s: SugestaoNaTela; diretori
 
       <p className="mt-2.5 whitespace-pre-wrap text-sm leading-relaxed text-ink [overflow-wrap:anywhere]">{s.texto}</p>
 
+      {diretoria ? (
+        s.cartao ? (
+          <Link
+            href={`${ENDERECO_DO_ROADMAP}?cartao=${s.cartao.id}`}
+            className="mt-2.5 inline-flex items-center gap-1.5 text-xs font-semibold text-brand-nav underline decoration-brand-nav/30 underline-offset-2 hover:decoration-brand-nav"
+          >
+            <Kanban size={13} aria-hidden="true" />
+            No Roadmap: cartão {s.cartao.id}, em {ehColuna(s.cartao.coluna) ? NOME_DA_COLUNA[s.cartao.coluna] : s.cartao.coluna}
+          </Link>
+        ) : s.estado === "nova" ? (
+          <Link
+            href={ENDERECO_DO_ROADMAP}
+            className="mt-2.5 inline-flex items-center gap-1.5 text-xs font-semibold text-brand-nav underline decoration-brand-nav/30 underline-offset-2 hover:decoration-brand-nav"
+          >
+            <Kanban size={13} aria-hidden="true" />
+            Levar para o Roadmap
+          </Link>
+        ) : null
+      ) : null}
+
       {s.imagens.length > 0 ? (
         <div className="mt-3 flex flex-wrap gap-2">
           {s.imagens.map((img, i) => (
@@ -177,7 +198,9 @@ function Decisao({ s, mudar }: { s: SugestaoNaTela; mudar: Mudar }) {
           <select
             value={estado}
             onChange={(e) => setEstado(e.target.value as EstadoDaSugestao)}
-            className="mt-1 w-full rounded-[10px] border border-border bg-white px-2.5 py-2 text-sm text-ink"
+            disabled={Boolean(s.cartao)}
+            title={s.cartao ? "O estado anda com o cartão do Roadmap" : undefined}
+            className="mt-1 w-full rounded-[10px] border border-border bg-white px-2.5 py-2 text-sm text-ink disabled:opacity-60"
           >
             {ESTADOS.map((e) => (
               <option key={e} value={e}>{NOME_DO_ESTADO[e]}</option>
