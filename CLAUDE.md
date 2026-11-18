@@ -1,9 +1,10 @@
 # CLAUDE.md — Portal JK Alianças
 
 > **Primeira coisa de toda sessão, nesta ordem:**
-> 1. [`REGRAS.md`](REGRAS.md), padrões inegociáveis (como escrever, SEO/GEO, UX, ferramentas). **Regra absoluta: nunca usar travessão, nunca linguagem de robô.**
-> 2. [`PROJETO.md`](PROJETO.md), o documento-norte (o que estamos construindo e por quê).
-> 3. **Vai mexer no código? Consulte o Roadmap e pegue o cartão antes** (seção logo abaixo).
+> 1. **Pergunte "Quem está mexendo? (Erick | Filipe)"** antes de ler, rodar ou chamar qualquer coisa, e use só o conector da JK dessa pessoa (seção logo abaixo). **Regra absoluta.**
+> 2. [`REGRAS.md`](REGRAS.md), padrões inegociáveis (como escrever, SEO/GEO, UX, ferramentas). **Regra absoluta: nunca usar travessão, nunca linguagem de robô.**
+> 3. [`PROJETO.md`](PROJETO.md), o documento-norte (o que estamos construindo e por quê).
+> 4. **Vai mexer no código? Consulte o Roadmap e pegue o cartão antes** (seção logo abaixo).
 >
 > Este arquivo guarda o **essencial de operação** para não perder tempo.
 
@@ -13,6 +14,28 @@ feito para **dominar Google e respostas de IA (SEO + GEO)**. Tem **parte públic
 e um **admin/CMS ainda a construir** (usuários/editores, edição de conteúdo, comentários,
 compartilhamento, métricas, integração Search Console/GA4/GTM, analisador SEO/GEO ao vivo).
 Backlog: Trello 🧠 JK Alianças | ADM → https://trello.com/b/S7IXlYDi
+
+## Quem está mexendo (regra absoluta)
+O Filipe e o Erick dividem o mesmo Claude (mesma conta, mesmo Mac). Por isso **toda conversa começa
+com "Quem está mexendo? (Erick | Filipe)"**, antes de ler arquivo, rodar comando ou chamar conector.
+Só não se pergunta quando a primeira mensagem já diz quem é, ou quando a sessão foi aberta por outra
+sessão do Claude (aí vale a pessoa de lá).
+- **No Claude Code o lembrete chega sozinho:** o gatilho `SessionStart` de `.claude/settings.json` roda
+  `.claude/hooks/quem-esta-mexendo.sh` em toda sessão nova e depois de `/clear`, e o texto entra na
+  conversa. Mudou a regra, mude o script e esta seção juntos.
+- **Um conector por pessoa, com a conta da JK dela:** nome que diga de quem é ("JK Filipe", "JK Erick";
+  no Claude Code, `jk-filipe` e `jk-erick`). Depois da resposta, o Claude chama `painel.eu` em cada
+  conector da JK e usa só o da pessoa, porque tudo o que um conector faz fica registrado no nome da
+  conta dele. Na hora de Permitir, o navegador precisa estar no painel com a conta de quem está
+  ligando (janela anônima resolve), senão a autorização sai no nome de quem estiver logado. Em 18/11 o
+  único conector da JK neste Claude era o da conta "Master JK".
+- **O próprio conector pede a mesma coisa** quando a conta dele é da diretoria ou quando há mais de um
+  conector da JK na conversa (instruções em `src/lib/conector/guias.ts`), e a tela `/admin/conector`
+  mostra a regra.
+- **GitHub:** o git e o `gh` deste Mac estão na conta `agenciasetup`, que é a do Filipe; a do Erick é
+  `ErickOlih`. Commit do Erick por aqui sai no nome do Filipe, então a regra manda conferir com
+  `gh auth status` e avisar antes.
+- É regra de conversa, não trava. O que separa de verdade é a conta da JK atrás de cada conector.
 
 ## Antes de mexer no código: o Roadmap
 Duas pessoas mexem no painel, cada uma com o próprio Claude: o **Filipe** e o **Erick**. O quadro
@@ -41,8 +64,10 @@ avisa quando dois trabalhos mexem no mesmo lugar. Regra para toda sessão que va
 **Ligar o conector no Claude Code** (o do Erick, ou de qualquer pessoa da diretoria): em
 `/guias/admin/conector`, "Nova chave", escopo completo, e no terminal da pessoa:
 ```bash
-claude mcp add --transport http jk https://www.jkaliancas.com.br/guias/api/mcp --header "Authorization: Bearer jk_..."
+claude mcp add --transport http jk-erick https://www.jkaliancas.com.br/guias/api/mcp --header "Authorization: Bearer jk_..."
 ```
+O nome (`jk-erick`, `jk-filipe`) é o que deixa o Claude escolher o conector certo depois de perguntar
+quem está mexendo.
 A mesma chave numa linha `JK_CONECTOR_CHAVE=jk_...` do `.env.local` liga o `npm run roadmap`. A chave
 é pessoal: o quadro grava cada mudança no nome do dono dela, marcada como "pelo Claude". Detalhes,
 e o que fazer sem conector, em `docs/roadmap.md`.

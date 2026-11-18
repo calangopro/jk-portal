@@ -27,11 +27,11 @@ function Enviar() {
  * Chave para o Claude Code. Depois de criada, mostra a chave e o comando
  * pronto para colar no terminal, uma vez só.
  */
-export function NovaChave({ mcp }: { mcp: string }) {
+export function NovaChave({ mcp, servidor }: { mcp: string; servidor: string }) {
   const [estado, acao] = useActionState<EstadoDaChave, FormData>(criarChave, {});
 
   if (estado.chave) {
-    const comando = `claude mcp add --transport http jk ${mcp} --header "Authorization: Bearer ${estado.chave}"`;
+    const comando = `claude mcp add --transport http ${servidor} ${mcp} --header "Authorization: Bearer ${estado.chave}"`;
     return (
       <div className="rounded-[14px] border border-brand/40 bg-brand/8 p-4" role="status">
         <p className="text-sm font-semibold text-ink">Chave “{estado.nome}” criada</p>

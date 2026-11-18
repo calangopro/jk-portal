@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|clear",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR/.claude/hooks/quem-esta-mexendo.sh\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}
