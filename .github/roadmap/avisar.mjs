@@ -76,6 +76,9 @@ if (!idUrl) {
         rascunho: pr?.draft === true,
         juntado: pr?.merged === true,
         sha: pr?.head?.sha ?? process.env.GITHUB_SHA,
+        // O painel tira o ramo e o número do pedido do token; estes valem quando o token não traz.
+        pr_numero: pr?.number ?? null,
+        ramo: pr?.head?.ref ?? process.env.GITHUB_HEAD_REF ?? process.env.GITHUB_REF_NAME ?? null,
         ...(arquivos ? { arquivos } : {}),
         ...(Number.isInteger(atrasDoMain) ? { atras_do_main: atrasDoMain } : {}),
       }),
@@ -84,6 +87,8 @@ if (!idUrl) {
       doPainel = await r.json();
       markdown = doPainel.markdown ?? null;
       if (doPainel.resumo) resumo.push(doPainel.resumo);
+      if (doPainel.ignorado) resumo.push(`O painel não acompanhou este evento (${doPainel.ignorado}; evento ${doPainel.evento ?? "?"}, ref ${doPainel.ref ?? "?"}).`);
+      else if (!doPainel.resumo) resumo.push(`O painel respondeu: ${JSON.stringify(doPainel).slice(0, 300)}`);
       if (doPainel.falhar) falhar = true;
     } else {
       resumo.push(`O painel não aceitou o aviso agora (${r.status}). O próximo envio tenta de novo.`);
@@ -103,6 +108,7 @@ if (repetidas.length) {
 // 4. Resumo da execução e comentário fixo no pedido.
 if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${resumo.join("\n\n") || "Roadmap avisado."}\n`);
 console.log(resumo.join("\n\n"));
+console.log(`(evento ${nomeDoEvento}${ev.action ? `/${ev.action}` : ""}, ref ${process.env.GITHUB_REF ?? "?"}, ramo ${process.env.GITHUB_HEAD_REF || process.env.GITHUB_REF_NAME || "?"})`);
 
 if (pr && !fechado && markdown && process.env.GITHUB_TOKEN) {
   const api = (caminho, init = {}) =>

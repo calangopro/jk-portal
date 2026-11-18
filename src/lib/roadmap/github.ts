@@ -46,31 +46,40 @@ export type EventoDoGitHub = {
 
 const texto = (v: unknown, max: number): string | null => (typeof v === "string" && v.trim() ? v.trim().slice(0, max) : null);
 
-/** O evento para `roadmap_github`. `null` quando não é um evento que o Roadmap acompanha (tag, por exemplo). */
-export function eventoDoGitHub(claims: ClaimsDoGitHub, corpoCru: unknown): EventoDoGitHub | null {
+/**
+ * O evento para `roadmap_github`, ou por que ele não é acompanhado (tag, ramo
+ * sem nome, pedido sem número). O ramo e o número do pedido saem do token; se
+ * o token não trouxer (o GitHub não põe `head_ref` ou o `ref` do pedido em
+ * todo evento), valem os do corpo, que o MESMO workflow do repositório mandou
+ * junto com o token. Quem conseguiria mexer no corpo conseguiria mexer no
+ * workflow, então isso não abre porta nova.
+ */
+export function lerEventoDoGitHub(claims: ClaimsDoGitHub, corpoCru: unknown): { ok: true; evento: EventoDoGitHub } | { ok: false; motivo: string } {
   const corpo = (corpoCru && typeof corpoCru === "object" ? corpoCru : {}) as Record<string, unknown>;
   const evento = claims.event_name;
-  if (evento !== "pull_request" && evento !== "push") return null;
+  if (evento !== "pull_request" && evento !== "push") return { ok: false, motivo: "evento" };
   const ref = claims.ref ?? "";
   let ramo: string | null = null;
   let pr: number | null = null;
   if (evento === "pull_request") {
-    ramo = texto(claims.head_ref, 200);
+    ramo = texto(claims.head_ref, 200) ?? texto(corpo.ramo, 200);
     const m = /^refs\/pull\/([1-9][0-9]{0,8})\/(merge|head)$/.exec(ref);
-    pr = m ? Number(m[1]) : null;
-    if (!pr) return null;
+    const doCorpo = Number(corpo.pr_numero);
+    pr = m ? Number(m[1]) : Number.isInteger(doCorpo) && doCorpo > 0 && doCorpo < 1e9 ? doCorpo : null;
+    if (!pr) return { ok: false, motivo: "pedido_sem_numero" };
   } else {
-    if (!ref.startsWith("refs/heads/")) return null;
+    if (!ref.startsWith("refs/heads/")) return { ok: false, motivo: "nao_e_ramo" };
     ramo = ref.slice("refs/heads/".length);
   }
-  if (!ramo || !/^[A-Za-z0-9._/-]{1,200}$/.test(ramo) || !claims.repository) return null;
+  if (!ramo || !/^[A-Za-z0-9._/-]{1,200}$/.test(ramo)) return { ok: false, motivo: "ramo" };
+  if (!claims.repository) return { ok: false, motivo: "repositorio" };
 
   const sha = typeof corpo.sha === "string" && /^[0-9a-f]{7,40}$/.test(corpo.sha) ? corpo.sha : typeof claims.sha === "string" && /^[0-9a-f]{7,40}$/.test(claims.sha) ? claims.sha : null;
   const atras = Number(corpo.atras_do_main);
   const arquivos = Array.isArray(corpo.arquivos)
     ? [...new Set(corpo.arquivos.filter((a): a is string => typeof a === "string" && a.trim() !== "").map((a) => a.trim().slice(0, 300)))].slice(0, MAXIMO_DE_ARQUIVOS)
     : undefined;
-  return {
+  return { ok: true, evento: {
     evento,
     repositorio: claims.repository,
     ramo,
@@ -84,7 +93,13 @@ export function eventoDoGitHub(claims: ClaimsDoGitHub, corpoCru: unknown): Event
     juntado: corpo.juntado === true,
     ...(arquivos ? { arquivos } : {}),
     atras_do_main: Number.isInteger(atras) && atras >= 0 && atras < 1_000_000 ? atras : null,
-  };
+  } };
+}
+
+/** O mesmo, só o evento: `null` quando não é acompanhado. */
+export function eventoDoGitHub(claims: ClaimsDoGitHub, corpoCru: unknown): EventoDoGitHub | null {
+  const r = lerEventoDoGitHub(claims, corpoCru);
+  return r.ok ? r.evento : null;
 }
 
 type CruzamentoCru = { meu?: string; dele?: string; comum?: boolean };

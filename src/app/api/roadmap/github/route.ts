@@ -1,6 +1,6 @@
 import { revalidatePath } from "next/cache";
 import type { JsonWebKey } from "node:crypto";
-import { comentarioDoPr, eventoDoGitHub, type RespostaDoGitHub } from "@/lib/roadmap/github";
+import { comentarioDoPr, lerEventoDoGitHub, type RespostaDoGitHub } from "@/lib/roadmap/github";
 import { CHAVES_DO_GITHUB, conferirClaims, verificarToken } from "@/lib/roadmap/oidc";
 import { ENDERECO_DO_ROADMAP } from "@/lib/roadmap/roadmap";
 import { absoluteUrl } from "@/lib/seo/site";
@@ -59,8 +59,12 @@ export async function POST(req: Request) {
   } catch {
     return resposta({ ok: false, motivo: "json" }, 400);
   }
-  const evento = eventoDoGitHub(claims, corpo);
-  if (!evento) return resposta({ ok: true, ignorado: "evento" });
+  const lido = lerEventoDoGitHub(claims, corpo);
+  if (!lido.ok) {
+    // Diz por que não acompanhou, com o que o token trouxe (nada secreto), para o registro do workflow.
+    return resposta({ ok: true, ignorado: lido.motivo, evento: claims.event_name ?? null, ref: claims.ref ?? null, tem_head_ref: Boolean(claims.head_ref) });
+  }
+  const evento = lido.evento;
 
   const { data, error } = await createAdminClient().rpc("roadmap_github", { p: evento });
   if (error) {

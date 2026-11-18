@@ -19,7 +19,7 @@ import { lerRoadmap } from "../src/lib/sugestoes/sugestoes.ts";
 import { SETORES, setoresDe } from "../src/lib/painel/setores.ts";
 import { operacaoLiberada } from "../src/lib/conector/quem-usa.ts";
 import { conferirClaims, verificarToken, PUBLICO_DO_ROADMAP, REPOSITORIO, WORKFLOW_DO_ROADMAP, type ClaimsDoGitHub } from "../src/lib/roadmap/oidc.ts";
-import { MARCA_DO_COMENTARIO, NOME_DA_COLUNA_NO_COMENTARIO, comentarioDoPr, eventoDoGitHub, type RespostaDoGitHub } from "../src/lib/roadmap/github.ts";
+import { MARCA_DO_COMENTARIO, NOME_DA_COLUNA_NO_COMENTARIO, comentarioDoPr, eventoDoGitHub, lerEventoDoGitHub, type RespostaDoGitHub } from "../src/lib/roadmap/github.ts";
 import { cruzamentosDeVerdade, haQuanto } from "../src/lib/roadmap/roadmap.ts";
 
 let falhas = 0;
@@ -212,7 +212,11 @@ console.log("\nGitHub: o evento e o comentário");
   confere("arquivos sem repetição e sem espaço; commits atrás do main", e.arquivos?.join() === "a.ts,b.ts" && e.atras_do_main === 2);
   const envio = eventoDoGitHub({ event_name: "push", ref: "refs/heads/filipe/3-x", actor: "agenciasetup", repository: REPOSITORIO }, { atras_do_main: -1 })!;
   confere("envio de ramo: o ramo vem do ref, sem pedido; atraso inválido vira nulo", envio.ramo === "filipe/3-x" && envio.pr_numero === null && envio.atras_do_main === null && envio.arquivos === undefined);
-  confere("tag e pedido sem número não são acompanhados", eventoDoGitHub({ event_name: "push", ref: "refs/tags/v1", repository: REPOSITORIO }, {}) === null && eventoDoGitHub({ ...doPr, ref: "refs/heads/x" }, {}) === null);
+  const semRefNoToken = eventoDoGitHub({ ...doPr, ref: "refs/heads/claude/x", head_ref: undefined }, { pr_numero: 145, ramo: "claude/roadmap-kanban-83cd0e" });
+  confere("sem o número e o ramo no token, valem os do corpo que o mesmo workflow mandou", semRefNoToken?.pr_numero === 145 && semRefNoToken.ramo === "claude/roadmap-kanban-83cd0e");
+  confere("com os dois, vale o do token", eventoDoGitHub(doPr, { pr_numero: 999, ramo: "outro/ramo" })?.pr_numero === 150 && eventoDoGitHub(doPr, { ramo: "outro/ramo" })?.ramo === "erick/12-notinha");
+  confere("o motivo de não acompanhar vem por escrito", (() => { const r = lerEventoDoGitHub({ ...doPr, ref: "x", head_ref: undefined }, {}); return !r.ok && r.motivo === "pedido_sem_numero"; })());
+  confere("tag e pedido sem número não são acompanhados", eventoDoGitHub({ event_name: "push", ref: "refs/tags/v1", repository: REPOSITORIO }, {}) === null && eventoDoGitHub({ ...doPr, ref: "refs/heads/x" }, {}) === null && eventoDoGitHub({ ...doPr, ref: "refs/heads/x" }, { pr_numero: "abc" }) === null);
 
   const quadro = "https://www.jkaliancas.com.br/guias/admin/roadmap";
   const semCartao = comentarioDoPr({ ok: true, fora_do_quadro: true, cartao: null, conflitos: [] }, e, quadro);
