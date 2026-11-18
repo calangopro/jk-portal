@@ -98,6 +98,7 @@ export const SETORES: Setor[] = [
       { href: "/admin/tutor", area: "time", label: "Tutor", Icone: Sparkles, desc: "Pergunte com o print da conversa" },
       { href: "/admin/biblioteca", area: "time", label: "Biblioteca JK", curto: "Biblioteca", Icone: LibraryBig, desc: "As respostas da casa, prontas para colar" },
       { href: "/admin/chat", area: "time", label: "Chat do time", curto: "Chat", Icone: MessagesSquare, desc: "Conversa entre setores, ao vivo" },
+      { href: "/admin/sugestoes", area: "time", label: "Sugestões", Icone: Lightbulb, desc: "O que o time pede para melhorar o painel" },
     ],
   },
   {
