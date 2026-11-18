@@ -183,6 +183,16 @@ docs/                identidade-visual-jk.md (marca)
   escrita exige `is_staff()`, e conta sem convite nasce inativa. Antes de dar
   policy por pronta, teste com um JWT falso:
   `set local role authenticated; set local request.jwt.claims = '{"sub":"...","role":"authenticated"}'`.
+- **Policy de linha não trava coluna.** `profiles_self_update` (0003) deixava
+  cada conta fazer UPDATE na própria linha, e o papel `authenticated` tem
+  UPDATE na tabela inteira por padrão do Supabase: qualquer conta logada
+  mudava o próprio `role` para admin e o próprio `is_active`, e tudo (banco,
+  painel e conector) lê essas duas colunas. Provado em produção numa
+  transação desfeita e fechado na 0150 (policy fora e gatilho
+  `profiles_trava_papel`, que só deixa diretoria, chave de serviço e
+  `postgres` mudarem nível e ativação). Desativar também bloqueia o login no
+  Supabase (`toggleActive`). Achado da auditoria de segurança de 18/11, com o
+  resto das pistas em `~/security-audit-skill/jk-portal/run-1/REPORT.md`.
 - **`is_staff()` é só "tem perfil ativo", não "foi convidado".** Todo usuário do
   auth ganha perfil pelo trigger `handle_new_user`. A trava de convite mora no
   `is_active`, que agora sai de `invited_at`.
