@@ -12,7 +12,8 @@ import { DIAS_DE_ATRASO, diasEntreDatas, tomDaEspera } from "@/lib/fabrica/etapa
 import { andamentoDaMeta, diasDoMes, type Andamento } from "@/lib/painel/meta";
 import { sinaisDaSaude } from "@/lib/painel/saude";
 import { lerSaude } from "@/lib/painel/saude-dados";
-import { calcularSinais, type EntradaDosSinais } from "@/lib/painel/sinais";
+import { calcularSinais, type EntradaDosSinais, type Sinal } from "@/lib/painel/sinais";
+import { PRAZOS_DA_KOMMO, sinaisDaKommo, type AlertasDaKommo } from "@/lib/kommo/funil";
 import { SEM_RESUMO, esperandoPorMim as esperandoNoChat } from "@/lib/time/chat";
 import { lerResumoDoChat } from "@/lib/time/dados";
 import { SEM_RESUMO_DO_SUPORTE } from "@/lib/suporte/casos";
@@ -57,6 +58,10 @@ async function lerPainel(profile: Profile) {
   const hoje = hojeEmSaoPaulo();
   const de = somarDias(hoje, -(DIAS - 1));
 
+  // Quem espera vendedor ou resposta na Kommo (0162). Só lê o espelho; sem leitura feita, não vira sinal. Começa já.
+  const alertasDaKommo = pode("vendas")
+    ? db.rpc("kommo_alertas", { p_atencao_min: PRAZOS_DA_KOMMO.atencao, p_ruim_min: PRAZOS_DA_KOMMO.ruim }).then((r) => (r.data ?? null) as AlertasDaKommo | null)
+    : null;
   const [atual, anterior, ultima, fila, despesas, doMes, metaDoMes, porFora, gasto, gastoDoMes, oportunidades] = await Promise.all([
     pode("vendas") ? lerResumoDeVendas(db, de, hoje) : null,
     pode("vendas") ? lerResumoDeVendas(db, somarDias(de, -DIAS), somarDias(de, -1)) : null,
@@ -71,6 +76,7 @@ async function lerPainel(profile: Profile) {
     // O que vence para os clientes nos próximos sete dias, para quem atende.
     pode("lancar_venda") ? lerLojasFisicas().then((lojas) => lerOportunidades(db, hoje, DIAS_DO_AVISO, lojas)) : null,
   ]);
+  const kommo = await alertasDaKommo;
 
   // O faturamento do mês é a loja mais o que foi registrado por fora dela.
   const porForaNoMes = porFora?.valor ?? 0;
@@ -109,7 +115,7 @@ async function lerPainel(profile: Profile) {
 
   const aRecuperar = fila?.resumo.a_recuperar;
   const canaisDeAgora = atual ? agruparPorCanal(atual.por_origem) : [];
-  const sinais = atual
+  const sinaisDeVendas: Sinal[] = atual
     ? calcularSinais({
         atual: { ...atual, canais: canaisDeAgora },
         anterior: anterior ? { ...anterior, canais: agruparPorCanal(anterior.por_origem) } : null,
@@ -132,6 +138,8 @@ async function lerPainel(profile: Profile) {
           },
         ]
       : [];
+  const GRAVIDADE = { problema: 0, atencao: 1, oportunidade: 2, bom: 3 } as const;
+  const sinais = [...sinaisDeVendas, ...sinaisDaKommo(kommo)].sort((a, b) => GRAVIDADE[a.gravidade] - GRAVIDADE[b.gravidade] || b.peso - a.peso);
 
   // O número de cada sala, para os cartões de setor. Só entra o que foi lido.
   const dinheiro = (n: number) => `R$ ${Math.round(n).toLocaleString("pt-BR")}`;

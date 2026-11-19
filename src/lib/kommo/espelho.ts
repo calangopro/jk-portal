@@ -10,23 +10,26 @@ import {
   linhaDoEvento,
   linhaDoNegocio,
   linhasDosFunis,
+  linhasDosMotivos,
   linhasDosUsuarios,
   proximoCursor,
   segundos,
   type ContatoDaKommo,
   type EventoDaKommo,
   type FunilDaKommoApi,
+  type MotivoDePerdaDaKommo,
   type LinhaEvento,
   type NegocioDaKommo,
   type UsuarioDaKommo,
 } from "./conta";
+import { palpitesDasFases } from "./funil";
 
 /**
  * O espelho da Kommo (0160 e 0161): a rotina de 10 em 10 minutos e o
  * processamento do que o webhook avisou. Só LÊ a Kommo.
  *
  * Em cada rodada, nesta ordem, até o prazo:
- *   1. usuários, funis e etapas (dois pedidos);
+ *   1. usuários, funis, etapas e motivos de perda (três pedidos), e o palpite da fase das etapas novas;
  *   2. o que o webhook avisou e ainda não foi relido (`kommo_pendentes`);
  *   3. os eventos desde o último ponto, em janelas de uma hora;
  *   4. os negócios e os contatos alterados desde o último ponto. Na primeira
@@ -88,6 +91,22 @@ async function lerUsuariosEFunis(db: SupabaseClient, pedir: PedirKommo, agora: s
   const { funis, etapas } = linhasDosFunis(f?._embedded?.pipelines ?? [], agora);
   await gravar(db, "kommo_funis", funis, "id");
   await gravar(db, "kommo_etapas", etapas, "funil_id,id");
+
+  // A fase padrão de cada etapa (0162) é do painel: a leitura só preenche a etapa que ainda não tem
+  // linha, com o palpite pelo nome. O que a diretoria ligou nunca é regravado aqui.
+  const nomeDoFunil = new Map(funis.map((x) => [x.id, x.nome]));
+  const palpites = palpitesDasFases(
+    etapas.map((e) => ({ funil_id: e.funil_id, funil: nomeDoFunil.get(e.funil_id) ?? "", etapa_id: e.id, etapa: e.nome, tipo: e.tipo })),
+  );
+  for (const lote of emLotes(palpites, 500)) {
+    const { error } = await db.from("fases_da_kommo").upsert(lote, { onConflict: "funil_id,etapa_id", ignoreDuplicates: true });
+    if (error) throw new Error(`fases_da_kommo: ${error.message}`);
+  }
+
+  const m = await pedir<{ _embedded?: { loss_reasons?: MotivoDePerdaDaKommo[] } }>("/api/v4/leads/loss_reasons", {
+    busca: new URLSearchParams({ limit: "250" }),
+  });
+  await gravar(db, "kommo_motivos_perda", linhasDosMotivos(m?._embedded?.loss_reasons ?? [], agora), "id");
 }
 
 /** Relê pela API os negócios e contatos pedidos; o que não voltar foi apagado na Kommo. */

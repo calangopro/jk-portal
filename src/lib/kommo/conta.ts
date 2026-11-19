@@ -362,6 +362,13 @@ export function linhasDosFunis(funis: FunilDaKommoApi[], agora: string): { funis
   return { funis: linhasF, etapas: linhasE };
 }
 
+export type MotivoDePerdaDaKommo = { id: number; name: string };
+
+/** Os motivos de perda (`GET /api/v4/leads/loss_reasons`), para o nome na tela do funil (0162). */
+export function linhasDosMotivos(motivos: MotivoDePerdaDaKommo[], agora: string): { id: number; nome: string; lido_em: string }[] {
+  return motivos.filter((m) => Number.isSafeInteger(m.id) && m.name).map((m) => ({ id: m.id, nome: m.name, lido_em: agora }));
+}
+
 export function linhasDosUsuarios(usuarios: UsuarioDaKommo[], agora: string): LinhaUsuario[] {
   return usuarios.map((u) => ({
     id: u.id,

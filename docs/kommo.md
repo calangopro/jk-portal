@@ -171,3 +171,48 @@ testado com o formato real lido pelo conector, sem a chave:
   da Cloudflare até a Vercel;
 - o formato exato do formulário do webhook em cada tipo de aviso (o teste usa
   o formato documentado: `leads[status][0][id]`, `leads[note][0][note][element_id]`).
+
+## Fase 2, cartão 46: funil único e alertas (0162)
+
+Os 25 funis têm etapas de nome próprio. Cada etapa é ligada a uma **fase
+padrão**: entrada, esperando vendedor, em atendimento, orçamento, esperando
+pagamento, ganho, perdido e pós-venda. O painel soma pela fase.
+
+- **A ligação é do painel**: `fases_da_kommo (funil_id, etapa_id, fase,
+  origem)`, RLS sem policy. A leitura da Kommo só PREENCHE a etapa que ainda
+  não tem linha, com o palpite pelo nome (`palpiteDaFase` em
+  `src/lib/kommo/funil.ts`, `upsert` com `ignoreDuplicates`) e `origem =
+  'palpite'`. Etapa com nome que o palpite não reconhece fica sem linha: "sem
+  fase", nunca chutada. A diretoria confirma ou corrige em
+  `/admin/kommo/fases` (Sistema), e a origem vira `pessoa`. Fase nula com
+  origem `pessoa` é "sem fase" por decisão.
+- **O palpite**: funil com PDV, PÓS VENDAS ou SAC no nome é todo pós-venda,
+  inclusive o 142 e o 143 (fechar o ciclo de pós-venda não é venda nova e não
+  entra na conversão). Nos outros: a etapa de entrada (`type 1`) é entrada;
+  "Entrada", "Novo" e "Aguardando vendedor" são esperando vendedor;
+  atendimento é em atendimento; orçamento, negociação e follow-up são
+  orçamento; aguardando pagamento e abandono de carrinho são esperando
+  pagamento; pedido aprovado, enviado e entregue são pós-venda; 142 é ganho e
+  143 é perdido.
+- **Motivos de perda**: `kommo_motivos_perda`, espelho regravado pela leitura
+  (`GET /api/v4/leads/loss_reasons`), só para o nome.
+- **Funil único** em `/admin/funil` (Vendas, área `vendas` ou diretoria), lido
+  por `kommo_funil_unico(dias, loja, pessoa, funil, origem, alerta,
+  atencao_min)`: abertos por fase e por etapa, valor em jogo, mediana de dias
+  parado na etapa, conversão (ganho sobre ganho mais perdido, por
+  `fechado_em` no período), primeira resposta (mediana entre o negócio criado
+  e o primeiro `outgoing_chat_message`), motivos de perda e a lista dos 60
+  mais parados. Loja e vendedor saem do `kommo_mapa`; negócio de usuário sem
+  mapa não entra nesses dois filtros, e a tela diz quantos são. A origem é
+  `kommo_origem_do_negocio`: anúncio do Meta (id do anúncio), anúncio do
+  Google (`gclid`), o campo "Origem do cliente", a UTM, ou "Sem origem".
+- **Alertas** por `kommo_alertas(atencao_min, ruim_min)`: negócio aberto em
+  fase esperando vendedor há mais que o prazo (desde `etapa_desde`) e conversa
+  com mensagem do cliente sem resposta da loja há mais que o prazo (desde
+  `ultima_msg_cliente_em`). Os prazos são **premissa** (`PRAZOS_DA_KOMMO`: 30
+  minutos atenção, 2 horas atraso, os mesmos do pedido de resposta do chat) e
+  a tela diz isso por extenso. Viram sinal na Visão geral para quem tem a área
+  (`sinaisDaKommo`), com o número e o link para a lista filtrada; espelho
+  nunca lido não gera sinal.
+- **Limite conhecido**: a conversão olha a etapa de AGORA. Negócio ganho que
+  depois foi movido para um funil de pós-venda deixa de contar como ganho.
