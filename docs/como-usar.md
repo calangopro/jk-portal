@@ -72,4 +72,4 @@ só a diretoria confirma resposta da Biblioteca). Para ver como cada nível vê,
 ## Telas que já têm tutorial
 
 Hoje, Registrar venda, Pedidos do site, Vendas da Kommo, Clientes (ficha e linha do tempo), Oportunidades, Consulta, Suporte pós-venda,
-Tutor, Biblioteca JK e Chat do time. O resto aparece como "Em breve" na lista.
+Tutor, Biblioteca JK e Chat do time. Cartão 57: Funil da Kommo, Pedidos da loja, Vendedores, Recuperação, Sugestões, Fábrica, as cinco telas da Loja (Produtos, Campanhas, Alterações na loja, Lojas físicas, Avaliações) e as oito do Social Media. O resto aparece como "Em breve" na lista.

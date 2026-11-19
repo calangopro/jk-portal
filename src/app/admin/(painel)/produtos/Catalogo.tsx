@@ -4,7 +4,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Camera, ChevronDown, ChevronRight, ExternalLink, Package, Search, Clock } from "lucide-react";
 import type { ItemDoCatalogo, Padroes } from "@/lib/catalogo/fotos";
 import { COR, ESTADOS, PONTO, RESOLVIDO, ROTULO, type EstadoDoProduto } from "@/lib/catalogo/estados";
-import { Gaveta, type AbaDaGaveta } from "./Gaveta";
+import { Gaveta, type AbaDaGaveta, type AcoesDeExemplo } from "./Gaveta";
 import { LevarParaLoja } from "./LevarParaLoja";
 import { ComoGerar } from "./ComoGerar";
 import { digitando, reais, pct, type MargemNaLista } from "./util";
@@ -57,7 +57,10 @@ export function Catalogo({
   padroes,
   margens = null,
   loja = null,
+  exemplo,
 }: {
+  /** Só para a tela de exemplo do Como usar. */
+  exemplo?: AcoesDeExemplo;
   itens: ItemDoCatalogo[];
   padroes: Padroes;
   /** Quem pode alterar a loja pelo painel. Nulo: a edição nem aparece na gaveta. */
@@ -433,6 +436,7 @@ export function Catalogo({
           loja={loja}
           aba={abaDaGaveta}
           onAba={setAbaDaGaveta}
+          exemplo={exemplo}
         />
       ) : null}
     </>
