@@ -205,6 +205,7 @@ export const SETORES: Setor[] = [
       { href: "/admin/integracoes", area: "equipe", label: "Integrações", Icone: Plug, desc: "Google, Meta e a loja" },
       { href: "/admin/kommo", area: "equipe", label: "Quem é quem na Kommo", curto: "Kommo", Icone: Waypoints, desc: "Usuário da Kommo, pessoa do painel e loja" },
       { href: "/admin/kommo/fases", area: "equipe", label: "Fases da Kommo", curto: "Fases", Icone: Layers, desc: "Cada etapa dos funis da Kommo numa fase padrão" },
+      { href: "/admin/kommo/automacoes", area: "equipe", label: "Automações da Kommo", curto: "Avisos", Icone: Workflow, desc: "O que o painel cria e move na Kommo sozinho, ligado pela diretoria" },
       { href: "/admin/saude", area: "equipe", label: "Saúde das ligações", curto: "Saúde", Icone: HeartPulse, desc: "O que roda sozinho e o que parou" },
       { href: "/admin/conector", area: "equipe", label: "Conector do Claude", curto: "Conector", Icone: Bot, desc: "Claude lendo e escrevendo aqui" },
       { href: "/admin/roadmap", area: "roadmap", label: "Roadmap", Icone: Kanban, desc: "O que mexer no código, quem está mexendo e onde" },

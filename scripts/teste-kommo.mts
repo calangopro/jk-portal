@@ -7,7 +7,7 @@
  * Os exemplos têm o FORMATO lido da conta de verdade em 18/11/2026, com nomes,
  * telefones e ids inventados (o repositório é público).
  */
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import {
   EVENTOS_DO_WEBHOOK, TIPOS_DE_EVENTO, dataDaKommo, emLotes, janelaDeEventos, lerWebhook, linhaDoContato, linhaDoEvento, linhaDoNegocio,
   linhasDosFunis, linhasDosUsuarios, proximoCursor, segundos, telefoneDoPainel, type NegocioDaKommo,
@@ -281,11 +281,13 @@ console.log("\nLigações com o resto do painel");
   const cliente = readFileSync("src/lib/kommo/cliente.ts", "utf8");
   const espaco = Number(/ESPACO_MS = (\d+)/.exec(cliente)?.[1]);
   confere("o cliente não passa de 7 pedidos por segundo", espaco >= 1000 / 7, String(espaco));
-  // A fase 1 só lê: o único POST do núcleo é o cadastro do webhook.
-  const posts = ["espelho.ts", "conta.ts", "cliente.ts", "webhook.ts", "funil.ts"].flatMap((f) =>
-    [...readFileSync(`src/lib/kommo/${f}`, "utf8").matchAll(/metodo: "(POST|PATCH|DELETE)"/g)].map(() => f),
-  );
-  confere("a única escrita na Kommo é o cadastro do webhook", posts.length === 1 && posts[0] === "webhook.ts", posts.join(","));
+  // O núcleo só lê. As exceções são o cadastro do webhook (fase 1) e o caminho
+  // único de escrita (`escrever.ts`, cartão 49), com autor e registro. Arquivo
+  // novo em src/lib/kommo entra nesta conferência sozinho.
+  const posts = readdirSync("src/lib/kommo")
+    .filter((f) => f.endsWith(".ts") && f !== "escrever.ts")
+    .flatMap((f) => [...readFileSync(`src/lib/kommo/${f}`, "utf8").matchAll(/metodo: "(POST|PATCH|DELETE)"/g)].map(() => f));
+  confere("fora de escrever.ts, a única escrita na Kommo é o cadastro do webhook", posts.length === 1 && posts[0] === "webhook.ts", posts.join(","));
 }
 
 if (falhas > 0) {

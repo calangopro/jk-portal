@@ -462,3 +462,128 @@ não mudar de lugar quando o código existir.
   cerca de 20 dos 150 negócios recentes do ECOMM | WHATS);
 - a venda contando uma vez só, com um negócio ganho de verdade ligado a pedido
   pela fase 3.
+
+## Fase 5, cartão 49: o painel avisa a Kommo (0173)
+
+A primeira vez que o painel ESCREVE na Kommo. Criar ou mover negócio pode
+disparar o Salesbot da etapa e mandar WhatsApp para cliente de verdade, então
+esta fase segue a regra das automações das redes sociais e a regra da escrita
+na Tray, as duas juntas.
+
+### As quatro automações
+
+Todas nascem DESLIGADAS. Funil e etapa saem da tela, nunca do código.
+
+| Automação | Quando | O que faz na Kommo |
+|---|---|---|
+| Recuperação de pedido | pedido cancelado ou esperando pagamento, pela regra de `fila_de_recuperacao` (0058), depois da espera | cria negócio na etapa escolhida (o ECOMM \| RECUPERAÇÃO), com o contato que já existe ou um novo; um por cliente a cada 30 dias; não cria se o cliente já tem negócio aberto no funil |
+| Pós-venda do pedido | pedido pago (A ENVIAR), enviado (ENVIADO) ou entregue (FINALIZADO) | move o negócio aberto do cliente no funil para a etapa de cada marco, só para a frente; sem negócio, não cria |
+| Caso do suporte | caso passado para o suporte (`suporte_casos`, na fila ou com o suporte) | cria negócio no funil do SAC; não mexe em negócio de outro funil nem troca responsável (encosta no cartão 30) |
+| Oportunidade vira tarefa | oportunidade da ficha do cliente na semana (7 dias à frente, até 1 dia depois) | cria tarefa no negócio aberto mais recente do cliente, para o responsável dele; sem negócio, não cria; tarefa não manda mensagem |
+
+O texto em `AUTOMACOES` (`src/lib/kommo/automacoes-regra.ts`) é o mesmo que a
+tela mostra antes de ligar.
+
+### As travas
+
+- **Ligar é de administrador, dono e GM**, em `/admin/kommo/automacoes`
+  (Sistema), com o funil, a etapa e o efeito por extenso na frente, o aviso do
+  Salesbot e a caixa "conferi na Kommo". Sem a chave da Kommo colada, nada
+  liga.
+- **Quem ligou é o AUTOR** de cada escrita (`kommo_escritas.feita_por`, não
+  nulo). Se essa pessoa deixa de ser diretoria ativa, a próxima reserva
+  desliga a automação sozinha.
+- **Salvar a configuração de uma ligada DESLIGA** (`kommo_automacao_salvar`).
+- **Só vale o que acontece depois de ligar** (`ativada_em`): ligar não manda o
+  passado para a Kommo.
+- **Uma escrita por evento**: a chave única de `kommo_escritas`
+  (`recuperacao:pedido:N`, `pos_venda:N:marco`, `sac:caso:N`,
+  `tarefa:ref:tipo:dia`). A chave é gasta na reserva, ANTES de chamar a Kommo:
+  a escrita que falhou fica no registro e não é tentada de novo sozinha.
+- **Teto por hora** por automação (padrão 10, de 1 a 60), conferido com a
+  linha travada, e no máximo 5 por automação a cada rodada.
+
+### O caminho único de escrita
+
+`src/lib/kommo/escrever.ts`, no molde de `src/lib/loja/alterar.ts`:
+
+1. reserva (`kommo_escrita_reservar`): ligada, autor, chave nova, teto;
+2. lê na Kommo AGORA: o negócio a mover, o negócio da tarefa, ou o contato do
+   cliente (`GET /contacts?query=` pelo número sem o 55, com os negócios) e os
+   negócios dele;
+3. confere e desiste quando não vale mais (negócio fechado, mudou de funil, já
+   adiante; cliente já com negócio aberto no funil): estado `desistiu`;
+4. grava: `POST /api/v4/leads/complex`, `PATCH /api/v4/leads/{id}` (só funil e
+   etapa) ou `POST /api/v4/tasks` (tipo 1, para o responsável lido agora);
+5. lê de novo e confere (a Kommo responder 200 não basta);
+6. termina (`kommo_escrita_terminar`) com antes, pedido, depois, código e erro.
+   4xx é `recusada`; rede, 429 e 5xx são `erro`.
+
+Fora de `escrever.ts`, o núcleo continua só lendo: o `verificar:kommo` passou a
+olhar todo arquivo de `src/lib/kommo` e só aceita o POST do cadastro do
+webhook; o `verificar:kommo-automacoes` confere o mesmo do outro lado.
+
+### Quem dispara
+
+`rodarAvisosDaKommo` (`src/lib/kommo/automacoes.ts`) roda na rotina de dez em
+dez minutos, depois da leitura do espelho e da venda ganha, num passo à parte
+com pulso próprio na Saúde ("Avisos para a Kommo", `kommo-avisos`). Erro nele
+não derruba a leitura. Durante a carga inicial do espelho o passo espera. O
+webhook não escreve: só a rotina.
+
+As oportunidades são lidas por `kommo_avisos_base_de_oportunidades`, que entra
+como a pessoa que ligou as tarefas (a mesma troca de sessão da 0165) e chama
+`base_de_oportunidades`.
+
+### Tabelas e funções (0173)
+
+| | Quem | Para quê |
+|---|---|---|
+| `kommo_automacoes` | ninguém direto | as quatro, com funil, etapa, etapas do pós-venda, responsável, espera, teto e quem ligou |
+| `kommo_escritas` | ninguém direto | o registro: chave, ação, estado, autor, antes, pedido, depois, código e erro |
+| `kommo_automacoes_lista()` | diretoria | a tela |
+| `kommo_automacao_salvar(id, config)` / `_ligar(id)` / `_desligar(id)` | diretoria | configurar, ligar, desligar |
+| `kommo_automacao_problema(...)` | interna | a conferência da configuração (a tela tem a mesma em `conferirConfig`) |
+| `kommo_avisos_candidatos()` | chave de serviço | os eventos das ligadas |
+| `kommo_avisos_negocios_por_telefone(telefones, funil)` | chave de serviço | o negócio aberto de cada cliente, para as tarefas |
+| `kommo_avisos_base_de_oportunidades(de, ate, marcos)` | chave de serviço | as oportunidades, como quem ligou |
+| `kommo_escritas_feitas(chaves)` | chave de serviço | o que já tem escrita, para nem tentar |
+| `kommo_escrita_reservar(...)` / `kommo_escrita_terminar(...)` | chave de serviço | os dois lados de cada escrita |
+
+### Conferido
+
+- A conta pura e o caminho de escrita com um cliente da Kommo de MENTIRA e um
+  banco de mentira (`npm run verificar:kommo-automacoes`): a ordem ler, gravar,
+  ler; desistir quando alguém adiantou o negócio; recusa com o código; "ok" da
+  Kommo sem a mudança vira erro; reserva recusada não chama a Kommo; contato
+  existente vai pelo id; negócio aberto no funil impede criar outro; tarefa
+  para o responsável de agora.
+- O banco numa transação desfeita, com JWT falso: anônimo, vendedor e gerente
+  não leem a tela, não salvam, não ligam, não leem as tabelas e não chamam as
+  funções da rodada; a diretoria salva, liga e desliga; ligar sem chave e com
+  etapa fora de ordem é recusado; salvar uma ligada desliga; a rodada acha o
+  pedido de recuperação, o pedido enviado com o negócio do cliente e o caso
+  do SAC; reserva repetida diz "já", o teto segura, terminar duas vezes não
+  regrava, e o autor que sai da diretoria desliga a automação.
+
+### O que NÃO foi conferido
+
+Nada foi escrito na Kommo de verdade, nem para testar (não existe conta de
+testes da Kommo). Ficam para a primeira vez que alguém ligar, com a chave
+colada:
+
+- o formato real da busca de contato por telefone (`query` com o número sem o
+  55) contra os telefones como os vendedores digitaram;
+- a resposta de `POST /leads/complex` e de `POST /tasks` na conta da JK;
+- o que o Salesbot de cada etapa escolhida faz.
+
+### O que depende do Filipe e da JK
+
+1. **A chave da Kommo** colada em Integrações (cartão 6). Sem ela, nada liga.
+2. **Escolher funil e etapas** de cada automação na tela, olhando a Kommo.
+3. **Os textos do Salesbot** de cada etapa escolhida (Aguardando pagamento ou
+   a entrada do ECOMM | RECUPERAÇÃO, Pedido Aprovado, Pedido Enviado, Pedido
+   Entregue, a entrada do ECOMM | SAC): o painel não escreve mensagem; quem
+   manda é o Salesbot daquela etapa. Conferir antes de ligar.
+4. **Ligar uma de cada vez**, começando pela de menor risco (tarefas não mandam
+   mensagem), e olhar o registro na primeira hora.
