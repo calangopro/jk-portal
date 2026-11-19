@@ -13,6 +13,9 @@ import {
   funilDeVenda, lerListaDaKommo, normalizarPedido, pareceServico, saiuDoGanho, type Candidato,
 } from "../src/lib/kommo/vendas.ts";
 import { SETORES } from "../src/lib/painel/setores.ts";
+import { familiaDaPeca, lerFaltasNaFabrica, lerNumeracao, lerProducaoDaKommo } from "../src/lib/kommo/fabrica.ts";
+import { ENTREGA_A_COMBINAR, lerProducao } from "../src/lib/vendas/producao.ts";
+import { lerEspecificacoes, lerEntrega } from "../src/lib/fabrica/etapas.ts";
 
 let falhas = 0;
 function confere(nome: string, ok: boolean, detalhe = "") {
@@ -165,6 +168,98 @@ console.log("Migration 0165");
   confere("a rodada não escreve na Kommo", !/metodo: "(POST|PATCH|DELETE)"|clienteDaKommo/.test(rodada));
   const rota = readFileSync("src/app/api/cron/kommo/route.ts", "utf8");
   confere("a rotina chama o passo da venda depois do espelho", rota.indexOf("rodarLeituraDaKommo(") < rota.indexOf("processarVendasDaKommo("));
+}
+
+console.log("Fábrica: a produção lida da Kommo (cartão 51)");
+{
+  // Os campos no formato do espelho, com valores como os vendedores escrevem (18/11/2026).
+  const c = (pares: Record<string, string>) => Object.entries(pares).map(([nome, valor], i) => ({ id: 3170000 + i, nome, codigo: null, valor }));
+  const par = { "Tipo de Produto": "Alianças", Metal: "Prata", "Tipo de Joia": "zircônia", "Modelo Aliança": "Anatomico", "Milimetros/tamanho": "4mm" };
+
+  confere("numeração com e", JSON.stringify(lerNumeracao("17 e 23")) === '["17","23"]');
+  confere("numeração com E maiúsculo", JSON.stringify(lerNumeracao("18 E 19")) === '["18","19"]');
+  confere("numeração com barra", JSON.stringify(lerNumeracao("17/16")) === '["17","16"]');
+  confere("numeração com vírgula é dois aros", JSON.stringify(lerNumeracao("12,25")) === '["12","25"]');
+  confere("meio número fica inteiro", JSON.stringify(lerNumeracao("17,5 e 20")) === '["17,5","20"]');
+  confere("milímetro no campo é ambíguo", lerNumeracao("4mm") === null);
+  confere("número fora de aro é ambíguo", lerNumeracao("120") === null && lerNumeracao("21.04") === null);
+  confere("vazio não é ambíguo", JSON.stringify(lerNumeracao("")) === "[]");
+  confere("família pelo tipo", familiaDaPeca("Alianças", null) === "aliancas" && familiaDaPeca("Anéis", null) === "anel" && familiaDaPeca("Relógios", null) === "sem_numeracao");
+  confere("família pelo produto, sem tipo", familiaDaPeca(null, "par jk 827a") === "aliancas" && familiaDaPeca(null, "an912254jk, jkelegan") === "desconhecida");
+
+  const completa = lerProducaoDaKommo(c({ ...par, Numeração: "17 e 23", Gravura: "Isaac/Ana Clara 21.04.26", Loja: "Tamboré" }));
+  confere("par completo vai para a fábrica", completa.tipo === "fabrica");
+  const p0 = completa.formulario.pecas[0];
+  confere("a peça sai do tipo com o metal", p0.nome === "Alianças de Prata");
+  confere("os dois aros", p0.aro1 === "17" && p0.aro2 === "23" && p0.anel === "");
+  confere("gravação como foi escrita, sem palpite de laser ou manual", p0.gravar1 === "Isaac/Ana Clara 21.04.26" && p0.gravacao === "a_confirmar");
+  confere("loja física é retirada", completa.formulario.entrega === "retirada" && completa.formulario.loja === "Tamboré");
+  const banco = lerProducao(completa.formulario);
+  confere("passa pela MESMA conferência do formulário", banco.ok);
+  if (banco.ok) {
+    const esp = lerEspecificacoes(banco.producao.pecas[0].info);
+    const aros = esp.filter((e) => e.tipo === "aro").map((e) => e.valor);
+    const gravar = esp.filter((e) => e.tipo === "gravar").map((e) => e.valor);
+    confere("a fábrica lê os dois aros", JSON.stringify(aros) === '["17","23"]', JSON.stringify(esp));
+    confere("a fábrica lê a gravação igual", JSON.stringify(gravar) === '["Isaac/Ana Clara 21.04.26"]', JSON.stringify(esp));
+    confere("a gravação não vira Aro 01 por palpite", !/Gravação - Aro 01/.test(banco.producao.pecas[0].info ?? ""));
+    confere("o metal e o modelo vão nos detalhes", esp.some((e) => e.rotulo === "Detalhes" && /Anatomico/.test(e.valor) && /4mm/.test(e.valor)));
+    confere("a fábrica lê a retirada", lerEntrega(banco.producao.entrega)?.tipo === "retirada");
+  }
+  const comSinais = lerProducao(lerProducaoDaKommo(c({ ...par, Numeração: "17 e 23", Gravura: "Te amo <3 & sempre" })).formulario);
+  confere("gravação com sinais volta igual", comSinais.ok && lerEspecificacoes(comSinais.producao.pecas[0].info).some((e) => e.tipo === "gravar" && e.valor === "Te amo <3 & sempre"));
+
+  const semLoja = lerProducaoDaKommo(c({ ...par, Numeração: "17 e 23" }));
+  const semLojaBanco = lerProducao(semLoja.formulario);
+  confere("sem loja, entrega a combinar", semLoja.tipo === "fabrica" && semLojaBanco.ok && semLojaBanco.producao.entrega === ENTREGA_A_COMBINAR);
+  confere("e-commerce não é retirada", lerProducaoDaKommo(c({ ...par, Numeração: "17 e 23", Loja: "E-commerce" })).formulario.entrega === "a_combinar");
+
+  const motivos = (pares: Record<string, string>) => {
+    const l = lerProducaoDaKommo(c(pares));
+    return l.tipo === "fabrica" ? [] : l.motivos;
+  };
+  confere("um aro só: falta o segundo", motivos({ ...par, Numeração: "17" })[0] === "Falta a numeração do segundo aro");
+  const umAro = lerProducaoDaKommo(c({ ...par, Numeração: "17" }));
+  confere("o aro que veio já fica no formulário de completar", umAro.formulario.pecas[0].aro1 === "17" && umAro.formulario.pecas[0].aro2 === "");
+  confere("sem numeração: faltam os dois", motivos(par)[0] === "Falta a numeração dos dois aros");
+  confere("conjunto pede o anel", motivos({ ...par, Numeração: "17 e 23", "Contém conjunto?": "Sim" })[0]?.startsWith("Falta a numeração do anel do conjunto"));
+  const conj = lerProducaoDaKommo(c({ ...par, Numeração: "17, 23 e 16", "Contém conjunto?": "Sim", "Quantidade de produtos": "3" }));
+  confere("conjunto com três números vai, com o anel", conj.tipo === "fabrica" && conj.formulario.pecas[0].anel === "16");
+  confere("quantidade que não é um par vai para conferir", motivos({ ...par, Numeração: "17 e 23", "Quantidade de produtos": "4" }).some((m) => m.includes("Quantidade de produtos 4")));
+  confere("numeração ambígua não vira palpite", motivos({ ...par, Numeração: "2mm" })[0]?.startsWith("Não dá para ler a numeração"));
+  confere("sem metal nem produto: não sei qual peça", motivos({ "Tipo de Produto": "Alianças", Numeração: "17 e 23" })[0]?.startsWith("Não sei qual peça"));
+  confere("negócio vazio: não sei qual peça", motivos({})[0]?.startsWith("Não sei qual peça"));
+  confere("produto escrito sem tipo: não sei se leva numeração", motivos({ Produto: "an912254jk, jkelegan" }).some((m) => m.startsWith("Não sei se a peça leva numeração")));
+  const anel = lerProducaoDaKommo(c({ "Tipo de Produto": "Anéis", Metal: "Prata", Numeração: "15" }));
+  confere("anel com um número vai", anel.tipo === "fabrica" && anel.formulario.pecas[0].aro1 === "15");
+  confere("anel com dois números não vai", motivos({ "Tipo de Produto": "Anéis", Metal: "Prata", Numeração: "15 e 16" }).length > 0);
+  const relogio = lerProducaoDaKommo(c({ "Tipo de Produto": "Relógios", Metal: "Ouro" }));
+  confere("relógio sem gravação fica fora da fábrica", relogio.tipo === "fora");
+  confere("corrente com gravação vai", lerProducaoDaKommo(c({ "Tipo de Produto": "Corrente", Metal: "Ouro", Gravura: "Maria" })).tipo === "fabrica");
+  const todos = [completa, semLoja, relogio, lerProducaoDaKommo(c({}))].flatMap((l) => (l.tipo === "fabrica" ? [] : l.motivos));
+  confere("nenhum travessão nos motivos", !/[—–]/.test(todos.join(" ")));
+
+  const lista = lerFaltasNaFabrica([{ negocio_id: 900003, venda_id: V, estado: "incompleta", motivos: ["Falta a numeração do segundo aro"], pode_completar: true }]);
+  confere("lê a lista da tela", lista.length === 1 && lista[0].link === "https://kathleengfz.kommo.com/leads/detail/900003" && lista[0].motivos.length === 1);
+  confere("resposta vazia da lista é vazia", lerFaltasNaFabrica(null).length === 0);
+}
+
+console.log("Migration 0176");
+{
+  const sql = readFileSync("supabase/migrations/0176_kommo_venda_na_fabrica.sql", "utf8");
+  confere("nada grava nas tabelas kommo_*", !/(insert into|update|delete from)\s+public\.kommo_/i.test(sql));
+  confere("entra pela porta da venda por fora", sql.includes("public.enviar_venda_para_a_fabrica("));
+  confere("em nome do vendedor, e sai", sql.includes("public.kommo_vendas_entrar_como(v_kv.vendedor)") && sql.includes("public.kommo_vendas_sair(v_antes)"));
+  confere("tabelas com RLS ligada e sem policy", ["fabrica_kommo", "fabrica_kommo_config"].every((t) => sql.includes(`alter table public.${t} enable row level security`)) && !/create policy/i.test(sql));
+  confere("a rodada é só da chave de serviço", /revoke execute on function public\.kommo_fabrica_candidatos\(int\), public\.kommo_fabrica_aplicar\(uuid, jsonb\) from public, anon, authenticated/.test(sql));
+  confere("venda com produção não é candidata (uma vez só)", /not exists \(select 1 from public\.vendas_producao vp where vp\.venda = v\.id\)/.test(sql));
+  confere("a área é conferida dentro de coalesce", (sql.match(/coalesce\(public\.tem_acesso\(/g) ?? []).length >= 3);
+  confere("a fila leva a origem e o aviso de desfeito", sql.includes("'kommo', kommo") && sql.includes("'desfeito_na_kommo', desfeito"));
+  confere("nenhum travessão", !/[—–]/.test(sql));
+  const rodada = readFileSync("src/lib/kommo/fabrica-rodada.ts", "utf8");
+  confere("a rodada da fábrica não escreve na Kommo", !/metodo: "(POST|PATCH|DELETE)"|clienteDaKommo/.test(rodada));
+  confere("a rodada confere com lerProducao", rodada.includes("lerProducao(lida.formulario)"));
+  confere("o passo da venda chama o da fábrica", readFileSync("src/lib/kommo/vendas-rodada.ts", "utf8").includes("processarFabricaDaKommo("));
 }
 
 if (falhas > 0) {

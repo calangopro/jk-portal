@@ -196,3 +196,53 @@ export async function estornarVenda(formData: FormData): Promise<void> {
   revalidatePath("/admin/vendedores");
   revalidatePath("/admin/vendas");
 }
+
+/**
+ * Completa a produção de uma venda já lançada e manda para a fábrica. Hoje
+ * serve à venda por fora que veio da Kommo sem tudo o que a fábrica precisa
+ * (cartão 51): a pessoa chega aqui pela tela de Vendas da Kommo, com o que o
+ * negócio dizia já preenchido. Confere pela MESMA `lerProducao` do formulário
+ * de venda nova e grava pela MESMA porta (`enviar_venda_para_a_fabrica`), que
+ * só deixa quem vendeu, quem lançou ou quem vê todas as vendas, e recusa a
+ * venda que a fábrica já pegou.
+ */
+export async function completarProducao(venda: string, producaoCrua: string): Promise<{ ok: boolean; mensagem: string }> {
+  await requireArea("lancar_venda");
+  if (!UUID.test(venda)) return { ok: false, mensagem: "Não deu para saber qual é a venda. Volte para Vendas da Kommo e abra de novo." };
+  let lido: unknown = null;
+  try {
+    lido = JSON.parse(producaoCrua);
+  } catch {
+    return { ok: false, mensagem: "Não deu para ler as peças. Recarregue a página e tente de novo." };
+  }
+  const r = lerProducao(lido);
+  if (!r.ok) return { ok: false, mensagem: r.erro };
+  const db = await createClient();
+  const { data, error } = await db.rpc("enviar_venda_para_a_fabrica", {
+    p_venda: venda,
+    p_pecas: r.producao.pecas,
+    p_entrega: r.producao.entrega,
+    p_endereco: r.producao.endereco,
+    p_cidade: r.producao.cidade,
+    p_uf: r.producao.uf,
+  });
+  if (error) {
+    console.error("[vendas] completarProducao:", error.message);
+    return { ok: false, mensagem: "Não deu para mandar agora. Tente de novo em alguns segundos." };
+  }
+  const d = (data ?? {}) as { ok?: boolean; motivo?: string };
+  if (!d.ok) {
+    const porque: Record<string, string> = {
+      sem_acesso: "O seu acesso não permite mandar venda para a fábrica.",
+      venda: "Essa venda não é sua, ou foi estornada.",
+      ja_na_bancada: "A fábrica já começou essa venda. Combine a mudança direto com a fábrica.",
+      pecas: "Confira as peças: falta o nome de alguma.",
+      entrega: "Confira a entrega: o texto ficou longo demais ou o estado não tem duas letras.",
+    };
+    return { ok: false, mensagem: porque[d.motivo ?? ""] ?? "A fábrica não recebeu. Confira os campos e tente de novo." };
+  }
+  revalidatePath("/admin/registrar-venda");
+  revalidatePath("/admin/vendas-da-kommo");
+  revalidatePath("/admin/fabrica");
+  return { ok: true, mensagem: "Pronto: as peças estão na fila da fábrica." };
+}

@@ -2,6 +2,7 @@ import { requireArea } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { intervaloDoPedido } from "@/lib/pedidos/do-site";
 import { lerListaDaKommo } from "@/lib/kommo/vendas";
+import { lerFaltasNaFabrica } from "@/lib/kommo/fabrica";
 import { hojeEmSaoPaulo } from "@/lib/vendas/periodo";
 import { TelaDasVendasDaKommo } from "./Tela";
 
@@ -20,7 +21,19 @@ export default async function VendasDaKommoPage() {
   await requireArea("lancar_venda");
   const hoje = hojeEmSaoPaulo();
   const { de, ate } = intervaloDoPedido("30d", hoje);
-  const { data, error } = await (await createClient()).rpc("kommo_vendas_lista", { p_de: de, p_ate: ate });
+  const db = await createClient();
+  const [{ data, error }, fabrica] = await Promise.all([
+    db.rpc("kommo_vendas_lista", { p_de: de, p_ate: ate }),
+    // A venda por fora que não foi para a fábrica (cartão 51, 0176): só a de quem pode completar.
+    db.rpc("kommo_fabrica_lista"),
+  ]);
   if (error) console.error("[vendas da kommo]", error.message);
-  return <TelaDasVendasDaKommo inicial={error ? null : lerListaDaKommo(data)} hoje={hoje} />;
+  if (fabrica.error) console.error("[vendas da kommo] fábrica:", fabrica.error.message);
+  return (
+    <TelaDasVendasDaKommo
+      inicial={error ? null : lerListaDaKommo(data)}
+      hoje={hoje}
+      faltasNaFabrica={fabrica.error ? null : lerFaltasNaFabrica(fabrica.data)}
+    />
+  );
 }
