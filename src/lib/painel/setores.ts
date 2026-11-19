@@ -81,6 +81,7 @@ export const SETORES: Setor[] = [
       { href: "/admin/suporte", area: "lancar_venda", label: "Suporte pós-venda", curto: "Suporte", Icone: LifeBuoy, desc: "Passe o caso do cliente para o gerente" },
       { href: "/admin/oportunidades", area: "lancar_venda", label: "Oportunidades", curto: "Chamar", Icone: BellRing, desc: "Quem vale chamar nos próximos dias" },
       { href: "/admin/clientes", area: "lancar_venda", label: "Clientes", Icone: Contact, desc: "A ficha de cada cliente" },
+      { href: "/admin/vendas-da-kommo", area: "lancar_venda", label: "Vendas da Kommo", curto: "Kommo", Icone: Waypoints, desc: "Venda ganha na Kommo que entrou sozinha, e a fila de conferência" },
       { href: "/admin/vendedores", area: "vendas", label: "Vendedores", Icone: Trophy, desc: "Quanto cada um vendeu" },
       { href: "/admin/recuperacao", area: "recuperacao", label: "Recuperação", curto: "Recuperar", Icone: RotateCcw, desc: "Quem não pagou o pedido" },
     ],
