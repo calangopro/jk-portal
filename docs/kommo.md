@@ -97,6 +97,7 @@ apagado, restaurado, mensagem recebida, mensagem enviada e nota.
 | `kommo_estado_do_espelho()` | diretoria | o cartão de Integrações |
 | `kommo_mapa_lista()` / `kommo_mapa_salvar(usuario, papel, profile, location)` | diretoria | a tela do mapa |
 | `kommo_negocio(id)` | áreas `vendas` ou diretoria; telefone e e-mail só com `lancar_venda` | um negócio com nomes de funil, etapa, responsável, a pessoa e a loja do mapa, contato e link |
+| `linha_do_tempo_do_cliente(ref)` (0185) | área `lancar_venda` (a da ficha); valor do negócio só para `vendas` ou o responsável pelo mapa; nunca telefone | a ficha do cliente: os negócios dele (pelo telefone e e-mail do contato, e pelo "Pedido Tray"), os eventos de etapa e responsável, e por pedido o que `historico_do_pedido` e `origem_do_pedido` já devolvem. Conta da tela em `src/lib/clientes/linha-do-tempo.ts` |
 | `kommo_funil_agora()` | áreas `vendas` ou diretoria | abertos por funil e etapa, valor e a mediana de dias parado |
 | `kommo_marcar_mensagens(desde)` | só chave de serviço | anda `ultima_msg_*` a partir dos eventos |
 | `kommo_limpar_eventos()` | relógio | apaga eventos de mais de 180 dias |
