@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { lerChaves, PIXEL_DA_JK } from "@/lib/leads/chaves";
 import { funisDaKommo } from "@/lib/leads/kommo-funis";
-import { DESTINOS, type Destino } from "@/lib/leads/tipos";
+import { DESTINOS, DESTINOS_DESLIGADOS, type Destino } from "@/lib/leads/tipos";
 import { lerEstadoDoGoogle } from "@/lib/google-perfil/oauth";
 import { absoluteUrl } from "@/lib/seo/site";
 import { CLIENTE_DO_GOOGLE_ADS, CONTA_DO_META, lerConexoes } from "@/lib/trafego/plataformas";
@@ -303,7 +303,8 @@ export default async function IntegracoesPage({
             ) : null}
           </CartaoDeChave>
 
-          <CartaoDeChave
+          {/* O RD saiu em 19/11/2026 (`DESTINOS_DESLIGADOS`): o cartão some junto. */}
+          {DESTINOS_DESLIGADOS.includes("rd") ? null : <CartaoDeChave
             provider="rd_station"
             destino="rd"
             nome="RD Station"
@@ -313,7 +314,7 @@ export default async function IntegracoesPage({
             configurada={Boolean(chaves.rd_station)}
             atualizadaEm={chaves.rd_station?.atualizadaEm ?? null}
             guardados={guardados.rd}
-          />
+          />}
 
           <CartaoDeChave
             provider="meta_capi"

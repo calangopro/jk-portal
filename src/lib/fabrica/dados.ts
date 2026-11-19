@@ -52,6 +52,10 @@ export type PedidoDaFabrica = {
   rastreio: string | null;
   nota: string | null;
   pecas: PecaDoPedido[];
+  /** O negócio da Kommo de onde a venda por fora veio (cartão 51, 0176). `null` no resto. */
+  kommo: number | null;
+  /** A venda saiu de "Venda ganha" na Kommo depois de entrar na fila: a fábrica confere com quem vendeu. */
+  desfeitoNaKommo: boolean;
 };
 
 export type FilaDaFabrica = { dias: number; pedidos: PedidoDaFabrica[] };
@@ -84,6 +88,8 @@ export async function lerFilaDaFabrica(db: SupabaseClient, dias: number): Promis
     vendedor: texto(p.vendedor),
     rastreio: texto(p.rastreio),
     nota: texto(p.nota),
+    kommo: p.kommo === null || p.kommo === undefined || !Number.isFinite(Number(p.kommo)) ? null : Number(p.kommo),
+    desfeitoNaKommo: p.desfeito_na_kommo === true,
     pecas: (Array.isArray(p.pecas) ? (p.pecas as Record<string, unknown>[]) : []).map((i) => ({
       nome: texto(i.nome) ?? "Peça sem nome",
       quantidade: Number(i.quantidade) || 1,

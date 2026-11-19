@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { CircleCheck, ExternalLink, Loader2, TriangleAlert, X } from "lucide-react";
+import Link from "next/link";
+import { CircleCheck, ExternalLink, Hammer, Loader2, TriangleAlert, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { COR_DO_TOM, type Tom } from "@/lib/painel/tons";
 import { PERIODOS_DO_PEDIDO, intervaloDoPedido, type PeriodoDoPedido } from "@/lib/pedidos/do-site";
@@ -9,6 +10,7 @@ import {
   MOTIVOS, NOME_DA_ACAO, NOME_DO_ESTADO, acoesDoMotivo, lerListaDaKommo,
   type AcaoDaGerencia, type Estado, type ListaDaKommo, type NaFila, type VendaDaKommo,
 } from "@/lib/kommo/vendas";
+import type { FaltaNaFabrica } from "@/lib/kommo/fabrica";
 import { SeloDeTom } from "../Pecas";
 import { Ficha, botaoCheio, botaoClaro, campo } from "../biblioteca/pecas";
 import { BotaoDoHistorico } from "../pedido/abrir";
@@ -71,7 +73,15 @@ const TOM_DO_ESTADO: Record<Estado, Tom> = {
   ignorada: "neutro",
 };
 
-export function TelaDasVendasDaKommo({ inicial, hoje, api = apiReal }: { inicial: ListaDaKommo | null; hoje: string; api?: ApiDaKommo }) {
+export function TelaDasVendasDaKommo({
+  inicial, hoje, api = apiReal, faltasNaFabrica = [],
+}: {
+  inicial: ListaDaKommo | null;
+  hoje: string;
+  api?: ApiDaKommo;
+  /** Venda por fora vinda da Kommo que não foi sozinha para a fábrica (cartão 51). `null` quando a leitura falhou. */
+  faltasNaFabrica?: FaltaNaFabrica[] | null;
+}) {
   const [periodo, setPeriodo] = useState<PeriodoDoPedido>("30d");
   const [lista, setLista] = useState<ListaDaKommo | null>(inicial);
   const [carregando, setCarregando] = useState(false);
@@ -178,6 +188,8 @@ export function TelaDasVendasDaKommo({ inicial, hoje, api = apiReal }: { inicial
           </ul>
         )}
       </section>
+
+      <FaltaNaFabricaSecao faltas={faltasNaFabrica} />
 
       <section className="mt-7" aria-labelledby="vendas-kommo">
         <h2 id="vendas-kommo" className="text-lg font-bold text-ink">
@@ -360,6 +372,89 @@ function ItemDaFila({
           : null}
         {f.pedido ? <BotaoDoHistorico numero={f.pedido} rotulo="Histórico" className={botaoClaro} /> : null}
         <LinkDaKommo href={f.link} />
+      </div>
+    </li>
+  );
+}
+
+/**
+ * A venda por fora vinda da Kommo que não foi sozinha para a fábrica (cartão
+ * 51, 0176): faltou numeração, não deu para saber a peça, ou a peça não leva
+ * numeração nem gravação. O painel não palpita: diz o motivo e leva ao
+ * formulário de Registrar venda com a venda já escolhida. Completar os campos
+ * na própria Kommo também destrava, na rodada seguinte.
+ */
+function FaltaNaFabricaSecao({ faltas }: { faltas: FaltaNaFabrica[] | null }) {
+  if (faltas === null) {
+    return (
+      <section className="mt-7" aria-labelledby="fabrica-kommo">
+        <h2 id="fabrica-kommo" className="text-lg font-bold text-ink">Falta a produção para a fábrica</h2>
+        <div className="glass mt-3 rounded-[16px] p-4 text-sm text-muted" role="alert">Não deu para ler o que falta para a fábrica agora.</div>
+      </section>
+    );
+  }
+  const incompletas = faltas.filter((f) => f.estado === "incompleta");
+  const fora = faltas.filter((f) => f.estado === "fora");
+  return (
+    <section className="mt-7" aria-labelledby="fabrica-kommo">
+      <h2 id="fabrica-kommo" className="text-lg font-bold text-ink">Falta a produção para a fábrica</h2>
+      <p className="mt-1 text-sm leading-relaxed text-muted">
+        A venda por fora que vem da Kommo vai sozinha para a fila da fábrica quando o negócio diz a peça e a numeração de cada aro. Quando
+        falta alguma coisa, ela espera aqui: complete pelo formulário, ou preencha os campos na Kommo e espere a próxima leitura.
+      </p>
+      {incompletas.length === 0 ? (
+        <div className="glass mt-3 rounded-[16px] p-4 text-sm text-muted">Nenhuma venda esperando a produção.</div>
+      ) : (
+        <ul className="mt-3 grid grid-cols-1 gap-3">
+          {incompletas.map((f) => (
+            <ItemDaFabrica key={f.venda_id} f={f} />
+          ))}
+        </ul>
+      )}
+      {fora.length > 0 ? (
+        <details className="mt-3">
+          <summary className="cursor-pointer text-sm font-semibold text-ink">
+            {fora.length} {fora.length === 1 ? "venda sem numeração nem gravação, que não foi" : "vendas sem numeração nem gravação, que não foram"} para a fábrica
+          </summary>
+          <ul className="mt-3 grid grid-cols-1 gap-3">
+            {fora.map((f) => (
+              <ItemDaFabrica key={f.venda_id} f={f} />
+            ))}
+          </ul>
+        </details>
+      ) : null}
+    </section>
+  );
+}
+
+function ItemDaFabrica({ f }: { f: FaltaNaFabrica }) {
+  return (
+    <li className="glass min-w-0 rounded-[16px] p-4">
+      <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1">
+        <div className="min-w-0">
+          <p className="break-words text-sm font-bold text-ink [overflow-wrap:anywhere]">{f.cliente ?? f.negocio ?? `Negócio ${f.negocio_id}`}</p>
+          <p className="mt-0.5 text-xs text-muted">
+            {[diaCurto(f.dia), f.vendedor ? `vendida por ${f.vendedor}` : null].filter(Boolean).join(", ")}
+          </p>
+        </div>
+        <SeloDeTom tom={f.estado === "incompleta" ? "atencao" : "neutro"} titulo={f.estado === "incompleta" ? "Esperando a produção" : "Fora da fábrica"}>
+          {f.estado === "incompleta" ? "Esperando a produção" : "Fora da fábrica"}
+        </SeloDeTom>
+      </div>
+      <ul className="mt-2 space-y-1">
+        {f.motivos.map((m) => (
+          <li key={m} className="text-sm leading-relaxed text-ink [overflow-wrap:anywhere]">{m}</li>
+        ))}
+      </ul>
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        {f.pode_completar ? (
+          <Link href={`/admin/registrar-venda?producao=${f.venda_id}`} className={`${botaoCheio} inline-flex items-center gap-1.5`}>
+            <Hammer size={14} aria-hidden="true" /> {f.estado === "incompleta" ? "Completar a produção" : "Mandar para a fábrica"}
+          </Link>
+        ) : null}
+        <a href={f.link} target="_blank" rel="noopener noreferrer" className={`${botaoClaro} inline-flex items-center gap-1.5`}>
+          <ExternalLink size={14} aria-hidden="true" /> Abrir na Kommo
+        </a>
       </div>
     </li>
   );

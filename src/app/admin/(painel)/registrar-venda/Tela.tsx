@@ -7,11 +7,16 @@ import { Cartao, Dinheiro, reais } from "../vendas/PainelDeVendas";
 import { BotaoDeAcao } from "../recuperacao/BotaoDeAcao";
 import { FormularioDeVenda } from "./FormularioDeVenda";
 import type { ProdutoDoFormulario } from "./ProducaoDaVenda";
+import { CompletarProducao, type VendaParaCompletar } from "./CompletarProducao";
 
 /** A parte da tela de registrar venda que só desenha. Sem `estornar` (na prévia) o botão de estorno não aparece. */
 export function TelaDeRegistrarVenda({
-  mes, lancadas = null, vendedores, veTodas, hoje, estornar, naFabrica = {}, produtos, lojas,
+  mes, lancadas = null, vendedores, veTodas, hoje, estornar, naFabrica = {}, produtos, lojas, completar = null, completarSumiu = false,
 }: {
+  /** Veio completar uma produção que não está mais esperando (já na fábrica, estornada, ou de outra pessoa). */
+  completarSumiu?: boolean;
+  /** A venda da Kommo cuja produção a pessoa veio completar (`?producao=`, cartão 51). */
+  completar?: VendaParaCompletar | null;
   /** O que a pessoa lançou hoje e ontem, seja qual for o dia da venda. É de onde sai quem ela ainda pode estornar. */
   lancadas?: VendaLancadaAgora[] | null;
   /** A etapa da fábrica das vendas que foram para lá, pelo código da venda. */
@@ -57,6 +62,13 @@ export function TelaDeRegistrarVenda({
           <Dinheiro valor={mes && mes.vendas ? mes.valor / mes.vendas : 0} />
         </Cartao>
       </div>
+
+      {completar ? <CompletarProducao venda={completar} produtos={produtos ?? []} lojas={lojas ?? []} /> : null}
+      {completarSumiu ? (
+        <p role="status" className="glass mt-6 rounded-[14px] p-4 text-sm text-ink">
+          Essa venda não está mais esperando a produção: ela já foi para a fábrica, foi estornada ou não é sua.
+        </p>
+      ) : null}
 
       <section className="glass mt-6 rounded-[18px] p-5" aria-labelledby="nova-venda">
         <h2 id="nova-venda" className="font-display text-2xl text-ink">Nova venda</h2>

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Bike, Check, Clock, ListChecks, Loader2, Search, Store, Truck, X } from "lucide-react";
+import { AlertTriangle, Bike, Check, Clock, ListChecks, Loader2, Search, Store, Truck, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { PedidoDaFabrica } from "@/lib/fabrica/dados";
 import {
@@ -153,7 +153,26 @@ function CartaoDoPedido({
             </p>
             {/* Venda por fora não está na loja: a dúvida da fábrica vai para quem vendeu. */}
             {p.origem === "por_fora" ? (
-              <p className="mt-0.5 text-xs font-semibold text-[var(--setor)]">{p.vendedor ? `Vendida por ${p.vendedor}, fora da loja` : "Vendida fora da loja"}</p>
+              <p className="mt-0.5 text-xs font-semibold text-[var(--setor)]">
+                {p.vendedor ? `Vendida por ${p.vendedor}, ${p.kommo ? "pela Kommo" : "fora da loja"}` : p.kommo ? "Vendida pela Kommo" : "Vendida fora da loja"}
+              </p>
+            ) : null}
+            {p.kommo ? (
+              // O link fica acima do botão da seleção, para continuar clicável.
+              <a
+                href={`https://kathleengfz.kommo.com/leads/detail/${p.kommo}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="relative z-20 mt-0.5 inline-block text-xs text-ink underline decoration-ink/25 underline-offset-4 hover:decoration-ink"
+              >
+                Negócio {p.kommo} na Kommo
+              </a>
+            ) : null}
+            {p.desfeitoNaKommo ? (
+              <p role="status" className="mt-1.5 inline-flex items-start gap-1.5 rounded-[8px] px-2 py-1 text-xs font-semibold" style={{ background: "#fdecec", color: "#9b1c1c" }}>
+                <AlertTriangle size={13} className="mt-px shrink-0" aria-hidden="true" />
+                <span>Desfeito na Kommo, conferir com o vendedor. Depois de conferir, volte para a fila para tirar daqui.</span>
+              </p>
             ) : null}
           </div>
         </div>

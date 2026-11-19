@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Bike, Plus, Store, Trash2, Truck } from "lucide-react";
+import { Bike, Handshake, Plus, Store, Trash2, Truck } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { PECA_VAZIA, PRODUCAO_VAZIA, TETO_DE_PECAS, type ModoDeEntrega, type PecaDoFormulario, type ProducaoDoFormulario, type TipoDeGravacao } from "@/lib/vendas/producao";
 
@@ -27,19 +27,25 @@ const ENTREGAS: { chave: ModoDeEntrega; nome: string; Icone: LucideIcon }[] = [
   { chave: "retirada", nome: "Retirar em loja", Icone: Store },
   { chave: "correios", nome: "Correios", Icone: Truck },
   { chave: "moto", nome: "Moto", Icone: Bike },
+  // Só aparece na venda que já chegou assim (a da Kommo, cartão 51): quem lança venda nova sabe como ela chega.
+  { chave: "a_combinar", nome: "A combinar", Icone: Handshake },
 ];
 
 const GRAVACOES: { chave: TipoDeGravacao; nome: string }[] = [
   { chave: "sem", nome: "Sem gravação" },
   { chave: "laser", nome: "Laser" },
   { chave: "manual", nome: "Manual" },
+  // Só aparece na venda que já chegou assim: a Kommo diz o texto, mas não se é laser ou manual.
+  { chave: "a_confirmar", nome: "A confirmar" },
 ];
 
 const semAcento = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 
 function Peca({
-  p, n, total, indice, onMudar, onTirar,
+  p, n, total, indice, onMudar, onTirar, comConfirmar = false,
 }: {
+  /** A peça chegou com a gravação "a confirmar" (venda da Kommo): a opção continua na lista. */
+  comConfirmar?: boolean;
   p: PecaDoFormulario;
   n: number;
   total: number;
@@ -136,8 +142,8 @@ function Peca({
 
       <div className="mt-3">
         <p className={rotulo} id={id("gravacao")}>Gravação</p>
-        <div role="radiogroup" aria-labelledby={id("gravacao")} className="mt-1 grid grid-cols-3 gap-1 rounded-[10px] bg-ink/[0.05] p-1">
-          {GRAVACOES.map((g) => (
+        <div role="radiogroup" aria-labelledby={id("gravacao")} className={`mt-1 grid ${comConfirmar ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-3"} gap-1 rounded-[10px] bg-ink/[0.05] p-1`}>
+          {GRAVACOES.filter((g) => g.chave !== "a_confirmar" || comConfirmar).map((g) => (
             <button
               key={g.chave}
               type="button"
@@ -173,9 +179,23 @@ function Peca({
   );
 }
 
-export function ProducaoDaVenda({ produtos, lojas }: { produtos: ProdutoDoFormulario[]; lojas: string[] }) {
-  const [ligada, setLigada] = useState(false);
-  const [dados, setDados] = useState<ProducaoDoFormulario>(PRODUCAO_VAZIA);
+export function ProducaoDaVenda({
+  produtos, lojas, inicial, sempreLigada = false,
+}: {
+  produtos: ProdutoDoFormulario[];
+  lojas: string[];
+  /** O que já se sabe da produção: a venda da Kommo chega com o que o negócio dizia (cartão 51). */
+  inicial?: ProducaoDoFormulario;
+  /** Completar a produção de uma venda já lançada: a caixa de "mandar para a fábrica" não aparece, porque é o motivo da tela. */
+  sempreLigada?: boolean;
+}) {
+  const [ligadaAqui, setLigada] = useState(false);
+  const ligada = sempreLigada || ligadaAqui;
+  const [dados, setDados] = useState<ProducaoDoFormulario>(inicial ?? PRODUCAO_VAZIA);
+  // O que chegou "a combinar" ou "a confirmar" continua escolhível; a venda nova não ganha essas opções.
+  const [veioACombinar] = useState(inicial?.entrega === "a_combinar");
+  const [veioAConfirmar] = useState(() => new Set((inicial?.pecas ?? []).map((p, i) => (p.gravacao === "a_confirmar" ? i : -1)).filter((i) => i >= 0)));
+  const lojasDaLista = inicial?.loja && !lojas.includes(inicial.loja) ? [inicial.loja, ...lojas] : lojas;
   const indice = useMemo(() => produtos.map((p) => ({ p, texto: semAcento(`${p.nome} ${p.codigo}`) })), [produtos]);
 
   const mudarPeca = (i: number, m: Partial<PecaDoFormulario>) => setDados((d) => ({ ...d, pecas: d.pecas.map((p, k) => (k === i ? { ...p, ...m } : p)) }));
@@ -185,6 +205,7 @@ export function ProducaoDaVenda({ produtos, lojas }: { produtos: ProdutoDoFormul
       {/* Vazio quando a venda não vai para a fábrica: o servidor só lê as peças se o campo vier preenchido. */}
       <input type="hidden" name="producao" value={ligada ? JSON.stringify(dados) : ""} />
 
+      {sempreLigada ? null : (
       <label className="flex cursor-pointer items-start gap-3 rounded-[12px] border border-ink/12 bg-white/70 p-3">
         <input type="checkbox" checked={ligada} onChange={(e) => setLigada(e.target.checked)} className="mt-0.5 h-5 w-5 shrink-0 accent-[var(--setor)]" />
         <span>
@@ -195,6 +216,7 @@ export function ProducaoDaVenda({ produtos, lojas }: { produtos: ProdutoDoFormul
           </span>
         </span>
       </label>
+      )}
 
       {ligada ? (
         <div className="mt-3 space-y-3">
@@ -207,6 +229,7 @@ export function ProducaoDaVenda({ produtos, lojas }: { produtos: ProdutoDoFormul
               indice={indice}
               onMudar={(m) => mudarPeca(i, m)}
               onTirar={() => setDados((d) => ({ ...d, pecas: d.pecas.filter((_, k) => k !== i) }))}
+              comConfirmar={veioAConfirmar.has(i)}
             />
           ))}
           {dados.pecas.length < TETO_DE_PECAS ? (
@@ -217,8 +240,8 @@ export function ProducaoDaVenda({ produtos, lojas }: { produtos: ProdutoDoFormul
 
           <fieldset className="min-w-0 rounded-[12px] border border-ink/10 bg-white/60 p-3">
             <legend className="px-1 text-xs font-semibold text-ink">Como chega ao cliente</legend>
-            <div role="radiogroup" aria-label="Como chega ao cliente" className="grid grid-cols-3 gap-1 rounded-[10px] bg-ink/[0.05] p-1">
-              {ENTREGAS.map((e) => (
+            <div role="radiogroup" aria-label="Como chega ao cliente" className={`grid ${veioACombinar ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-3"} gap-1 rounded-[10px] bg-ink/[0.05] p-1`}>
+              {ENTREGAS.filter((e) => e.chave !== "a_combinar" || veioACombinar).map((e) => (
                 <button
                   key={e.chave}
                   type="button"
@@ -237,11 +260,15 @@ export function ProducaoDaVenda({ produtos, lojas }: { produtos: ProdutoDoFormul
                 <label className={rotulo} htmlFor="producao-loja">Loja de retirada</label>
                 <select id="producao-loja" value={dados.loja} onChange={(e) => setDados((d) => ({ ...d, loja: e.target.value }))} className={campo}>
                   <option value="">Escolha a loja</option>
-                  {lojas.map((l) => (
+                  {lojasDaLista.map((l) => (
                     <option key={l} value={l}>{l}</option>
                   ))}
                 </select>
               </div>
+            ) : dados.entrega === "a_combinar" ? (
+              <p className="mt-3 text-xs leading-relaxed text-muted">
+                A fábrica vai ler &ldquo;Entrega a combinar com o vendedor&rdquo; e perguntar a você. Se já souber, escolha retirada, Correios ou moto.
+              </p>
             ) : (
               <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_5rem]">
                 <div className="sm:col-span-2">

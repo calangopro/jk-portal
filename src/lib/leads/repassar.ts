@@ -2,7 +2,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { lerChaves, type Chave, type Chaves } from "./chaves";
 import { enviarParaKommo, enviarParaMeta, enviarParaRd, enviarParaWebhook, Ignorado } from "./destinos";
-import { DESTINOS, MAX_TENTATIVAS, type Destino, type Envios, type Lead, type SituacaoDoEnvio } from "./tipos";
+import { DESTINOS, DESTINOS_ATIVOS, MAX_TENTATIVAS, type Destino, type Envios, type Lead, type SituacaoDoEnvio } from "./tipos";
 
 /**
  * Leva um contato gravado aos destinos que ainda não o receberam.
@@ -23,7 +23,7 @@ const ENVIAR: Record<Destino, (lead: Lead, chave: Chave) => Promise<string>> = {
   meta: enviarParaMeta,
 };
 
-const CHAVE_DO_DESTINO: Record<Destino, keyof Chaves> = {
+export const CHAVE_DO_DESTINO: Record<Destino, keyof Chaves> = {
   kommo: "kommo",
   rd: "rd_station",
   webhook: "grupo_webhook",
@@ -65,7 +65,7 @@ async function umDestino(
 }
 
 export function aindaPendente(envios: Envios): boolean {
-  return DESTINOS.some((d) => envios[d]?.status === "erro" && (envios[d]?.tentativas ?? 0) < MAX_TENTATIVAS);
+  return DESTINOS_ATIVOS.some((d) => envios[d]?.status === "erro" && (envios[d]?.tentativas ?? 0) < MAX_TENTATIVAS);
 }
 
 export async function repassarLead(
@@ -74,7 +74,8 @@ export async function repassarLead(
   opcoes: OpcoesDoRepasse = {},
 ): Promise<Envios> {
   const chaves = opcoes.chaves ?? (await lerChaves(supabase));
-  const destinos = opcoes.destinos ?? [...DESTINOS];
+  // Destino desligado não recebe mais nada, nem pelo botão de Integrações.
+  const destinos = (opcoes.destinos ?? [...DESTINOS_ATIVOS]).filter((d) => DESTINOS_ATIVOS.includes(d));
 
   const resultados = await Promise.all(
     destinos.map(async (d) => [d, await umDestino(d, lead, chaves, Boolean(opcoes.forcar))] as const),
