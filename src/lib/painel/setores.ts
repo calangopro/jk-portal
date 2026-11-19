@@ -60,7 +60,9 @@ export const SETORES: Setor[] = [
     cor: "#1a1815",
     Icone: LayoutDashboard,
     itens: [
-      { href: "/admin", area: null, label: "Visão geral", curto: "Início", Icone: LayoutDashboard, desc: "O que pede atenção hoje" },
+      // Hoje é a primeira tela de todo mundo: a lista do que a pessoa precisa fazer agora. A área `time` é a que TODO nível tem.
+      { href: "/admin/hoje", area: "time", label: "Hoje", Icone: ListChecks, desc: "O que você precisa fazer agora" },
+      { href: "/admin", area: null, label: "Visão geral", curto: "Início", Icone: LayoutDashboard, desc: "Os números e os avisos do seu acesso" },
       { href: "/admin/gargalos", area: "vendas", label: "Gargalos", Icone: Filter, desc: "Onde o dinheiro vaza" },
       { href: "/admin/custos", area: "custos", label: "Custos", Icone: Wallet, desc: "O que a loja gasta por mês" },
       { href: "/admin/margem", area: "margem", label: "Margem", Icone: Percent, desc: "Custo, ouro e margem mínima" },
@@ -246,13 +248,16 @@ export function ondeEstou(setores: Setor[], caminho: string): { setor: Setor | n
   return melhor ?? { setor: null, item: null };
 }
 
+/** As telas da primeira sala que todo mundo tem. Quem só tem estas não está na diretoria. */
+const DE_TODOS = ["/admin", "/admin/hoje"];
+
 /**
- * Nome do primeiro setor para quem olha. Quem só tem a Visão geral ali (um
- * vendedor, um autor) não está na diretoria: para essa pessoa a sala se chama
- * Início.
+ * Nome do primeiro setor para quem olha. Quem só tem a Visão geral e o Hoje
+ * ali (um vendedor, um autor) não está na diretoria: para essa pessoa a sala
+ * se chama Início.
  */
 export function nomeDoSetor(setor: Setor): string {
-  return setor.id === "diretoria" && setor.itens.length === 1 ? "Início" : setor.nome;
+  return setor.id === "diretoria" && setor.itens.every((i) => DE_TODOS.includes(i.href)) ? "Início" : setor.nome;
 }
 
 /** Quantas abas cabem na barra de baixo antes do "Mais". */
