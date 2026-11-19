@@ -56,6 +56,7 @@ export function CartaoDeChave({
   guardados,
   tipo = "password",
   children,
+  rodape,
 }: {
   provider: string;
   destino: string;
@@ -69,6 +70,8 @@ export function CartaoDeChave({
   guardados: number;
   tipo?: "password" | "url";
   children?: React.ReactNode;
+  /** Fica fora do formulário da chave (pode ter formulário próprio). */
+  rodape?: React.ReactNode;
 }) {
   const [estado, salvar] = useActionState<IntegracaoState, FormData>(salvarChave, {});
   const [envio, enviar] = useActionState<IntegracaoState, FormData>(enviarGuardados, {});
@@ -152,6 +155,7 @@ export function CartaoDeChave({
           {envio.ok ? <p className="mt-2 text-xs text-brand-strong">{envio.ok}</p> : null}
         </form>
       ) : null}
+      {rodape ? <div className="mt-4">{rodape}</div> : null}
     </div>
   );
 }

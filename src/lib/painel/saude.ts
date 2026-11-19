@@ -111,6 +111,11 @@ export const ROTINAS: Rotina[] = [
     chave: "publicar", origem: "pulso", id: "publicar", nome: "Publicação agendada", paraQue: "Publica o conteúdo agendado, olhando a cada 5 minutos.", tolerancia: 45, seParar: AVISAR,
     sobDemanda: { fila: "agendados_vencidos", um: "conteúdo agendado já passou da hora", varios: "conteúdos agendados já passaram da hora" },
   },
+  {
+    chave: "kommo", origem: "pulso", id: "kommo", nome: "Espelho da Kommo",
+    paraQue: "Lê da Kommo os negócios, contatos e eventos que mudaram, de 10 em 10 minutos, e completa o que o webhook perdeu.",
+    tolerancia: HORA, seParar: "Abra o cartão da Kommo em Integrações: a chave pode ter sido recusada ou o webhook desligado.",
+  },
   { chave: "avaliacoes", origem: "pulso", id: "avaliacoes", nome: "Avaliações do Google", paraQue: "Relê as avaliações das lojas uma vez por dia.", tolerancia: 36 * HORA, seParar: "Confira a ligação com o Google em Integrações." },
   { chave: "search-console", origem: "pulso", id: "search-console", nome: "Search Console", paraQue: "Importa as buscas do Google toda segunda de manhã.", tolerancia: 8 * DIA + 12 * HORA, seParar: AVISAR },
   {
