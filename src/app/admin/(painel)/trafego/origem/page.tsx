@@ -2,6 +2,7 @@ import { requireArea } from "@/lib/auth/session";
 import { lerChegadasPelaBioDoPeriodo, lerPedidosComOrigemDoPeriodo } from "@/lib/origem/dados";
 import { createClient } from "@/lib/supabase/server";
 import { lerNegociosPorOrigem } from "@/lib/kommo/origem";
+import { lerCarrinhos } from "@/lib/kommo/carrinho";
 import { hojeEmSaoPaulo, intervaloDoPeriodo, lerPeriodo } from "@/lib/vendas/periodo";
 import { TelaDeOrigem } from "./Tela";
 
@@ -22,13 +23,18 @@ export default async function OrigemPage({ searchParams }: { searchParams: Promi
   const chave = lerPeriodo(sp.periodo ?? "30d");
   const { de, ate } = intervaloDoPeriodo(chave, hojeEmSaoPaulo());
   const db = await createClient();
-  const [pedidos, bio, kommo] = await Promise.all([
+  const [pedidos, bio, kommo, carrinhos] = await Promise.all([
     lerPedidosComOrigemDoPeriodo(db, de, ate),
     lerChegadasPelaBioDoPeriodo(db, de, ate),
     // Os negócios da Kommo por origem (0170): anúncio pelo número, UTM, código, sem origem.
     db.rpc("kommo_negocios_por_origem", { p_de: de, p_ate: ate }).then(({ data, error }) => {
       if (error) console.error("[origem] kommo_negocios_por_origem:", error.message);
       return error ? null : lerNegociosPorOrigem(data);
+    }),
+    // Os carrinhos abandonados da Kommo ligados ao visitante pela sessão da Tray (0182).
+    db.rpc("kommo_carrinhos_por_origem", { p_de: de, p_ate: ate }).then(({ data, error }) => {
+      if (error) console.error("[origem] kommo_carrinhos_por_origem:", error.message);
+      return error ? null : lerCarrinhos(data);
     }),
   ]);
   // `busca`, `aba` e `pagos` chegam do link de um item na tabela de campanhas: a lista já abre nos pedidos dele.
@@ -37,6 +43,7 @@ export default async function OrigemPage({ searchParams }: { searchParams: Promi
       pedidos={pedidos}
       bio={bio}
       kommo={kommo}
+      carrinhos={carrinhos}
       de={de}
       ate={ate}
       chave={chave}

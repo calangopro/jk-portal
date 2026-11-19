@@ -587,3 +587,51 @@ colada:
    manda é o Salesbot daquela etapa. Conferir antes de ligar.
 4. **Ligar uma de cada vez**, começando pela de menor risco (tarefas não mandam
    mensagem), e olhar o registro na primeira hora.
+
+## Cartão 53: origem do carrinho abandonado pela sessão da Tray (0182)
+
+O n8n cria um negócio no ECOMM | RECUPERAÇÃO a cada carrinho largado, com o
+campo **"Link do carrinho"** (id 3177638) no formato
+`https://www.jkaliancas.com.br/checkout/cart?session_id=<sessão>&store_id=1305187`.
+Essa sessão é a mesma que o coletor anota (`origem_sessoes`) e que o pedido
+carrega (`tray_pedidos.sessao`). Nada é gravado: é conta.
+
+- **A sessão sai do link** por `sessaoDoLinkDoCarrinho`
+  (`src/lib/kommo/carrinho.ts`) e `kommo_sessao_do_link` (banco), com o mesmo
+  padrão em texto (o teste confere). Só o domínio da JK, com ou sem `www`, e
+  só a loja 1305187; link de produto, de outro domínio ou de outra loja não
+  vira palpite. Em 19/11, 2 de 308 links no espelho eram de página de produto,
+  sem sessão; e metade dos negócios novos do funil vem sem o campo.
+- **A origem é a regra dos pedidos.** A parte de `origem_resolvida` (0113)
+  que acha a chegada e casa campanha, conjunto e anúncio foi para
+  `origem_das_chegadas` sem mudar uma linha, e as duas contas chamam ela. O
+  momento do carrinho é a criação do negócio. Conferido antes de aplicar: a
+  saída de `origem_resolvida` de 01/05 a 18/11 ficou idêntica (2.836 pedidos,
+  nenhuma linha diferente).
+- **"Virou o pedido N"** é o pedido da mesma sessão feito de uma hora antes do
+  negócio (atraso do n8n) até trinta dias depois, o pago na frente. A sessão
+  da Tray dura semanas: pedido anterior ao carrinho na mesma sessão (17 casos
+  em 19/11, todos mais de duas horas antes) é compra anterior e não conta.
+- **Onde aparece:** o recorte "Carrinho abandonado" no fim do bloco da Kommo
+  em `/admin/trafego/origem` (`kommo_carrinhos_por_origem`, área `trafego`;
+  quantos viraram pedido, pagos, valor e tempo só com a área `vendas`; sem
+  nome nem telefone), e a gaveta do pedido ("De qual anúncio veio"), que diz
+  "este pedido veio de um carrinho abandonado" com o negócio da Kommo
+  (`origem_do_pedido` ganhou `carrinhos`). Vendas da Kommo não mudou: o
+  negócio de recuperação não vira venda ganha com "Pedido Tray".
+
+**Os números de 19/11** (espelho ainda na carga inicial, com negócios até
+10/11): 308 negócios com o link, 306 com sessão, 26 ligados ao visitante,
+**nenhum com origem** (o coletor existe desde 13/11, e esses carrinhos são de
+antes; os 26 são visitantes que voltaram depois), 35 viraram pedido e 31
+pedido pago (R$ 10.531,21, metade em até 20 h). A origem passa a aparecer
+com os carrinhos de 13/11 em diante, quando a carga do espelho chegar neles.
+
+**Ensaio com JWT falso, desfeito:** tráfego e gerente leem a tela com a parte
+de pedido; tráfego sem a área de vendas lê sem ela; vendedor, fábrica e editor
+recebem nulo; anônimo é recusado; `kommo_carrinhos` não abre para ninguém
+logado; a gaveta abre para quem já vê pedido.
+
+**Depende do Erick:** o n8n preencher o "Link do carrinho" em todo negócio
+(na amostra de 18/11, só metade trazia). Nada aqui pede mexer no n8n nem nos
+funis.

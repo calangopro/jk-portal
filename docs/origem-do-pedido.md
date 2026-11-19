@@ -319,6 +319,11 @@ O que isso muda, para ler os números sem susto:
   Ela ainda é a única fonte para pedido de antes de 13/11 e para quem a loja
   não conseguiu ligar a uma chegada.
 - **A fila de recuperação ainda mostra só a etiqueta da Tray** no "veio de".
+- **O carrinho abandonado da Kommo usa a mesma regra** (0182, cartão 53): a
+  parte de `origem_resolvida` que acha a chegada e casa o anúncio mora em
+  `origem_das_chegadas`, que serve aos pedidos e aos negócios do n8n, ligados
+  ao visitante pela sessão do "Link do carrinho". Mudou a regra, muda ali.
+  Detalhes em `docs/kommo.md`, seção do cartão 53.
 
 ## Privacidade
 
