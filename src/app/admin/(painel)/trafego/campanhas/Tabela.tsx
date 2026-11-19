@@ -3,7 +3,7 @@
 import { Fragment, useMemo, useState } from "react";
 import type { LucideIcon } from "lucide-react";
 import {
-  ArrowDown, ArrowUp, ChevronDown, ChevronRight, Circle, CircleAlert, CircleCheck, Minus, Pause, Search, Store,
+  ArrowDown, ArrowUp, ChevronDown, ChevronRight, Circle, CircleAlert, CircleCheck, MessageCircle, Minus, Pause, Search, Store,
   TriangleAlert, Wrench, X,
 } from "lucide-react";
 import { COR_DO_TOM } from "@/lib/painel/tons";
@@ -113,8 +113,22 @@ function Estado({ ativo }: { ativo: boolean | null }) {
 
 type Colunas = { chave: Coluna; nome: string; dica: string }[];
 
+/**
+ * As colunas do WhatsApp, só no Meta: o clique para WhatsApp manda à Kommo o
+ * número do anúncio, e é por ele que a conversa se liga ao item (0170). O
+ * Google não manda número nenhum para a conversa.
+ */
+const COLUNAS_DO_WHATS: Colunas = [
+  { chave: "whatsConversas", nome: "Conversas (Whats)", dica: "Negócios da Kommo criados no período cujo número de anúncio, vindo do Meta, é deste item" },
+  { chave: "custoConversa", nome: "Custo/conversa (Whats)", dica: "Gasto dividido pelas conversas que chegaram à Kommo ligadas a este item" },
+  { chave: "whatsVendas", nome: "Vendas (Whats)", dica: "Negócios ganhos na Kommo no período ligados a este item. Venda cujo pedido da loja já está na coluna da UTM não conta de novo aqui" },
+  { chave: "whatsValor", nome: "Venda R$ (Whats)", dica: "O valor desses negócios ganhos, como está na Kommo" },
+  { chave: "custoVendaWhats", nome: "Custo/venda (Whats)", dica: "Gasto dividido pelas vendas ganhas no WhatsApp ligadas a este item" },
+];
+
 function colunasDa(plataforma: "meta" | "google"): Colunas {
   const p = plataforma === "meta" ? "Meta" : "Google";
+  const whats = plataforma === "meta" ? COLUNAS_DO_WHATS : [];
   return [
     { chave: "gasto", nome: "Gasto", dica: "Quanto o item gastou no período" },
     { chave: "resultados", nome: `Resultado (${p})`, dica: `O que o ${p} diz: compras, conversas ou cliques, conforme o objetivo. Compra aqui é pedido criado, pago ou não, pela regra de atribuição dele` },
@@ -124,6 +138,7 @@ function colunasDa(plataforma: "meta" | "google"): Colunas {
     { chave: "lojaValor", nome: "Venda (UTM)", dica: "O valor dos pedidos PAGOS da loja ligados a este item pela UTM" },
     { chave: "retorno", nome: `Volta (${p})`, dica: `Venda que o ${p} informa por real gasto. A cor compara com a média da conta` },
     { chave: "voltaDaLoja", nome: "Volta (UTM)", dica: "Venda paga da loja, pela UTM, por real gasto. Verde do empate para cima, vermelho abaixo de 1" },
+    ...whats,
     { chave: "checkouts", nome: "Checkout", dica: "Quantas vezes começaram a compra" },
     { chave: "cliques", nome: "Cliques", dica: "Cliques no link do anúncio" },
     { chave: "ctr", nome: "CTR", dica: "Cliques sobre impressões" },
@@ -209,7 +224,7 @@ export function TabelaDeAnuncios({
     }
   };
   const ordenarPor = (coluna: Coluna) =>
-    setOrdem((o) => (o.coluna === coluna ? { coluna, sentido: o.sentido === "desc" ? "asc" : "desc" } : { coluna, sentido: coluna === "nome" || coluna === "custo" || coluna === "cpc" || coluna === "cpm" ? "asc" : "desc" }));
+    setOrdem((o) => (o.coluna === coluna ? { coluna, sentido: o.sentido === "desc" ? "asc" : "desc" } : { coluna, sentido: coluna === "nome" || coluna === "custo" || coluna === "cpc" || coluna === "cpm" || coluna === "custoConversa" || coluna === "custoVendaWhats" ? "asc" : "desc" }));
 
   // ------------------------------------------------------------ as células
 
@@ -245,6 +260,27 @@ export function TabelaDeAnuncios({
   const ctr = (l: Linha) => (l.impressoes > 0 ? porcento(l.cliques / l.impressoes) : VAZIO);
   const cpc = (l: Linha) => (l.cliques > 0 ? reais(l.gasto / l.cliques) : VAZIO);
   const cpm = (l: Linha) => (l.impressoes > 0 ? reais((l.gasto / l.impressoes) * 1000) : VAZIO);
+  const comWhats = plataforma === "meta";
+  const vazio = <span className="text-muted">{VAZIO}</span>;
+  const conversasWhats = (l: Linha) =>
+    l.whats && l.whats.conversas > 0 ? (
+      <>
+        {inteiro(l.whats.conversas)} <span className="text-[0.68rem] text-muted">{l.whats.conversas === 1 ? "conversa" : "conversas"}</span>
+      </>
+    ) : (
+      <span className="text-muted">0</span>
+    );
+  const vendasWhats = (l: Linha) =>
+    l.whats && l.whats.vendas > 0 ? (
+      <>
+        {inteiro(l.whats.vendas)} <span className="text-[0.68rem] text-muted">{l.whats.vendas === 1 ? "venda" : "vendas"}</span>
+      </>
+    ) : (
+      <span className="text-muted">0</span>
+    );
+  const valorWhats = (l: Linha) => (l.whats && l.whats.valor > 0 ? reaisCurto(l.whats.valor) : vazio);
+  const custoConversa = (l: Linha) => (l.custoConversa === null ? vazio : reais(l.custoConversa));
+  const custoVendaWhats = (l: Linha) => (l.custoVendaWhats === null ? vazio : reais(l.custoVendaWhats));
 
   const detalhe = (l: Linha) => (
     <div className="space-y-1.5 text-xs leading-relaxed text-ink">
@@ -254,6 +290,20 @@ export function TabelaDeAnuncios({
           <Wrench size={13} className="mt-0.5 shrink-0 text-brand-nav" aria-hidden="true" />
           <span>
             <span className="font-semibold">Onde perde:</span> {l.ondePerde}
+          </span>
+        </p>
+      ) : null}
+      {l.whats ? (
+        <p className="numeros flex items-start gap-1.5">
+          <MessageCircle size={13} className="mt-0.5 shrink-0 text-brand-nav" aria-hidden="true" />
+          <span>
+            <span className="font-semibold">Pelo WhatsApp, na Kommo:</span> {l.whats.conversas}{" "}
+            {l.whats.conversas === 1 ? "conversa" : "conversas"}, {l.whats.vendas} {l.whats.vendas === 1 ? "venda ganha" : "vendas ganhas"}
+            {l.whats.valor > 0 ? ` (${reais(l.whats.valor)})` : ""}
+            {l.whats.vendasNaLoja > 0
+              ? `. Mais ${l.whats.vendasNaLoja} ${l.whats.vendasNaLoja === 1 ? "ganha que já conta" : "ganhas que já contam"} na loja, pela UTM`
+              : ""}
+            .
           </span>
         </p>
       ) : null}
@@ -428,7 +478,7 @@ export function TabelaDeAnuncios({
         <>
           {/* ------------------------------------------------ computador */}
           <div className="hidden overflow-x-auto lg:block">
-            <table className="numeros w-full min-w-[86rem] border-collapse text-sm">
+            <table className={`numeros w-full border-collapse text-sm ${comWhats ? "min-w-[112rem]" : "min-w-[86rem]"}`}>
               <thead>
                 <tr className="border-b border-ink/[0.07] text-left text-[0.68rem] uppercase tracking-wider text-muted">
                   <th scope="col" className="sticky left-0 z-10 w-[23rem] min-w-[19rem] bg-white py-0 pl-3 pr-2 font-semibold" aria-sort={ordem.coluna === "nome" ? (ordem.sentido === "asc" ? "ascending" : "descending") : "none"}>
@@ -490,6 +540,15 @@ export function TabelaDeAnuncios({
                         <td className="whitespace-nowrap px-2 py-2 text-right">{lojaPago(l)}</td>
                         <td className="whitespace-nowrap px-2 py-2 text-right">{volta(l)}</td>
                         <td className="whitespace-nowrap px-2 py-2 text-right">{voltaDaLoja(l)}</td>
+                        {comWhats ? (
+                          <>
+                            <td className="whitespace-nowrap px-2 py-2 text-right">{conversasWhats(l)}</td>
+                            <td className="whitespace-nowrap px-2 py-2 text-right">{custoConversa(l)}</td>
+                            <td className="whitespace-nowrap px-2 py-2 text-right">{vendasWhats(l)}</td>
+                            <td className="whitespace-nowrap px-2 py-2 text-right">{valorWhats(l)}</td>
+                            <td className="whitespace-nowrap px-2 py-2 text-right">{custoVendaWhats(l)}</td>
+                          </>
+                        ) : null}
                         <td className="whitespace-nowrap px-2 py-2 text-right">{l.checkouts ? inteiro(l.checkouts) : <span className="text-muted">{VAZIO}</span>}</td>
                         <td className="whitespace-nowrap px-2 py-2 text-right">{inteiro(l.cliques)}</td>
                         <td className="whitespace-nowrap px-2 py-2 text-right">{ctr(l)}</td>
@@ -522,6 +581,15 @@ export function TabelaDeAnuncios({
                   <td className="whitespace-nowrap px-2 py-2.5 text-right">{total.lojaValor > 0 ? reaisCurto(total.lojaValor) : VAZIO}</td>
                   <td className="whitespace-nowrap px-2 py-2.5 text-right">{total.valor > 0 && total.gasto > 0 ? vezes(total.valor / total.gasto) : VAZIO}</td>
                   <td className="whitespace-nowrap px-2 py-2.5 text-right">{total.lojaValor > 0 && total.gasto > 0 ? vezes(total.lojaValor / total.gasto) : VAZIO}</td>
+                  {comWhats ? (
+                    <>
+                      <td className="whitespace-nowrap px-2 py-2.5 text-right">{inteiro(total.whatsConversas)} <span className="text-[0.68rem] font-normal text-muted">{total.whatsConversas === 1 ? "conversa" : "conversas"}</span></td>
+                      <td className="px-2 py-2.5 text-right">{VAZIO}</td>
+                      <td className="whitespace-nowrap px-2 py-2.5 text-right">{inteiro(total.whatsVendas)} <span className="text-[0.68rem] font-normal text-muted">{total.whatsVendas === 1 ? "venda" : "vendas"}</span></td>
+                      <td className="whitespace-nowrap px-2 py-2.5 text-right">{total.whatsValor > 0 ? reaisCurto(total.whatsValor) : VAZIO}</td>
+                      <td className="px-2 py-2.5 text-right">{VAZIO}</td>
+                    </>
+                  ) : null}
                   <td className="whitespace-nowrap px-2 py-2.5 text-right">{total.checkouts > 0 ? inteiro(total.checkouts) : VAZIO}</td>
                   <td className="whitespace-nowrap px-2 py-2.5 text-right">{inteiro(total.cliques)}</td>
                   <td className="whitespace-nowrap px-2 py-2.5 text-right">{total.impressoes > 0 ? porcento(total.cliques / total.impressoes) : VAZIO}</td>
@@ -541,6 +609,7 @@ export function TabelaDeAnuncios({
               <span className="text-muted">
                 gasto <span className="font-semibold text-ink">{reaisCurto(total.gasto)}</span>
                 {total.lojaValor > 0 ? <> · loja <span className="font-semibold text-ink">{reaisCurto(total.lojaValor)}</span></> : null}
+                {comWhats && total.whatsValor > 0 ? <> · whats <span className="font-semibold text-ink">{reaisCurto(total.whatsValor)}</span></> : null}
               </span>
             </li>
             {visiveis.map((l) => {
@@ -566,6 +635,13 @@ export function TabelaDeAnuncios({
                     <Celula rotulo="Custo">{custo(l)}</Celula>
                     <Celula rotulo={nomeDaColuna("retorno")}>{volta(l)}</Celula>
                     <Celula rotulo="Volta (UTM)">{voltaDaLoja(l)}</Celula>
+                    {comWhats ? (
+                      <>
+                        <Celula rotulo="Conversas">{conversasWhats(l)}</Celula>
+                        <Celula rotulo="Vendas Whats">{vendasWhats(l)}</Celula>
+                        <Celula rotulo="Custo Whats">{custoVendaWhats(l)}</Celula>
+                      </>
+                    ) : null}
                   </dl>
                   <div className="mt-2.5 flex flex-wrap items-center gap-2">
                     {l.filhos > 0 ? (

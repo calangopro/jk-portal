@@ -348,6 +348,121 @@ campos obrigatórios para mover:
 E no painel: em `/admin/kommo`, ligar cada vendedor da Kommo à pessoa do
 painel. Usuário de loja continua sem vendedor até a venda dizer quem vendeu.
 
+## Fase 4, cartão 48: origem do lead até o anúncio (0170)
+
+O anúncio de clique para WhatsApp do Meta não passa pelo site: a pessoa toca no
+anúncio e cai na conversa. O coletor de origem nunca vê essa chegada e não há
+UTM. O que existe é o que o Meta entrega à Kommo com a primeira mensagem, os
+campos de rastreio "Meta Ads ID do anúncio", "do conjunto" e "da campanha",
+que o espelho já guarda em `meta_ad_id`, `meta_adset_id` e `meta_campaign_id`.
+
+### A ligação, pelo número e nunca no chute
+
+`kommo_anuncio_dos_negocios(de, ate)` (uso interno, sem `execute` para quem
+está logado) liga cada negócio criado ou ganho no período a um item de
+`anuncios_itens`, na ordem:
+
+1. o anúncio: `meta_ad_id`, depois `ad_id`. Achou, a campanha e o conjunto são
+   os do anúncio;
+2. sem anúncio que case, o conjunto: `meta_adset_id`;
+3. sem conjunto, a campanha: `meta_campaign_id`, `utm_id` ou `utm_campaign`
+   quando é só número.
+
+Número que não está em `anuncios_itens` fica sem ligação ("anúncio não
+reconhecido"). Número igual em duas plataformas no mesmo nível também. Não há
+ligação por nome. A mesma regra está em `anuncioDoNegocio`
+(`src/lib/kommo/origem.ts`), com teste em `npm run verificar:kommo-origem`:
+mudou uma, muda a outra.
+
+Conferido em 18/11 pelo conector Kommo CRM (só leitura): os seis números
+diferentes de anúncio, conjunto e campanha que chegaram nos negócios recentes
+do ECOMM | WHATS existem em `anuncios_itens`, todos da campanha de engajamento
+de WhatsApp. Ou seja, com a chave colada, essas conversas ligam ao anúncio
+exato.
+
+### Campanhas: conversas e vendas do WhatsApp
+
+`kommo_whats_por_anuncio(de, ate, plataforma)`, área `trafego`. Na aba Meta de
+`/admin/trafego/campanhas`, cada campanha, conjunto e anúncio ganha cinco
+colunas: Conversas (Whats), Custo/conversa, Vendas (Whats), Venda R$ (Whats) e
+Custo/venda.
+
+- **Conversa** é negócio criado no período (`criado_em`, dia de São Paulo).
+- **Venda** é negócio na fase `ganho` de `fases_da_kommo` (0162) com
+  `fechado_em` no período, e o valor é o do negócio na Kommo. O 142 de funil de
+  pós-venda não entra.
+- **Conta uma vez só**: quando a fase 3 ligou o negócio ganho a um pedido da
+  loja (`kommo_vendas.pedido`, estado `marcada`) e esse pedido já está ligado a
+  anúncio pela UTM (`origem_resolvida`), a venda fica em "Resultado (UTM)" e
+  sai da coluna do WhatsApp (aparece como "já conta na loja" no detalhe). A
+  leitura da `kommo_vendas` é guardada por `to_regclass`: sem a 0165 no banco,
+  nada é descontado.
+- O Google não manda número nenhum para a conversa: a aba Google não tem as
+  colunas.
+
+### Origem: os negócios por origem
+
+`kommo_negocios_por_origem(de, ate, origem)`, área `trafego`, alimenta o bloco
+"Conversas do WhatsApp, pela Kommo" em `/admin/trafego/origem`: quantos
+negócios criados no período em cada origem (anúncio, anúncio não reconhecido,
+UTM, código do site, sem origem), quantos foram ganhos e com que valor, e a
+lista dos 200 mais novos com o item ligado e o link para a Kommo. Sem nome do
+cliente, telefone nem texto.
+
+Conferido com JWT falso numa transação desfeita, com sete negócios inventados
+no formato real: tráfego, gerente, GM, dono e administrador leem; vendedor e
+sessão sem perfil recebem nulo; o anônimo não tem `execute`; ninguém de fora
+executa a função interna.
+
+### O código no link do WhatsApp: NÃO construído, depende de decisão
+
+A ideia era pôr um código curto na mensagem pronta do botão de WhatsApp do
+site, da bio e da loja ("código J4K2"), ligado ao visitante (`jk_v`), e ligar o
+negócio ao visitante quando a primeira mensagem trouxesse o código.
+
+**A API da Kommo não entrega o texto de mensagem em lugar nenhum** (conferido
+em 18/11 pelo conector, só leitura):
+
+- evento `incoming_chat_message`: só o id da mensagem, a origem (`waba`) e o
+  `talk_id`;
+- `GET /api/v4/talks`: a conversa, sem mensagens;
+- `GET /api/v4/leads/unsorted` (categoria `chats`): `last_message_text` vem
+  como NÚMERO (um id), não texto;
+- notas do negócio: vazias nos negócios do WhatsApp;
+- nenhum campo do negócio guarda a mensagem.
+
+Quem LÊ o texto é o Salesbot: as etiquetas `NAMORO` e `ECOMMERCE` e o campo
+"Motivo da Compra" são preenchidos por robô no mesmo segundo em que o negócio
+nasce. Então o caminho existe, mas pede mexer na Kommo, o que esta fase não
+faz. O que seria preciso, para o Filipe decidir:
+
+1. **Na Kommo**: um campo de texto novo no negócio ("Código do site") e um
+   passo no Salesbot de entrada do ECOMM | WHATS (e dos funis WHATS das lojas,
+   se o botão da loja física também levar código) que, quando a primeira
+   mensagem tiver `código XXXX`, copia o `XXXX` para esse campo. É mudança no
+   robô que conversa com cliente de verdade: testar num funil de teste antes.
+2. **No painel**: tabela `origem_codigos` (código, visitante, criado_em,
+   validade de uns 7 dias), uma rota que gera o código e o devolve ao
+   navegador, o `public/o.js` trocando o `?text=` dos links `wa.me` e
+   `api.whatsapp.com` pela mensagem com o código (com `VERSAO_DO_COLETOR` em
+   `Coletor.tsx` andando junto, e o `?v=` da etiqueta do GTM da loja), o
+   espelho tirando o campo novo para coluna (`conta.ts`) e
+   `kommo_negocios_por_origem` passando a classificar `codigo` pelas chegadas
+   do visitante.
+3. **Na loja**: o `o.js` já roda pelo GTM e pelo tema; mudar a versão do `?v=`
+   na etiqueta é com o Filipe.
+
+A origem `codigo` já existe na tela e no banco, sempre em zero, para o filtro
+não mudar de lugar quando o código existir.
+
+### O que só se confere com a chave colada
+
+- os números de verdade nas colunas (até 18/11 o espelho estava vazio);
+- quanto das conversas do WhatsApp chega com o número do anúncio (em 18/11,
+  cerca de 20 dos 150 negócios recentes do ECOMM | WHATS);
+- a venda contando uma vez só, com um negócio ganho de verdade ligado a pedido
+  pela fase 3.
+
 ## Fase 5, cartão 49: o painel avisa a Kommo (0173)
 
 A primeira vez que o painel ESCREVE na Kommo. Criar ou mover negócio pode

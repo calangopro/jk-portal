@@ -5,6 +5,8 @@ import { diaCurto, type ChaveDePeriodo } from "@/lib/vendas/periodo";
 import { Cartao, Dinheiro } from "../../Pecas";
 import { SeletorDePeriodo } from "../../SeletorDePeriodo";
 import { ListaDeOrigem } from "./Lista";
+import { ConversasDaKommo } from "./ConversasDaKommo";
+import type { NegociosPorOrigem } from "@/lib/kommo/origem";
 
 /**
  * Origem dos pedidos: de qual anúncio veio cada venda, com as UTMs à vista.
@@ -82,8 +84,10 @@ function LinkDaBio({ bio, pedidos }: { bio: ChegadasPelaBio; pedidos: PedidoComO
 }
 
 export function TelaDeOrigem({
-  pedidos, bio = null, de, ate, chave, busca = "", aba = "anuncio", soPagos = true,
+  pedidos, bio = null, kommo = null, de, ate, chave, busca = "", aba = "anuncio", soPagos = true,
 }: {
+  /** Os negócios da Kommo por origem. `null` quando a leitura falhou: o bloco avisa e o resto continua. */
+  kommo?: NegociosPorOrigem | null;
   pedidos: PedidoComOrigem[] | null;
   /** `null` quando a leitura falhou: o bloco some e o resto da tela continua. */
   bio?: ChegadasPelaBio | null;
@@ -155,6 +159,8 @@ export function TelaDeOrigem({
       {bio && bio.chegadas > 0 ? <LinkDaBio bio={bio} pedidos={lista} /> : null}
 
       <ListaDeOrigem pedidos={lista} buscaInicial={busca} abaInicial={aba} soPagosInicial={soPagos} />
+
+      <ConversasDaKommo dados={kommo} />
 
       <section className="glass mt-6 rounded-[18px] p-5">
         <p className="eyebrow">Como ler</p>
