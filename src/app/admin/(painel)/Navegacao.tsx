@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import { useLinkStatus } from "next/link";
 import type { LucideIcon } from "lucide-react";
-import { ExternalLink, Loader2, MoreHorizontal, X } from "lucide-react";
+import { BellRing, ExternalLink, Loader2, MoreHorizontal, X } from "lucide-react";
 import { LinkRapido } from "@/components/ui/LinkRapido";
 import { comBasePath } from "@/lib/seo/base-path";
 import { abasDaBarra, nomeDoSetor, type ItemDoSetor, type Setor } from "@/lib/painel/setores";
@@ -385,6 +385,10 @@ export function FolhaMais({
             </section>
           ))}
 
+          {/* Atalho da conta: ligar o aviso no celular (cartão 59). */}
+          <LinkRapido href="/admin/avisos" onClick={onFechar} className="painel-toque flex items-center gap-2 rounded-[12px] border border-ink/10 bg-white px-3 py-2.5 text-sm font-medium text-ink">
+            <BellRing size={15} className="painel-cor" aria-hidden="true" /> Avisos no celular
+          </LinkRapido>
           <div className="flex items-center justify-between gap-3 border-t border-ink/10 pt-4">
             {/* `<a>` comum: o site público é outro layout, e abre em outra aba. */}
             <a

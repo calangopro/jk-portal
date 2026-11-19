@@ -102,6 +102,7 @@ export const SETORES: Setor[] = [
       { href: "/admin/tutor", area: "time", label: "Tutor", Icone: Sparkles, desc: "Pergunte com o print da conversa" },
       { href: "/admin/biblioteca", area: "time", label: "Biblioteca JK", curto: "Biblioteca", Icone: LibraryBig, desc: "As respostas da casa, prontas para colar" },
       { href: "/admin/chat", area: "time", label: "Chat do time", curto: "Chat", Icone: MessagesSquare, desc: "Conversa entre setores, ao vivo" },
+      { href: "/admin/avisos", area: "time", label: "Avisos no celular", curto: "Avisos", Icone: Smartphone, desc: "Aviso de mensagem com o painel fechado" },
       { href: "/admin/ajuda", area: "time", label: "Como usar", Icone: CircleHelp, desc: "Passo a passo animado de cada tela, para o seu nível" },
       { href: "/admin/sugestoes", area: "time", label: "Sugestões", Icone: Lightbulb, desc: "O que o time pede para melhorar o painel" },
     ],

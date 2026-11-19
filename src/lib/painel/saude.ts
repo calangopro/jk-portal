@@ -125,6 +125,11 @@ export const ROTINAS: Rotina[] = [
     paraQue: "Cria e move negócios e tarefas na Kommo pelas automações que a diretoria ligou, de 10 em 10 minutos, depois da leitura.",
     tolerancia: HORA, seParar: "Abra Sistema, Automações da Kommo: o registro mostra o que a Kommo recusou. Desligar a automação para tudo na hora.",
   },
+  {
+    chave: "push", origem: "pulso", id: "push", nome: "Avisos no celular e no navegador",
+    paraQue: "Manda o aviso por push do chat, do suporte e da Kommo para os aparelhos ligados, na hora e de minuto em minuto.",
+    tolerancia: HORA, seParar: "Sem pulso, ninguém recebe aviso com o painel fechado. Confira as chaves do push e o relógio avisar-por-push, passo a passo em docs/avisos.md.",
+  },
   { chave: "avaliacoes", origem: "pulso", id: "avaliacoes", nome: "Avaliações do Google", paraQue: "Relê as avaliações das lojas uma vez por dia.", tolerancia: 36 * HORA, seParar: "Confira a ligação com o Google em Integrações." },
   { chave: "search-console", origem: "pulso", id: "search-console", nome: "Search Console", paraQue: "Importa as buscas do Google toda segunda de manhã.", tolerancia: 8 * DIA + 12 * HORA, seParar: AVISAR },
   {
