@@ -7,6 +7,9 @@ import type { Demo } from "../tipos";
 const NIVEIS: Record<string, { nome: string; papel: string; papelId: AppRole; areas: Area[] }> = {
   vendas: { nome: "Vendedor Exemplo", papel: "Vendas", papelId: "vendas", areas: ["time", "consulta", "lancar_venda"] },
   gerente: { nome: "Gerente Exemplo", papel: "Gerente", papelId: "gerente", areas: ["time", "consulta", "lancar_venda", "vendas", "suporte", "recuperacao", "trafego", "catalogo", "loja", "campanhas", "fabrica"] },
+  // Cartão 58: o tráfego e quem escreve conteúdo (autor), para as telas que mudam para eles.
+  trafego: { nome: "Tráfego Exemplo", papel: "Tráfego", papelId: "trafego", areas: ["time", "trafego", "anuncios"] },
+  conteudo: { nome: "Autor Exemplo", papel: "Autor", papelId: "author", areas: ["time", "conteudo"] },
   diretoria: {
     nome: "Diretoria Exemplo", papel: "GM", papelId: "gm",
     areas: ["time", "consulta", "lancar_venda", "vendas", "suporte", "recuperacao", "trafego", "catalogo", "loja", "campanhas", "fabrica", "metricas", "anuncios", "margem", "custos", "equipe", "conteudo", "site", "redes", "roadmap"],
