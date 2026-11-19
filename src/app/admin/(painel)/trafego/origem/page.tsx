@@ -1,6 +1,7 @@
 import { requireArea } from "@/lib/auth/session";
 import { lerChegadasPelaBioDoPeriodo, lerPedidosComOrigemDoPeriodo } from "@/lib/origem/dados";
 import { createClient } from "@/lib/supabase/server";
+import { lerNegociosPorOrigem } from "@/lib/kommo/origem";
 import { hojeEmSaoPaulo, intervaloDoPeriodo, lerPeriodo } from "@/lib/vendas/periodo";
 import { TelaDeOrigem } from "./Tela";
 
@@ -21,12 +22,21 @@ export default async function OrigemPage({ searchParams }: { searchParams: Promi
   const chave = lerPeriodo(sp.periodo ?? "30d");
   const { de, ate } = intervaloDoPeriodo(chave, hojeEmSaoPaulo());
   const db = await createClient();
-  const [pedidos, bio] = await Promise.all([lerPedidosComOrigemDoPeriodo(db, de, ate), lerChegadasPelaBioDoPeriodo(db, de, ate)]);
+  const [pedidos, bio, kommo] = await Promise.all([
+    lerPedidosComOrigemDoPeriodo(db, de, ate),
+    lerChegadasPelaBioDoPeriodo(db, de, ate),
+    // Os negócios da Kommo por origem (0170): anúncio pelo número, UTM, código, sem origem.
+    db.rpc("kommo_negocios_por_origem", { p_de: de, p_ate: ate }).then(({ data, error }) => {
+      if (error) console.error("[origem] kommo_negocios_por_origem:", error.message);
+      return error ? null : lerNegociosPorOrigem(data);
+    }),
+  ]);
   // `busca`, `aba` e `pagos` chegam do link de um item na tabela de campanhas: a lista já abre nos pedidos dele.
   return (
     <TelaDeOrigem
       pedidos={pedidos}
       bio={bio}
+      kommo={kommo}
       de={de}
       ate={ate}
       chave={chave}

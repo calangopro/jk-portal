@@ -187,8 +187,38 @@ function VendeuDeFato({ campanhas, anotado, nome }: { campanhas: Avaliado[]; ano
   );
 }
 
+/**
+ * De onde vêm as colunas do WhatsApp, e quanto delas o painel enxerga. Fica
+ * logo abaixo da tabela porque é ali que a pessoa pergunta "isso é a mesma
+ * venda da loja?".
+ */
+function DoWhats({ whats }: { whats: CampanhasDaTela["whats"] }) {
+  if (!whats) {
+    return (
+      <p className="mt-2 max-w-4xl text-[0.7rem] leading-relaxed text-muted">
+        <strong className="font-semibold text-ink">As colunas do WhatsApp estão vazias:</strong> não deu para ler a Kommo agora.
+      </p>
+    );
+  }
+  const c = whats.cobertura;
+  return (
+    <p className="numeros mt-2 max-w-4xl text-[0.7rem] leading-relaxed text-muted">
+      <strong className="font-semibold text-ink">As colunas (Whats) vêm da Kommo, não da loja nem do Meta.</strong> Conversa é negócio
+      criado na Kommo no período; venda é negócio ganho. A ligação é pelo número do anúncio que o Meta manda à Kommo no clique para
+      WhatsApp, nunca por palpite.{" "}
+      {whats.lidoEm === null
+        ? "A Kommo ainda não foi lida pelo painel: as colunas ficam em zero até a chave ser colada em Integrações."
+        : `No período, ${inteiro(c.conversasLigadas)} de ${inteiro(c.conversas)} conversas ligaram a um item do Meta (${inteiro(c.conversasLigadasAoAnuncio)} ao anúncio exato) e ${inteiro(c.vendasLigadas)} de ${inteiro(c.vendas)} vendas ganhas.`}{" "}
+      A venda do WhatsApp não se soma à da UTM: quando o vendedor ligou o negócio ao pedido da loja e esse pedido já está na coluna da
+      UTM, ela conta só lá
+      {c.vendasNaLoja > 0 ? ` (${inteiro(c.vendasNaLoja)} ${c.vendasNaLoja === 1 ? "venda" : "vendas"} neste período)` : ""}. O valor é o
+      que está no negócio da Kommo.
+    </p>
+  );
+}
+
 export function TelaDeCampanhas({
-  plataforma, de, ate, diagnostico, loja, anotado, chave, lidaEm,
+  plataforma, de, ate, diagnostico, loja, anotado, whats, chave, lidaEm,
 }: CampanhasDaTela & { chave: ChaveDePeriodo; lidaEm: string | null }) {
   const nome = NOME_DA_PLATAFORMA[plataforma];
   const d = diagnostico;
@@ -196,7 +226,7 @@ export function TelaDeCampanhas({
   const crescer = (d?.achados ?? []).filter((a) => a.tipo === "crescer").slice(0, 5);
   const fator = d && d.totais.valor > 0 ? loja.valor / d.totais.valor : null;
 
-  const linhas = d ? achatar(d.campanhas, anotado?.itens ?? {}) : [];
+  const linhas = d ? achatar(d.campanhas, anotado?.itens ?? {}, plataforma === "meta" ? (whats?.itens ?? {}) : {}) : [];
   // Pedidos pagos com clique em anúncio comprovado pela UTM: a soma das campanhas (cada pedido está em uma só).
   const utmPagos = linhas.filter((l) => l.nivel === "campanha").reduce((n, l) => n + (l.loja?.pagos ?? 0), 0);
   const gasto = d?.totais.gasto ?? 0;
@@ -309,6 +339,7 @@ export function TelaDeCampanhas({
             nos sete dias antes, um pedido para um anúncio só, sem repetir. O número da UTM abre a lista dos pedidos.
             {de < "2026-11-13" ? " A loja anota a UTM desde 13/11: neste período, a coluna da UTM só enxerga os pedidos de lá para cá, e por isso fica bem abaixo da do " + nome + "." : ""}
           </p>
+          {plataforma === "meta" ? <DoWhats whats={whats} /> : null}
           <p className="mt-2 max-w-4xl text-[0.7rem] leading-relaxed text-muted">
             Clique no nome para descer da campanha ao conjunto e do conjunto ao anúncio. O veredito e a cor do custo comparam
             o item com a média da própria conta para o mesmo objetivo. A volta (UTM) usa só pedido pago ligado ao item pela
