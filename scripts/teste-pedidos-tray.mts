@@ -65,7 +65,7 @@ import {
   tipoDaChegada,
   utmLegivel,
 } from "../src/lib/origem/pedidos.ts";
-import { diaOuNulo, lerEstado, naoPegaram, prepararEdicao } from "../src/lib/loja/produto.ts";
+import { causasDaTray, diaOuNulo, lerEstado, naoPegaram, prepararEdicao } from "../src/lib/loja/produto.ts";
 import { TETO_DE_BYTES, codigoDaImagem, corpoDasFotos, enderecoAceito, fotosQueNaoEntraram, lerImagens, prepararFotos, type FotoNova } from "../src/lib/loja/imagens.ts";
 import { achatar, ordenar, somar, tomContraAMedia, tomDaVoltaDaLoja, tomDaVoltaDaPlataforma, tomDoVeredito } from "../src/lib/trafego/linhas.ts";
 import { readFileSync, readdirSync } from "node:fs";
@@ -880,6 +880,60 @@ console.log("\nEditar produto da loja pelo painel");
   confere("confere o que a Tray gravou de verdade", preco.ok && naoPegaram(preco.final, { ...preco.final, preco: 1499.9 }, ["preco"]).join() === "preco" && naoPegaram(preco.final, preco.final, ["preco"]).length === 0);
   const frases = [estoque, preco, zeroAMais, promo, metade, tirar, sair, zerado].flatMap((r) => (r.ok ? [...r.avisos, ...r.mudancas.map((m) => m.antes + m.depois)] : [r.erro]));
   confere("nenhuma frase com travessão", frases.every((f) => !/[—–]/.test(f)));
+
+  // SEO, textos e catálogo: o formato é o de GET /products/:id lido em 18/11/2026 (dados inventados).
+  const completo = {
+    ...cru, title: "Par de alianças de teste", description: "<p>Descri&ccedil;&atilde;o\r\n longa</p>  ", description_small: "Resumo da peça",
+    metatag: [{ type: "description", content: "Resumo da peça" }, { type: "keywords", content: "aliança, prata" }, { type: "title", content: "Par de alianças de teste" }],
+    brand: "JK ALIANÇAS", model: "Elegance", reference: "JK9015A", weight: "3", length: "27", width: "18", height: "10", category_id: "7", related_categories: ["53", "7", "235"],
+    availability: "Disponível em 2 dias úteis", availability_days: "2", minimum_stock: "0", warranty: "", video: "https://www.youtube.com/embed/x", ean: "", ncm: "", hot: "0", release: "0", included_items: "Estojo<br />\nCertificado", additional_message: "",
+  };
+  const seo = lerEstado(completo)!;
+  confere("lê título, metatags e textos", seo.titulo === "Par de alianças de teste" && seo.resumo === "Resumo da peça" && seo.palavrasChave === "aliança, prata" && seo.descricao === "<p>Descri&ccedil;&atilde;o\n longa</p>");
+  confere("lê categorias em ordem, medidas e prazo", seo.categoria === "7" && seo.outrasCategorias.join() === "7,53,235" && seo.peso === 3 && seo.altura === 10 && seo.prazoDias === 2 && !seo.destaque);
+  confere("produto antigo, sem os campos novos, ainda é lido", atual.titulo === "" && atual.peso === null && atual.categoria === null && atual.outrasCategorias.length === 0);
+
+  const intocado = prepararEdicao(seo, { ...seo, descricao: "  <p>Descri&ccedil;&atilde;o\r\n longa</p>\n", outrasCategorias: ["235", "53", "7"] }, { podePreco: false });
+  confere("mandar o formulário inteiro sem mexer não muda nada", intocado.ok && intocado.mudancas.length === 0 && Object.keys(intocado.corpo).length === 0);
+  confere("produto sem peso, com o campo vazio, não é recusado", prepararEdicao(atual, { peso: null, comprimento: null, categoria: null }, { podePreco: false }).ok);
+
+  const titulo = prepararEdicao(seo, { titulo: "Par de Alianças de Namoro em Prata 950 Elegance 2mm com Anel Solitário de Brinde" }, { podePreco: false });
+  confere("gerente muda o título do Google, e título longo vem com aviso", titulo.ok && titulo.corpo.title === "Par de Alianças de Namoro em Prata 950 Elegance 2mm com Anel Solitário de Brinde" && !("metatag" in titulo.corpo) && titulo.avisos.some((a) => a.includes("65")));
+
+  const resumo = prepararEdicao(seo, { resumo: "Resumo novo da peça" }, { podePreco: false });
+  confere("descrição curta vai sozinha, sem metatag de descrição (na Tray é o mesmo campo)", resumo.ok && resumo.corpo.description_small === "Resumo novo da peça" && !("metatag" in resumo.corpo));
+  confere("descrição curta curta demais para o Google vem com aviso", resumo.ok && resumo.avisos.some((a) => a.includes("70")));
+  const chaves = prepararEdicao(seo, { palavrasChave: "" }, { podePreco: false });
+  confere("apagar as palavras-chave manda só a metatag delas, vazia", chaves.ok && JSON.stringify(chaves.corpo) === '{"metatag":[{"type":"keywords","content":""}]}');
+
+  const cortou = prepararEdicao({ ...seo, descricao: "x".repeat(2000) }, { descricao: "x".repeat(300) }, { podePreco: false });
+  confere("descrição que perde mais da metade vem com aviso", cortou.ok && cortou.avisos.some((a) => a.includes("2.000") && a.includes("300")));
+  confere("descrição longa aparece resumida na conferência", cortou.ok && cortou.mudancas[0].antes.startsWith("2.000 caracteres"));
+  confere("travessão em texto novo vem com aviso", (() => { const r = prepararEdicao(seo, { resumo: "Peça linda — de prata" }, { podePreco: false }); return r.ok && r.avisos.some((a) => a.includes("travessão")); })());
+
+  const categorias = prepararEdicao(seo, { categoria: "53", outrasCategorias: ["53", "7"] }, { podePreco: false });
+  confere("troca de categoria vai como a Tray pede, e avisa da que saiu", categorias.ok && categorias.corpo.category_id === "53" && (categorias.corpo.related_categories as string[]).join() === "7,53" && categorias.avisos.some((a) => a.includes("235")));
+  confere("categoria principal não pode ficar vazia", !prepararEdicao(seo, { categoria: null }, { podePreco: false }).ok);
+  confere("categoria que não é número é recusada", !prepararEdicao(seo, { outrasCategorias: ["abc"] }, { podePreco: false }).ok);
+
+  const envio = prepararEdicao(seo, { peso: 4, comprimento: 30, prazo: "Disponível em 3 dias úteis", prazoDias: 3 }, { podePreco: false });
+  confere("peso, medida e prazo vão em texto", envio.ok && envio.corpo.weight === "4" && envio.corpo.length === "30" && envio.corpo.availability_days === "3" && envio.corpo.availability === "Disponível em 3 dias úteis");
+  confere("peso zero ou com decimal é recusado (a Tray recusa)", !prepararEdicao(seo, { peso: 0 }, { podePreco: false }).ok && !prepararEdicao(seo, { peso: 2.5 }, { podePreco: false }).ok);
+  confere("medida com decimal é recusada (a Tray arredonda calada)", !prepararEdicao(seo, { comprimento: 10.5 }, { podePreco: false }).ok);
+  confere("peso que existia não pode ser apagado", !prepararEdicao(seo, { peso: null }, { podePreco: false }).ok);
+
+  const semVideo = prepararEdicao(seo, { video: "" }, { podePreco: false });
+  confere("apagar o vídeo manda um espaço (vazio a Tray ignora)", semVideo.ok && semVideo.corpo.video === " ");
+  confere("vídeo sem https é recusado", !prepararEdicao(seo, { video: "youtube.com/x" }, { podePreco: false }).ok);
+  confere("EAN e NCM com número errado são recusados", !prepararEdicao(seo, { ean: "123" }, { podePreco: false }).ok && !prepararEdicao(seo, { ncm: "7113" }, { podePreco: false }).ok);
+  confere("EAN esquisito que já estava na loja não trava o resto", prepararEdicao({ ...seo, ean: "123" }, { ean: "123", modelo: "Outro" }, { podePreco: false }).ok);
+  const ncm = prepararEdicao(seo, { ncm: "7113.11.00", destaque: true }, { podePreco: false });
+  confere("NCM com ponto vai sem ponto, e destaque vai como 1", ncm.ok && ncm.corpo.ncm === "71131100" && ncm.corpo.hot === 1);
+
+  confere("lista de categorias que voltou diferente é pega na releitura", categorias.ok && naoPegaram(categorias.final, { ...categorias.final, outrasCategorias: ["7"] }, ["outrasCategorias"]).join() === "outrasCategorias");
+  confere("causas da Tray por campo viram frase", causasDaTray({ causes: { Product: { weight: ["Informe o peso do produto."] } } }).join() === "Informe o peso do produto." && causasDaTray({ causes: ["a", "b"] }).join() === "a,b" && causasDaTray(null).length === 0);
+  const novas = [titulo, resumo, chaves, cortou, categorias, envio, semVideo, ncm].flatMap((r) => (r.ok ? [...r.avisos, ...r.mudancas.map((m) => m.rotulo + m.antes + m.depois)] : [r.erro]));
+  confere("nenhuma frase dos campos novos com travessão", novas.every((f) => !/[—–]/.test(f)));
 }
 
 console.log("\nFotos do produto na loja");
