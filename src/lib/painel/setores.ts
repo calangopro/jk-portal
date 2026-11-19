@@ -3,7 +3,7 @@ import {
   Activity, Banknote, BellRing, BookCheck, Bot, Cable, CalendarDays, Contact, Crosshair, FileText, Filter, Flame, Globe, Hammer, HandCoins,
   Handshake, HeartPulse, Kanban, History, ImageIcon, LayoutDashboard, LayoutTemplate, LibraryBig, LifeBuoy, Lightbulb, ListChecks, MapPin, MessageCircle,
   MessageSquareText, MessagesSquare, Milestone, Package, PackageSearch, Palette, PenLine, Percent, Plug, QrCode, RotateCcw, Route, Send, Settings,
-  Share2, ShoppingBag, Waypoints, Smartphone, Sparkles, Star, Store, Table2, Tags, TrendingUp, Trophy, Users, UsersRound, Wallet, Workflow,
+  Share2, ShoppingBag, Layers, Funnel as FunnelIcon, Waypoints, Smartphone, Sparkles, Star, Store, Table2, Tags, TrendingUp, Trophy, Users, UsersRound, Wallet, Workflow,
 } from "lucide-react";
 import type { Area } from "@/lib/auth/acessos";
 
@@ -74,6 +74,7 @@ export const SETORES: Setor[] = [
     Icone: Banknote,
     itens: [
       { href: "/admin/vendas", area: "vendas", label: "Pedidos da loja", curto: "Pedidos", Icone: Banknote, desc: "O que foi pago, por dia e por origem" },
+      { href: "/admin/funil", area: "vendas", label: "Funil da Kommo", curto: "Funil", Icone: FunnelIcon, desc: "As conversas da Kommo por fase, e quem espera resposta" },
       { href: "/admin/consulta", area: "consulta", label: "Consulta", Icone: PackageSearch, desc: "Produto, pronta entrega e prazo" },
       { href: "/admin/registrar-venda", area: "lancar_venda", label: "Registrar venda", curto: "Registrar", Icone: HandCoins, desc: "O que foi fechado fora da loja" },
       { href: "/admin/pedidos-do-site", area: "lancar_venda", label: "Pedidos do site", curto: "Do site", Icone: ShoppingBag, desc: "Ache a venda que você fez pelo site e marque como sua" },
@@ -81,6 +82,7 @@ export const SETORES: Setor[] = [
       { href: "/admin/suporte", area: "lancar_venda", label: "Suporte pós-venda", curto: "Suporte", Icone: LifeBuoy, desc: "Passe o caso do cliente para o gerente" },
       { href: "/admin/oportunidades", area: "lancar_venda", label: "Oportunidades", curto: "Chamar", Icone: BellRing, desc: "Quem vale chamar nos próximos dias" },
       { href: "/admin/clientes", area: "lancar_venda", label: "Clientes", Icone: Contact, desc: "A ficha de cada cliente" },
+      { href: "/admin/vendas-da-kommo", area: "lancar_venda", label: "Vendas da Kommo", curto: "Kommo", Icone: Waypoints, desc: "Venda ganha na Kommo que entrou sozinha, e a fila de conferência" },
       { href: "/admin/vendedores", area: "vendas", label: "Vendedores", Icone: Trophy, desc: "Quanto cada um vendeu" },
       { href: "/admin/recuperacao", area: "recuperacao", label: "Recuperação", curto: "Recuperar", Icone: RotateCcw, desc: "Quem não pagou o pedido" },
     ],
@@ -202,6 +204,7 @@ export const SETORES: Setor[] = [
       { href: "/admin/usuarios", area: "equipe", label: "Usuários", Icone: Users, desc: "Acesso e níveis" },
       { href: "/admin/integracoes", area: "equipe", label: "Integrações", Icone: Plug, desc: "Google, Meta e a loja" },
       { href: "/admin/kommo", area: "equipe", label: "Quem é quem na Kommo", curto: "Kommo", Icone: Waypoints, desc: "Usuário da Kommo, pessoa do painel e loja" },
+      { href: "/admin/kommo/fases", area: "equipe", label: "Fases da Kommo", curto: "Fases", Icone: Layers, desc: "Cada etapa dos funis da Kommo numa fase padrão" },
       { href: "/admin/saude", area: "equipe", label: "Saúde das ligações", curto: "Saúde", Icone: HeartPulse, desc: "O que roda sozinho e o que parou" },
       { href: "/admin/conector", area: "equipe", label: "Conector do Claude", curto: "Conector", Icone: Bot, desc: "Claude lendo e escrevendo aqui" },
       { href: "/admin/roadmap", area: "roadmap", label: "Roadmap", Icone: Kanban, desc: "O que mexer no código, quem está mexendo e onde" },
