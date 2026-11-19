@@ -2,14 +2,17 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { ChevronRight, ExternalLink } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import { BellRing, ChevronRight, ExternalLink } from "lucide-react";
 import type { Area } from "@/lib/auth/acessos";
 import { comBasePath } from "@/lib/seo/base-path";
 import { nomeDoSetor, ondeEstou, setoresDe } from "@/lib/painel/setores";
 import { useAoVivo } from "@/lib/time/ao-vivo";
 import { ENDERECO_DO_SUPORTE } from "@/lib/suporte/casos";
-import { ENDERECO_DO_CHAT } from "@/lib/time/chat";
+import { ENDERECO_DO_CHAT, lerSala } from "@/lib/time/chat";
+import { avisarAqui } from "@/lib/time/ao-vivo";
+import { usePushNaMoldura } from "@/lib/avisos/cliente";
+import { destinoDoToque } from "@/lib/avisos/push";
 import { useNotificarMensagens } from "@/lib/time/notificar";
 import { BotaoSair } from "./BotaoSair";
 import type { ApiDoChat } from "./chat/api";
@@ -87,6 +90,22 @@ export function Moldura({
     suporte: temSuporte,
     abrirSuporte: flutuante.disponivel ? flutuante.abrirSuporte : undefined,
   });
+  // O aviso por push (cartão 59): "estou à vista" para o servidor não mandar push a quem já está olhando, e o toque no
+  // aviso com o painel aberto, que chega do service worker e abre o lugar sem recarregar.
+  const router = useRouter();
+  usePushNaMoldura(caminhoDaPrevia === undefined && Boolean(meuId), (url) => {
+    const d = destinoDoToque(url);
+    if (d.tipo === "chat") {
+      const sala = lerSala(d.sala);
+      if (caminho.startsWith("/admin/chat") && sala) avisarAqui({ tipo: "abrir", sala, mensagem: d.mensagem });
+      else if (flutuante.disponivel && sala) flutuante.abrirNaMensagem(sala, d.mensagem);
+      else router.push(url);
+    } else if (d.tipo === "suporte") {
+      if (flutuante.disponivel) flutuante.abrirSuporte();
+      else router.push("/admin/suporte");
+    } else if (d.tipo === "caminho") router.push(d.caminho);
+    else window.open(d.url, "_blank", "noopener");
+  });
   const setores = useMemo(() => setoresDe(areas), [areas]);
   const { setor, item } = ondeEstou(setores, caminho);
   const [mais, setMais] = useState(false);
@@ -141,6 +160,10 @@ export function Moldura({
             <p className="truncate text-sm font-medium leading-tight text-ink">{nome}</p>
             <p className="truncate text-xs leading-tight text-muted">{papel}</p>
           </div>
+          {/* Atalho da conta: ligar o aviso no computador e no celular (cartão 59). */}
+          <Link href="/admin/avisos" aria-label="Avisos no celular e no computador" title="Avisos no celular e no computador" className="painel-toque grid h-9 w-9 shrink-0 place-items-center rounded-full text-muted hover:text-ink">
+            <BellRing size={16} aria-hidden="true" />
+          </Link>
           <form action={sair}>
             <BotaoSair />
           </form>
