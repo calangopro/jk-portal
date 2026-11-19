@@ -9,7 +9,7 @@ import { paginaDoGrupoNoDia } from "@/lib/grupo/montar";
 import { normalizarGrupo } from "@/lib/grupo/tipos";
 import { lerChaves } from "@/lib/leads/chaves";
 import { legivel } from "@/lib/leads/telefone";
-import { DESTINOS, NOMES_DAS_PORTAS, NOMES_DOS_DESTINOS, type Destino, type Lead } from "@/lib/leads/tipos";
+import { DESTINOS_ATIVOS, NOMES_DAS_PORTAS, NOMES_DOS_DESTINOS, type Destino, type Lead } from "@/lib/leads/tipos";
 import { quandoLegivel } from "@/lib/content/agenda";
 import { hojeEmSaoPaulo } from "@/lib/tray/preco";
 import { SITE } from "@/lib/seo/site";
@@ -163,7 +163,7 @@ export default async function GrupoPage({ searchParams }: { searchParams: Promis
 
         <p className="mt-3 text-xs text-muted">
           Para onde vão:{" "}
-          {DESTINOS.map((d, i) => (
+          {DESTINOS_ATIVOS.map((d, i) => (
             <span key={d}>
               {i > 0 ? ", " : ""}
               {NOMES_DOS_DESTINOS[d]}{" "}
@@ -198,7 +198,7 @@ export default async function GrupoPage({ searchParams }: { searchParams: Promis
               </thead>
               <tbody>
                 {lista.map((l) => {
-                  const falhou = DESTINOS.some((d) => l.envios[d]?.status === "erro");
+                  const falhou = DESTINOS_ATIVOS.some((d) => l.envios[d]?.status === "erro");
                   return (
                     <tr key={l.id} className="border-b border-border/60 align-top last:border-0">
                       <td className="whitespace-nowrap px-4 py-3 text-xs text-muted">
@@ -240,7 +240,7 @@ export default async function GrupoPage({ searchParams }: { searchParams: Promis
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex flex-wrap gap-1">
-                          {DESTINOS.map((d) => {
+                          {DESTINOS_ATIVOS.map((d) => {
                             const s = l.envios[d];
                             const status = s?.status ?? "sem_chave";
                             return (

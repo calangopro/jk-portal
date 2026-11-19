@@ -69,6 +69,17 @@ export type EnvioDoFormulario = z.infer<typeof esquemaDoEnvio>;
 export const DESTINOS = ["kommo", "rd", "webhook", "meta"] as const;
 export type Destino = (typeof DESTINOS)[number];
 
+/**
+ * Destinos que a JK deixou de usar. O contato não vai mais para eles, e a
+ * Saúde, Integrações e a tela do grupo deixam de mostrar. O que já foi
+ * gravado em `leads.envios` fica como histórico.
+ *
+ * RD Station: saiu em 19/11/2026, por decisão do Filipe. Estava recusando a
+ * chave desde 11/11.
+ */
+export const DESTINOS_DESLIGADOS: readonly Destino[] = ["rd"];
+export const DESTINOS_ATIVOS: readonly Destino[] = DESTINOS.filter((d) => !DESTINOS_DESLIGADOS.includes(d));
+
 export const NOMES_DOS_DESTINOS: Record<Destino, string> = {
   kommo: "Kommo",
   rd: "RD Station",

@@ -1,6 +1,19 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { CHAVE_DO_DESTINO } from "@/lib/leads/repassar";
+import { DESTINOS, DESTINOS_DESLIGADOS } from "@/lib/leads/tipos";
 import { avaliarSaude, type Ligacao, type SaudeCrua } from "./saude";
+
+/** Quais destinos têm chave colada. Só a presença: o valor nunca sai do banco. */
+async function destinosComChave(): Promise<string[]> {
+  const { data } = await createAdminClient()
+    .from("integration_tokens")
+    .select("provider, access_token")
+    .in("provider", Object.values(CHAVE_DO_DESTINO) as string[]);
+  const comValor = new Set((data ?? []).filter((l) => Boolean(l.access_token)).map((l) => String(l.provider)));
+  return DESTINOS.filter((d) => comValor.has(CHAVE_DO_DESTINO[d]));
+}
 
 /**
  * Lê a saúde das ligações (0074) e já devolve avaliada. A função do banco só
@@ -15,7 +28,10 @@ export async function lerSaude(db: SupabaseClient): Promise<Ligacao[] | null> {
   }
   if (!data || typeof data !== "object") return null;
   const cru = data as Partial<SaudeCrua>;
+  const comChave = await destinosComChave().catch(() => undefined);
   return avaliarSaude({
+    comChave,
+    desligados: [...DESTINOS_DESLIGADOS],
     agora: typeof cru.agora === "string" ? cru.agora : new Date().toISOString(),
     rotinas: Array.isArray(cru.rotinas) ? cru.rotinas : [],
     leituras: Array.isArray(cru.leituras) ? cru.leituras : [],
