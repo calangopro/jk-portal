@@ -43,7 +43,7 @@ type Props = {
   api?: ApiDoChat;
   /** Só a prévia de desenvolvimento: uma ligação de mentira, com gente online. */
   ligacaoDaPrevia?: Ligacao;
-  /** Só a prévia de desenvolvimento: o estado do aviso do sistema, sem pedir permissão de verdade. */
+  /** Não é mais usado desde o cartão 59 (o aviso por push lê o próprio aparelho); fica para a demonstração do Como usar. */
   avisoDaPrevia?: EstadoDoAviso;
 };
 
@@ -66,7 +66,7 @@ export function TelaDoChat(p: Props) {
 }
 
 function Chat({
-  abertura, meuId, souAdmin, salaInicial, rascunho, pedirDeInicio, destaqueInicial, podeMeta, api = apiDoChat, ligacaoDaPrevia, avisoDaPrevia,
+  abertura, meuId, souAdmin, salaInicial, rascunho, pedirDeInicio, destaqueInicial, podeMeta, api = apiDoChat, ligacaoDaPrevia,
 }: Props & { abertura: Abertura }) {
   const c = useChat({ abertura, meuId, salaInicial, rascunho, pedirDeInicio, destaqueInicial, podeMeta, api, ligacaoDaPrevia, lerRascunhoDoTutor: true });
   const { sala, ligacao, pessoas } = c;
@@ -139,7 +139,7 @@ function Chat({
         <section className="glass min-h-0 flex-1 overflow-y-auto rounded-[18px] p-3.5" aria-label="Quem está online">
           <ListaDePessoas pessoas={pessoas} meuId={meuId} estado={ligacao.estado} />
           <div className="mt-4">
-            <AvisoDoSistema estadoDaPrevia={avisoDaPrevia} />
+            <AvisoDoSistema />
           </div>
         </section>
       </aside>
@@ -200,7 +200,7 @@ function Chat({
               <ListaDePessoas pessoas={pessoas} meuId={meuId} estado={ligacao.estado} />
               <p className="mt-3 text-[0.7rem] leading-relaxed text-muted">Online é estar com o painel aberto e à vista, em qualquer tela dele.</p>
               <div className="mt-4">
-                <AvisoDoSistema estadoDaPrevia={avisoDaPrevia} />
+                <AvisoDoSistema />
               </div>
             </div>
           </div>

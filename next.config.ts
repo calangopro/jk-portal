@@ -169,6 +169,13 @@ const nextConfig: NextConfig = {
         headers: [{ key: "Cache-Control", value: "public, max-age=3600, s-maxage=3600, stale-while-revalidate=86400" }],
       },
       {
+        // O service worker dos avisos (`public/sw.js`, cartão 59) nunca fica
+        // em cache: correção nele tem que chegar ao celular na próxima
+        // abertura, e a borda da Cloudflare não pode segurar versão velha.
+        source: "/sw.js",
+        headers: [{ key: "Cache-Control", value: "no-cache, no-store, max-age=0, must-revalidate" }],
+      },
+      {
         // `source` do Next já recebe o basePath sozinho: isto cobre
         // /guias/:path*, que é tudo que esta aplicação serve.
         source: "/:path*",

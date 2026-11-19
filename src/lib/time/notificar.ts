@@ -3,6 +3,7 @@
 import { useEffect, useRef, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import { comBasePath } from "@/lib/seo/base-path";
+import { tocarSom, usePushLigadoAqui, useSom } from "@/lib/avisos/cliente";
 import { aoAvisar, avisarAqui, pegarCliente } from "./ao-vivo";
 import { avisoDoSuporte, lerSuporteParaAvisar, type SuporteParaAvisar } from "@/lib/suporte/casos";
 import { avisosDoSistema, estadoDoAviso, lerParaAvisar, lerSala, type AvisoDoSistema, type EstadoDoAviso, type Sala } from "./chat";
@@ -26,6 +27,13 @@ import { avisosDoSistema, estadoDoAviso, lerParaAvisar, lerSala, type AvisoDoSis
  * régua do número do menu: a sala geral, as salas do setor da pessoa e
  * resposta a ela. O canal ao vivo só diz "há novidade"; o texto do aviso vem
  * dessa função, que confere o acesso.
+ *
+ * COM O PUSH LIGADO NESTE APARELHO (cartão 59, `lib/avisos/`), quem avisa é o
+ * servidor, com o painel aberto ou fechado, e este aviso fica calado para não
+ * sair em dobro. Ele continua servindo ao navegador sem push.
+ *
+ * O SOM com o painel à vista também mora aqui: chegou mensagem para a pessoa
+ * (pela mesma régua) e ela está olhando o painel, toca o "plim" curto.
  *
  * SÓ AVISA DO QUE CHEGOU DEPOIS QUE A PESSOA SAIU. Ao perder o foco, a tela
  * marca como já visto o que existia; a mensagem das 10h, que ela viu no
@@ -150,9 +158,13 @@ export function useNotificarMensagens(ligado: boolean, noChat: boolean, opcoes: 
   const abrirSuporte = useRef(opcoes.abrirSuporte);
   abrirSuporte.current = opcoes.abrirSuporte;
   const comSuporte = Boolean(opcoes.suporte);
+  const pushAqui = usePushLigadoAqui();
+  const som = useSom();
+  // O aviso do navegador só mostra quando este aparelho não recebe push: os dois juntos sairiam em dobro.
+  const sistemaAqui = estado === "ligado" && !pushAqui;
 
   useEffect(() => {
-    if (!ligado || estado !== "ligado") return;
+    if (!ligado || (!sistemaAqui && !som)) return;
     let vivo = true;
     let desde: string | null = null;
     const avisadas = new Set<number>();
@@ -227,14 +239,20 @@ export function useNotificarMensagens(ligado: boolean, noChat: boolean, opcoes: 
           const novas = r.mensagens.filter((m) => !avisadas.has(m.id));
           novas.forEach((m) => avisadas.add(m.id));
           // Confere de novo na hora de mostrar: a pessoa pode ter voltado enquanto o banco respondia.
-          if (avisar && emSegundoPlano()) avisosDoSistema(novas).forEach(mostrar);
+          if (avisar && novas.length) {
+            if (!emSegundoPlano()) tocarSom();
+            else if (sistemaAqui) avisosDoSistema(novas).forEach(mostrar);
+          }
         }
         if (suporte && !suporte.error) {
           const r = lerSuporteParaAvisar(suporte.data);
           if (r.agora) desdeNoSuporte = r.agora;
           const novos = r.casos.filter((c) => !avisadosNoSuporte.has(avisoDoSuporte(c).marca));
           novos.forEach((c) => avisadosNoSuporte.add(avisoDoSuporte(c).marca));
-          if (avisar && emSegundoPlano()) novos.slice(0, 3).forEach(mostrarSuporte);
+          if (avisar && novos.length) {
+            if (!emSegundoPlano()) tocarSom();
+            else if (sistemaAqui) novos.slice(0, 3).forEach(mostrarSuporte);
+          }
         }
       } catch {
         // Sem rede: o próximo aviso do canal, ou a volta do relógio, tenta de novo.
@@ -249,7 +267,7 @@ export function useNotificarMensagens(ligado: boolean, noChat: boolean, opcoes: 
 
     // Uma conversa animada manda vários avisos seguidos: vira uma pergunta só.
     const logo = () => {
-      if (espera || !emSegundoPlano()) return;
+      if (espera) return;
       espera = setTimeout(() => {
         espera = null;
         void conferir(true);
@@ -278,5 +296,5 @@ export function useNotificarMensagens(ligado: boolean, noChat: boolean, opcoes: 
       clearInterval(relogio);
       if (espera) clearTimeout(espera);
     };
-  }, [ligado, estado, router, comSuporte]);
+  }, [ligado, sistemaAqui, som, router, comSuporte]);
 }

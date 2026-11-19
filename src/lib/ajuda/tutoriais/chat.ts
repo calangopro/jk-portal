@@ -13,8 +13,8 @@ export const chat: Tutorial = {
         alt: "Lista de salas do chat: Geral, Vendas, Fábrica, Loja, Tráfego e Diretoria.",
       },
       {
-        titulo: "Veja quem está online",
-        texto: "Embaixo das salas aparece quem está com o painel aberto agora. Online quer dizer que a pessoa está olhando. Fora quer dizer que o painel dela está fechado.",
+        titulo: "Veja quem está online e ligue os avisos",
+        texto: "Embaixo das salas aparece quem está online agora. Logo abaixo, ligue os avisos: o celular e o computador avisam de mensagem nova mesmo com o painel fechado. No iPhone, instale o painel na tela de início antes.",
         print: "chat-1.webp",
         regiao: { x: 24, y: 52, l: 19.5, a: 26 },
         alt: "Quadro Online agora com as pessoas do time.",
