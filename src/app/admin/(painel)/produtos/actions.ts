@@ -168,9 +168,21 @@ export async function marcarNaPlanilha(fotoIds: string[]): Promise<Resposta<{ ma
 // cliente de serviço porque o token da Tray e o registro das alterações não
 // abrem para o navegador; quem chega aqui já passou pela conferência da área.
 
+/**
+ * O produto como está na loja agora, mais as categorias para escolher. As
+ * categorias saem do espelho (`categories`, sincronizado da loja), e não de
+ * `GET /categories`: essa rota não está entre as que a Tray homologou.
+ */
 export async function lerNaLoja(trayId: string) {
   await requireArea("loja");
-  return lerProdutoNaLoja(createAdminClient(), "jk", String(trayId));
+  const db = createAdminClient();
+  const [lido, { data }] = await Promise.all([
+    lerProdutoNaLoja(db, "jk", String(trayId)),
+    db.from("categories").select("tray_id, name, is_active").not("tray_id", "is", null).order("name"),
+  ]);
+  if (lido.estado !== "ok") return lido;
+  const categorias = (data ?? []).map((c) => ({ id: String(c.tray_id), nome: String(c.name), ativa: c.is_active !== false }));
+  return { ...lido, categorias };
 }
 
 export async function preverNaLoja(trayId: string, edicao: Edicao): Promise<Previa> {
