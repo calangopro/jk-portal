@@ -30,6 +30,37 @@ import { redesIdeias } from "./tutoriais/redes-ideias.ts";
 import { redesPublicar } from "./tutoriais/redes-publicar.ts";
 import { sugestoes } from "./tutoriais/sugestoes.ts";
 import { vendedores } from "./tutoriais/vendedores.ts";
+// Cartão 58
+import { anuncios } from "./tutoriais/anuncios.ts";
+import { aparencia } from "./tutoriais/aparencia.ts";
+import { autores } from "./tutoriais/autores.ts";
+import { bio } from "./tutoriais/bio.ts";
+import { calendario } from "./tutoriais/calendario.ts";
+import { comentarios } from "./tutoriais/comentarios.ts";
+import { conector } from "./tutoriais/conector.ts";
+import { conteudos } from "./tutoriais/conteudos.ts";
+import { custos } from "./tutoriais/custos.ts";
+import { fatos } from "./tutoriais/fatos.ts";
+import { gargalos } from "./tutoriais/gargalos.ts";
+import { grupo } from "./tutoriais/grupo.ts";
+import { home } from "./tutoriais/home.ts";
+import { integracoes } from "./tutoriais/integracoes.ts";
+import { kommoAutomacoes } from "./tutoriais/kommo-automacoes.ts";
+import { kommoFases } from "./tutoriais/kommo-fases.ts";
+import { kommo } from "./tutoriais/kommo.ts";
+import { margem } from "./tutoriais/margem.ts";
+import { metricas } from "./tutoriais/metricas.ts";
+import { midia } from "./tutoriais/midia.ts";
+import { pautas } from "./tutoriais/pautas.ts";
+import { qrcode } from "./tutoriais/qrcode.ts";
+import { redirects } from "./tutoriais/redirects.ts";
+import { roadmap } from "./tutoriais/roadmap.ts";
+import { saude } from "./tutoriais/saude.ts";
+import { trafegoCampanhas } from "./tutoriais/trafego-campanhas.ts";
+import { trafegoOrigem } from "./tutoriais/trafego-origem.ts";
+import { trafego } from "./tutoriais/trafego.ts";
+import { usuarios } from "./tutoriais/usuarios.ts";
+import { visaoGeral } from "./tutoriais/visao-geral.ts";
 
 /**
  * Todos os tutoriais do painel. Tutorial novo: um arquivo em `tutoriais/` e uma
@@ -56,6 +87,9 @@ export const TUTORIAIS: Tutorial[] = [hoje, registrarVenda, pedidosDoSite, venda
   redesPublicar,
   sugestoes,
   vendedores,
+
+  // cartão 58
+  anuncios, aparencia, autores, bio, calendario, comentarios, conector, conteudos, custos, fatos, gargalos, grupo, home, integracoes, kommoAutomacoes, kommoFases, kommo, margem, metricas, midia, pautas, qrcode, redirects, roadmap, saude, trafegoCampanhas, trafegoOrigem, trafego, usuarios, visaoGeral,
 ];
 
 export function tutorialDaTela(href: string): Tutorial | null {
