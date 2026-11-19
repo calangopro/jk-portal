@@ -19,6 +19,7 @@
 import type { Avaliado, Nivel, Objetivo, Veredito } from "./diagnostico.ts";
 import type { VendaDoItem } from "../origem/anotado.ts";
 import type { Tom } from "../painel/tons.ts";
+import type { WhatsDoItem } from "../kommo/origem.ts";
 
 export type { Tom };
 
@@ -56,6 +57,16 @@ export type Linha = {
   loja: VendaDoItem | null;
   /** Volta por real pela venda PAGA da loja. `null` sem pedido ligado ou sem gasto. */
   voltaDaLoja: number | null;
+  /**
+   * Conversas e vendas do WhatsApp ligadas ao item pelo número que o Meta
+   * manda à Kommo (0170). `null` quando não há nenhuma. A venda que já está
+   * na loja pela UTM fica fora de `vendas` (conta uma vez só).
+   */
+  whats: WhatsDoItem | null;
+  /** Gasto por conversa do WhatsApp. */
+  custoConversa: number | null;
+  /** Gasto por venda ganha do WhatsApp. */
+  custoVendaWhats: number | null;
   /** Quantos conjuntos (na campanha) ou anúncios (no conjunto) há por baixo. */
   filhos: number;
 };
@@ -64,10 +75,11 @@ const chave = (nivel: Nivel, id: string) => `${nivel}:${id}`;
 const duasCasas = (n: number) => Math.round(n * 100) / 100;
 
 /** A árvore do diagnóstico em lista plana, com a venda da loja em cada linha. */
-export function achatar(campanhas: Avaliado[], vendas: Record<string, VendaDoItem>): Linha[] {
+export function achatar(campanhas: Avaliado[], vendas: Record<string, VendaDoItem>, whatsPorItem: Record<string, WhatsDoItem> = {}): Linha[] {
   const linhas: Linha[] = [];
   const descer = (i: Avaliado, campanha: Avaliado | null, conjunto: Avaliado | null) => {
     const loja = vendas[chave(i.nivel, i.id)] ?? null;
+    const whats = whatsPorItem[chave(i.nivel, i.id)] ?? null;
     linhas.push({
       nivel: i.nivel,
       id: i.id,
@@ -95,6 +107,9 @@ export function achatar(campanhas: Avaliado[], vendas: Record<string, VendaDoIte
       retorno: i.retorno,
       loja,
       voltaDaLoja: loja && i.gasto > 0 ? duasCasas(loja.valor / i.gasto) : null,
+      whats,
+      custoConversa: whats && whats.conversas > 0 && i.gasto > 0 ? duasCasas(i.gasto / whats.conversas) : null,
+      custoVendaWhats: whats && whats.vendas > 0 && i.gasto > 0 ? duasCasas(i.gasto / whats.vendas) : null,
       filhos: i.filhos.length,
     });
     for (const f of i.filhos) {
@@ -166,11 +181,14 @@ export type TotaisDaLista = {
   valor: number;
   lojaPagos: number;
   lojaValor: number;
+  whatsConversas: number;
+  whatsVendas: number;
+  whatsValor: number;
 };
 
 /** A linha de total da lista filtrada. */
 export function somar(linhas: Linha[]): TotaisDaLista {
-  const t: TotaisDaLista = { itens: linhas.length, gasto: 0, impressoes: 0, cliques: 0, checkouts: 0, compras: 0, valor: 0, lojaPagos: 0, lojaValor: 0 };
+  const t: TotaisDaLista = { itens: linhas.length, gasto: 0, impressoes: 0, cliques: 0, checkouts: 0, compras: 0, valor: 0, lojaPagos: 0, lojaValor: 0, whatsConversas: 0, whatsVendas: 0, whatsValor: 0 };
   for (const l of linhas) {
     t.gasto += l.gasto;
     t.impressoes += l.impressoes;
@@ -180,7 +198,11 @@ export function somar(linhas: Linha[]): TotaisDaLista {
     t.valor += l.valor ?? 0;
     t.lojaPagos += l.loja?.pagos ?? 0;
     t.lojaValor += l.loja?.valor ?? 0;
+    t.whatsConversas += l.whats?.conversas ?? 0;
+    t.whatsVendas += l.whats?.vendas ?? 0;
+    t.whatsValor += l.whats?.valor ?? 0;
   }
+  t.whatsValor = duasCasas(t.whatsValor);
   t.gasto = duasCasas(t.gasto);
   t.valor = duasCasas(t.valor);
   t.lojaValor = duasCasas(t.lojaValor);
@@ -189,7 +211,8 @@ export function somar(linhas: Linha[]): TotaisDaLista {
 
 export type Coluna =
   | "nome" | "gasto" | "resultados" | "lojaPagos" | "custo" | "valor" | "retorno" | "lojaValor" | "voltaDaLoja"
-  | "checkouts" | "cliques" | "ctr" | "cpc" | "cpm";
+  | "checkouts" | "cliques" | "ctr" | "cpc" | "cpm"
+  | "whatsConversas" | "custoConversa" | "whatsVendas" | "whatsValor" | "custoVendaWhats";
 
 const taxa = (a: number, b: number) => (b > 0 ? a / b : null);
 
@@ -210,6 +233,11 @@ export function valorDaColuna(l: Linha, c: Coluna): number | string | null {
     case "ctr": return taxa(l.cliques, l.impressoes);
     case "cpc": return taxa(l.gasto, l.cliques);
     case "cpm": return l.impressoes > 0 ? (l.gasto / l.impressoes) * 1000 : null;
+    case "whatsConversas": return l.whats ? l.whats.conversas : null;
+    case "custoConversa": return l.custoConversa;
+    case "whatsVendas": return l.whats ? l.whats.vendas : null;
+    case "whatsValor": return l.whats && l.whats.valor > 0 ? l.whats.valor : null;
+    case "custoVendaWhats": return l.custoVendaWhats;
   }
 }
 
