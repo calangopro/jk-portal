@@ -16,8 +16,18 @@
  * Arquivo puro, para o teste rodar sem banco.
  */
 
-export type ModoDeEntrega = "retirada" | "correios" | "moto";
-export type TipoDeGravacao = "sem" | "laser" | "manual";
+/**
+ * `a_combinar` e `a_confirmar` existem para a venda que vem da Kommo (cartão 51,
+ * `lib/kommo/fabrica.ts`): a Kommo não diz como a peça chega nem se a gravação
+ * é a laser ou manual, e o painel não palpita. A fábrica lê a frase por
+ * extenso e pergunta a quem vendeu. O formulário só mostra essas opções quando
+ * a venda já chega com elas.
+ */
+export type ModoDeEntrega = "retirada" | "correios" | "moto" | "a_combinar";
+export type TipoDeGravacao = "sem" | "laser" | "manual" | "a_confirmar";
+
+/** O que a fábrica lê quando a entrega não foi dita. */
+export const ENTREGA_A_COMBINAR = "Entrega a combinar com o vendedor";
 
 export type PecaDoFormulario = {
   nome: string;
@@ -58,7 +68,11 @@ export const PRODUCAO_VAZIA: ProducaoDoFormulario = { pecas: [PECA_VAZIA], entre
 
 export const TETO_DE_PECAS = 8;
 
-const NOME_DA_GRAVACAO: Record<Exclude<TipoDeGravacao, "sem">, string> = { laser: "Gravação Laser", manual: "Gravação Manual" };
+const NOME_DA_GRAVACAO: Record<Exclude<TipoDeGravacao, "sem">, string> = {
+  laser: "Gravação Laser",
+  manual: "Gravação Manual",
+  a_confirmar: "Laser ou manual, a confirmar com o vendedor",
+};
 
 const limpo = (v: unknown, max: number) => String(v ?? "").replace(/\s+/g, " ").trim().slice(0, max);
 /** A gravação mantém os espaços do meio como foram digitados: só tira as pontas e as quebras de linha. */
@@ -78,8 +92,13 @@ export function montarInfo(p: PecaDoFormulario): string | null {
     linhas.push(`Modelo de Gravação: ${NOME_DA_GRAVACAO[p.gravacao]}`);
     const g1 = comoFoiEscrito(p.gravar1, 120);
     const g2 = comoFoiEscrito(p.gravar2, 120);
-    if (g1) linhas.push(`Gravação - Aro 01: ${escapar(g1)}`);
-    if (g2) linhas.push(`Gravação - Aro 02: ${escapar(g2)}`);
+    if (p.gravacao === "a_confirmar" && g1 && !g2) {
+      // Veio um texto só, sem dizer de qual aro: não vira "Aro 01" por palpite.
+      linhas.push(`Gravação, aro a confirmar: ${escapar(g1)}`);
+    } else {
+      if (g1) linhas.push(`Gravação - Aro 01: ${escapar(g1)}`);
+      if (g2) linhas.push(`Gravação - Aro 02: ${escapar(g2)}`);
+    }
   }
   const detalhes = limpo(p.detalhes, 300);
   if (detalhes) linhas.push(`Detalhes: ${escapar(detalhes)}`);
@@ -107,7 +126,7 @@ export function lerProducao(v: unknown): Lida {
     if (!nome) return { ok: false, erro: `Falta dizer qual é o produto${n}.` };
     const quantidade = Math.round(Number(c.quantidade));
     if (!Number.isFinite(quantidade) || quantidade < 1 || quantidade > 20) return { ok: false, erro: `A quantidade${n} precisa ficar entre 1 e 20.` };
-    const gravacao: TipoDeGravacao = c.gravacao === "laser" || c.gravacao === "manual" ? c.gravacao : "sem";
+    const gravacao: TipoDeGravacao = c.gravacao === "laser" || c.gravacao === "manual" || c.gravacao === "a_confirmar" ? c.gravacao : "sem";
     const temTexto = Boolean(comoFoiEscrito(c.gravar1, 120) || comoFoiEscrito(c.gravar2, 120));
     if (gravacao === "sem" && temTexto) return { ok: false, erro: `Há texto para gravar${n}, mas falta escolher se a gravação é a laser ou manual.` };
     if (gravacao !== "sem" && !temTexto) return { ok: false, erro: `Você escolheu gravação${n}, mas não escreveu o que gravar.` };
@@ -136,6 +155,9 @@ export function lerProducao(v: unknown): Lida {
       return { ok: true, producao: { pecas, entrega: "Correios", endereco, cidade, uf, resumo } };
     }
     return { ok: true, producao: { pecas, entrega: "Entrega por Motoboy", endereco, cidade: cidade || null, uf: /^[A-Z]{2}$/.test(uf) ? uf : null, resumo } };
+  }
+  if (o.entrega === "a_combinar") {
+    return { ok: true, producao: { pecas, entrega: ENTREGA_A_COMBINAR, endereco: endereco || null, cidade: cidade || null, uf: /^[A-Z]{2}$/.test(uf) ? uf : null, resumo } };
   }
   return { ok: false, erro: "Escolha como a peça vai chegar ao cliente." };
 }

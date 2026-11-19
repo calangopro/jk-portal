@@ -1,6 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { decidir, type Candidato } from "./vendas";
+import { processarFabricaDaKommo } from "./fabrica-rodada";
 
 /**
  * O passo da venda ganha (cartão 47, 0165): roda depois de o espelho gravar,
@@ -47,10 +48,18 @@ export async function processarVendasDaKommo(db: SupabaseClient, opcoes: { limit
   }
 
   const partes = Object.entries(contagem).map(([k, n]) => `${n} ${k}`);
+  // A venda por fora que acabou de entrar vai para a fábrica no mesmo passo (cartão 51), sem derrubar nada se falhar.
+  let fabrica = "";
+  try {
+    fabrica = (await processarFabricaDaKommo(db, { prazoMs: Math.max(2_000, prazo - Date.now()) })).detalhe;
+  } catch (e) {
+    fabrica = `fábrica da Kommo: ${e instanceof Error ? e.message : String(e)}`;
+  }
+  const vendas = partes.length || erros ? `vendas da Kommo: ${partes.join(", ") || "nada novo"}${erros ? `, ${erros} com erro` : ""}` : "";
   return {
     olhados: candidatos.length,
     feitos,
     erros,
-    detalhe: partes.length || erros ? `vendas da Kommo: ${partes.join(", ") || "nada novo"}${erros ? `, ${erros} com erro` : ""}` : "",
+    detalhe: [vendas, fabrica].filter(Boolean).join("; "),
   };
 }
