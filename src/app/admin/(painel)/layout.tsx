@@ -30,6 +30,7 @@ export default async function PainelLayout({ children }: { children: React.React
     <Moldura
       nome={profile.fullName ?? profile.email ?? "Equipe"}
       papel={ROLE_LABEL[profile.role]}
+      papelId={profile.role}
       areas={profile.areas}
       pendentes={count ?? 0}
       avisos={{ ...avisosDoMenu(chat), ...avisosDoSuporte(suporte) }}
