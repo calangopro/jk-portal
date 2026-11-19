@@ -1,6 +1,8 @@
 import { Fragment } from "react";
 import Link from "next/link";
 import { ArrowLeft, CalendarHeart, HandCoins, LifeBuoy, MessageCircle, Phone, RotateCcw, Search, ShoppingBag, Store, Truck, UsersRound, Wallet } from "lucide-react";
+import type { Area } from "@/lib/auth/acessos";
+import { montarLinhaDoTempo, type DadosDaLinha, type ItemDaLinha } from "@/lib/clientes/linha-do-tempo";
 import type { CamposDaFicha, CasoDaFicha, FichaDoCliente, PedidoDaFicha, VendaDaFicha, CadastroDaFicha } from "@/lib/clientes/dados";
 import { NOME_DA_FASE, NOME_DO_TIPO, dataPorExtenso, type Oportunidade, type Sugestao } from "@/lib/clientes/oportunidades";
 import { lerEntrega, lerEspecificacoes, type Especificacao } from "@/lib/fabrica/etapas";
@@ -13,7 +15,10 @@ import { Cartao, Dinheiro, SeloDeTom } from "../../Pecas";
 import type { Marcar } from "../CartaoDaOportunidade";
 import { comprasEmPalavra } from "../LinhaDoCliente";
 import { EditarFicha } from "./EditarFicha";
+import { ItemNovo, Evento } from "./ItensDaLinha";
+import { NaKommo } from "./NaKommo";
 import { OportunidadesDaFicha } from "./OportunidadesDaFicha";
+import { VerMais } from "./VerMais";
 import { BotaoDoHistorico } from "../../pedido/abrir";
 
 /**
@@ -105,18 +110,6 @@ function OQuePede({ lista }: { lista: Especificacao[] }) {
         </dl>
       ) : null}
     </div>
-  );
-}
-
-function Evento({ Icone, quando, children }: { Icone: typeof Store; quando: string; children: React.ReactNode }) {
-  return (
-    <li className="relative pl-9">
-      <span className="painel-selo absolute left-0 top-0 grid h-7 w-7 place-items-center rounded-full">
-        <Icone size={14} aria-hidden="true" />
-      </span>
-      <p className="numeros text-[0.7rem] font-semibold uppercase tracking-wider text-muted">{quando}</p>
-      <div className="mt-1">{children}</div>
-    </li>
   );
 }
 
@@ -230,7 +223,7 @@ function EventoDaRecuperacao({ c }: { c: CasoDaFicha }) {
 }
 
 export function TelaDaFicha({
-  f, sugestoes, oportunidades, hoje, podeVerRecuperacao, salvar, marcar,
+  f, sugestoes, oportunidades, hoje, linha, agora, areas, podeVerRecuperacao, salvar, marcar,
 }: {
   f: FichaDoCliente;
   /** Datas lidas da gravação que ninguém confirmou nem recusou. */
@@ -238,6 +231,11 @@ export function TelaDaFicha({
   /** O que vence para este cliente nos próximos 90 dias. */
   oportunidades: Oportunidade[];
   hoje: string;
+  /** A Kommo e o que cada pedido já sabe (0185). Nulo quando a leitura falhou: a linha fica só com a ficha. */
+  linha: DadosDaLinha | null;
+  /** O relógio da visita, para "há quanto tempo" no bloco da Kommo. */
+  agora: number;
+  areas: Area[];
   podeVerRecuperacao: boolean;
   salvar: Salvar;
   marcar: Marcar;
@@ -249,15 +247,26 @@ export function TelaDaFicha({
   const totalPago = pagos.reduce((s, p) => s + p.total, 0) + porFora.reduce((s, v) => s + v.valor, 0);
   const compras = pagos.length + porFora.length;
 
-  // A linha do tempo: tudo o que aconteceu, do mais novo para o mais antigo.
-  const eventos: { quando: string; chave: string; no: React.ReactNode }[] = [
-    ...f.pedidos.map((p) => ({ quando: p.feitoEm, chave: `p${p.pedido}`, no: <EventoDoPedido p={p} /> })),
-    ...f.porFora.map((v) => ({ quando: `${v.dia}T12:00:00-03:00`, chave: `v${v.id}`, no: <EventoDaVenda v={v} /> })),
-    ...f.cadastros.map((c, i) => ({ quando: c.criadoEm, chave: `l${i}`, no: <EventoDoCadastro c={c} /> })),
-    ...f.recuperacao.map((c) => ({ quando: c.atualizadoEm, chave: `r${c.pedido}`, no: <EventoDaRecuperacao c={c} /> })),
-  ].sort((a, b) => Date.parse(b.quando) - Date.parse(a.quando));
-  const primeiro = eventos.length ? eventos[eventos.length - 1].quando : null;
+  // A linha do tempo: tudo o que aconteceu, do mais novo para o mais antigo (`lib/clientes/linha-do-tempo.ts`).
+  const itens = montarLinhaDoTempo(f, linha);
+  const desenho = (i: ItemDaLinha) => {
+    switch (i.tipo) {
+      case "pedido":
+        return <EventoDoPedido p={i.pedido} />;
+      case "venda":
+        return <EventoDaVenda v={i.venda} />;
+      case "cadastro":
+        return <EventoDoCadastro c={i.cadastro} />;
+      case "recuperacao":
+        return <EventoDaRecuperacao c={i.caso} />;
+      default:
+        return <ItemNovo i={i} areas={areas} />;
+    }
+  };
+  const primeiro = itens.length ? itens[itens.length - 1].em : null;
 
+  // Os oito últimos dígitos acham o contato em qualquer formato gravado na Kommo.
+  const buscaNaKommo = f.telefone ? `https://${SUBDOMINIO_KOMMO}.kommo.com/contacts/list/contacts/?term=${f.telefone.slice(-8)}` : null;
   const contato = "painel-toque inline-flex h-11 items-center justify-center gap-2 rounded-full px-4 text-sm font-semibold";
   const ultimoPedido = f.pedidos.reduce((maior, p) => Math.max(maior, p.pedido), 0);
   const marcadas = f.marcadas.filter((m) => m.decisao !== "reaberta");
@@ -289,8 +298,7 @@ export function TelaDaFicha({
               <Phone size={15} aria-hidden="true" /> Ligar
             </a>
             <a
-              // Os oito últimos dígitos acham o contato em qualquer formato gravado na Kommo.
-              href={`https://${SUBDOMINIO_KOMMO}.kommo.com/contacts/list/contacts/?term=${f.telefone.slice(-8)}`}
+              href={buscaNaKommo ?? undefined}
               target="_blank"
               rel="noreferrer"
               className={`${contato} flex-1 border border-ink/12 bg-white text-ink sm:flex-none`}
@@ -313,6 +321,8 @@ export function TelaDaFicha({
         {f.email ? <span className="break-all">{f.email}</span> : null}
         {f.noGrupo ? <span>está no cadastro do grupo de ofertas</span> : null}
       </p>
+
+      <NaKommo linha={linha} agora={agora} buscaNaKommo={buscaNaKommo} />
 
       <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
         <Cartao Icone={ShoppingBag} rotulo="Compras pagas" apoio={f.pedidosNaoPagos > 0 ? `mais ${f.pedidosNaoPagos} ${f.pedidosNaoPagos === 1 ? "pedido não pago" : "pedidos não pagos"}` : "na loja e por fora"}>
@@ -367,7 +377,9 @@ export function TelaDaFicha({
       <section className="mt-9" aria-labelledby="linha-do-tempo">
         <h2 id="linha-do-tempo" className="font-display text-2xl text-ink">Linha do tempo</h2>
         <p className="mt-1 text-xs text-muted">
-          Pedidos da loja (pagos e não pagos), vendas por fora, cadastro no grupo e a fila de recuperação, do mais novo para o mais antigo.
+          Chegadas ao site e cliques em anúncio, negócios e etapas na Kommo, pedidos da loja (pagos e não pagos), vendas por fora, fábrica, suporte,
+          quem vendeu, cadastro no grupo e a fila de recuperação, do mais novo para o mais antigo.
+          {linha === null ? " Não deu para ler a Kommo e o histórico dos pedidos agora: a linha mostra só o que a ficha tem." : null}
           {podeVerRecuperacao && f.pedidosNaoPagos > 0 ? (
             <>
               {" "}
@@ -375,12 +387,12 @@ export function TelaDaFicha({
             </>
           ) : null}
         </p>
-        {eventos.length > 0 ? (
-          <ol className="mt-4 space-y-5">
-            {eventos.map((e) => (
-              <Fragment key={e.chave}>{e.no}</Fragment>
+        {itens.length > 0 ? (
+          <VerMais>
+            {itens.map((i) => (
+              <Fragment key={i.chave}>{desenho(i)}</Fragment>
             ))}
-          </ol>
+          </VerMais>
         ) : (
           <p className="glass mt-4 rounded-[16px] p-5 text-sm text-muted">Nada registrado para este cliente ainda.</p>
         )}

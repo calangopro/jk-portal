@@ -17,6 +17,8 @@ import {
   type ClienteParaConta, type CompraParaConta, type FichaParaConta,
   DIAS_DO_AVISO, ENDERECO_DAS_OPORTUNIDADES, separarParaOAviso,
 } from "../src/lib/clientes/oportunidades.ts";
+import { ITENS_POR_VEZ, cortar, instanteDoEvento, lerLinhaDoTempo, montarLinhaDoTempo, negociosDoBloco, type FichaParaALinha } from "../src/lib/clientes/linha-do-tempo.ts";
+import { lerEvento } from "../src/lib/pedidos/historico.ts";
 
 let falhas = 0;
 function confere(nome: string, ok: boolean, detalhe = "") {
@@ -245,6 +247,99 @@ console.log("\nO número do menu e o cartão do Início");
   confere("o número do menu é a soma das duas partes", r.total === 5);
   confere("sem nada aberto, o número é zero e o cartão some", separarParaOAviso([]).total === 0 && separarParaOAviso(em([9, 40])).total === 0);
   confere("a janela é de sete dias e o número mora no endereço da tela", DIAS_DO_AVISO === 7 && ENDERECO_DAS_OPORTUNIDADES === "/admin/oportunidades");
+}
+
+console.log("\nLinha do tempo do cliente (cartão 54)");
+{
+  // A forma do que `linha_do_tempo_do_cliente` devolve, com dados inventados.
+  const cru = {
+    ok: true,
+    kommo: {
+      lido_em: "2026-11-18T22:00:00Z",
+      contatos: 1,
+      negocios: [
+        { id: 10, nome: "Negócio A", funil: "WHATS", etapa: "Atendimento", fase: "esperando_vendedor", aberto: true, ganho: false, perdido: false, apagado: false,
+          etapa_desde: "2026-11-18T20:00:00Z", criado_em: "2026-11-10T12:00:00Z", fechado_em: null, esperando_desde: "2026-11-18T21:00:00Z",
+          responsavel: "Usuário Kommo", pessoa: null, meu: false, valor: null, pedido_tray: null, link: "https://x.kommo.com/leads/detail/10" },
+        { id: 11, nome: "Negócio B", funil: "WHATS", etapa: "Venda ganha", fase: "ganho", aberto: false, ganho: true, perdido: false, apagado: false,
+          etapa_desde: "2026-11-12T12:00:00Z", criado_em: "2026-11-11T12:00:00Z", fechado_em: "2026-11-12T12:00:00Z", esperando_desde: "2026-11-18T21:00:00Z",
+          responsavel: "Outro", pessoa: "Caio", meu: true, valor: 990, pedido_tray: "500", link: "https://x.kommo.com/leads/detail/11" },
+        { id: 12, nome: "Apagado", aberto: false, apagado: true, criado_em: "2026-11-01T12:00:00Z", link: "https://x.kommo.com/leads/detail/12" },
+        { id: 13, nome: "Sem link" },
+      ],
+      eventos: [
+        { id: "e1", tipo: "lead_added", em: "2026-11-10T12:00:00Z", negocio: 10, quem: null, robo: true },
+        { id: "e2", tipo: "lead_status_changed", em: "2026-11-18T20:00:00Z", negocio: 10, quem: "Caio", robo: false,
+          etapa_de: { funil: "WHATS", etapa: "Novo" }, etapa_para: { funil: "WHATS", etapa: "Atendimento" } },
+        { id: "e3", tipo: "incoming_chat_message", em: "2026-11-18T21:00:00Z", negocio: 10 },
+      ],
+    },
+    pedidos: [
+      { pedido: 500, eventos: [
+          { tipo: "criado", em: "2026-11-12T10:00:00-03:00" },
+          { tipo: "chegada", em: "2026-11-12T09:00:00-03:00", canal: "meta" },
+          { tipo: "pago", dia: "2026-11-12" },
+          { tipo: "venda_fora", em: "2026-11-12T11:00:00-03:00", valor: null },
+          { tipo: "fabrica", em: "2026-11-13T10:00:00-03:00", de: "a_produzir", para: "em_producao", quem: "Ana" },
+          { tipo: "vendedor", em: "2026-11-12T12:00:00-03:00", quem: "Caio", por: "Caio", proprio: true },
+        ],
+        origem: { origem: { chegou_em: "2026-11-12T09:00:00-03:00", canal: "meta", plataforma: "meta", campanha_nome: "Campanha X", anuncio_nome: "Anúncio Y" },
+                  chegadas: [ { em: "2026-11-12T09:00:00-03:00", canal: "meta" }, { em: "2026-11-11T09:00:00-03:00", canal: "google_organico" } ] } },
+      { pedido: 499, eventos: [
+          { tipo: "criado", em: "2026-11-11T10:00:00-03:00" },
+          { tipo: "chegada", em: "2026-11-11T09:00:00-03:00", canal: "google_organico" },
+          { tipo: "chegada", em: "2026-11-05T09:00:00-03:00", canal: "bio", plataforma: null, campanha: null },
+        ], origem: null },
+    ],
+    vendas: { fabrica: [{ tipo: "fabrica", em: "2026-11-14T10:00:00-03:00", de: null, para: "a_produzir", quem: "Ana" }], suporte: [] },
+  };
+  const d = lerLinhaDoTempo(cru, lerEvento);
+  confere("a leitura descarta negócio sem link e evento de mensagem", d !== null && d.kommo.negocios.length === 3 && d.kommo.eventos.length === 2);
+  confere("sem acesso (nulo) ou ok falso não vira linha", lerLinhaDoTempo(null, lerEvento) === null && lerLinhaDoTempo({ ok: false }, lerEvento) === null);
+
+  const ficha: FichaParaALinha = {
+    pedidos: [
+      { pedido: 500, feitoEm: "2026-11-12T10:00:00-03:00", dia: "2026-11-12", status: "A ENVIAR", situacao: "pago", total: 990, pagamento: null, frete: null, cidade: null, uf: null, rastreio: null, itens: [] },
+      { pedido: 499, feitoEm: "2026-11-11T10:00:00-03:00", dia: "2026-11-11", status: "CANCELADO", situacao: "cancelado", total: 990, pagamento: null, frete: null, cidade: null, uf: null, rastreio: null, itens: [] },
+    ],
+    porFora: [{ id: "v1", dia: "2026-11-12", valor: 100, forma: "pix", canal: "whatsapp", produto: null, vendedor: "Caio", estornada: false }],
+    cadastros: [{ criadoEm: "data ruim", origem: null, campanha: null, momento: null, entrouNoGrupoEm: null }],
+    recuperacao: [],
+  };
+  const l = montarLinhaDoTempo(ficha, d);
+  const tipos = l.map((i) => i.tipo);
+  const datas = l.map((i) => Date.parse(i.em));
+  confere("da mais nova para a mais antiga", datas.every((t, i) => i === 0 || datas[i - 1] >= t));
+  confere("o pedido entra uma vez, pelo cartão da ficha, sem o \"criado\" do histórico", tipos.filter((t) => t === "pedido").length === 2 &&
+    !l.some((i) => i.tipo === "do_pedido" && i.evento.tipo === "criado"));
+  confere("venda por fora e recuperação do histórico não repetem a ficha", !l.some((i) => i.tipo === "do_pedido" && (i.evento.tipo === "venda_fora" || i.evento.tipo === "recuperacao")));
+  const chegadas = l.filter((i): i is Extract<typeof i, { tipo: "chegada" }> => i.tipo === "chegada");
+  confere("a mesma chegada vista em dois pedidos aparece uma vez", chegadas.filter((c) => c.canal === "google_organico").length === 1);
+  confere("a chegada que levou a venda vem com campanha e anúncio", chegadas.some((c) => c.levou && c.campanha === "Campanha X" && c.anuncio === "Anúncio Y"));
+  confere("pedido sem a origem completa fica com a chegada do histórico", chegadas.some((c) => c.canal === "bio" && !c.levou));
+  confere("pago vale o fim do dia de São Paulo", instanteDoEvento({ tipo: "pago", dia: "2026-11-12" }) === "2026-11-12T23:59:00-03:00");
+  confere("item com data que não se lê sai da linha", !tipos.includes("cadastro"));
+  confere("negócio criado e fechado na Kommo entram, \"lead_added\" do mesmo negócio não", tipos.filter((t) => t === "kommo_criado").length === 3 &&
+    tipos.filter((t) => t === "kommo_fechado").length === 1 && !l.some((i) => i.tipo === "kommo_evento" && i.evento.tipo === "lead_added"));
+  confere("mudança de etapa leva o nome do negócio", l.some((i) => i.tipo === "kommo_evento" && i.evento.tipo === "lead_status_changed" && i.negocio?.nome === "Negócio A"));
+  confere("fábrica da venda por fora entra sem pedido", l.some((i) => i.tipo === "do_pedido" && i.pedido === null && i.evento.tipo === "fabrica"));
+  confere("nenhuma chave repetida", new Set(l.map((i) => i.chave)).size === l.length);
+  confere("na mesma hora, a chegada fica abaixo do pedido", (() => {
+    const mesmo = montarLinhaDoTempo({ ...ficha, porFora: [] }, { kommo: { lidoEm: null, contatos: 0, negocios: [], eventos: [] },
+      pedidos: [{ pedido: 500, eventos: [], origem: { chegouEm: null, canal: null, plataforma: null, campanha: null, conjunto: null, anuncio: null, chegadas: [{ em: "2026-11-12T10:00:00-03:00", canal: "meta", source: null, campaign: null, clique: null }] } }], vendas: [] });
+    return mesmo[0].tipo === "pedido" && mesmo[1].tipo === "chegada";
+  })());
+  confere("sem os dados da Kommo, a linha é a da ficha", montarLinhaDoTempo(ficha, null).length === 3);
+
+  const muitos = Array.from({ length: 75 }, (_, i) => i);
+  const c1 = cortar(muitos);
+  confere("mostra 30 e diz quantos sobram", ITENS_POR_VEZ === 30 && c1.visiveis.length === 30 && c1.resto === 45 && cortar(muitos, 90).resto === 0);
+
+  const agora = Date.parse("2026-11-18T22:00:00Z");
+  const bloco = negociosDoBloco(d?.kommo.negocios ?? [], agora);
+  confere("o bloco tira o apagado e põe o aberto na frente", bloco.length === 2 && bloco[0].id === 10 && bloco[1].id === 11);
+  confere("o aberto diz há quanto espera e há quanto está na etapa", bloco[0].esperandoMin === 60 && bloco[0].naEtapaMin === 120);
+  confere("negócio fechado não está esperando resposta", bloco[1].esperandoMin === null);
 }
 
 if (falhas > 0) {

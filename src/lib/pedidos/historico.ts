@@ -63,7 +63,8 @@ const numero = (v: unknown): number | null => {
   return Number.isFinite(n) ? n : null;
 };
 
-function lerEvento(v: unknown): EventoDoPedido | null {
+/** Um acontecimento do histórico, como `historico_do_pedido` devolve. Também lê os da linha do tempo do cliente. */
+export function lerEvento(v: unknown): EventoDoPedido | null {
   const e = objeto(v);
   if (!e) return null;
   const em = texto(e.em);

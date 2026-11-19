@@ -2,7 +2,9 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getPublishedLocations } from "@/lib/data/locations";
 import { lerEspecificacoes } from "@/lib/fabrica/etapas";
+import { lerEvento } from "@/lib/pedidos/historico";
 import { nomeLimpo } from "@/lib/vendas/origem";
+import { lerLinhaDoTempo, type DadosDaLinha } from "./linha-do-tempo";
 import { nomeArrumado, primeiroNome, type Busca } from "./identidade";
 import {
   MAIOR_ESPERA, MARCOS_EM_MESES, lerFase, lerTipo, oportunidadesDoCliente, somarDias, sugestoesDaGravacao,
@@ -446,4 +448,20 @@ export async function marcarOportunidade(
     p_nota: null,
   });
   return respostaDaGravacao("marcar_oportunidade", data, error);
+}
+
+// ----------------------------------------------------------- linha do tempo
+
+/**
+ * A Kommo e o que cada pedido do cliente já sabe (0185). Fica de lado da
+ * ficha: se esta leitura falhar, a ficha abre do mesmo jeito, com a linha do
+ * tempo que ela sempre teve. Erro e falta de acesso viram `null`.
+ */
+export async function lerLinhaDoCliente(db: SupabaseClient, ref: string): Promise<DadosDaLinha | null> {
+  const { data, error } = await db.rpc("linha_do_tempo_do_cliente", { p_ref: ref });
+  if (error) {
+    console.error("[clientes] linha_do_tempo_do_cliente:", error.message);
+    return null;
+  }
+  return lerLinhaDoTempo(data, lerEvento);
 }
