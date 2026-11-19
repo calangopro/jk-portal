@@ -7,6 +7,7 @@ import { SeletorDePeriodo } from "../../SeletorDePeriodo";
 import { ListaDeOrigem } from "./Lista";
 import { ConversasDaKommo } from "./ConversasDaKommo";
 import type { NegociosPorOrigem } from "@/lib/kommo/origem";
+import type { CarrinhosAbandonados } from "@/lib/kommo/carrinho";
 
 /**
  * Origem dos pedidos: de qual anúncio veio cada venda, com as UTMs à vista.
@@ -84,10 +85,12 @@ function LinkDaBio({ bio, pedidos }: { bio: ChegadasPelaBio; pedidos: PedidoComO
 }
 
 export function TelaDeOrigem({
-  pedidos, bio = null, kommo = null, de, ate, chave, busca = "", aba = "anuncio", soPagos = true,
+  pedidos, bio = null, kommo = null, carrinhos = null, de, ate, chave, busca = "", aba = "anuncio", soPagos = true,
 }: {
   /** Os negócios da Kommo por origem. `null` quando a leitura falhou: o bloco avisa e o resto continua. */
   kommo?: NegociosPorOrigem | null;
+  /** Os carrinhos abandonados da Kommo ligados pela sessão (0182). `null` quando a leitura falhou. */
+  carrinhos?: CarrinhosAbandonados | null;
   pedidos: PedidoComOrigem[] | null;
   /** `null` quando a leitura falhou: o bloco some e o resto da tela continua. */
   bio?: ChegadasPelaBio | null;
@@ -160,7 +163,7 @@ export function TelaDeOrigem({
 
       <ListaDeOrigem pedidos={lista} buscaInicial={busca} abaInicial={aba} soPagosInicial={soPagos} />
 
-      <ConversasDaKommo dados={kommo} />
+      <ConversasDaKommo dados={kommo} carrinhos={carrinhos} />
 
       <section className="glass mt-6 rounded-[18px] p-5">
         <p className="eyebrow">Como ler</p>

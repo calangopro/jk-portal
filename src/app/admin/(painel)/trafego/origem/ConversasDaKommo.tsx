@@ -9,6 +9,8 @@ import {
   type NegociosPorOrigem,
   type OrigemDoNegocio,
 } from "@/lib/kommo/origem";
+import type { CarrinhosAbandonados } from "@/lib/kommo/carrinho";
+import { CarrinhosDaKommo } from "./CarrinhosDaKommo";
 
 /**
  * As conversas do WhatsApp (negócios da Kommo) do período, separadas pela
@@ -35,7 +37,7 @@ const EXPLICACAO: Record<OrigemDoNegocio, string> = {
   sem_origem: "Nada que diga de onde veio.",
 };
 
-export function ConversasDaKommo({ dados }: { dados: NegociosPorOrigem | null }) {
+export function ConversasDaKommo({ dados, carrinhos }: { dados: NegociosPorOrigem | null; carrinhos?: CarrinhosAbandonados | null }) {
   const [origem, setOrigem] = useState<OrigemDoNegocio | "todas">("todas");
   const [limite, setLimite] = useState(POR_VEZ);
 
@@ -46,6 +48,7 @@ export function ConversasDaKommo({ dados }: { dados: NegociosPorOrigem | null })
       <section aria-label="Conversas do WhatsApp" className="glass mt-6 rounded-[18px] p-4 sm:p-5">
         <p className="eyebrow">Conversas do WhatsApp, pela Kommo</p>
         <p className="mt-2 text-sm text-muted">Não deu para ler os negócios da Kommo agora.</p>
+        {carrinhos !== undefined ? <CarrinhosDaKommo dados={carrinhos} /> : null}
       </section>
     );
   }
@@ -160,6 +163,7 @@ export function ConversasDaKommo({ dados }: { dados: NegociosPorOrigem | null })
           A lista traz os {inteiro(dados.lista.length)} negócios mais novos do período; as contagens de cima são de todos.
         </p>
       ) : null}
+      {carrinhos !== undefined ? <CarrinhosDaKommo dados={carrinhos} /> : null}
     </section>
   );
 }

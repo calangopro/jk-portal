@@ -19,7 +19,9 @@ import { SeloDeTom } from "../Pecas";
 
 type Casada = Omit<PedidoComOrigem, "pedido" | "feitoEm" | "dia" | "situacao" | "status" | "total">;
 type Chegada = { em: string; canal: string | null; source: string | null; medium: string | null; campaign: string | null; content: string | null; term: string | null; clique: string | null; entrada: string | null; aparelho: string | null };
-type Lido = { origem: Casada; chegadas: Chegada[] };
+/** Negócio de carrinho abandonado na Kommo com a mesma sessão da loja (0182). */
+type Carrinho = { id: number; criadoEm: string };
+type Lido = { origem: Casada; chegadas: Chegada[]; carrinhos: Carrinho[] };
 
 const texto = (v: unknown): string | null => (typeof v === "string" && v.trim() ? v.trim() : null);
 const nomeDoCanal = (c: string | null) => (c ? (NOME_DA_CHEGADA[c as CanalDeChegada] ?? c) : "Sem canal");
@@ -32,7 +34,7 @@ async function ler(numero: number): Promise<Lido | null | "erro"> {
   try {
     const { data, error } = await createClient().rpc("origem_do_pedido", { p_numero: numero });
     if (error) return "erro";
-    const d = data as { origem?: Record<string, unknown>; chegadas?: Record<string, unknown>[] } | null;
+    const d = data as { origem?: Record<string, unknown>; chegadas?: Record<string, unknown>[]; carrinhos?: Record<string, unknown>[] } | null;
     if (!d?.origem) return null;
     return {
       origem: lerChegadaCasada(d.origem),
@@ -42,6 +44,9 @@ async function ler(numero: number): Promise<Lido | null | "erro"> {
           content: texto(c.content), term: texto(c.term), clique: texto(c.clique), entrada: texto(c.entrada), aparelho: texto(c.aparelho),
         }))
         .filter((c) => c.em),
+      carrinhos: (Array.isArray(d.carrinhos) ? d.carrinhos : [])
+        .map((c) => ({ id: Number(c.id) || 0, criadoEm: texto(c.criado_em) ?? "" }))
+        .filter((c) => c.id > 0 && c.criadoEm),
     };
   } catch {
     return "erro";
@@ -82,7 +87,16 @@ export function OrigemDoPedido({ numero }: { numero: number }) {
   // Sem acesso, sem pedido ou sem rede: a gaveta já diz por onde veio em uma linha, e este bloco é o detalhe.
   if (lido === "lendo" || lido === "erro" || lido === null) return null;
   const o = lido.origem;
-  if (!o.ligado && lido.chegadas.length === 0) return null;
+  const carrinhos = lido.carrinhos.length > 0 ? <CarrinhosDoPedido carrinhos={lido.carrinhos} /> : null;
+  if (!o.ligado && lido.chegadas.length === 0) {
+    return carrinhos ? (
+      <section aria-label="De qual anúncio veio" className="glass mt-3 rounded-[16px] px-3.5 py-3">
+        <h3 className="eyebrow">De qual anúncio veio</h3>
+        <p className="mt-1 text-xs leading-snug text-muted">{comoLigou(o)}</p>
+        {carrinhos}
+      </section>
+    ) : null;
+  }
 
   const nivel = nivelLigado(o);
   const selo: { tom: Tom; nome: string } | null = !ehAnuncio(o)
@@ -118,6 +132,8 @@ export function OrigemDoPedido({ numero }: { numero: number }) {
         <Linha nome="Etiqueta da Tray" valor={o.etiqueta} apoio="O que a loja guardou como UTM Source no pedido" />
       </dl>
 
+      {carrinhos}
+
       {lido.chegadas.length > 1 ? (
         <details className="mt-2">
           <summary className="cursor-pointer text-xs font-semibold text-brand-nav hover:underline">
@@ -139,5 +155,44 @@ export function OrigemDoPedido({ numero }: { numero: number }) {
         </details>
       ) : null}
     </section>
+  );
+}
+
+/**
+ * "Este pedido veio de um carrinho abandonado": o negócio que o n8n criou na
+ * Kommo com o link do carrinho da MESMA sessão da loja, nos trinta dias antes
+ * do pedido. O número abre o negócio na Kommo.
+ */
+function CarrinhosDoPedido({ carrinhos }: { carrinhos: Carrinho[] }) {
+  const [primeiro, ...outros] = carrinhos;
+  return (
+    <div className="mt-2 rounded-[12px] bg-ink/[0.03] px-3 py-2 text-xs leading-snug text-ink">
+      <p>
+        Este pedido veio de um carrinho abandonado:{" "}
+        <a
+          href={`https://kathleengfz.kommo.com/leads/detail/${primeiro.id}`}
+          target="_blank"
+          rel="noreferrer"
+          className="numeros font-semibold text-brand-nav hover:underline"
+        >
+          negócio {primeiro.id}
+        </a>{" "}
+        na Kommo, criado em <span className="numeros">{quando(primeiro.criadoEm)}</span>.
+      </p>
+      {outros.length > 0 ? (
+        <p className="mt-0.5 text-muted">
+          A mesma sessão tem mais {outros.length} {outros.length === 1 ? "carrinho" : "carrinhos"} antes:{" "}
+          {outros.map((c, i) => (
+            <span key={c.id}>
+              {i > 0 ? ", " : ""}
+              <a href={`https://kathleengfz.kommo.com/leads/detail/${c.id}`} target="_blank" rel="noreferrer" className="numeros hover:underline">
+                {c.id}
+              </a>
+            </span>
+          ))}
+          .
+        </p>
+      ) : null}
+    </div>
   );
 }
