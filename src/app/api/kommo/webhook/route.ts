@@ -4,6 +4,7 @@ import { lerChaves, SUBDOMINIO_KOMMO } from "@/lib/leads/chaves";
 import { clienteDaKommo } from "@/lib/kommo/cliente";
 import { lerWebhook } from "@/lib/kommo/conta";
 import { processarPendentes } from "@/lib/kommo/espelho";
+import { processarVendasDaKommo } from "@/lib/kommo/vendas-rodada";
 import { segredoConfere, segredoDoWebhook } from "@/lib/kommo/webhook";
 
 /**
@@ -61,7 +62,11 @@ export async function POST(request: Request) {
 
       // Com a chave, relê já: é o que deixa o espelho em tempo real.
       const chave = (await lerChaves(db)).kommo;
-      if (chave && linhas.length) await processarPendentes(db, clienteDaKommo(chave), agora, 200);
+      if (chave && linhas.length) {
+        await processarPendentes(db, clienteDaKommo(chave), agora, 200);
+        // A venda ganha (cartão 47) anda junto, num passo que não lança.
+        await processarVendasDaKommo(db, { prazoMs: 8_000 });
+      }
     } catch (e) {
       // O que falhou fica em kommo_pendentes, e a rotina relê.
       console.error("[kommo/webhook]", e instanceof Error ? e.message : e);

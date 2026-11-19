@@ -4,6 +4,7 @@ import { cronAutorizado } from "@/lib/cron/autorizar";
 import { registrarPulso } from "@/lib/cron/pulso";
 import { rodarLeituraDaKommo } from "@/lib/kommo/espelho";
 import { conferirWebhook } from "@/lib/kommo/webhook";
+import { processarVendasDaKommo } from "@/lib/kommo/vendas-rodada";
 
 /**
  * A leitura da Kommo (0160, `lib/kommo/espelho.ts`), de dez em dez minutos pelo
@@ -29,7 +30,14 @@ export async function POST(request: Request) {
     if (r.estado === "sem_chave") return NextResponse.json(r);
     // Uma vez por hora, confere se a Kommo não desligou o webhook.
     if (new Date().getUTCMinutes() < 10) await conferirWebhook(db);
-    await registrarPulso(db, "kommo", true, r.detalhe);
+    // A venda ganha (cartão 47) é um passo à parte: falhar aqui não derruba a leitura do espelho.
+    let vendas = "";
+    try {
+      vendas = (await processarVendasDaKommo(db)).detalhe;
+    } catch (e) {
+      vendas = `vendas da Kommo: ${e instanceof Error ? e.message : String(e)}`;
+    }
+    await registrarPulso(db, "kommo", true, [r.detalhe, vendas].filter(Boolean).join("; "));
     return NextResponse.json(r);
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
