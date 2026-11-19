@@ -53,6 +53,14 @@ function estadoPelasFotos(fotos: FotoDoProduto[], anterior: EstadoDoProduto): Es
   return anterior;
 }
 
+/** As ações que a tela de exemplo troca por dados inventados (ajuda-demo). */
+export type AcoesDeExemplo = {
+  lerProduto: typeof lerProduto;
+  lerNaLoja: React.ComponentProps<typeof EditarNaLoja>["acoes"]["ler"];
+  preverNaLoja: React.ComponentProps<typeof EditarNaLoja>["acoes"]["prever"];
+  gravarNaLoja: React.ComponentProps<typeof EditarNaLoja>["acoes"]["gravar"];
+};
+
 /** As abas da gaveta. Só aparece a que a pessoa pode usar. */
 export type AbaDaGaveta = "dados" | "fotos" | "custo";
 
@@ -68,8 +76,11 @@ export function Gaveta({
   loja = null,
   aba,
   onAba,
+  exemplo,
 }: {
   produto: ItemDoCatalogo;
+  /** Só para a tela de exemplo do Como usar: no lugar das ações que leem o banco e a Tray. */
+  exemplo?: AcoesDeExemplo;
   /** A aba aberta. Mora em quem chama, para continuar a mesma ao passar de um produto para outro. */
   aba: AbaDaGaveta;
   onAba: (a: AbaDaGaveta) => void;
@@ -103,7 +114,7 @@ export function Gaveta({
   const arquivo = useRef<HTMLInputElement>(null);
 
   const carregar = useCallback(async () => {
-    const r = await lerProduto(produto.id, produto.categoriaId);
+    const r = await (exemplo?.lerProduto ?? lerProduto)(produto.id, produto.categoriaId);
     if (!r.ok) {
       setErro(r.erro);
       return null;
@@ -111,6 +122,7 @@ export function Gaveta({
     setFotos(r.fotos);
     setPadrao({ texto: r.padrao, daCategoria: r.padraoDaCategoria });
     return r.fotos;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [produto.id, produto.categoriaId]);
 
   useEffect(() => {
@@ -331,7 +343,7 @@ export function Gaveta({
               key={`loja-${produto.id}`}
               trayId={produto.trayId}
               podePreco={loja.podePreco}
-              acoes={{ ler: lerNaLoja, prever: preverNaLoja, gravar: gravarNaLoja }}
+              acoes={exemplo ? { ler: exemplo.lerNaLoja, prever: exemplo.preverNaLoja, gravar: exemplo.gravarNaLoja } : { ler: lerNaLoja, prever: preverNaLoja, gravar: gravarNaLoja }}
               abrirSozinho
             />
           </div>
