@@ -19,6 +19,7 @@ import { estadoDoArmazenamento } from "@/lib/redes/armazenamento";
 import { lerLigacoes } from "@/lib/redes/painel";
 import { CartaoDoArmazenamento } from "./CartaoDoArmazenamento";
 import { CartaoDaCompraNoMeta, type ResumoDaCompraNoMeta } from "./CartaoDaCompraNoMeta";
+import { EspelhoDaKommo, type EstadoDoEspelho } from "./EspelhoDaKommo";
 import { desligarContaDaRede, ligarRedeComToken, salvarAplicativoDaRede } from "./redes-actions";
 
 export const metadata = { title: "Integrações" };
@@ -84,6 +85,29 @@ export default async function IntegracoesPage({
     sinais7Dias: r.sinais_7_dias ?? 0,
     temToken: Boolean(chaves.meta_capi),
   };
+
+  // O espelho da Kommo (0160): a função confere de novo que quem olha é da diretoria.
+  const { data: espelhoBruto } = chaves.kommo ? await supabase.rpc("kommo_estado_do_espelho") : { data: null };
+  const ek = (espelhoBruto ?? null) as Record<string, unknown> | null;
+  const ultimaLeitura = (ek?.ultima_leitura ?? null) as { detalhe?: string } | null;
+  const espelhoDaKommo: EstadoDoEspelho | null = ek
+    ? {
+        negocios: Number(ek.negocios) || 0,
+        contatos: Number(ek.contatos) || 0,
+        eventos: Number(ek.eventos) || 0,
+        usuarios: Number(ek.usuarios) || 0,
+        pendentes: Number(ek.pendentes) || 0,
+        semMapa: Number(ek.sem_mapa) || 0,
+        cargaDesde: (ek.carga_desde as string | null) ?? null,
+        cargaConcluidaEm: (ek.carga_concluida_em as string | null) ?? null,
+        ultimaLeituraEm: (ek.ultima_leitura_em as string | null) ?? null,
+        ultimaLeitura: ultimaLeitura?.detalhe ?? null,
+        ultimoWebhookEm: (ek.ultimo_webhook_em as string | null) ?? null,
+        webhooksRecebidos: Number(ek.webhooks_recebidos) || 0,
+        webhook: ek.webhook_id == null ? "ausente" : ek.webhook_desligado ? "desligado" : "ligado",
+        webhookErro: (ek.webhook_erro as string | null) ?? null,
+      }
+    : null;
 
   const funilAtual = chaves.kommo?.meta.funil_id
     ? `${chaves.kommo.meta.funil_id}:${chaves.kommo.meta.etapa_id ?? ""}`
@@ -249,6 +273,7 @@ export default async function IntegracoesPage({
             configurada={Boolean(chaves.kommo)}
             atualizadaEm={chaves.kommo?.atualizadaEm ?? null}
             guardados={guardados.kommo}
+            rodape={espelhoDaKommo ? <EspelhoDaKommo e={espelhoDaKommo} /> : null}
           >
             {chaves.kommo ? (
               <label className="block">
