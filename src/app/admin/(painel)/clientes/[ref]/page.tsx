@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { requireArea } from "@/lib/auth/session";
-import { contaDaFicha, lerFichaDoCliente, lerLojasFisicas } from "@/lib/clientes/dados";
+import { contaDaFicha, lerFichaDoCliente, lerLinhaDoCliente, lerLojasFisicas } from "@/lib/clientes/dados";
 import { lerRef } from "@/lib/clientes/identidade";
 import { oportunidadesDoCliente, sugestoesDaGravacao } from "@/lib/clientes/oportunidades";
 import { createClient } from "@/lib/supabase/server";
@@ -43,9 +43,11 @@ export default async function FichaDoClientePage({ params }: { params: Promise<{
   const profile = await requireArea("lancar_venda");
   const { ref } = await params;
 
-  const leitura = lerRef(ref)
-    ? await lerFichaDoCliente(await createClient(), ref)
-    : ({ ok: false, motivo: "nao_encontrado" } as const);
+  // A ficha e a linha do tempo (Kommo, fábrica, suporte, chegadas) ao mesmo tempo.
+  const db = lerRef(ref) ? await createClient() : null;
+  const [leitura, linha] = db
+    ? await Promise.all([lerFichaDoCliente(db, ref), lerLinhaDoCliente(db, ref)])
+    : ([{ ok: false, motivo: "nao_encontrado" } as const, null] as const);
 
   if (!leitura.ok) {
     const aviso = SEM_FICHA[leitura.motivo];
@@ -71,6 +73,9 @@ export default async function FichaDoClientePage({ params }: { params: Promise<{
       sugestoes={sugestoesDaGravacao(conta)}
       oportunidades={oportunidadesDoCliente(conta, hoje, DIAS_NA_FICHA, lojas)}
       hoje={hoje}
+      linha={linha}
+      agora={Date.now()}
+      areas={profile.areas}
       podeVerRecuperacao={profile.areas.includes("recuperacao")}
       salvar={salvar}
       marcar={marcar}

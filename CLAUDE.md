@@ -203,6 +203,7 @@ src/lib/consulta/    consulta do vendedor: produtos, lojas, quadro de pronta ent
 src/lib/clientes/    ficha do cliente e oportunidades de venda (oportunidades.ts é a conta pura)
 src/lib/time/        setor Time: Biblioteca JK e chat do time (biblioteca.ts e chat.ts são puros; ao-vivo.ts é o canal do Realtime)
 src/lib/tutor/       tutor do vendedor: regras.ts (puro, com a conferência da saída do modelo) e perguntar.ts
+src/lib/ajuda/       Como usar: tutoriais animados como dado (tutoriais/<tela>.ts), grupos de nível; molde e prints em docs/como-usar.md
 src/lib/roadmap/     o Roadmap do código: roadmap.ts (puro: leitura do quadro, ramo sugerido); a regra mora no banco (0141)
 supabase/templates/  modelos de e-mail do Supabase (convite, recuperar senha): a fonte do que
                      está colado no painel dele

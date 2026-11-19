@@ -19,6 +19,7 @@ import { useContagensDoMenu } from "./ContagensDoMenu";
 import { BotaoDoChatNoTopo, ChatFlutuante, useChatFlutuante } from "./ChatFlutuante";
 import { HistoricoDoPedidoNaMoldura } from "./pedido/NaMoldura";
 import { BotaoDeSugerir, SugerirMelhoria } from "./sugestoes/SugerirMelhoria";
+import { BotaoComoUsar, ComoUsar } from "./ajuda/ComoUsar";
 import { AbasDoSetor, BarraDeBaixo, FolhaMais, Lateral, corDoSetor, type Avisos } from "./Navegacao";
 
 /**
@@ -36,13 +37,15 @@ import { AbasDoSetor, BarraDeBaixo, FolhaMais, Lateral, corDoSetor, type Avisos 
  * durante o desenvolvimento.
  */
 export function Moldura({
-  nome, papel, areas, pendentes, avisos: avisosDoServidor, meuId, souAdmin = false, sair, children, caminhoDaPrevia, apiDoChatDaPrevia, apiDoSuporteDaPrevia,
+  nome, papel, papelId, areas, pendentes, avisos: avisosDoServidor, meuId, souAdmin = false, sair, children, caminhoDaPrevia, apiDoChatDaPrevia, apiDoSuporteDaPrevia,
   contagensDaPrevia,
 }: {
   /** Só para a prévia de desenvolvimento: as contagens do menu, que no painel vêm do servidor pela sessão. */
   contagensDaPrevia?: Avisos;
   nome: string;
   papel: string;
+  /** O nível em código (`gerente`, `vendas`...), de onde sai a versão do tutorial. `papel` é só o nome para mostrar. */
+  papelId?: string;
   areas: Area[];
   pendentes: number;
   /** O que espera a pessoa em cada tela, pelo endereço (hoje, o chat do time). Continua se atualizando sozinho. */
@@ -158,6 +161,7 @@ export function Moldura({
               </div>
             </div>
             <div className="flex shrink-0 items-center gap-2">
+              <BotaoComoUsar compacto />
               <BotaoDeSugerir compacto />
               <BotaoDoChatNoTopo f={flutuante} chat={numeroDoChat} suporte={numeroDoSuporte} />
               <button
@@ -187,6 +191,7 @@ export function Moldura({
               ) : null}
             </p>
             <div className="flex shrink-0 items-center gap-4">
+              <BotaoComoUsar />
               <BotaoDeSugerir />
               <a
                 href={comBasePath("/")}
@@ -231,6 +236,8 @@ export function Moldura({
       {meuId ? <ChatFlutuante f={flutuante} chat={numeroDoChat} suporte={numeroDoSuporte} temSuporte={temSuporte} meuId={meuId} souAdmin={souAdmin} podeMeta={areas.includes("vendas")} apiDaPrevia={apiDoChatDaPrevia} apiDoSuporteDaPrevia={apiDoSuporteDaPrevia} /> : null}
       {/* O histórico do pedido abre por cima de qualquer tela, inclusive da janela do chat (`pedido/abrir.tsx`). */}
       <HistoricoDoPedidoNaMoldura />
+      {/* "Como usar": a janela do tutorial da tela aberta, na versão do nível de quem está logado. */}
+      <ComoUsar caminho={caminho} papel={papelId ?? ""} areas={areas} />
       {/* "Sugerir melhoria", no topo de toda tela: a janela é uma só, e vai com o nome da tela de onde a pessoa veio. */}
       <SugerirMelhoria
         caminho={caminho}
