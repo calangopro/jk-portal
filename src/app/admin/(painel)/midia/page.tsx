@@ -1,6 +1,7 @@
 import { requireArea } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
-import { Biblioteca, type Midia } from "./Biblioteca";
+import type { Midia } from "./Biblioteca";
+import { TelaDaMidia } from "./Tela";
 
 export const metadata = { title: "Mídia" };
 
@@ -26,19 +27,5 @@ export default async function MidiaPage() {
     usos: contagem.get((m as { id: string }).id) ?? 0,
   }));
 
-  return (
-    <>
-      <header>
-        <p className="eyebrow">Conteúdo</p>
-        <h1 className="font-display mt-2 text-4xl text-ink">Mídia</h1>
-        <p className="mt-3 max-w-2xl text-muted">
-          Toda imagem do portal fica aqui, com texto alternativo, legenda e
-          crédito. Imagem sem alt não ajuda no Google e falha em acessibilidade,
-          então ela aparece marcada.
-        </p>
-      </header>
-
-      <Biblioteca itens={itens} />
-    </>
-  );
+  return <TelaDaMidia itens={itens} />;
 }
