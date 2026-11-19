@@ -8,6 +8,7 @@ import { BASE_PATH } from "@/lib/seo/base-path";
 import { quandoLegivel } from "@/lib/content/agenda";
 import { BotaoCopiar } from "../bio/LinksParaDivulgar";
 import { NovaChave } from "./NovaChave";
+import { QuemEstaMexendo, nomesDoConector } from "./QuemEstaMexendo";
 import { desligarAcesso } from "./actions";
 import { ehAdmin } from "@/lib/auth/acessos";
 import { limiteEmPalavras, operacaoLiberada } from "@/lib/conector/quem-usa";
@@ -78,7 +79,6 @@ const pessoa = (p: Acesso["profiles"]) => {
   const x = Array.isArray(p) ? p[0] : p;
   return x?.full_name ?? x?.email ?? "?";
 };
-
 export default async function ConectorPage() {
   const perfil = await requireConector();
   const limite = limiteEmPalavras(perfil.role);
@@ -86,6 +86,7 @@ export default async function ConectorPage() {
   const db = createAdminClient();
   const base = `${origemDosCabecalhos(await headers())}${BASE_PATH}`;
   const mcp = `${base}/api/mcp`;
+  const nomes = nomesDoConector(perfil.fullName);
 
   let consultaAcessos = db
     .from("conector_chaves")
@@ -123,7 +124,9 @@ export default async function ConectorPage() {
         {limite ? <p className="mt-2 max-w-2xl text-sm font-medium text-ink">{limite}</p> : null}
       </header>
 
-      <section className="mt-8 grid gap-5 lg:grid-cols-2">
+      <QuemEstaMexendo quem={perfil.fullName ?? perfil.email ?? "?"} nomes={nomes} />
+
+      <section className="mt-5 grid gap-5 lg:grid-cols-2">
         <div className="glass rounded-[18px] p-5">
           <h2 className="flex items-center gap-2 font-medium text-ink">
             <Plug size={16} aria-hidden className="text-brand-nav" />
@@ -134,7 +137,9 @@ export default async function ConectorPage() {
               Em claude.ai, abra <strong>Configurações</strong>, depois <strong>Conectores</strong>, e clique em{" "}
               <strong>Adicionar conector personalizado</strong>.
             </li>
-            <li>Dê o nome JK Alianças e cole o endereço abaixo.</li>
+            <li>
+              Dê o nome <strong>{nomes.noApp}</strong> e cole o endereço abaixo.
+            </li>
             <li>
               Clique em <strong>Conectar</strong>: o Claude abre o login do painel, você entra e escolhe{" "}
               <strong>Permitir</strong>.
@@ -168,12 +173,12 @@ export default async function ConectorPage() {
             Pelo login, rode o comando abaixo e depois <code className="rounded bg-ink/5 px-1">/mcp</code> para entrar:
           </p>
           <div className="mt-2 flex items-start gap-2 rounded-[12px] border border-border bg-white/70 p-2.5">
-            <code className="min-w-0 flex-1 break-all text-xs text-ink">{`claude mcp add --transport http jk ${mcp}`}</code>
-            <BotaoCopiar valor={`claude mcp add --transport http jk ${mcp}`} />
+            <code className="min-w-0 flex-1 break-all text-xs text-ink">{`claude mcp add --transport http ${nomes.noTerminal} ${mcp}`}</code>
+            <BotaoCopiar valor={`claude mcp add --transport http ${nomes.noTerminal} ${mcp}`} />
           </div>
           <p className="mt-4 text-sm text-ink/85">Ou com uma chave fixa, que não pede login:</p>
           <div className="mt-3">
-            <NovaChave mcp={mcp} />
+            <NovaChave mcp={mcp} servidor={nomes.noTerminal} />
           </div>
         </div>
       </section>

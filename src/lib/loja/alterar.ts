@@ -8,7 +8,7 @@ import {
   TETO_DE_BYTES, corpoDasFotos, fotosQueNaoEntraram, lerImagens, prepararFotos,
   type FotoNova, type ImagemNaLoja, type TipoDeFoto, type Troca,
 } from "./imagens";
-import { lerEstado, naoPegaram, prepararEdicao, type Campo, type Edicao, type EstadoNaLoja, type Mudanca } from "./produto";
+import { causasDaTray, lerEstado, naoPegaram, prepararEdicao, type Campo, type Edicao, type EstadoNaLoja, type Mudanca } from "./produto";
 
 /**
  * O ÚNICO caminho por onde o painel altera a loja na Tray.
@@ -108,7 +108,8 @@ export async function alterarProdutoNaLoja(db: SupabaseClient, p: Pedido & { que
     return { estado: "erro", erro: "A Tray não respondeu. Nada foi alterado, até onde dá para saber: confira o produto antes de tentar de novo." };
   }
   if (resposta.status < 200 || resposta.status >= 300) {
-    const motivo = resposta.causas.join(" ") || `A Tray recusou a alteração (${resposta.status}).`;
+    // As causas chegam em lista ou por campo (`{"Product":{"weight":["..."]}}`).
+    const motivo = causasDaTray(resposta.corpo).join(" ") || `A Tray recusou a alteração (${resposta.status}).`;
     await registrar("recusada", preparo.final, resposta.status, motivo);
     return { estado: "recusada", erro: motivo };
   }
@@ -133,10 +134,13 @@ export async function alterarProdutoNaLoja(db: SupabaseClient, p: Pedido & { que
     const raw = { ...((linha?.raw as Record<string, unknown> | null) ?? {}), start_promotion: depois.promocaoDe ?? "0000-00-00", end_promotion: depois.promocaoAte ?? "0000-00-00" };
     const { error } = await db
       .from("products")
-      .update({ name: depois.nome, price: depois.preco, promotional_price: depois.promocional, status: depois.disponivel ? "available" : "unavailable", raw, sync_hash: null })
+      .update({
+        name: depois.nome, price: depois.preco, promotional_price: depois.promocional, status: depois.disponivel ? "available" : "unavailable",
+        brand: depois.marca || null, availability_text: depois.prazo || null, raw, sync_hash: null,
+      })
       .eq("tray_id", p.trayId);
     if (error) console.error("[loja] espelho não atualizado:", error.message);
-    if (campos.some((c) => c !== "estoque")) revalidarPrecos();
+    if (campos.some((c) => c !== "estoque" && c !== "estoqueMinimo")) revalidarPrecos();
   }
   return { estado: "ok", mudancas: preparo.mudancas, depois };
 }

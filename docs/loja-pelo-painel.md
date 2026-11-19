@@ -106,6 +106,56 @@ continua "aprovada", para poder ser mandada de novo.
 **Variações ficaram de fora, de propósito:** nenhum dos 1.169 produtos ativos
 da JK usa variação na Tray.
 
+## Fase 2, o resto do produto: SEO, textos, catálogo e envio (18/11/2026)
+
+O mesmo "Editar na loja" da gaveta passou a mudar o produto inteiro, em grupos
+que abrem e fecham (o grupo com mudança ainda não gravada ganha a marca
+"alterado"):
+
+| Grupo | Campos | Na Tray |
+| --- | --- | --- |
+| Google e SEO | título no Google, descrição curta (é também a do Google), palavras-chave, com a prévia do resultado e o contador de letras | `title`, `description_small`, `metatag` só com `keywords` |
+| Textos da página | descrição em HTML (com "ver como fica" num quadro sem script), itens inclusos, mensagem adicional | `description`, `included_items`, `additional_message` |
+| Categorias e marca | categoria principal, "também aparece em", marca, modelo, referência | `category_id`, `related_categories`, `brand`, `model`, `reference` |
+| Envio e prazo | peso, medidas, texto do prazo, prazo em dias, estoque mínimo | `weight`, `length`, `width`, `height`, `availability`, `availability_days`, `minimum_stock` |
+| Outros | garantia, vídeo, EAN, NCM, destaque, lançamento | `warranty`, `video`, `ean`, `ncm`, `hot`, `release` |
+
+Tudo passa pelo mesmo `PUT /products/{id}`, que já estava homologado: nenhuma
+rota nova. As categorias para escolher vêm do espelho (`categories`), porque
+`GET /categories` não está entre as rotas homologadas. Estes campos ficam na
+área `loja` (gerente também muda); preço continua só com a diretoria.
+
+**O que a Tray faz, medido no produto 93525 da loja de testes:**
+
+- **Descrição curta e metatag de descrição são o MESMO campo com dois nomes.**
+  Gravar qualquer um muda o outro, nos dois sentidos, e o último gravado vence,
+  inclusive dentro do mesmo envio. Por isso a tela tem um campo só e o painel
+  nunca manda a metatag de descrição. A primeira montagem tinha os dois campos
+  separados e a releitura pegou: "a Tray respondeu que gravou, mas não mudou".
+- `title` vira sozinho a metatag de título.
+- Metatag mandada só com `keywords` não mexe nas outras. Texto vazio apaga.
+- **Peso é em gramas inteiras e maior que zero**: "2.5" e "0" são recusados
+  ("Informe o peso do produto."). **Medida com casa decimal é arredondada
+  calada** ("10.5" vira "11"). O painel recusa os dois antes de mandar.
+- **Vídeo vazio é ignorado** (responde "Saved" e não apaga). Apaga com um espaço.
+- **Frete grátis responde "Saved" e não muda.** Ficou de fora.
+- Categoria principal inexistente: 400 ("Esta categoria não existe."). Categoria
+  relacionada inexistente: descartada calada; a releitura pega.
+- A recusa chega por campo (`{"causes":{"Product":{"weight":["..."]}}}`), não
+  em lista. `causasDaTray` lê os dois formatos.
+- Texto volta exatamente como foi, com acento e HTML. A descrição antiga da JK
+  tem entidades (`&ccedil;`) porque veio do editor da Tray, e isso não atrapalha.
+
+**Valor esquisito que já estava na loja não trava o resto.** O formulário manda
+todos os campos, e a conferência de formato (EAN, NCM, vídeo, tamanho) só vale
+para o campo que a pessoa mudou. Os testes de ponta a ponta acharam isso: um
+EAN "123" que sobrou de um teste impedia gravar o título.
+
+**Fora, de propósito:** o endereço do produto (`slug`), porque trocar o endereço
+de página com histórico de busca derruba a posição dela no Google; propriedades
+(Largura, Acabamento...) e informações adicionais (numeração do aro), que são
+outras rotas, sem evidência na homologação.
+
 ## O que a API respondeu na loja de testes
 
 | Recurso | Lê | Observação |
@@ -128,8 +178,9 @@ CPF.
 
 ## As próximas fases
 
-**Fase 2, o que falta.** Descrição, categoria, marca, peso e medidas, e
-cadastrar produto novo. As fotos e o histórico já estão feitos.
+**Fase 2, o que falta.** Cadastrar produto novo (`POST /products`, que pede
+evidência na homologação antes de entrar em uso), propriedades e informações
+adicionais. Fotos, histórico, SEO, textos, catálogo e envio já estão feitos.
 
 **Fase 3, pedido, fábrica e envio.** A fila da fábrica está feita
 (`/admin/fabrica`, migration 0067): quatro etapas, do pedido pago ao envio, com

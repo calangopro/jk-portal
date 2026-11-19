@@ -270,3 +270,36 @@ export async function enviarGuardados(_prev: IntegracaoState, formData: FormData
         : `${enviados} ${enviados === 1 ? "contato enviado" : "contatos enviados"}. Não sobrou nenhum guardado.`,
   };
 }
+
+// ---------------------------------------------------------------------------
+// Espelho da Kommo (0160, lib/kommo). O painel só LÊ a Kommo; cadastrar o
+// webhook é a única escrita, e só por administrador.
+// ---------------------------------------------------------------------------
+
+/** Cadastra ou religa o webhook do painel na Kommo. */
+export async function ligarWebhookDaKommo(_prev: IntegracaoState, _formData: FormData): Promise<IntegracaoState> {
+  await requireAdmin();
+  const { ligarWebhook } = await import("@/lib/kommo/webhook");
+  const r = await ligarWebhook(createAdminClient());
+  revalidatePath("/admin/integracoes");
+  return r.ok ? { ok: "Webhook ligado. A Kommo passa a avisar o painel a cada mudança." } : { erro: r.erro ?? "Não deu para ligar o webhook." };
+}
+
+/** Roda a leitura da Kommo agora, sem esperar os dez minutos. */
+export async function lerAKommoAgora(_prev: IntegracaoState, _formData: FormData): Promise<IntegracaoState> {
+  await requireAdmin();
+  const { rodarLeituraDaKommo } = await import("@/lib/kommo/espelho");
+  const { registrarPulso } = await import("@/lib/cron/pulso");
+  const db = createAdminClient();
+  try {
+    const r = await rodarLeituraDaKommo(db, { prazoMs: 40_000 });
+    if (r.estado === "sem_chave") return { erro: "Cole a chave da Kommo primeiro." };
+    await registrarPulso(db, "kommo", true, r.detalhe);
+    revalidatePath("/admin/integracoes");
+    return { ok: `Lido: ${r.detalhe}.` };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    await registrarPulso(db, "kommo", false, msg);
+    return { erro: `A leitura falhou: ${msg.slice(0, 160)}` };
+  }
+}
