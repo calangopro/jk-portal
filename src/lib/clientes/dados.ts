@@ -325,14 +325,21 @@ export type ListaDeOportunidades = {
  * O banco separa quem pode ter alguma coisa na janela (`base_de_oportunidades`)
  * e a conta de cada um é `oportunidadesDoCliente`. Erro do banco vira `null`.
  */
-export async function lerOportunidades(db: SupabaseClient, hoje: string, dias: number, lojas: LojaFisica[]): Promise<ListaDeOportunidades | null> {
-  const { data, error } = await db.rpc("base_de_oportunidades", {
+export async function lerOportunidades(
+  db: SupabaseClient,
+  hoje: string,
+  dias: number,
+  lojas: LojaFisica[],
+  // A rodada da Kommo (cartão 49) lê pela chave de serviço, por uma porta que entra como quem ligou as tarefas.
+  funcao: "base_de_oportunidades" | "kommo_avisos_base_de_oportunidades" = "base_de_oportunidades",
+): Promise<ListaDeOportunidades | null> {
+  const { data, error } = await db.rpc(funcao, {
     p_de: somarDias(hoje, -MAIOR_ESPERA),
     p_ate: somarDias(hoje, dias),
     p_marcos: MARCOS_EM_MESES,
   });
   if (error) {
-    console.error("[clientes] base_de_oportunidades:", error.message);
+    console.error(`[clientes] ${funcao}:`, error.message);
     return null;
   }
   const cru = (data ?? {}) as { eu?: string | null; clientes?: unknown };

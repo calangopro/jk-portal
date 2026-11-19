@@ -2,9 +2,11 @@ import "server-only";
 import { SUBDOMINIO_KOMMO, type Chave } from "@/lib/leads/chaves";
 
 /**
- * Cliente da API v4 da Kommo, para o espelho. Só LÊ, com uma exceção: cadastrar
- * o webhook (`webhooks.ts`), por ação de administrador. Criar ou mover negócio,
- * contato ou tarefa dispara Salesbot para cliente de verdade, e não mora aqui.
+ * Cliente da API v4 da Kommo. O espelho só LÊ, com uma exceção: cadastrar o
+ * webhook (`webhook.ts`), por ação de administrador. Criar ou mover negócio,
+ * contato ou tarefa dispara Salesbot para cliente de verdade, e por isso só
+ * acontece por `escrever.ts` (cartão 49), o único arquivo que usa PATCH e o
+ * único POST fora do webhook; o teste `verificar:kommo` confere.
  *
  * A Kommo aceita até 7 pedidos por segundo por conta, e passar disso por muito
  * tempo bloqueia a integração. O espaço mínimo entre dois pedidos é 160 ms
@@ -31,12 +33,14 @@ export class ErroDaKommo extends Error {
   }
 }
 
-export type PedirKommo = <T>(caminho: string, opcoes?: { metodo?: "GET" | "POST"; corpo?: unknown; busca?: URLSearchParams }) => Promise<T | null>;
+export type MetodoKommo = "GET" | "POST" | "PATCH";
+
+export type PedirKommo = <T>(caminho: string, opcoes?: { metodo?: MetodoKommo; corpo?: unknown; busca?: URLSearchParams }) => Promise<T | null>;
 
 /** Uma função que pede à Kommo com a chave. Resposta 204 (lista vazia) volta como null. */
 export function clienteDaKommo(chave: Chave): PedirKommo {
   const base = `https://${chave.meta.subdominio || SUBDOMINIO_KOMMO}.kommo.com`;
-  return async function pedir<T>(caminho: string, opcoes: { metodo?: "GET" | "POST"; corpo?: unknown; busca?: URLSearchParams } = {}) {
+  return async function pedir<T>(caminho: string, opcoes: { metodo?: MetodoKommo; corpo?: unknown; busca?: URLSearchParams } = {}) {
     const url = `${base}${caminho}${opcoes.busca && [...opcoes.busca.keys()].length ? `?${opcoes.busca}` : ""}`;
     for (let tentativa = 0; ; tentativa++) {
       await vez();

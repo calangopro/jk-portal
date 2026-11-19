@@ -116,6 +116,11 @@ export const ROTINAS: Rotina[] = [
     paraQue: "Lê da Kommo os negócios, contatos e eventos que mudaram, de 10 em 10 minutos, e completa o que o webhook perdeu.",
     tolerancia: HORA, seParar: "Abra o cartão da Kommo em Integrações: a chave pode ter sido recusada ou o webhook desligado.",
   },
+  {
+    chave: "kommo-avisos", origem: "pulso", id: "kommo-avisos", nome: "Avisos para a Kommo",
+    paraQue: "Cria e move negócios e tarefas na Kommo pelas automações que a diretoria ligou, de 10 em 10 minutos, depois da leitura.",
+    tolerancia: HORA, seParar: "Abra Sistema, Automações da Kommo: o registro mostra o que a Kommo recusou. Desligar a automação para tudo na hora.",
+  },
   { chave: "avaliacoes", origem: "pulso", id: "avaliacoes", nome: "Avaliações do Google", paraQue: "Relê as avaliações das lojas uma vez por dia.", tolerancia: 36 * HORA, seParar: "Confira a ligação com o Google em Integrações." },
   { chave: "search-console", origem: "pulso", id: "search-console", nome: "Search Console", paraQue: "Importa as buscas do Google toda segunda de manhã.", tolerancia: 8 * DIA + 12 * HORA, seParar: AVISAR },
   {
