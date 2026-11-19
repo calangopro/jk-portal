@@ -12,6 +12,9 @@ import {
   EVENTOS_DO_WEBHOOK, TIPOS_DE_EVENTO, dataDaKommo, emLotes, janelaDeEventos, lerWebhook, linhaDoContato, linhaDoEvento, linhaDoNegocio,
   linhasDosFunis, linhasDosUsuarios, proximoCursor, segundos, telefoneDoPainel, type NegocioDaKommo,
 } from "../src/lib/kommo/conta.ts";
+import {
+  FASES, PRAZOS_DA_KOMMO, conversao, palpiteDaFase, palpitesDasFases, sinaisDaKommo, tempoPorExtenso, type AlertasDaKommo, type EtapaParaPalpite,
+} from "../src/lib/kommo/funil.ts";
 import { ROTINAS } from "../src/lib/painel/saude.ts";
 import { SETORES } from "../src/lib/painel/setores.ts";
 
@@ -207,12 +210,66 @@ console.log("\nCursores");
   confere("lotes", emLotes([1, 2, 3, 4, 5], 2).map((l) => l.length).join(",") === "2,2,1");
 }
 
+console.log("\nFunil único: fase padrão de cada etapa");
+{
+  // Nomes de etapa e funil como estavam na conta em 18/11/2026; ids inventados.
+  const e = (funil: string, etapa: string, tipo: EtapaParaPalpite["tipo"] = "aberta", etapa_id = 1): EtapaParaPalpite => ({ funil_id: 9, funil, etapa_id, etapa, tipo });
+  const p = (funil: string, etapa: string, tipo: EtapaParaPalpite["tipo"] = "aberta", id = 1) => palpiteDaFase(e(funil, etapa, tipo, id));
+  confere("etapa de leads de entrada é entrada", p("ECOMM | WHATS", "Etapa de leads de entrada", "entrada") === "entrada");
+  confere("aguardando vendedor é esperando vendedor", p("ECOMM | WHATS", "Aguardando vendedor") === "esperando_vendedor");
+  confere("a etapa Entrada dos funis das lojas é esperando vendedor", p("GRANJA VIANNA | WHATS", "Entrada") === "esperando_vendedor");
+  confere("em atendimento, com e sem maiúscula", p("ECOMM | WHATS", "Em atendimento") === "em_atendimento" && p("Tamboré | WHATS", "em atendimento") === "em_atendimento");
+  confere("orçamento enviado, negociação e follow-up são orçamento", p("ECOMM | WHATS", "Orçamento enviado") === "orcamento" && p("Tamboré | WHATS", "negociação") === "orcamento" && p("SANTANA | WHATS", "Em negociação") === "orcamento" && p("ECOMM | WHATS", "Follow-up") === "orcamento");
+  confere("aguardando pagamento e abandono de carrinho são esperando pagamento", p("ECOMM | WHATS", "Aguardando pagamento") === "esperando_pagamento" && p("ECOMM | RECUPERAÇÃO", "Abandono de Carrinho") === "esperando_pagamento");
+  confere("pedido aprovado e entregue são pós-venda", p("ECOMM | RECUPERAÇÃO", "Pedido Aprovado") === "pos_venda" && p("ECOMM | RECUPERAÇÃO", "Pedido Entregue") === "pos_venda");
+  confere("142 e 143 de funil de venda são ganho e perdido", p("ECOMM | WHATS", "Venda Ganha", "ganho", 142) === "ganho" && p("ECOMM | WHATS", "Venda Perdida", "perdido", 143) === "perdido");
+  confere("funil PDV, PÓS VENDAS e SAC é todo pós-venda, inclusive o 142", p("GRAND PLAZA | PDV", "Lançamento") === "pos_venda" && p("GRAND PLAZA | PDV", "Venda ganha", "ganho", 142) === "pos_venda" && p("Tamboré | PÓS VENDAS", "Boas-Vindas") === "pos_venda" && p("ECOMM | SAC", "Resolvido", "ganho", 142) === "pos_venda" && p("ECOMM | SAC", "Novo") === "pos_venda" && p("[V4] - PDV", "UPGRADE") === "pos_venda");
+  confere("a entrada de funil pós-venda continua entrada", p("GRAND PLAZA | PDV", "Etapa de leads de entrada", "entrada") === "entrada");
+  confere("nome que não bate com nada fica sem fase, sem chute", p("ECOMM | WHATS", "Coisa nova da Kathleen") === null && p("ECOMM | WHATS", "Teste") === null);
+  const lote = palpitesDasFases([e("ECOMM | WHATS", "Aguardando vendedor"), e("ECOMM | WHATS", "Etapa misteriosa")]);
+  confere("a leitura só grava a etapa que o palpite reconhece, marcada como palpite", lote.length === 1 && lote[0].origem === "palpite" && lote[0].fase === "esperando_vendedor");
+  confere("são oito fases padrão", FASES.length === 8);
+}
+
+console.log("\nFunil único: conversão e alertas");
+{
+  confere("conversão é ganho sobre fechados", conversao(3, 1) === 0.75 && conversao(0, 0) === null);
+  confere("o prazo é premissa de 30 minutos e 2 horas", PRAZOS_DA_KOMMO.atencao === 30 && PRAZOS_DA_KOMMO.ruim === 120);
+  confere("tempo por extenso", tempoPorExtenso(45) === "45 minutos" && tempoPorExtenso(120) === "2 horas" && tempoPorExtenso(60 * 72) === "3 dias");
+  const zero = { atencao: 0, ruim: 0, total: 0, mais_antigo_min: null, valor: 0 };
+  const base: AlertasDaKommo = { lido_em: AGORA, esperando: zero, sem_resposta: zero, etapas_sem_fase: 0 };
+  confere("espelho nunca lido não gera sinal", sinaisDaKommo({ ...base, lido_em: null, esperando: { ...zero, atencao: 5, total: 5 } }).length === 0 && sinaisDaKommo(null).length === 0);
+  confere("nada passou do prazo, nenhum sinal", sinaisDaKommo({ ...base, esperando: { ...zero, total: 4 } }).length === 0);
+  const s = sinaisDaKommo({
+    ...base,
+    esperando: { atencao: 233, ruim: 200, total: 240, mais_antigo_min: 60 * 50, valor: 0 },
+    sem_resposta: { atencao: 3, ruim: 0, total: 9, mais_antigo_min: 70, valor: 4500 },
+    etapas_sem_fase: 2,
+  });
+  const esp = s.find((x) => x.chave === "kommo-esperando-vendedor");
+  const sr = s.find((x) => x.chave === "kommo-sem-resposta");
+  confere("esperando vendedor passado de 2 horas é problema, com o número e o link", esp?.gravidade === "problema" && esp.titulo.startsWith("233 negócios esperando vendedor") && esp.titulo.includes("200 há mais de 2 horas") && esp.link?.href === "/admin/funil?alerta=esperando");
+  confere("sem resposta só passado de 30 minutos é atenção", sr?.gravidade === "atencao" && sr.titulo.startsWith("3 conversas com o cliente sem resposta") && sr.link?.href === "/admin/funil?alerta=sem_resposta");
+  confere("o sinal diz por extenso que o prazo é premissa", Boolean(esp?.texto.includes("premissa") && sr?.texto.includes("premissa")));
+  confere("etapa sem fase vira aviso com o caminho para ligar", s.some((x) => x.chave === "kommo-etapas-sem-fase" && x.link?.href === "/admin/kommo/fases"));
+  confere("nenhum texto de sinal com travessão", s.every((x) => !/[\u2013\u2014]/.test(x.titulo + x.texto)));
+}
+
 console.log("\nLigações com o resto do painel");
 {
   const r = ROTINAS.find((x) => x.id === "kommo");
   confere("a rotina da Kommo está na Saúde, pelo pulso", Boolean(r && r.origem === "pulso" && r.tolerancia <= 90));
   const item = SETORES.flatMap((s) => s.itens).find((i) => i.href === "/admin/kommo");
   confere("a tela do mapa está no menu, só para a diretoria", item?.area === "equipe");
+  const funil = SETORES.find((x) => x.id === "vendas")?.itens.find((i) => i.href === "/admin/funil");
+  confere("o funil único está no setor Vendas, com a área vendas", funil?.area === "vendas");
+  const fases = SETORES.flatMap((x) => x.itens).find((i) => i.href === "/admin/kommo/fases");
+  confere("a tela das fases é só da diretoria", fases?.area === "equipe");
+  const sql2 = readFileSync("supabase/migrations/0162_kommo_fases.sql", "utf8");
+  confere("0162 sem policy e com RLS nas tabelas novas", !/create policy/i.test(sql2) && /fases_da_kommo enable row level security/.test(sql2) && /kommo_motivos_perda enable row level security/.test(sql2));
+  confere("0162 confere a área em coalesce nas cinco funções", (sql2.match(/coalesce\(public\.is_admin\(\), false\)/g) ?? []).length >= 5);
+  const espelho = readFileSync("src/lib/kommo/espelho.ts", "utf8");
+  confere("a leitura só preenche a fase que falta, nunca regrava a da diretoria", /fases_da_kommo"\)\.upsert\(lote, \{ onConflict: "funil_id,etapa_id", ignoreDuplicates: true \}\)/.test(espelho));
   const rota = readFileSync("src/app/api/cron/kommo/route.ts", "utf8");
   confere("a rotina deixa pulso", rota.includes('registrarPulso(db, "kommo"'));
   const sql = readFileSync("supabase/migrations/0160_kommo_espelho.sql", "utf8");
@@ -225,7 +282,7 @@ console.log("\nLigações com o resto do painel");
   const espaco = Number(/ESPACO_MS = (\d+)/.exec(cliente)?.[1]);
   confere("o cliente não passa de 7 pedidos por segundo", espaco >= 1000 / 7, String(espaco));
   // A fase 1 só lê: o único POST do núcleo é o cadastro do webhook.
-  const posts = ["espelho.ts", "conta.ts", "cliente.ts", "webhook.ts"].flatMap((f) =>
+  const posts = ["espelho.ts", "conta.ts", "cliente.ts", "webhook.ts", "funil.ts"].flatMap((f) =>
     [...readFileSync(`src/lib/kommo/${f}`, "utf8").matchAll(/metodo: "(POST|PATCH|DELETE)"/g)].map(() => f),
   );
   confere("a única escrita na Kommo é o cadastro do webhook", posts.length === 1 && posts[0] === "webhook.ts", posts.join(","));
