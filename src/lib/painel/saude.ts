@@ -57,6 +57,10 @@ export type SaudeCrua = {
     fora_da_fila: number;
   }[];
   contatos: number;
+  /** Destinos de contato com a chave colada em Integrações (`kommo`, `meta`...). Sem a lista, o destino é julgado só pelos envios. */
+  comChave?: string[];
+  /** Destinos que a JK deixou de usar: não aparecem na Saúde. */
+  desligados?: string[];
   /** O que espera por uma rotina que só roda quando há o que fazer. */
   pendencias?: { leads_esperando: number; agendados_vencidos: number; redes_vencidos?: number };
 };
@@ -227,7 +231,7 @@ function avaliarRotina(r: Rotina, cru: SaudeCrua, agora: number): Ligacao {
 
 const contatos = (n: number) => (n === 1 ? "1 contato" : `${n} contatos`);
 
-function avaliarDestino(d: SaudeCrua["destinos"][number]): Ligacao {
+function avaliarDestino(d: SaudeCrua["destinos"][number], temChave: boolean): Ligacao {
   const info = DESTINOS[d.destino] ?? { nome: d.destino, paraQue: "Destino de contatos." };
   const base = { chave: `destino-${d.destino}`, grupo: "destino" as const, nome: info.nome, paraQue: info.paraQue };
 
@@ -240,6 +244,16 @@ function avaliarDestino(d: SaudeCrua["destinos"][number]): Ligacao {
       oQueFazer:
         "Cole a chave nova em Integrações e clique em Enviar os guardados." +
         (d.fora_da_fila > 0 ? ` ${d.fora_da_fila === 1 ? "1 contato já saiu" : `${d.fora_da_fila} contatos já saíram`} da fila de reenvio e só ${d.fora_da_fila === 1 ? "volta" : "voltam"} por esse botão.` : ""),
+    };
+  }
+  if (d.ok === 0 && d.sem_chave > 0 && temChave) {
+    // A chave entrou depois: os contatos de antes ficaram marcados "sem chave" e
+    // só seguem pelo botão. Não é ligação desligada.
+    return {
+      ...base,
+      estado: "atencao",
+      frase: `Chave colada. ${contatos(d.sem_chave)} de antes da chave ${d.sem_chave === 1 ? "espera" : "esperam"} o envio; os novos já seguem sozinhos.`,
+      oQueFazer: "Em Integrações, no cartão deste destino, clique em Enviar os guardados quando quiser mandar os de antes.",
     };
   }
   if (d.ok === 0 && d.sem_chave > 0) {
@@ -259,7 +273,10 @@ const ORDEM: Record<EstadoDaLigacao, number> = { ruim: 0, desligada: 1, atencao:
 /** Todas as ligações, das que pedem ação para as que estão bem. */
 export function avaliarSaude(cru: SaudeCrua): Ligacao[] {
   const agora = Date.parse(cru.agora);
-  const lista = [...ROTINAS.map((r) => avaliarRotina(r, cru, agora)), ...cru.destinos.map(avaliarDestino)];
+  const desligados = new Set(cru.desligados ?? []);
+  const comChave = new Set(cru.comChave ?? []);
+  const destinos = cru.destinos.filter((d) => !desligados.has(d.destino)).map((d) => avaliarDestino(d, comChave.has(d.destino)));
+  const lista = [...ROTINAS.map((r) => avaliarRotina(r, cru, agora)), ...destinos];
   return lista.sort((a, b) => ORDEM[a.estado] - ORDEM[b.estado]);
 }
 
