@@ -8,6 +8,7 @@ import { diasEntre, intervaloDoPeriodo, type ChaveDePeriodo } from "../vendas/pe
 import { lerResumoPorFora } from "../vendas/por-fora";
 import { retornoPorPlataforma, type LinhaDeRetorno } from "./retorno";
 import { diagnosticar, type Diagnostico, type Item } from "./diagnostico";
+import { lerWhatsDasCampanhas, type WhatsDasCampanhas } from "../kommo/origem";
 
 /**
  * Gasto de anúncio guardado em `anuncios_gasto` (0059). A função do banco roda
@@ -108,6 +109,11 @@ export type CampanhasDaTela = {
    * e a cobertura do período. `null` quando a leitura falhou.
    */
   anotado: { itens: Record<string, VendaDoItem>; cobertura: Cobertura } | null;
+  /**
+   * Conversas e vendas do WhatsApp pela Kommo, ligadas pelo número do anúncio
+   * (0170). `null` quando a leitura falhou ou quem olha não tem a área.
+   */
+  whats: WhatsDasCampanhas | null;
 };
 
 /** Os itens de uma plataforma somados no intervalo. `null` quando a leitura falhou. */
@@ -148,10 +154,14 @@ export async function lerItensDoPeriodo(db: SupabaseClient, plataforma: "meta" |
  */
 export async function lerCampanhasDaTela(db: SupabaseClient, plataforma: "meta" | "google", chave: ChaveDePeriodo, hoje: string): Promise<CampanhasDaTela> {
   const { de, ate } = intervaloDoPeriodo(chave, hoje);
-  const [lista, vendas, origem] = await Promise.all([
+  const [lista, vendas, origem, whats] = await Promise.all([
     lerItensDoPeriodo(db, plataforma, de, ate),
     lerResumoDeVendas(db, de, ate),
     lerOrigemDosPedidos(db, de, ate),
+    db.rpc("kommo_whats_por_anuncio", { p_de: de, p_ate: ate, p_plataforma: plataforma }).then(({ data, error }) => {
+      if (error) console.error("[trafego] kommo_whats_por_anuncio:", error.message);
+      return error ? null : lerWhatsDasCampanhas(data);
+    }),
   ]);
   const canal = agruparPorCanal(vendas?.por_origem ?? []).find((c) => c.canal === (plataforma === "meta" ? "meta" : "google_ads"));
   return {
@@ -161,5 +171,6 @@ export async function lerCampanhasDaTela(db: SupabaseClient, plataforma: "meta" 
     diagnostico: lista ? diagnosticar(lista, plataforma) : null,
     loja: { criados: canal?.criados ?? 0, pagos: canal?.pagos ?? 0, valor: canal?.valor ?? 0 },
     anotado: origem ? { itens: vendasPorItem(origem.por_item, plataforma), cobertura: origem.cobertura } : null,
+    whats,
   };
 }
