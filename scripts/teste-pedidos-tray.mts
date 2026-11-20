@@ -76,7 +76,7 @@ import { SETORES, abasDaBarra, nomeDoSetor, ondeEstou, setoresDe } from "../src/
 import { PECA_VAZIA, lerProducao, montarInfo } from "../src/lib/vendas/producao.ts";
 import { avaliarSaude, diaEHora, haQuantoTempo, resumoDoErro, sinaisDaSaude, type SaudeCrua } from "../src/lib/painel/saude.ts";
 import { REGRAS_DE_PARTIDA, diaPorExtenso, diasDeProducao, diasDesde, lerRegras, proximoMalote, quandoFica, somarDiasUteis } from "../src/lib/vendas/prazos.ts";
-import { DIAS_DE_ATENCAO, DIAS_DE_ATRASO, ETAPAS_DE_FABRICA, SEM_FILTRO, acaoPara, atrasado, dataInterna, diasEntreDatas, esperaEmPalavra, etapaAnterior, filtrarFila, grupoDaEntrega, lerEntrega, lerEspecificacoes, lerEtapa, lerEtapas, lerPrioridade, lerTipo, nomeDaEtapa, ordenarFila, proximaEtapa, situacaoDoPrazo, tomDaEspera } from "../src/lib/fabrica/etapas.ts";
+import { DIAS_DE_ATENCAO, DIAS_DE_ATRASO, ETAPAS_DE_FABRICA, SEM_FILTRO, acaoPara, atrasado, colunasDoQuadro, dataInterna, diaEmSaoPaulo, lerEstacao, tempoNaEtapa, diasEntreDatas, esperaEmPalavra, etapaAnterior, filtrarFila, grupoDaEntrega, lerEntrega, lerEspecificacoes, lerEtapa, lerEtapas, lerPrioridade, lerTipo, nomeDaEtapa, ordenarFila, proximaEtapa, situacaoDoPrazo, tomDaEspera } from "../src/lib/fabrica/etapas.ts";
 
 let falhas = 0;
 function confere(nome: string, ok: boolean, detalhe = "") {
@@ -1096,6 +1096,20 @@ console.log("\nFila da fábrica");
     { ...base, pedido: 4, etapa: "a_produzir", dia: "2026-11-16", prioridade: "motoboy" as const },
   ]).map((p) => p.pedido).join(",");
   confere("ordem da bancada: motoboy, urgente, depois a data interna mais perto", ordem === "4,2,3,1", ordem);
+  // O quadro da fábrica (cartão 62).
+  const t = (ref: string, etapa: string, extra: Record<string, unknown> = {}) => ({ ...base, ref, pedido: Number(ref), etapa, etapaEm: null as string | null, ...extra });
+  const quadro = colunasDoQuadro(E, [
+    t("1", "a_produzir"), t("2", "a_produzir", { prioridade: "urgente" }), t("3", "gravacao"),
+    t("4", "enviado", { etapaEm: "2026-11-20T15:00:00Z" }), t("5", "enviado", { etapaEm: "2026-11-19T15:00:00Z" }), t("6", "enviado", { etapaEm: "2026-11-20T18:00:00Z" }), t("7", "enviado"),
+  ], "2026-11-20");
+  confere("o quadro tem uma coluna por etapa ligada, sem Entregue", quadro.map((c) => c.etapa.chave).join(",") === "a_produzir,separacao,em_producao,gravacao,embalar,verificar,pronto,enviado");
+  confere("no quadro, urgente vem primeiro", quadro[0].trabalhos.map((x) => x.ref).join(",") === "2,1");
+  confere("Enviado mostra só os de hoje, o mais recente em cima", quadro[7].trabalhos.map((x) => x.ref).join(",") === "6,4");
+  confere("a estação limita as colunas", colunasDoQuadro(E, [t("3", "gravacao")], "2026-11-20", ["gravacao"]).length === 1);
+  confere("o dia de São Paulo vira à meia-noite de lá, não à de Londres", diaEmSaoPaulo("2026-11-21T02:30:00Z") === "2026-11-20" && diaEmSaoPaulo("2026-11-21T03:30:00Z") === "2026-11-21");
+  const agora = Date.parse("2026-11-20T15:00:00Z");
+  confere("o tempo na etapa, curto", tempoNaEtapa("2026-11-20T14:59:30Z", agora) === "agora" && tempoNaEtapa("2026-11-20T14:48:00Z", agora) === "12 min" && tempoNaEtapa("2026-11-20T12:00:00Z", agora) === "3 h" && tempoNaEtapa("2026-11-18T12:00:00Z", agora) === "2 dias" && tempoNaEtapa(null, agora) === null);
+  confere("a estação do endereço só aceita etapa ligada", lerEstacao("gravacao,embalar,gravacao", E).join(",") === "gravacao,embalar" && lerEstacao("entregue,XX,../a", E).length === 0 && lerEstacao(null, E).length === 0);
   confere("a busca acha pela OS e pelo tipo", filtrarFila([{ ...base, etapa: "a_produzir", os: 1135, tipo: "troca" as const }], { ...SEM_FILTRO, busca: "os 1135" }, "2026-11-20").length === 1
     && filtrarFila([{ ...base, etapa: "a_produzir", os: 1135, tipo: "troca" as const }], { ...SEM_FILTRO, busca: "troca" }, "2026-11-20").length === 1);
   confere("conta os dias corridos desde o pagamento", diasEntreDatas("2026-11-10", "2026-11-14") === 4 && diasEntreDatas("2026-10-30", "2026-11-02") === 3 && diasEntreDatas("2026-11-14", "2026-11-14") === 0);

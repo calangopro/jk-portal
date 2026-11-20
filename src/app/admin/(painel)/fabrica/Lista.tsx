@@ -10,6 +10,7 @@ import {
   etapasAtivas, filtrarFila, grupoDaEntrega, lerEntrega, lerEspecificacoes, nomeDaEtapa, ordenarFila, situacaoDoPrazo, tomDaEspera,
   type Entrega, type Especificacao, type Etapa, type EtapaDaFabrica, type FiltroDaFila, type GrupoDeEntrega,
 } from "@/lib/fabrica/etapas";
+import { aoAvisar, avisarOTime } from "@/lib/time/ao-vivo";
 import { nomeLimpo } from "@/lib/vendas/origem";
 import { diaCurto } from "@/lib/vendas/periodo";
 import { SeloDeTom } from "../Pecas";
@@ -366,6 +367,9 @@ export function ListaDaFabrica({
     return { ...c, atrasados, comNota };
   }, [daEtapa, hoje]);
 
+  // Alguém moveu um trabalho em outra tela (o quadro da fábrica, outro celular): relê a fila.
+  useEffect(() => aoAvisar((a) => a.tipo === "mensagem" && a.sala === "fila-da-fabrica" && router.refresh()), [router]);
+
   // Trocou de etapa: a seleção era da lista anterior.
   useEffect(() => {
     setMarcados(new Set());
@@ -407,6 +411,7 @@ export function ListaDaFabrica({
       }
       const fora = r.fora > 0 ? ` ${plural(r.fora, "ficou de fora por não estar pago", "ficaram de fora por não estarem pagos")}.` : "";
       setAviso({ tom: "bom", texto: `${plural(r.movidos, "pedido foi", "pedidos foram")} para ${nomeDaEtapa(para, etapas)}.${fora}` });
+      avisarOTime("fila-da-fabrica");
       sairDaSelecao();
       router.refresh();
     });

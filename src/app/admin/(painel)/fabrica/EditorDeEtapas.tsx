@@ -91,7 +91,7 @@ export function EditorDeEtapas({
       <button
         type="button"
         onClick={abrir}
-        className="painel-toque mt-3 inline-flex h-9 items-center gap-1.5 rounded-full border border-ink/12 bg-white px-3.5 text-xs font-semibold text-ink"
+        className="painel-toque inline-flex h-9 items-center gap-1.5 rounded-full border border-ink/12 bg-white px-3.5 text-xs font-semibold text-ink"
       >
         <Settings2 size={14} aria-hidden="true" /> Editar etapas
       </button>
@@ -99,7 +99,7 @@ export function EditorDeEtapas({
   }
 
   return (
-    <section aria-label="Editar etapas" className="glass mt-4 rounded-[18px] p-4">
+    <section aria-label="Editar etapas" className="glass mt-1 w-full rounded-[18px] p-4">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <h2 className="text-base font-semibold text-ink">Etapas da fábrica</h2>
