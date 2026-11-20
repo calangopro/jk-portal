@@ -38,6 +38,8 @@ export type OpcoesPedido = {
   /** Teto de tokens de saída, incluindo o raciocínio. */
   tetoSaida: number;
   esforco?: "minimal" | "low" | "medium" | "high";
+  /** Resolução em que o modelo lê a imagem. Letra de mão pede "high". Padrão: "low". */
+  detalhe?: "low" | "high";
 };
 
 /** Faz o pedido com saída estruturada e devolve o JSON já convertido. */
@@ -103,7 +105,7 @@ export async function pedirJsonComImagem<T>(
           { type: "text", text: texto },
           // "low" basta: o alt descreve o que a imagem mostra, não detalhe fino,
           // e o modo de alta resolução multiplica o custo por imagem.
-          { type: "image_url", image_url: { url: imagemUrl, detail: "low" } },
+          { type: "image_url", image_url: { url: imagemUrl, detail: opcoes.detalhe ?? "low" } },
         ],
       },
     ],

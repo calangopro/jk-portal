@@ -2,7 +2,8 @@ import { ROLE_LABEL, type AppRole } from "@/lib/auth/session";
 import { NIVEIS } from "@/lib/auth/acessos";
 import { InviteForm } from "./InviteForm";
 import { BotaoReenviar } from "./BotaoReenviar";
-import { updateRole, toggleActive } from "./actions";
+import { LOJAS_FISICAS } from "@/lib/fabrica/etapas";
+import { definirLoja, updateRole, toggleActive } from "./actions";
 
 export type LinhaDeUsuario = {
   id: string;
@@ -11,6 +12,8 @@ export type LinhaDeUsuario = {
   role: AppRole;
   is_active: boolean;
   created_at: string;
+  /** A loja física da pessoa (0195). */
+  loja?: string | null;
 };
 
 /** O desenho da tela de usuários, separado da leitura (a demo do Como usar chama por aqui). */
@@ -122,6 +125,24 @@ export function TelaDeUsuarios({
                             </button>
                           </form>
                         )}
+                        {/* A loja física (cartão 66): a OS que a pessoa abre leva a loja dela, e ela vê as OS da própria loja. */}
+                        <form action={definirLoja} className="mt-2 flex gap-2">
+                          <input type="hidden" name="user_id" value={u.id} />
+                          <select
+                            name="loja"
+                            defaultValue={u.loja ?? ""}
+                            aria-label={`Loja de ${u.full_name ?? u.email ?? "pessoa"}`}
+                            className="rounded-full border border-border bg-white/70 px-3 py-1.5 text-sm text-ink outline-none focus:border-brand"
+                          >
+                            <option value="">Sem loja (vê todas)</option>
+                            {LOJAS_FISICAS.map((l) => (
+                              <option key={l} value={l}>{l}</option>
+                            ))}
+                          </select>
+                          <button type="submit" className="rounded-full border border-ink/15 px-3 py-1.5 text-xs font-semibold text-ink transition-colors hover:border-brand/50 hover:text-brand-nav">
+                            Salvar loja
+                          </button>
+                        </form>
                       </td>
 
                       <td className="px-6 py-4">
