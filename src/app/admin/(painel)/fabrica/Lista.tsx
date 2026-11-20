@@ -2,12 +2,13 @@
 
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, Bike, Check, Clock, ListChecks, Loader2, Search, Store, Truck, X } from "lucide-react";
+import { AlertTriangle, Bike, CalendarClock, Check, Clock, Flame, ListChecks, Loader2, Search, Store, Truck, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { PedidoDaFabrica } from "@/lib/fabrica/dados";
 import {
-  ETAPAS, NOME_DA_ETAPA, NOME_DO_GRUPO, SEM_FILTRO, diasEntreDatas, esperaEmPalavra, filtrarFila, grupoDaEntrega, lerEntrega,
-  lerEspecificacoes, tomDaEspera, type Entrega, type Especificacao, type Etapa, type FiltroDaFila, type GrupoDeEntrega,
+  ENTRADA, NOME_DO_GRUPO, NOME_DO_TIPO, SEM_FILTRO, atrasado, diasEntreDatas, ehFinal, esperaEmPalavra,
+  etapasAtivas, filtrarFila, grupoDaEntrega, lerEntrega, lerEspecificacoes, nomeDaEtapa, ordenarFila, situacaoDoPrazo, tomDaEspera,
+  type Entrega, type Especificacao, type Etapa, type EtapaDaFabrica, type FiltroDaFila, type GrupoDeEntrega,
 } from "@/lib/fabrica/etapas";
 import { nomeLimpo } from "@/lib/vendas/origem";
 import { diaCurto } from "@/lib/vendas/periodo";
@@ -38,6 +39,10 @@ import { BotaoDoHistorico } from "../pedido/abrir";
 
 export type Mover = (ref: string, etapa: string, extras?: { rastreio?: string; nota?: string }) => Promise<{ ok: true } | { ok: false; erro: string }>;
 export type MoverVarios = (refs: string[], etapa: string) => Promise<{ ok: true; movidos: number; fora: number } | { ok: false; erro: string }>;
+export type Marcar = (ref: string, a: { tipo: string; prioridade: string; prazo: string }) => Promise<{ ok: true } | { ok: false; erro: string }>;
+
+/** A faixa de cor da prioridade, como o envelope rosa de "URGENTE / REFAZER". Texto escuro sobre claro, acima de 4,5:1. */
+const COR_DA_PRIORIDADE = { urgente: { fundo: "#fde8e8", texto: "#9b1c1c" }, motoboy: { fundo: "#fdeedc", texto: "#8a3b06" } } as const;
 
 /** Como o trabalho se chama no cartão: o número do pedido da loja, ou "Venda por fora". */
 const nomeDoTrabalho = (p: PedidoDaFabrica) => (p.pedido !== null ? `Pedido ${p.pedido}` : "Venda por fora");
@@ -102,11 +107,13 @@ function Especificacoes({ lista }: { lista: Especificacao[] }) {
 }
 
 function CartaoDoPedido({
-  p, hoje, mover, mostrarEtapa, escolhendo, marcado, onMarcar, onZoom,
+  p, etapas, hoje, mover, marcar, mostrarEtapa, escolhendo, marcado, onMarcar, onZoom,
 }: {
   p: PedidoDaFabrica;
+  etapas: EtapaDaFabrica[];
   hoje: string;
   mover: Mover;
+  marcar: Marcar;
   /** Na busca, o cartão diz em que etapa o pedido está. */
   mostrarEtapa: boolean;
   escolhendo: boolean;
@@ -115,14 +122,23 @@ function CartaoDoPedido({
   onZoom: (z: Zoom) => void;
 }) {
   const dias = diasEntreDatas(p.dia, hoje);
-  const tom = tomDaEspera(dias, p.etapa);
+  const doPrazo = situacaoDoPrazo(p, hoje);
+  const tom = doPrazo?.tom ?? tomDaEspera(dias, p.etapa);
+  const corDaPrioridade = p.prioridade === "normal" ? null : COR_DA_PRIORIDADE[p.prioridade];
   const entrega = lerEntrega(p.entrega);
   const IconeDaEntrega = entrega ? ICONE_DA_ENTREGA[entrega.tipo] : null;
   const peloLoja = saiuPelaLoja(p);
   const escolhivel = escolhendo && !peloLoja;
 
   return (
-    <li className={`glass relative flex flex-col rounded-[16px] p-4 ${marcado ? "outline outline-2 outline-[var(--setor)]" : ""}`}>
+    <li className={`glass relative flex flex-col overflow-hidden rounded-[16px] p-4 ${marcado ? "outline outline-2 outline-[var(--setor)]" : ""}`}>
+      {corDaPrioridade ? (
+        // Faixa no topo, como o envelope de papel: é a primeira coisa que o olho pega na bancada.
+        <p className="-mx-4 -mt-4 mb-3 flex items-center gap-1.5 px-4 py-1.5 text-xs font-bold uppercase tracking-wide" style={{ background: corDaPrioridade.fundo, color: corDaPrioridade.texto }}>
+          <Flame size={13} aria-hidden="true" /> {p.prioridade === "motoboy" ? "Urgente, motoboy: cliente precisa no dia" : "Urgente"}
+          {p.tipo !== "venda_nova" ? ` / ${NOME_DO_TIPO[p.tipo]}` : ""}
+        </p>
+      ) : null}
       {/* Na seleção, o cartão inteiro é o botão: com a peça numa mão, ninguém acerta uma caixinha de 20 px. */}
       {escolhivel ? (
         <button
@@ -146,7 +162,13 @@ function CartaoDoPedido({
             </span>
           ) : null}
           <div className="min-w-0">
-            <p className="numeros text-base font-bold leading-tight text-ink">{nomeDoTrabalho(p)}</p>
+            {p.os ? (
+              <p className="numeros text-2xl font-bold leading-none text-ink">
+                <span className="mr-1 text-xs font-semibold uppercase tracking-wide text-muted">OS</span>
+                {p.os}
+              </p>
+            ) : null}
+            <p className={`numeros font-bold leading-tight text-ink ${p.os ? "mt-1 text-sm" : "text-base"}`}>{nomeDoTrabalho(p)}</p>
             <p className="mt-0.5 break-words text-xs text-muted">
               {p.cliente ?? "Cliente sem nome"}
               {p.cidade ? `, ${p.cidade}${p.uf ? ` (${p.uf})` : ""}` : ""}
@@ -176,16 +198,25 @@ function CartaoDoPedido({
             ) : null}
           </div>
         </div>
-        <SeloDeTom tom={tom} titulo={`Pago em ${diaCurto(p.dia)}`}>
-          {/* Com tom, o selo já traz o ícone do tom: dois ícones lado a lado só confundem. */}
-          {tom === "neutro" ? <Clock size={11} aria-hidden="true" /> : null} {diaCurto(p.dia)}, {esperaEmPalavra(dias)}
-        </SeloDeTom>
+        {doPrazo ? (
+          <SeloDeTom tom={doPrazo.tom} titulo={`Pago em ${diaCurto(p.dia)}`}>
+            {doPrazo.tom === "neutro" ? <CalendarClock size={11} aria-hidden="true" /> : null} {doPrazo.palavra}
+          </SeloDeTom>
+        ) : (
+          <SeloDeTom tom={tom} titulo={`Pago em ${diaCurto(p.dia)}`}>
+            {/* Com tom, o selo já traz o ícone do tom: dois ícones lado a lado só confundem. */}
+            {tom === "neutro" ? <Clock size={11} aria-hidden="true" /> : null} {diaCurto(p.dia)}, {esperaEmPalavra(dias)}
+          </SeloDeTom>
+        )}
       </div>
 
       <div className="mt-2 flex flex-wrap gap-1.5">
         {p.pedido !== null ? <BotaoDoHistorico numero={p.pedido} /> : null}
         {mostrarEtapa ? (
-          <p className="painel-selo inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold">{NOME_DA_ETAPA[p.etapa]}</p>
+          <p className="painel-selo inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold">{nomeDaEtapa(p.etapa, etapas)}</p>
+        ) : null}
+        {p.tipo !== "venda_nova" && !corDaPrioridade ? (
+          <p className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-bold" style={{ background: "#fdeedc", color: "#8a3b06" }}>{NOME_DO_TIPO[p.tipo]}</p>
         ) : null}
         {entrega && IconeDaEntrega ? (
           <p className="inline-flex items-center gap-1.5 rounded-full bg-ink/[0.05] px-2.5 py-1 text-xs font-semibold text-ink">
@@ -247,7 +278,7 @@ function CartaoDoPedido({
       {p.rastreio ? <p className="numeros mt-2 text-xs text-ink">Rastreio: <span className="font-semibold">{p.rastreio}</span></p> : null}
       {p.movidoPor && p.etapaEm ? (
         <p className="mt-2 text-[0.7rem] text-muted">
-          {NOME_DA_ETAPA[p.etapa]} desde {new Date(p.etapaEm).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}, por {p.movidoPor}.
+          {nomeDaEtapa(p.etapa, etapas)} desde {new Date(p.etapaEm).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}, por {p.movidoPor}.
         </p>
       ) : null}
 
@@ -255,7 +286,18 @@ function CartaoDoPedido({
         {peloLoja ? (
           <p className="text-xs text-muted">A loja já marcou este pedido como {(p.statusDaLoja ?? "").toLowerCase()}.</p>
         ) : escolhendo ? null : (
-          <AcoesDoPedido pedido={p.ref} etapa={p.etapa} nota={p.nota} rastreio={p.rastreio} mover={mover} />
+          <AcoesDoPedido
+            pedido={p.ref}
+            etapas={etapas}
+            etapa={p.etapa}
+            nota={p.nota}
+            rastreio={p.rastreio}
+            tipo={p.tipo}
+            prioridade={p.prioridade}
+            prazo={p.prazo}
+            mover={mover}
+            marcar={marcar}
+          />
         )}
       </div>
     </li>
@@ -279,16 +321,18 @@ function Filtro({ ativo, onClick, children, numero, tom }: { ativo: boolean; onC
 }
 
 export function ListaDaFabrica({
-  pedidos, etapa, hoje, buscaInicial = "", mover, moverVarios,
+  pedidos, etapas, etapa, hoje, buscaInicial = "", mover, moverVarios, marcar,
 }: {
   /** Todos os pedidos da janela, de todas as etapas: a busca procura em todos. */
   pedidos: PedidoDaFabrica[];
+  etapas: EtapaDaFabrica[];
   etapa: Etapa;
   hoje: string;
   /** O que já vem digitado na busca. */
   buscaInicial?: string;
   mover: Mover;
   moverVarios: MoverVarios;
+  marcar: Marcar;
 }) {
   const router = useRouter();
   const [filtro, setFiltro] = useState<FiltroDaFila>(() => (buscaInicial ? { ...SEM_FILTRO, busca: buscaInicial } : SEM_FILTRO));
@@ -301,10 +345,10 @@ export function ListaDaFabrica({
 
   const buscando = filtro.busca.trim().length > 0;
 
-  // Em "Enviado" a ordem inverte, para o que acabou de sair ficar em cima.
+  // A ordem da bancada (urgente primeiro, depois a data interna). Nas finais inverte, para o que acabou de sair ficar em cima.
   const daEtapa = useMemo(() => {
     const l = pedidos.filter((p) => p.etapa === etapa);
-    return etapa === "enviado" ? l.reverse() : l;
+    return ehFinal(etapa) ? l.reverse() : ordenarFila(l);
   }, [pedidos, etapa]);
 
   const visiveis = useMemo(() => filtrarFila(buscando ? pedidos : daEtapa, filtro, hoje), [buscando, pedidos, daEtapa, filtro, hoje]);
@@ -316,7 +360,7 @@ export function ListaDaFabrica({
     for (const p of daEtapa) {
       const g = grupoDaEntrega(p.entrega);
       if (g) c[g]++;
-      if (tomDaEspera(diasEntreDatas(p.dia, hoje), p.etapa) === "ruim") atrasados++;
+      if (atrasado(p, hoje)) atrasados++;
       if (p.nota) comNota++;
     }
     return { ...c, atrasados, comNota };
@@ -362,7 +406,7 @@ export function ListaDaFabrica({
         return;
       }
       const fora = r.fora > 0 ? ` ${plural(r.fora, "ficou de fora por não estar pago", "ficaram de fora por não estarem pagos")}.` : "";
-      setAviso({ tom: "bom", texto: `${plural(r.movidos, "pedido foi", "pedidos foram")} para ${NOME_DA_ETAPA[para]}.${fora}` });
+      setAviso({ tom: "bom", texto: `${plural(r.movidos, "pedido foi", "pedidos foram")} para ${nomeDaEtapa(para, etapas)}.${fora}` });
       sairDaSelecao();
       router.refresh();
     });
@@ -426,7 +470,7 @@ export function ListaDaFabrica({
           {destino ? (
             <div className="flex flex-wrap items-center gap-2">
               <p className="min-w-0 flex-1 basis-48 text-sm font-semibold text-ink">
-                Levar {plural(escolhidos.length, "pedido", "pedidos")} para {NOME_DA_ETAPA[destino]}?
+                Levar {plural(escolhidos.length, "pedido", "pedidos")} para {nomeDaEtapa(destino, etapas)}?
               </p>
               <button type="button" disabled={ocupado} onClick={() => moverEscolhidos(destino)} className="painel-toque painel-aba-ativa inline-flex h-10 items-center gap-2 rounded-full px-4 text-xs font-semibold disabled:opacity-60">
                 {ocupado ? <Loader2 size={13} className="animate-spin" aria-hidden="true" /> : <Check size={14} aria-hidden="true" />} Confirmar
@@ -457,7 +501,7 @@ export function ListaDaFabrica({
               {escolhidos.length > 0 ? (
                 <div className="mt-2 flex flex-wrap items-center gap-1.5 border-t border-ink/[0.07] pt-2">
                   <span className="text-xs text-muted">Levar para</span>
-                  {ETAPAS.filter((e) => buscando || e.chave !== etapa).map((e) => (
+                  {etapasAtivas(etapas).filter((e) => buscando || e.chave !== etapa).map((e) => (
                     <button
                       key={e.chave}
                       type="button"
@@ -501,7 +545,7 @@ export function ListaDaFabrica({
           <span className="font-semibold text-ink">{temFiltro ? "Nenhum pedido com esse filtro." : "Nenhum pedido nesta etapa."}</span>{" "}
           {temFiltro
             ? "Confira o que foi digitado ou limpe os filtros."
-            : etapa === "a_produzir"
+            : etapa === ENTRADA
               ? "Pedido novo entra aqui sozinho, quando a loja confirma o pagamento."
               : "Os pedidos aparecem aqui conforme andam na fila."}
         </p>
@@ -511,8 +555,10 @@ export function ListaDaFabrica({
             <CartaoDoPedido
               key={p.ref}
               p={p}
+              etapas={etapas}
               hoje={hoje}
               mover={mover}
+              marcar={marcar}
               mostrarEtapa={buscando}
               escolhendo={escolhendo}
               marcado={marcados.has(p.ref) && !saiuPelaLoja(p)}

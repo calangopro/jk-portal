@@ -1,16 +1,20 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { ehAdmin } from "@/lib/auth/acessos";
 import { requireArea } from "@/lib/auth/session";
-import { REF_DA_FABRICA, moverPedidoDaFabrica, moverPedidosDaFabrica } from "@/lib/fabrica/dados";
-import { lerEtapa } from "@/lib/fabrica/etapas";
+import {
+  REF_DA_FABRICA, marcarTrabalhoDaFabrica, moverPedidoDaFabrica, moverPedidosDaFabrica, salvarEtapasDaFabrica,
+} from "@/lib/fabrica/dados";
+import { PRIORIDADES, TIPOS, lerEtapa, type Prioridade, type TipoDeTrabalho } from "@/lib/fabrica/etapas";
 import { createClient } from "@/lib/supabase/server";
 
 /**
- * Move um pedido da fábrica de etapa, anota ou guarda o rastreio.
+ * As ações da fila da fábrica: mover, anotar, marcar tipo, prioridade e prazo,
+ * e editar as etapas.
  *
  * A área é conferida aqui e de novo dentro da função do banco, que é quem
- * grava e quem guarda o nome de quem moveu.
+ * grava e quem guarda o nome de quem mexeu.
  */
 export async function moverPedido(
   ref: string,
@@ -48,6 +52,48 @@ export async function moverVarios(
   if (!destino || lista.length === 0) return { ok: false, erro: "Escolha pelo menos um pedido e a etapa." };
   if (lista.length > TETO_DA_LEVA) return { ok: false, erro: `Dá para mover até ${TETO_DA_LEVA} pedidos por vez.` };
   const r = await moverPedidosDaFabrica(await createClient(), { refs: lista, etapa: destino });
+  if (r.ok) revalidatePath("/admin/fabrica");
+  return r;
+}
+
+const DIA = /^\d{4}-\d{2}-\d{2}$/;
+
+/** Tipo, prioridade e prazo de um trabalho. Prazo vazio apaga. */
+export async function marcarTrabalho(
+  ref: string,
+  a: { tipo: string; prioridade: string; prazo: string },
+): Promise<{ ok: true } | { ok: false; erro: string }> {
+  await requireArea("fabrica");
+  if (typeof ref !== "string" || !REF_DA_FABRICA.test(ref)) return { ok: false, erro: "Pedido inválido." };
+  const tipo = TIPOS.find((t) => t.chave === a?.tipo)?.chave as TipoDeTrabalho | undefined;
+  const prioridade = PRIORIDADES.find((p) => p.chave === a?.prioridade)?.chave as Prioridade | undefined;
+  if (!tipo || !prioridade) return { ok: false, erro: "Escolha o tipo e a prioridade." };
+  const prazo = typeof a.prazo === "string" && DIA.test(a.prazo) ? a.prazo : undefined;
+  const r = await marcarTrabalhoDaFabrica(await createClient(), { ref, tipo, prioridade, prazo, semPrazo: !prazo });
+  if (r.ok) revalidatePath("/admin/fabrica");
+  return r;
+}
+
+export type EtapaParaSalvar = { chave: string | null; nome: string; frase: string | null; cor: string; ativa: boolean };
+
+/**
+ * Grava a lista inteira de etapas, na ordem. Diretoria e gerente; a função do
+ * banco confere de novo e diz o que está errado (entrada fora do começo,
+ * etapa com trabalho sendo desligada).
+ */
+export async function salvarEtapas(etapas: EtapaParaSalvar[]): Promise<{ ok: true } | { ok: false; erro: string }> {
+  const quem = await requireArea("fabrica");
+  if (!ehAdmin(quem.role) && quem.role !== "gerente") return { ok: false, erro: "Só a diretoria e o gerente mudam as etapas." };
+  if (!Array.isArray(etapas) || etapas.length < 2 || etapas.length > 20) return { ok: false, erro: "Mande de 2 a 20 etapas." };
+  const lista = etapas.map((e) => ({
+    chave: typeof e?.chave === "string" && lerEtapa(e.chave) ? e.chave : null,
+    nome: String(e?.nome ?? "").trim().slice(0, 40),
+    frase: typeof e?.frase === "string" && e.frase.trim() ? e.frase.trim().slice(0, 120) : null,
+    cor: typeof e?.cor === "string" && /^#[0-9a-f]{6}$/i.test(e.cor) ? e.cor.toLowerCase() : "#5b6472",
+    ativa: e?.ativa !== false,
+  }));
+  if (lista.some((e) => /[—–]/.test(e.nome) || /[—–]/.test(e.frase ?? ""))) return { ok: false, erro: "Sem travessão no nome nem na frase da etapa." };
+  const r = await salvarEtapasDaFabrica(await createClient(), lista);
   if (r.ok) revalidatePath("/admin/fabrica");
   return r;
 }

@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { miniaturaDaTray } from "@/lib/catalogo/fotos";
-import { lerEtapa, type Etapa } from "./etapas";
+import { lerEtapa, lerEtapas, lerPrioridade, lerTipo, type Etapa, type EtapaDaFabrica, type Prioridade, type TipoDeTrabalho } from "./etapas";
 
 /**
  * Leitura e escrita da fila da fábrica (0067).
@@ -32,6 +32,12 @@ export type PedidoDaFabrica = {
   origem: "loja" | "por_fora";
   /** O número do pedido na loja. `null` em venda por fora. */
   pedido: number | null;
+  /** Código da ordem de serviço (0191): o número grande da fábrica. `null` em pedido antigo que ninguém tocou. */
+  os: number | null;
+  tipo: TipoDeTrabalho;
+  prioridade: Prioridade;
+  /** Data em que o cliente precisa da peça, `AAAA-MM-DD`. */
+  prazo: string | null;
   /** Dia do pedido, `AAAA-MM-DD`. */
   dia: string;
   feitoEm: string;
@@ -58,7 +64,12 @@ export type PedidoDaFabrica = {
   desfeitoNaKommo: boolean;
 };
 
-export type FilaDaFabrica = { dias: number; pedidos: PedidoDaFabrica[] };
+export type FilaDaFabrica = {
+  dias: number;
+  /** As etapas da tabela `fabrica_etapas`, na ordem, inclusive as desligadas. */
+  etapas: EtapaDaFabrica[];
+  pedidos: PedidoDaFabrica[];
+};
 
 const texto = (v: unknown): string | null => (typeof v === "string" && v.trim() ? v.trim() : null);
 
@@ -69,11 +80,15 @@ export async function lerFilaDaFabrica(db: SupabaseClient, dias: number): Promis
     console.error("[fabrica] fila_da_fabrica:", error.message);
     return null;
   }
-  const cru = (data ?? {}) as { dias?: number; pedidos?: Record<string, unknown>[] };
+  const cru = (data ?? {}) as { dias?: number; etapas?: unknown; pedidos?: Record<string, unknown>[] };
   const pedidos = (cru.pedidos ?? []).map((p): PedidoDaFabrica => ({
     ref: texto(p.ref) ?? String(p.pedido ?? ""),
     origem: p.origem === "por_fora" ? "por_fora" : "loja",
     pedido: p.pedido === null || p.pedido === undefined ? null : Number(p.pedido),
+    os: p.os === null || p.os === undefined || !Number.isFinite(Number(p.os)) ? null : Number(p.os),
+    tipo: lerTipo(p.tipo),
+    prioridade: lerPrioridade(p.prioridade),
+    prazo: typeof p.prazo === "string" && /^\d{4}-\d{2}-\d{2}$/.test(p.prazo) ? p.prazo : null,
     dia: String(p.dia ?? ""),
     feitoEm: String(p.feito_em ?? ""),
     statusDaLoja: texto(p.status_da_loja),
@@ -99,7 +114,7 @@ export async function lerFilaDaFabrica(db: SupabaseClient, dias: number): Promis
       miniatura: miniaturaDaTray(texto(i.foto)),
     })),
   }));
-  return { dias: Number(cru.dias ?? dias), pedidos };
+  return { dias: Number(cru.dias ?? dias), etapas: lerEtapas(cru.etapas), pedidos };
 }
 
 /**
@@ -146,4 +161,51 @@ export async function moverPedidoDaFabrica(
   // As mensagens da função já estão em português e são para a pessoa ler.
   const conhecida = /fábrica|Etapa|longo|venda|Pedido/i.test(error.message);
   return { ok: false, erro: conhecida ? error.message : "Não deu para mover o pedido agora. Tente de novo em alguns segundos." };
+}
+
+/**
+ * Tipo, prioridade e prazo de um trabalho (0191). Campo ausente não mexe;
+ * `semPrazo` apaga o prazo.
+ */
+export async function marcarTrabalhoDaFabrica(
+  db: SupabaseClient,
+  a: { ref: string; tipo?: TipoDeTrabalho; prioridade?: Prioridade; prazo?: string; semPrazo?: boolean },
+): Promise<{ ok: true } | { ok: false; erro: string }> {
+  const { error } = await db.rpc("fabrica_marcar", {
+    p_ref: a.ref,
+    p_tipo: a.tipo ?? null,
+    p_prioridade: a.prioridade ?? null,
+    p_prazo: a.prazo ?? null,
+    p_sem_prazo: a.semPrazo === true,
+  });
+  if (!error) return { ok: true };
+  console.error("[fabrica] fabrica_marcar:", error.message);
+  const conhecida = /fábrica|Tipo|Prioridade|Prazo|venda|Pedido/i.test(error.message);
+  return { ok: false, erro: conhecida ? error.message : "Não deu para guardar agora. Tente de novo em alguns segundos." };
+}
+
+/** As etapas, para a tela de editar. `null` quando a pessoa não vê a fábrica ou a leitura falhou. */
+export async function lerEtapasDaFabrica(db: SupabaseClient): Promise<(EtapaDaFabrica & { trabalhos: number })[] | null> {
+  const { data, error } = await db.rpc("fabrica_etapas_lista");
+  if (error || !Array.isArray(data)) {
+    if (error) console.error("[fabrica] fabrica_etapas_lista:", error.message);
+    return null;
+  }
+  const contagem = new Map((data as Record<string, unknown>[]).map((e) => [String(e.chave), Number(e.trabalhos) || 0]));
+  return lerEtapas(data).map((e) => ({ ...e, trabalhos: contagem.get(e.chave) ?? 0 }));
+}
+
+/**
+ * Grava a lista inteira de etapas, na ordem (0191). Só diretoria e gerente: a
+ * função do banco confere. Etapa sem chave é nova.
+ */
+export async function salvarEtapasDaFabrica(
+  db: SupabaseClient,
+  etapas: { chave: string | null; nome: string; frase: string | null; cor: string; ativa: boolean }[],
+): Promise<{ ok: true } | { ok: false; erro: string }> {
+  const { error } = await db.rpc("fabrica_etapas_salvar", { p_etapas: etapas });
+  if (!error) return { ok: true };
+  console.error("[fabrica] fabrica_etapas_salvar:", error.message);
+  const conhecida = /etapa|Etapa|gerente|Cor|travessão|Mande/i.test(error.message);
+  return { ok: false, erro: conhecida ? error.message : "Não deu para guardar as etapas agora. Tente de novo em alguns segundos." };
 }

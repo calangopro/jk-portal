@@ -76,7 +76,7 @@ import { SETORES, abasDaBarra, nomeDoSetor, ondeEstou, setoresDe } from "../src/
 import { PECA_VAZIA, lerProducao, montarInfo } from "../src/lib/vendas/producao.ts";
 import { avaliarSaude, diaEHora, haQuantoTempo, resumoDoErro, sinaisDaSaude, type SaudeCrua } from "../src/lib/painel/saude.ts";
 import { REGRAS_DE_PARTIDA, diaPorExtenso, diasDeProducao, diasDesde, lerRegras, proximoMalote, quandoFica, somarDiasUteis } from "../src/lib/vendas/prazos.ts";
-import { DIAS_DE_ATENCAO, DIAS_DE_ATRASO, SEM_FILTRO, diasEntreDatas, esperaEmPalavra, etapaAnterior, filtrarFila, grupoDaEntrega, lerEntrega, lerEspecificacoes, lerEtapa, proximaEtapa, tomDaEspera } from "../src/lib/fabrica/etapas.ts";
+import { DIAS_DE_ATENCAO, DIAS_DE_ATRASO, ETAPAS_DE_FABRICA, SEM_FILTRO, acaoPara, atrasado, dataInterna, diasEntreDatas, esperaEmPalavra, etapaAnterior, filtrarFila, grupoDaEntrega, lerEntrega, lerEspecificacoes, lerEtapa, lerEtapas, lerPrioridade, lerTipo, nomeDaEtapa, ordenarFila, proximaEtapa, situacaoDoPrazo, tomDaEspera } from "../src/lib/fabrica/etapas.ts";
 
 let falhas = 0;
 function confere(nome: string, ok: boolean, detalhe = "") {
@@ -1063,8 +1063,41 @@ console.log("\nFila da fábrica");
   confere("campo vazio, linha sem valor e linha sem dois pontos não quebram", lerEspecificacoes(null).length === 0 && lerEspecificacoes("Gravação - Aro 01: <br />").length === 0 && lerEspecificacoes("embrulhar para presente")[0].rotulo === "Observação");
   confere("quebra de linha comum também separa", lerEspecificacoes("Numeração - Aro 01: 16\nNumeração - Aro 02: 18").length === 2);
 
-  confere("as etapas andam na ordem e param nas pontas", proximaEtapa("a_produzir") === "em_producao" && proximaEtapa("pronto") === "enviado" && proximaEtapa("enviado") === null && etapaAnterior("a_produzir") === null && etapaAnterior("enviado") === "pronto");
-  confere("etapa desconhecida não é aceita", lerEtapa("pronto") === "pronto" && lerEtapa("cancelado") === null && lerEtapa(undefined) === null);
+  const E = ETAPAS_DE_FABRICA;
+  confere("as etapas andam na ordem e param nas pontas", proximaEtapa(E, "a_produzir") === "separacao" && proximaEtapa(E, "pronto") === "enviado" && proximaEtapa(E, "enviado") === null && etapaAnterior(E, "a_produzir") === null && etapaAnterior(E, "enviado") === "pronto");
+  const semGravacao = E.map((e) => (e.chave === "gravacao" ? { ...e, ativa: false } : e));
+  confere("etapa desligada é pulada no avançar", proximaEtapa(semGravacao, "em_producao") === "embalar" && etapaAnterior(semGravacao, "embalar") === "em_producao");
+  confere("Entregue, desligada, não vem depois de Enviado", proximaEtapa(E, "enviado") === null && proximaEtapa(E.map((e) => ({ ...e, ativa: true })), "enviado") === null);
+  confere("chave de etapa: formato de texto, não lista fechada", lerEtapa("pronto") === "pronto" && lerEtapa("cravacao") === "cravacao" && lerEtapa("Cancelado") === null && lerEtapa("1x") === null && lerEtapa(undefined) === null);
+  confere("o nome da etapa sai da lista, e etapa nova cai no nome da chave", nomeDaEtapa("a_produzir") === "Chegou pedido" && nomeDaEtapa("pronto") === "Enviar" && nomeDaEtapa("polimento_extra") === "Polimento extra" && nomeDaEtapa("cravacao", [{ chave: "cravacao", nome: "Cravação", frase: null, cor: "#000000", ativa: true, papel: "meio" }]) === "Cravação");
+  confere("o botão diz para onde leva", acaoPara(E[1]) === "Levar para Separação" && acaoPara(E[0]) === "Voltar para o começo" && acaoPara(E[7]) === "Marcar como enviado");
+  confere("lista do banco quebrada ou sem entrada vira a de fábrica", lerEtapas(null) === ETAPAS_DE_FABRICA && lerEtapas([{ chave: "x_y", nome: "X" }]) === ETAPAS_DE_FABRICA && lerEtapas([{ chave: "a_produzir", nome: "Chegou", papel: "entrada", cor: "#ABCDEF" }, { chave: "BAD", nome: "Ruim" }]).length === 1);
+  confere("cor inválida do banco cai na cinza", lerEtapas([{ chave: "a_produzir", nome: "Chegou", papel: "entrada", cor: "vermelho" }])[0].cor === "#5b6472");
+  confere("tipo e prioridade desconhecidos caem no padrão", lerTipo("troca") === "troca" && lerTipo("xpto") === "venda_nova" && lerPrioridade("motoboy") === "motoboy" && lerPrioridade(null) === "normal");
+
+  // A data interna da fábrica: a regra que o sistema do Daniel aplica.
+  confere("pedido normal: a fábrica termina 3 dias antes do prazo", dataInterna("2026-11-24", "normal") === "2026-11-21" && dataInterna("2026-12-02", "normal") === "2026-11-29");
+  confere("urgente e motoboy: a fábrica termina no próprio prazo", dataInterna("2026-11-24", "urgente") === "2026-11-24" && dataInterna("2026-11-24", "motoboy") === "2026-11-24");
+  confere("sem prazo, sem data interna", dataInterna(null, "normal") === null && dataInterna("24/11/2026", "normal") === null);
+  const sit = (prazo: string | null, hoje: string, prioridade: "normal" | "urgente" = "normal", etapa = "em_producao") => situacaoDoPrazo({ prazo, prioridade, etapa }, hoje);
+  confere("prazo longe: neutro, com a data da fábrica", sit("2026-11-30", "2026-11-20")?.tom === "neutro" && sit("2026-11-30", "2026-11-20")?.palavra === "Fábrica até 27/11");
+  confere("chegou a data da fábrica: atenção", sit("2026-11-30", "2026-11-27")?.tom === "atencao" && sit("2026-11-30", "2026-11-30")?.palavra === "Prazo é hoje");
+  confere("passou do prazo: vermelho", sit("2026-11-20", "2026-11-21")?.tom === "ruim" && sit("2026-11-20", "2026-11-21")?.palavra === "Passou do prazo, 20/11");
+  confere("sem prazo ou já enviado, a régua é a espera", sit(null, "2026-11-21") === null && sit("2026-11-01", "2026-11-21", "normal", "enviado") === null);
+  const base = { pedido: 1, dia: "2026-11-10", cliente: null, cidade: null, entrega: null, rastreio: null, nota: null, pecas: [] as { nome: string; referencia: string | null; info: string | null }[] };
+  confere("atrasado: pelo prazo quando há, pela espera quando não há",
+    atrasado({ ...base, etapa: "em_producao", prazo: "2026-11-30" }, "2026-11-20") === false
+    && atrasado({ ...base, etapa: "em_producao", prazo: null }, "2026-11-20") === true
+    && atrasado({ ...base, etapa: "em_producao", prazo: "2026-11-15" }, "2026-11-16") === true);
+  const ordem = ordenarFila([
+    { ...base, pedido: 1, etapa: "a_produzir", dia: "2026-11-01" },
+    { ...base, pedido: 2, etapa: "a_produzir", dia: "2026-11-15", prioridade: "urgente" as const },
+    { ...base, pedido: 3, etapa: "a_produzir", dia: "2026-11-14", prazo: "2026-11-03" }, // data interna 31/10, antes da chegada do 1,
+    { ...base, pedido: 4, etapa: "a_produzir", dia: "2026-11-16", prioridade: "motoboy" as const },
+  ]).map((p) => p.pedido).join(",");
+  confere("ordem da bancada: motoboy, urgente, depois a data interna mais perto", ordem === "4,2,3,1", ordem);
+  confere("a busca acha pela OS e pelo tipo", filtrarFila([{ ...base, etapa: "a_produzir", os: 1135, tipo: "troca" as const }], { ...SEM_FILTRO, busca: "os 1135" }, "2026-11-20").length === 1
+    && filtrarFila([{ ...base, etapa: "a_produzir", os: 1135, tipo: "troca" as const }], { ...SEM_FILTRO, busca: "troca" }, "2026-11-20").length === 1);
   confere("conta os dias corridos desde o pagamento", diasEntreDatas("2026-11-10", "2026-11-14") === 4 && diasEntreDatas("2026-10-30", "2026-11-02") === 3 && diasEntreDatas("2026-11-14", "2026-11-14") === 0);
   confere("a espera ganha âmbar e vermelho pelos prazos de partida", tomDaEspera(DIAS_DE_ATENCAO - 1, "a_produzir") === "neutro" && tomDaEspera(DIAS_DE_ATENCAO, "em_producao") === "atencao" && tomDaEspera(DIAS_DE_ATRASO, "pronto") === "ruim");
   confere("pedido enviado não espera mais nada", tomDaEspera(30, "enviado") === "neutro");

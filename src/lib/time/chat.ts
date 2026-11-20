@@ -858,7 +858,14 @@ export function comMarcas(escrito: string, pessoas: readonly Pessoa[], podeMeta:
 
 // ----- o pedido marcado
 
-export const NOME_DA_ETAPA: Record<string, string> = { a_produzir: "A produzir", em_producao: "Em produção", pronto: "Pronto", enviado: "Enviado" };
+/**
+ * Os nomes de partida das etapas da fábrica (0191). A lista de verdade é a
+ * tabela `fabrica_etapas`, que a diretoria edita; aqui fica a de partida,
+ * repetida de `ETAPAS_DE_FABRICA` (`lib/fabrica/etapas.ts`) porque módulo puro
+ * não importa função de irmão. Etapa criada no painel não está aqui: quem
+ * lê usa a chave quando o nome falta.
+ */
+export const NOME_DA_ETAPA: Record<string, string> = { a_produzir: "Chegou pedido", separacao: "Separação", em_producao: "Produção", gravacao: "Gravação", embalar: "Embalar", verificar: "Verificar", pronto: "Enviar", enviado: "Enviado", entregue: "Entregue" };
 
 /** O pedido na lista da busca do "/pedido". Sem valor; o cliente só vem para quem já vê cliente em outra tela. */
 export type PedidoAchado = { numero: number; dia: string; situacao: string; etapa: string | null; cliente: string | null; peca: string | null; pecas: number };
