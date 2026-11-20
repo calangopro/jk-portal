@@ -28,8 +28,12 @@ export type PedidoDaFabrica = {
    * ou "v" mais o código da venda por fora (0075). É a chave de tudo na tela.
    */
   ref: string;
-  /** De onde veio: pedido pago na loja ou venda fechada por fora. */
-  origem: "loja" | "por_fora";
+  /** De onde veio: pedido pago na loja, venda fechada por fora ou OS aberta à mão (troca, polimento..., 0192). */
+  origem: "loja" | "por_fora" | "avulso";
+  /** Na OS aberta à mão, o pedido da loja de onde ela veio (a troca do pedido tal). */
+  pedidoOrigem: number | null;
+  /** Os pedidos de alteração do cliente (0192). Os sem `cienteEm` deixam o cartão em vermelho. */
+  alteracoes: AlteracaoDaFabrica[];
   /** O número do pedido na loja. `null` em venda por fora. */
   pedido: number | null;
   /** Código da ordem de serviço (0191): o número grande da fábrica. `null` em pedido antigo que ninguém tocou. */
@@ -64,8 +68,12 @@ export type PedidoDaFabrica = {
   desfeitoNaKommo: boolean;
 };
 
+export type AlteracaoDaFabrica = { id: number; texto: string; em: string; por: string | null; cienteEm: string | null; cientePor: string | null };
+
 export type FilaDaFabrica = {
   dias: number;
+  /** A pessoa move, marca e dá ciência (área `fabrica`). Quem vende lê a fila sem mover. */
+  podeMover: boolean;
   /** As etapas da tabela `fabrica_etapas`, na ordem, inclusive as desligadas. */
   etapas: EtapaDaFabrica[];
   pedidos: PedidoDaFabrica[];
@@ -80,10 +88,19 @@ export async function lerFilaDaFabrica(db: SupabaseClient, dias: number): Promis
     console.error("[fabrica] fila_da_fabrica:", error.message);
     return null;
   }
-  const cru = (data ?? {}) as { dias?: number; etapas?: unknown; pedidos?: Record<string, unknown>[] };
+  const cru = (data ?? {}) as { dias?: number; pode_mover?: boolean; etapas?: unknown; pedidos?: Record<string, unknown>[] };
   const pedidos = (cru.pedidos ?? []).map((p): PedidoDaFabrica => ({
     ref: texto(p.ref) ?? String(p.pedido ?? ""),
-    origem: p.origem === "por_fora" ? "por_fora" : "loja",
+    origem: p.origem === "por_fora" ? "por_fora" : p.origem === "avulso" ? "avulso" : "loja",
+    pedidoOrigem: p.pedido_origem === null || p.pedido_origem === undefined || !Number.isFinite(Number(p.pedido_origem)) ? null : Number(p.pedido_origem),
+    alteracoes: (Array.isArray(p.alteracoes) ? (p.alteracoes as Record<string, unknown>[]) : []).map((a) => ({
+      id: Number(a.id),
+      texto: texto(a.texto) ?? "",
+      em: String(a.em ?? ""),
+      por: texto(a.por),
+      cienteEm: texto(a.ciente_em),
+      cientePor: texto(a.ciente_por),
+    })),
     pedido: p.pedido === null || p.pedido === undefined ? null : Number(p.pedido),
     os: p.os === null || p.os === undefined || !Number.isFinite(Number(p.os)) ? null : Number(p.os),
     tipo: lerTipo(p.tipo),
@@ -114,14 +131,14 @@ export async function lerFilaDaFabrica(db: SupabaseClient, dias: number): Promis
       miniatura: miniaturaDaTray(texto(i.foto)),
     })),
   }));
-  return { dias: Number(cru.dias ?? dias), etapas: lerEtapas(cru.etapas), pedidos };
+  return { dias: Number(cru.dias ?? dias), podeMover: cru.pode_mover === true, etapas: lerEtapas(cru.etapas), pedidos };
 }
 
 /**
- * A referência de um trabalho da fábrica: número de pedido da loja ou "v" mais
- * o código da venda por fora. Conferida antes de ir ao banco.
+ * A referência de um trabalho da fábrica: número de pedido da loja, "v" mais
+ * o código da venda por fora ou "a" mais o da OS aberta à mão (0192). Conferida antes de ir ao banco.
  */
-export const REF_DA_FABRICA = /^(?:[0-9]{1,12}|v[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/;
+export const REF_DA_FABRICA = /^(?:[0-9]{1,12}|[va][0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/;
 
 /**
  * Move vários pedidos de uma vez para a mesma etapa (0068, por referência desde a 0075). Serve para pôr a
@@ -208,4 +225,55 @@ export async function salvarEtapasDaFabrica(
   console.error("[fabrica] fabrica_etapas_salvar:", error.message);
   const conhecida = /etapa|Etapa|gerente|Cor|travessão|Mande/i.test(error.message);
   return { ok: false, erro: conhecida ? error.message : "Não deu para guardar as etapas agora. Tente de novo em alguns segundos." };
+}
+
+const erroDaFuncao = (nome: string, msg: string, padrao: string) => {
+  console.error(`[fabrica] ${nome}:`, msg);
+  // As mensagens das funções da fábrica já estão em português e são para a pessoa ler.
+  return /acesso|Diga|Escreva|Tipo|Prioridade|prazo|Telefone|pedido|OS|alteração|peças/i.test(msg) ? msg : padrao;
+};
+
+export type OsParaAbrir = {
+  tipo: TipoDeTrabalho;
+  prioridade: Prioridade;
+  prazo: string | null;
+  pedidoOrigem: number | null;
+  clienteNome: string | null;
+  clienteTelefone: string | null;
+  relato: string | null;
+  pecas: { nome: string; quantidade: number; info: string | null; produto_tray_id: string | null }[];
+  entrega: string | null;
+  endereco: string | null;
+  cidade: string | null;
+  uf: string | null;
+  loja?: string | null;
+  numeroPapel?: string | null;
+};
+
+/** Abre uma OS à mão (0192): troca, refazer, ajuste, upgrade, polimento ou serviço. */
+export async function abrirOsDaFabrica(db: SupabaseClient, os: OsParaAbrir): Promise<{ ok: true; ref: string; os: number } | { ok: false; erro: string }> {
+  const { data, error } = await db.rpc("fabrica_abrir_os", {
+    p: {
+      tipo: os.tipo, prioridade: os.prioridade, prazo: os.prazo, pedido_origem: os.pedidoOrigem,
+      cliente_nome: os.clienteNome, cliente_telefone: os.clienteTelefone, relato: os.relato, pecas: os.pecas,
+      entrega: os.entrega, endereco: os.endereco, cidade: os.cidade, uf: os.uf, loja: os.loja ?? null, numero_papel: os.numeroPapel ?? null,
+    },
+  });
+  if (error) return { ok: false, erro: erroDaFuncao("fabrica_abrir_os", error.message, "Não deu para abrir a OS agora. Tente de novo em alguns segundos.") };
+  const r = (data ?? {}) as { ref?: string; os?: number };
+  return { ok: true, ref: String(r.ref ?? ""), os: Number(r.os) };
+}
+
+/** O cliente pediu uma mudança depois de o pedido ir para a fábrica (0192). */
+export async function pedirAlteracaoNaFabrica(db: SupabaseClient, ref: string, texto: string): Promise<{ ok: true } | { ok: false; erro: string }> {
+  const { error } = await db.rpc("fabrica_pedir_alteracao", { p_ref: ref, p_texto: texto });
+  if (error) return { ok: false, erro: erroDaFuncao("fabrica_pedir_alteracao", error.message, "Não deu para mandar a alteração agora. Tente de novo em alguns segundos.") };
+  return { ok: true };
+}
+
+/** A fábrica viu a alteração (0192). */
+export async function darCienciaNaFabrica(db: SupabaseClient, id: number): Promise<{ ok: true } | { ok: false; erro: string }> {
+  const { error } = await db.rpc("fabrica_ciente", { p_id: id });
+  if (error) return { ok: false, erro: erroDaFuncao("fabrica_ciente", error.message, "Não deu para marcar agora. Tente de novo em alguns segundos.") };
+  return { ok: true };
 }

@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { ehAdmin } from "@/lib/auth/acessos";
 import { requireArea } from "@/lib/auth/session";
 import {
-  REF_DA_FABRICA, marcarTrabalhoDaFabrica, moverPedidoDaFabrica, moverPedidosDaFabrica, salvarEtapasDaFabrica,
+  REF_DA_FABRICA, darCienciaNaFabrica, marcarTrabalhoDaFabrica, moverPedidoDaFabrica, moverPedidosDaFabrica, salvarEtapasDaFabrica,
 } from "@/lib/fabrica/dados";
 import { PRIORIDADES, TIPOS, lerEtapa, type Prioridade, type TipoDeTrabalho } from "@/lib/fabrica/etapas";
 import { createClient } from "@/lib/supabase/server";
@@ -94,6 +94,15 @@ export async function salvarEtapas(etapas: EtapaParaSalvar[]): Promise<{ ok: tru
   }));
   if (lista.some((e) => /[—–]/.test(e.nome) || /[—–]/.test(e.frase ?? ""))) return { ok: false, erro: "Sem travessão no nome nem na frase da etapa." };
   const r = await salvarEtapasDaFabrica(await createClient(), lista);
+  if (r.ok) revalidatePath("/admin/fabrica");
+  return r;
+}
+
+/** A fábrica viu o pedido de alteração do cliente (0192). */
+export async function darCiencia(id: number): Promise<{ ok: true } | { ok: false; erro: string }> {
+  await requireArea("fabrica");
+  if (!Number.isSafeInteger(id) || id <= 0) return { ok: false, erro: "Alteração inválida." };
+  const r = await darCienciaNaFabrica(await createClient(), id);
   if (r.ok) revalidatePath("/admin/fabrica");
   return r;
 }

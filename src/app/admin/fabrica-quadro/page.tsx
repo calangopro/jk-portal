@@ -3,7 +3,7 @@ import { lerFilaDaFabrica } from "@/lib/fabrica/dados";
 import { lerEstacao } from "@/lib/fabrica/etapas";
 import { createClient } from "@/lib/supabase/server";
 import { hojeEmSaoPaulo } from "@/lib/vendas/periodo";
-import { moverPedido } from "../(painel)/fabrica/actions";
+import { darCiencia, moverPedido } from "../(painel)/fabrica/actions";
 import { QuadroDaFabrica } from "./Quadro";
 
 export const metadata = { title: "Quadro da fábrica" };
@@ -32,6 +32,7 @@ export default async function QuadroPage({ searchParams }: { searchParams: Promi
       so={fila ? lerEstacao(sp.so, fila.etapas) : []}
       meuId={quem.areas.includes("time") ? quem.id : null}
       mover={moverPedido}
+      ciente={darCiencia}
     />
   );
 }

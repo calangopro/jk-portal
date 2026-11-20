@@ -447,3 +447,33 @@ export function lerEstacao(cru: string | null | undefined, etapas: EtapaDaFabric
   const ligadas = new Set(etapasAtivas(etapas).map((e) => e.chave));
   return [...new Set(cru.split(",").map((x) => x.trim()))].filter((x) => lerEtapa(x) && ligadas.has(x));
 }
+
+// ------------------------------------------- o que dizer ao cliente (63)
+
+const FRASE_DA_ETAPA: Record<string, string> = {
+  a_produzir: "já chegou na nossa fábrica e entra em produção em breve",
+  separacao: "está na separação do material",
+  em_producao: "está sendo produzido na nossa fábrica",
+  gravacao: "está na gravação",
+  embalar: "está sendo embalado",
+  verificar: "está na conferência final",
+  pronto: "está pronto e sai da fábrica em breve",
+  enviado: "já saiu da nossa fábrica",
+  entregue: "já foi entregue",
+};
+
+/**
+ * A frase pronta para o vendedor mandar ao cliente que pergunta "em que etapa
+ * está?". Só a etapa, nunca prazo inventado: prazo quem promete é o vendedor.
+ */
+export function fraseParaOCliente(a: { cliente: string | null; pedido: number | null; etapa: Etapa; nomeDaEtapa: string; rastreio: string | null }): string {
+  const nome = (a.cliente ?? "").trim().split(/\s+/)[0];
+  const ola = nome ? `Oi, ${nome[0].toUpperCase()}${nome.slice(1).toLowerCase()}!` : "Oi!";
+  const qual = a.pedido !== null ? `Seu pedido ${a.pedido}` : "Seu pedido";
+  const onde = FRASE_DA_ETAPA[a.etapa] ?? `está na etapa de ${a.nomeDaEtapa.toLowerCase()}`;
+  const rastreio = a.etapa === "enviado" && a.rastreio ? ` O código de rastreio é ${a.rastreio}.` : "";
+  return `${ola} ${qual} ${onde}.${rastreio}`;
+}
+
+/** A alteração que a fábrica ainda não viu. */
+export const alteracoesAbertas = <T extends { cienteEm: string | null }>(l: T[]) => l.filter((a) => !a.cienteEm);

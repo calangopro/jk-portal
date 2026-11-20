@@ -15,6 +15,7 @@ import { nomeLimpo } from "@/lib/vendas/origem";
 import { diaCurto } from "@/lib/vendas/periodo";
 import { SeloDeTom } from "../Pecas";
 import { AcoesDoPedido } from "./AcoesDoPedido";
+import { AlteracoesDoTrabalho, type DarCiencia } from "./Alteracoes";
 import { BotaoDoHistorico } from "../pedido/abrir";
 
 /**
@@ -45,8 +46,13 @@ export type Marcar = (ref: string, a: { tipo: string; prioridade: string; prazo:
 /** A faixa de cor da prioridade, como o envelope rosa de "URGENTE / REFAZER". Texto escuro sobre claro, acima de 4,5:1. */
 const COR_DA_PRIORIDADE = { urgente: { fundo: "#fde8e8", texto: "#9b1c1c" }, motoboy: { fundo: "#fdeedc", texto: "#8a3b06" } } as const;
 
-/** Como o trabalho se chama no cartão: o número do pedido da loja, ou "Venda por fora". */
-const nomeDoTrabalho = (p: PedidoDaFabrica) => (p.pedido !== null ? `Pedido ${p.pedido}` : "Venda por fora");
+/** Como o trabalho se chama no cartão: o número do pedido da loja, "Venda por fora" ou o tipo da OS aberta à mão. */
+export const nomeDoTrabalho = (p: PedidoDaFabrica) =>
+  p.pedido !== null
+    ? `Pedido ${p.pedido}`
+    : p.origem === "avulso"
+      ? `${NOME_DO_TIPO[p.tipo]}${p.pedidoOrigem ? ` do pedido ${p.pedidoOrigem}` : ", aberta à mão"}`
+      : "Venda por fora";
 
 const ICONE_DA_ENTREGA: Record<Entrega["tipo"], LucideIcon> = { retirada: Store, motoboy: Bike, correios: Truck, envio: Truck };
 const GRUPOS: GrupoDeEntrega[] = ["retirada", "motoboy", "envio"];
@@ -108,13 +114,14 @@ function Especificacoes({ lista }: { lista: Especificacao[] }) {
 }
 
 function CartaoDoPedido({
-  p, etapas, hoje, mover, marcar, mostrarEtapa, escolhendo, marcado, onMarcar, onZoom,
+  p, etapas, hoje, mover, marcar, ciente, mostrarEtapa, escolhendo, marcado, onMarcar, onZoom,
 }: {
   p: PedidoDaFabrica;
   etapas: EtapaDaFabrica[];
   hoje: string;
   mover: Mover;
   marcar: Marcar;
+  ciente: DarCiencia;
   /** Na busca, o cartão diz em que etapa o pedido está. */
   mostrarEtapa: boolean;
   escolhendo: boolean;
@@ -175,6 +182,9 @@ function CartaoDoPedido({
               {p.cidade ? `, ${p.cidade}${p.uf ? ` (${p.uf})` : ""}` : ""}
             </p>
             {/* Venda por fora não está na loja: a dúvida da fábrica vai para quem vendeu. */}
+            {p.origem === "avulso" ? (
+              <p className="mt-0.5 text-xs font-semibold text-[var(--setor)]">{p.vendedor ? `OS aberta por ${p.vendedor}` : "OS aberta à mão"}</p>
+            ) : null}
             {p.origem === "por_fora" ? (
               <p className="mt-0.5 text-xs font-semibold text-[var(--setor)]">
                 {p.vendedor ? `Vendida por ${p.vendedor}, ${p.kommo ? "pela Kommo" : "fora da loja"}` : p.kommo ? "Vendida pela Kommo" : "Vendida fora da loja"}
@@ -266,6 +276,8 @@ function CartaoDoPedido({
         })}
       </ul>
 
+      <AlteracoesDoTrabalho lista={p.alteracoes} ciente={ciente} />
+
       {p.endereco ? (
         <p className="mt-3 break-words rounded-[10px] border border-ink/10 bg-white p-2.5 text-xs leading-relaxed text-ink">
           <span className="font-bold">Entregar em:</span> {p.endereco}
@@ -322,7 +334,7 @@ function Filtro({ ativo, onClick, children, numero, tom }: { ativo: boolean; onC
 }
 
 export function ListaDaFabrica({
-  pedidos, etapas, etapa, hoje, buscaInicial = "", mover, moverVarios, marcar,
+  pedidos, etapas, etapa, hoje, buscaInicial = "", mover, moverVarios, marcar, ciente,
 }: {
   /** Todos os pedidos da janela, de todas as etapas: a busca procura em todos. */
   pedidos: PedidoDaFabrica[];
@@ -334,6 +346,7 @@ export function ListaDaFabrica({
   mover: Mover;
   moverVarios: MoverVarios;
   marcar: Marcar;
+  ciente: DarCiencia;
 }) {
   const router = useRouter();
   const [filtro, setFiltro] = useState<FiltroDaFila>(() => (buscaInicial ? { ...SEM_FILTRO, busca: buscaInicial } : SEM_FILTRO));
@@ -564,6 +577,7 @@ export function ListaDaFabrica({
               hoje={hoje}
               mover={mover}
               marcar={marcar}
+              ciente={ciente}
               mostrarEtapa={buscando}
               escolhendo={escolhendo}
               marcado={marcados.has(p.ref) && !saiuPelaLoja(p)}

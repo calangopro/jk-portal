@@ -4,7 +4,7 @@ import { lerFilaDaFabrica } from "@/lib/fabrica/dados";
 import { ENTRADA, lerEtapa } from "@/lib/fabrica/etapas";
 import { createClient } from "@/lib/supabase/server";
 import { hojeEmSaoPaulo } from "@/lib/vendas/periodo";
-import { marcarTrabalho, moverPedido, moverVarios, salvarEtapas } from "./actions";
+import { darCiencia, marcarTrabalho, moverPedido, moverVarios, salvarEtapas } from "./actions";
 import { JANELAS, TelaDaFabrica } from "./Tela";
 
 export const metadata = { title: "Fila da fábrica" };
@@ -37,6 +37,7 @@ export default async function FabricaPage({ searchParams }: { searchParams: Prom
       mover={moverPedido}
       moverVarios={moverVarios}
       marcar={marcarTrabalho}
+      ciente={darCiencia}
       salvarEtapas={ehAdmin(quem.role) || quem.role === "gerente" ? salvarEtapas : undefined}
     />
   );

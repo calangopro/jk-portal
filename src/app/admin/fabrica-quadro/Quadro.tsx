@@ -10,6 +10,7 @@ import {
   proximaEtapa, situacaoDoPrazo, tempoNaEtapa, type Etapa, type EtapaDaFabrica,
 } from "@/lib/fabrica/etapas";
 import { aoAvisar, avisarOTime, useAoVivo, useLigacao } from "@/lib/time/ao-vivo";
+import { AlteracoesDoTrabalho, type DarCiencia } from "../(painel)/fabrica/Alteracoes";
 import { nomeLimpo } from "@/lib/vendas/origem";
 
 /**
@@ -48,7 +49,7 @@ function lerTema(): "claro" | "escuro" {
 }
 
 export function QuadroDaFabrica({
-  fila, hoje, so, meuId, mover, aoVivo = true,
+  fila, hoje, so, meuId, mover, ciente, aoVivo = true,
 }: {
   fila: FilaDaFabrica | null;
   hoje: string;
@@ -56,6 +57,7 @@ export function QuadroDaFabrica({
   so: Etapa[];
   meuId: string | null;
   mover: Mover;
+  ciente: DarCiencia;
   /** Falso na demonstração, que não tem sessão. */
   aoVivo?: boolean;
 }) {
@@ -240,6 +242,7 @@ export function QuadroDaFabrica({
                       agora={agora}
                       cor={cor}
                       ocupado={movendo.has(p.ref)}
+                      ciente={ciente}
                       onAvancar={(para) => levar(p, para)}
                       onAbrir={() => setAberto(p.ref)}
                     />
@@ -288,7 +291,7 @@ const COR_DA_PRIORIDADE = { urgente: { fundo: "#fde8e8", texto: "#9b1c1c" }, mot
 const COR_DO_TOM = { ruim: { fundo: "#fde8e8", texto: "#9b1c1c" }, atencao: { fundo: "#fcefd9", texto: "#7a3d06" } } as const;
 
 function Cartao({
-  p, etapas, hoje, agora, cor, ocupado, onAvancar, onAbrir,
+  p, etapas, hoje, agora, cor, ocupado, ciente, onAvancar, onAbrir,
 }: {
   p: PedidoDaFabrica;
   etapas: EtapaDaFabrica[];
@@ -296,6 +299,7 @@ function Cartao({
   agora: number;
   cor: Cores;
   ocupado: boolean;
+  ciente: DarCiencia;
   onAvancar: (para: Etapa) => void;
   onAbrir: () => void;
 }) {
@@ -323,7 +327,11 @@ function Cartao({
           <div className="min-w-0">
             <p className="numeros text-[2.6rem] font-black leading-none tracking-tight">{p.os ?? "sem OS"}</p>
             <p className="numeros mt-1 text-sm font-semibold" style={{ color: cor.apagado }}>
-              {p.pedido !== null ? `Pedido ${p.pedido}` : p.vendedor ? `Venda por fora, ${p.vendedor}` : "Venda por fora"}
+              {p.pedido !== null
+                ? `Pedido ${p.pedido}`
+                : p.origem === "avulso"
+                  ? `${NOME_DO_TIPO[p.tipo]}${p.pedidoOrigem ? ` do pedido ${p.pedidoOrigem}` : ""}`
+                  : p.vendedor ? `Venda por fora, ${p.vendedor}` : "Venda por fora"}
             </p>
           </div>
           <div className="flex shrink-0 flex-col items-end gap-1 text-right">
@@ -364,6 +372,7 @@ function Cartao({
         </ul>
 
         {entrega ? <p className="mt-2 text-xs font-semibold" style={{ color: cor.apagado }}>{entrega.nome}</p> : null}
+        <AlteracoesDoTrabalho lista={p.alteracoes} ciente={ciente} grande />
         {p.nota ? (
           <p className="mt-2 flex gap-1.5 rounded-[8px] px-2 py-1.5 text-xs font-semibold" style={{ background: "#fcefd9", color: "#6d3505" }}>
             <NotebookPen size={13} className="mt-px shrink-0" aria-hidden="true" /> <span className="[overflow-wrap:anywhere]">{p.nota}</span>

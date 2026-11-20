@@ -1,5 +1,6 @@
 import type { LucideIcon } from "lucide-react";
 import {
+  Factory,
   Activity, Banknote, CircleHelp, BellRing, BookCheck, Bot, Cable, CalendarDays, Contact, Crosshair, FileText, Filter, Flame, Globe, Hammer, HandCoins,
   Handshake, HeartPulse, Kanban, History, ImageIcon, LayoutDashboard, LayoutTemplate, LibraryBig, LifeBuoy, Lightbulb, ListChecks, MapPin, MessageCircle,
   MessageSquareText, MessagesSquare, Milestone, Package, PackageSearch, Palette, PenLine, Percent, Plug, QrCode, RotateCcw, Route, Send, Settings,
@@ -82,6 +83,7 @@ export const SETORES: Setor[] = [
       { href: "/admin/pedidos-do-site", area: "lancar_venda", label: "Pedidos do site", curto: "Do site", Icone: ShoppingBag, desc: "Ache a venda que você fez pelo site e marque como sua" },
       // Passar é de quem vende (`lancar_venda`); assumir e fechar é da área `suporte`, que a própria tela confere por dentro.
       { href: "/admin/suporte", area: "lancar_venda", label: "Suporte pós-venda", curto: "Suporte", Icone: LifeBuoy, desc: "Passe o caso do cliente para o gerente" },
+      { href: "/admin/na-fabrica", area: "lancar_venda", label: "Na fábrica", curto: "Fábrica", Icone: Factory, desc: "Em que etapa está o pedido, OS de troca e alteração" },
       { href: "/admin/oportunidades", area: "lancar_venda", label: "Oportunidades", curto: "Chamar", Icone: BellRing, desc: "Quem vale chamar nos próximos dias" },
       { href: "/admin/clientes", area: "lancar_venda", label: "Clientes", Icone: Contact, desc: "A ficha de cada cliente" },
       { href: "/admin/vendas-da-kommo", area: "lancar_venda", label: "Vendas da Kommo", curto: "Kommo", Icone: Waypoints, desc: "Venda ganha na Kommo que entrou sozinha, e a fila de conferência" },
