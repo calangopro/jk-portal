@@ -477,3 +477,21 @@ export function fraseParaOCliente(a: { cliente: string | null; pedido: number | 
 
 /** A alteração que a fábrica ainda não viu. */
 export const alteracoesAbertas = <T extends { cienteEm: string | null }>(l: T[]) => l.filter((a) => !a.cienteEm);
+
+// ------------------------------------------------- a visão do gestor (64)
+
+/** Uma duração em segundos, curta: "40 min", "5 h", "2,5 dias". */
+export function duracaoCurta(segundos: number | null | undefined): string {
+  if (segundos === null || segundos === undefined || !Number.isFinite(segundos) || segundos < 0) return "sem medida";
+  const min = Math.round(segundos / 60);
+  if (min < 60) return `${Math.max(min, 1)} min`;
+  const h = segundos / 3600;
+  if (h < 24) return `${Math.round(h)} h`;
+  const d = h / 24;
+  return `${d < 10 ? d.toFixed(1).replace(".", ",").replace(",0", "") : Math.round(d)} dias`;
+}
+
+/** A parte do retrabalho no que entrou, em porcentagem inteira. Sem entrada, `null`. */
+export function parteDoRetrabalho(retrabalho: number, entradas: number): number | null {
+  return entradas > 0 ? Math.round((retrabalho / entradas) * 100) : null;
+}

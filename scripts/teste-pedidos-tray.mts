@@ -76,7 +76,7 @@ import { SETORES, abasDaBarra, nomeDoSetor, ondeEstou, setoresDe } from "../src/
 import { PECA_VAZIA, lerProducao, montarInfo } from "../src/lib/vendas/producao.ts";
 import { avaliarSaude, diaEHora, haQuantoTempo, resumoDoErro, sinaisDaSaude, type SaudeCrua } from "../src/lib/painel/saude.ts";
 import { REGRAS_DE_PARTIDA, diaPorExtenso, diasDeProducao, diasDesde, lerRegras, proximoMalote, quandoFica, somarDiasUteis } from "../src/lib/vendas/prazos.ts";
-import { DIAS_DE_ATENCAO, DIAS_DE_ATRASO, ETAPAS_DE_FABRICA, SEM_FILTRO, acaoPara, alteracoesAbertas, atrasado, colunasDoQuadro, fraseParaOCliente, dataInterna, diaEmSaoPaulo, lerEstacao, tempoNaEtapa, diasEntreDatas, esperaEmPalavra, etapaAnterior, filtrarFila, grupoDaEntrega, lerEntrega, lerEspecificacoes, lerEtapa, lerEtapas, lerPrioridade, lerTipo, nomeDaEtapa, ordenarFila, proximaEtapa, situacaoDoPrazo, tomDaEspera } from "../src/lib/fabrica/etapas.ts";
+import { DIAS_DE_ATENCAO, DIAS_DE_ATRASO, ETAPAS_DE_FABRICA, SEM_FILTRO, acaoPara, alteracoesAbertas, duracaoCurta, parteDoRetrabalho, atrasado, colunasDoQuadro, fraseParaOCliente, dataInterna, diaEmSaoPaulo, lerEstacao, tempoNaEtapa, diasEntreDatas, esperaEmPalavra, etapaAnterior, filtrarFila, grupoDaEntrega, lerEntrega, lerEspecificacoes, lerEtapa, lerEtapas, lerPrioridade, lerTipo, nomeDaEtapa, ordenarFila, proximaEtapa, situacaoDoPrazo, tomDaEspera } from "../src/lib/fabrica/etapas.ts";
 
 let falhas = 0;
 function confere(nome: string, ok: boolean, detalhe = "") {
@@ -1115,6 +1115,8 @@ console.log("\nFila da fábrica");
   confere("enviado leva o rastreio; etapa nova usa o nome dela", fraseParaOCliente({ cliente: null, pedido: 7, etapa: "enviado", nomeDaEtapa: "Enviado", rastreio: "AA1BR" }) === "Oi! Seu pedido 7 já saiu da nossa fábrica. O código de rastreio é AA1BR."
     && fraseParaOCliente({ cliente: "Ana", pedido: null, etapa: "cravacao", nomeDaEtapa: "Cravação", rastreio: null }) === "Oi, Ana! Seu pedido está na etapa de cravação.");
   confere("alteração aberta é a sem ciência", alteracoesAbertas([{ cienteEm: null }, { cienteEm: "2026-11-20T10:00:00Z" }]).length === 1);
+  confere("duração curta", duracaoCurta(30) === "1 min" && duracaoCurta(2400) === "40 min" && duracaoCurta(5 * 3600) === "5 h" && duracaoCurta(2.5 * 86400) === "2,5 dias" && duracaoCurta(2 * 86400) === "2 dias" && duracaoCurta(null) === "sem medida");
+  confere("parte do retrabalho", parteDoRetrabalho(3, 40) === 8 && parteDoRetrabalho(0, 0) === null);
   confere("a busca acha pela OS e pelo tipo", filtrarFila([{ ...base, etapa: "a_produzir", os: 1135, tipo: "troca" as const }], { ...SEM_FILTRO, busca: "os 1135" }, "2026-11-20").length === 1
     && filtrarFila([{ ...base, etapa: "a_produzir", os: 1135, tipo: "troca" as const }], { ...SEM_FILTRO, busca: "troca" }, "2026-11-20").length === 1);
   confere("conta os dias corridos desde o pagamento", diasEntreDatas("2026-11-10", "2026-11-14") === 4 && diasEntreDatas("2026-10-30", "2026-11-02") === 3 && diasEntreDatas("2026-11-14", "2026-11-14") === 0);
