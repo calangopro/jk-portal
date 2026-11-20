@@ -187,14 +187,15 @@ export async function avaliarItens(
   completo: boolean,
 ): Promise<{ porProduto: Record<string, Avaliacao>; margemMinima: number | null }> {
   if (!itens.length) return { porProduto: {}, margemMinima: null };
-  const [parametros, familias, { data: custos }] = await Promise.all([
+  const ids = itens.map((i) => i.productId);
+  const [parametros, familias, { data: custos }, { data: produtos }] = await Promise.all([
     lerParametros(servico),
     lerFamilias(servico),
-    servico
-      .from("produto_custos")
-      .select("product_id, material, familia, gramas, resto, custo_fixo")
-      .in("product_id", itens.map((i) => i.productId)),
+    servico.from("produto_custos").select("product_id, material, familia, gramas, resto, custo_fixo").in("product_id", ids),
+    // O nome dá a largura da prata 950, que não tem linha de custo.
+    servico.from("products").select("id, name").in("id", ids),
   ]);
+  const nomes = new Map((produtos ?? []).map((p) => [p.id as string, p.name as string]));
   const mapaFamilias = new Map(familias.map((f) => [f.codigo, f]));
   const porId = new Map(
     (custos ?? []).map((c) => [
@@ -211,7 +212,7 @@ export async function avaliarItens(
 
   const porProduto: Record<string, Avaliacao> = {};
   for (const i of itens) {
-    const c = custoDoProduto(porId.get(i.productId) ?? null, mapaFamilias, parametros);
+    const c = custoDoProduto(porId.get(i.productId) ?? null, mapaFamilias, parametros, nomes.get(i.productId) ?? null);
     if (c.valor === null || !i.precoCheio) {
       porProduto[i.productId] = { situacao: "sem_custo" };
       continue;

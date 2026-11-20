@@ -6,7 +6,7 @@ import { Check, FileUp, Loader2 } from "lucide-react";
 import { cotacaoDo, reais, ROTULO_DO_MATERIAL, type Parametros } from "@/lib/margem/calculo";
 import type { FamiliaComProdutos } from "@/lib/margem/dados";
 import { lerXlsx } from "@/lib/margem/ler-xlsx";
-import { lerPlanilhaDoDono, type ImportacaoDeCustos } from "@/lib/margem/planilha-do-dono";
+import { ehPlanilhaDePesos, lerPlanilhaDePesos, lerPlanilhaDoDono, type ImportacaoDeCustos } from "@/lib/margem/planilha-do-dono";
 import { importarPlanilhaDeCustos, salvarFamiliaDeOuro, salvarParametrosDeCusto } from "./actions";
 
 /** "4,5" e "4.5" viram 4,5; vazio vira nulo; lixo vira NaN (e o formulário avisa). */
@@ -27,6 +27,9 @@ const campo =
 const PARAMETROS: { chave: keyof Parametros; rotulo: string; pct: boolean; ajuda: string }[] = [
   { chave: "cotacao18k", rotulo: "Preço do grama do ouro 18k (R$)", pct: false, ajuda: "Quanto a JK paga hoje." },
   { chave: "cotacao10k", rotulo: "Preço do grama do ouro 10k (R$)", pct: false, ajuda: "Idem, ouro 10k." },
+  { chave: "cotacaoPrata", rotulo: "Preço médio do grama da prata 950 (R$)", pct: false, ajuda: "Média do que a JK paga." },
+  { chave: "prataGramasPorMm", rotulo: "Prata: gramas por milímetro de largura", pct: false, ajuda: "Numa aliança só. O par conta duas vezes." },
+  { chave: "prataResto", rotulo: "Prata: resto da peça por produto (R$)", pct: false, ajuda: "Feitio, solitário de brinde, caixinha." },
   { chave: "taxa", rotulo: "Taxa de cartão e gateway (%)", pct: true, ajuda: "Média por venda." },
   { chave: "imposto", rotulo: "Imposto sobre a venda (%)", pct: true, ajuda: "Sobre o valor vendido." },
   { chave: "frete", rotulo: "Frete grátis médio por pedido (R$)", pct: false, ajuda: "0 se o cliente paga." },
@@ -38,7 +41,7 @@ export function FormParametros({ inicial }: { inicial: Parametros }) {
   const router = useRouter();
   const [valores, setValores] = useState<Record<string, string>>(() =>
     Object.fromEntries(
-      PARAMETROS.map((p) => [p.chave, mostrar(inicial[p.chave] === null ? null : p.pct ? inicial[p.chave]! * 100 : inicial[p.chave])]),
+      PARAMETROS.map((p) => [p.chave, mostrar(inicial[p.chave] === null ? null : p.pct ? inicial[p.chave]! * 100 : inicial[p.chave], 4)]),
     ),
   );
   const [aviso, setAviso] = useState<{ ok: boolean; texto: string } | null>(null);
@@ -63,7 +66,7 @@ export function FormParametros({ inicial }: { inicial: Parametros }) {
   return (
     <div className="glass rounded-[20px] p-5">
       <p className="text-sm font-semibold text-ink">Parâmetros</p>
-      <p className="mt-1 text-sm text-muted">Quando o ouro mudar, troque só o preço do grama: todas as margens se recalculam.</p>
+      <p className="mt-1 text-sm text-muted">Quando o ouro ou a prata mudar, troque só o preço do grama: todas as margens se recalculam. A prata 950 pesa pela largura do nome do produto.</p>
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
         {PARAMETROS.map((d) => (
           <label key={d.chave} className="block">
@@ -111,7 +114,9 @@ export function ImportarPlanilha() {
     setLida(null);
     try {
       const pasta = await lerXlsx(new Uint8Array(await arquivo.arrayBuffer()));
-      setLida(lerPlanilhaDoDono(pasta));
+      // A planilha do dono (parâmetros, famílias e exceções) ou a de pesos por
+      // produto do Carlos ("Peso e Valores Ouro18k/10k"): o formato decide.
+      setLida(ehPlanilhaDePesos(pasta) ? lerPlanilhaDePesos(pasta) : lerPlanilhaDoDono(pasta));
       setNome(arquivo.name);
     } catch (e) {
       setErro(e instanceof Error ? e.message : "Não consegui ler a planilha.");

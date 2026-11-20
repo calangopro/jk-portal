@@ -4,7 +4,10 @@ import type { FamiliaComProdutos } from "@/lib/margem/dados";
 import type { Demo } from "../tipos";
 
 /** Margem com custos e pesos inventados, redondos. */
-const parametros: Parametros = { cotacao18k: 500, cotacao10k: 300, taxa: 0.05, imposto: 0.1, frete: 0, embalagem: 10, margemMinima: 0.3 };
+const parametros: Parametros = { cotacao18k: 500, cotacao10k: 300,
+  cotacaoPrata: 10,
+  prataGramasPorMm: 0.95,
+  prataResto: 30, taxa: 0.05, imposto: 0.1, frete: 0, embalagem: 10, margemMinima: 0.3 };
 
 const familias: FamiliaComProdutos[] = [
   { codigo: "F01", material: "ouro_18k", tipo: "Par de alianças", largura: "4 mm", perfil: "Abaulada", gramas: 8, arosReferencia: "16 e 22", resto: 200, produtos: 12 },

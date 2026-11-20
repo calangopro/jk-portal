@@ -25,7 +25,8 @@ import {
   type Parametros,
 } from "../src/lib/margem/calculo.ts";
 import { lerXlsx } from "../src/lib/margem/ler-xlsx.ts";
-import { lerPlanilhaDoDono } from "../src/lib/margem/planilha-do-dono.ts";
+import { ehPlanilhaDePesos, lerPlanilhaDePesos, lerPlanilhaDoDono } from "../src/lib/margem/planilha-do-dono.ts";
+import { larguraDoNome, materialPeloNome, pecasDoNome } from "../src/lib/margem/calculo.ts";
 
 let falhas = 0;
 function confere(nome: string, ok: boolean, detalhe = "") {
@@ -40,6 +41,9 @@ const perto = (a: number, b: number, tol = 0.0001) => Math.abs(a - b) <= tol;
 const P: Parametros = {
   cotacao18k: 600,
   cotacao10k: 350,
+  cotacaoPrata: 10,
+  prataGramasPorMm: 0.95,
+  prataResto: 30,
   taxa: 0.05,
   imposto: 0.06,
   frete: 25,
@@ -99,6 +103,39 @@ console.log("Margem");
   confere("sem linha nenhuma: 'Sem custo'", custoDoProduto(null, familias, P).falta === "Sem custo");
 }
 
+// 2b. Prata 950: grama x milímetro, sem lista de produtos.
+{
+  const sem = new Map<string, Familia>();
+  const par = "Par de Alianças de Namoro em Prata 950 4mm + Anel Solitário Brinde";
+  confere("'Prata 950' é prata_950", materialPeloNome(par) === "prata_950");
+  confere("prata com ouro continua prata_com_ouro", materialPeloNome("Aliança de Prata com Fio de Ouro 6mm") === "prata_com_ouro");
+  confere("prata banhada continua fora (semijoia)", materialPeloNome("Alianças Prata Banhadas a Ouro 4mm") === null);
+  confere("largura '3,5mm' = 3,5", larguraDoNome("Laço Eterno em Prata 950 3,5mm") === 3.5);
+  confere("par conta 2 peças, aliança sozinha 1", pecasDoNome(par) === 2 && pecasDoNome("Aliança de Namoro em Prata 950 3mm") === 1);
+
+  // par de 4 mm: 2 x 4 x 0,95 = 7,6 g x R$ 10 + R$ 30 = R$ 106
+  const c = custoDoProduto(null, sem, P, par);
+  confere("par de 4 mm sem linha: 7,6 g x 10 + 30 = 106", c.valor === 106, String(c.valor) + " " + (c.detalhe ?? c.falta));
+  const um = custoDoProduto(null, sem, P, "Aliança de Namoro em Prata 950 3mm + Anel Solitário Brinde");
+  confere("aliança de 3 mm: 2,85 g x 10 + 30 = 58,50", um.valor === 58.5, String(um.valor));
+  const pesada = custoDoProduto({ material: "prata_950", familia: null, gramas: 12, resto: 50, custoFixo: null }, sem, P, par);
+  confere("peso e resto gravados no produto vencem a média", pesada.valor === 12 * 10 + 50, String(pesada.valor));
+  const fixo = custoDoProduto({ material: null, familia: null, gramas: null, resto: null, custoFixo: 77 }, sem, P, par);
+  confere("custo fixo continua vencendo", fixo.valor === 77);
+  const corrente = custoDoProduto(null, sem, P, "Corrente Prata 3x1 2mm - 60cm");
+  confere("corrente de prata não é calculada pela largura", corrente.valor === null && corrente.falta.includes("aliança"), corrente.falta ?? "");
+  const semMm = custoDoProduto(null, sem, P, "Anel Solitário de Prata - Modelo Roma");
+  confere("anel sem mm no nome pede o peso", semMm.valor === null && semMm.falta.includes("largura"), semMm.falta ?? "");
+  const semCot = custoDoProduto(null, sem, { ...P, cotacaoPrata: null }, par);
+  confere("sem preço do grama da prata, diz o que falta", semCot.falta === "Falta o preço do grama da prata 950", semCot.falta ?? "");
+  const semGmm = custoDoProduto(null, sem, { ...P, prataGramasPorMm: null }, par);
+  confere("sem gramas por mm, diz o que falta", semGmm.falta === "Falta as gramas por milímetro da prata", semGmm.falta ?? "");
+  const semResto = custoDoProduto(null, sem, { ...P, prataResto: null }, par);
+  confere("resto vazio conta zero: 76", semResto.valor === 76, String(semResto.valor));
+  confere("sem nome, prata sem linha fica 'Sem custo'", custoDoProduto(null, sem, P).falta === "Sem custo");
+  confere("prata 950 não vira família de ouro", chaveDaFamilia(par) === null);
+}
+
 // 3. Preço de vitrine em ,90, sem erro de ponto flutuante.
 confere("359,92 vira 359,90", terminadoEm90(359.92) === 359.9);
 confere("359,90 continua 359,90", terminadoEm90(359.9) === 359.9);
@@ -130,10 +167,40 @@ confere("para cima: 359,90 continua 359,90", terminadoEm90ParaCima(359.9) === 35
   confere("prata: 217 = 98,50 e 1333 = 'R$ 80,00'", JSON.stringify(r.fixos) === JSON.stringify([{ trayId: "217", custo: 98.5 }, { trayId: "1333", custo: 80 }]), JSON.stringify(r.fixos));
 }
 
+// 5b. A planilha de pesos por produto (formato do Carlos).
+{
+  const pasta = {
+    Referencias_A: {
+      1: { A: "Referência", B: "ID do produto", C: "Peso do ouro (g)", D: "Valor de venda" },
+      2: { A: "JK2835A", B: 99, C: 4, D: 7000 },
+      3: { A: "JK2847A", B: "115", C: "5,5", D: 8750 },
+      4: { A: "JK0000A", B: 120, C: null, D: 0 },
+      5: { A: "JK9999A", B: 121, C: -2, D: 0 },
+    },
+    Referencias_R: {
+      1: { A: "Referência", B: "ID do produto", C: "Peso do ouro (g)", D: "Valor de venda" },
+      2: { A: "JK2834R", B: 97, C: 1.6, D: 2800 },
+    },
+    Outra: { 1: { A: "Qualquer coisa" } },
+  };
+  confere("reconhece a planilha de pesos", ehPlanilhaDePesos(pasta as never));
+  const r = lerPlanilhaDePesos(pasta as never);
+  confere(
+    "lê as duas abas, número e texto, pula vazio",
+    JSON.stringify(r.ouro) === JSON.stringify([{ trayId: "99", gramas: 4, resto: null }, { trayId: "115", gramas: 5.5, resto: null }, { trayId: "97", gramas: 1.6, resto: null }]),
+    JSON.stringify(r.ouro),
+  );
+  confere("peso negativo vira aviso", r.avisos.length === 1 && r.avisos[0].includes("121"), r.avisos.join(" | "));
+  confere("não mexe em parâmetros nem famílias", Object.keys(r.parametros).length === 0 && r.familias.length === 0);
+  const dono = await lerXlsx(new Uint8Array(readFileSync(new URL("./fixtures/custos-preenchida.xlsx", import.meta.url))));
+  confere("a planilha do dono não é planilha de pesos", !ehPlanilhaDePesos(dono));
+}
+
 // 6. A planilha de verdade (vazia ou preenchida), quando vier por argumento.
 const real = process.argv[2];
 if (real) {
-  const r = lerPlanilhaDoDono(await lerXlsx(new Uint8Array(readFileSync(real))));
+  const pasta = await lerXlsx(new Uint8Array(readFileSync(real)));
+  const r = ehPlanilhaDePesos(pasta) ? lerPlanilhaDePesos(pasta) : lerPlanilhaDoDono(pasta);
   console.log(`  ..  ${real.split("/").pop()}: ${Object.keys(r.parametros).length} parâmetros, ${r.familias.length} famílias, ${r.ouro.length} exceções de ouro, ${r.fixos.length} custos fixos, ${r.avisos.length} avisos`);
   confere("a planilha real abre sem erro", true);
 }

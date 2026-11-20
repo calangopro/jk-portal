@@ -2,7 +2,9 @@
  * A conta de custo e margem, igual à da planilha do dono.
  *
  *   custo        = gramas x preço do grama + resto da peça   (ouro)
- *                = custo fixo                                (prata, semijoia)
+ *                = largura (mm) x gramas por mm x peças x preço do grama
+ *                  da prata + resto da peça                  (prata 950)
+ *                = custo fixo                                (semijoia, o que não tem largura)
  *   líquido      = preço x (1 - taxa - imposto)
  *   margem (R$)  = líquido - custo - frete - embalagem
  *   margem (%)   = margem / preço
@@ -21,18 +23,25 @@
  * navegador e no teste `npm run verificar:margem`.
  */
 
-export const MATERIAIS = ["ouro_18k", "ouro_10k", "prata_com_ouro"] as const;
+export const MATERIAIS = ["ouro_18k", "ouro_10k", "prata_com_ouro", "prata_950"] as const;
 export type Material = (typeof MATERIAIS)[number];
 
 export const ROTULO_DO_MATERIAL: Record<Material, string> = {
   ouro_18k: "Ouro 18k",
   ouro_10k: "Ouro 10k",
   prata_com_ouro: "Prata com ouro",
+  prata_950: "Prata 950",
 };
 
 export type Parametros = {
   cotacao18k: number | null;
   cotacao10k: number | null;
+  /** Preço médio do grama da prata 950 que a JK paga. */
+  cotacaoPrata: number | null;
+  /** Gramas de prata por milímetro de largura, numa peça (uma aliança). Média, não aro a aro. */
+  prataGramasPorMm: number | null;
+  /** Resto da peça de prata, por produto: feitio, solitário de brinde, caixinha. */
+  prataResto: number | null;
   /** Frações: 0,05 = 5%. */
   taxa: number | null;
   imposto: number | null;
@@ -105,13 +114,70 @@ export const porcento = (f: number, casas = 1) =>
 const gramasTexto = (g: number) => `${g.toLocaleString("pt-BR", { maximumFractionDigits: 3 })} g`;
 
 export function cotacaoDo(material: Material, p: Parametros): number | null {
+  if (material === "prata_950") return p.cotacaoPrata;
   return material === "ouro_10k" ? p.cotacao10k : p.cotacao18k;
 }
 
-export function custoDoProduto(c: CustoGravado | null, familias: Map<string, Familia>, p: Parametros): Custo {
-  if (!c) return { valor: null, detalhe: null, falta: "Sem custo" };
-  if (c.custoFixo !== null) return { valor: c.custoFixo, detalhe: "Custo fixo", falta: null };
+/** A largura escrita no nome ("Prata 950 3,5mm" dá 3,5). Sem "mm" no nome, nulo. */
+export function larguraDoNome(nome: string): number | null {
+  const m = nome.toLowerCase().match(/(\d+(?:[.,]\d+)?)\s*mm/);
+  if (!m) return null;
+  const v = Number(m[1].replace(",", "."));
+  return Number.isFinite(v) && v > 0 && v <= 20 ? v : null;
+}
+
+/** Par de alianças tem duas peças; o resto, uma. A mesma leitura de `chaveDaFamilia`. */
+export function pecasDoNome(nome: string): 1 | 2 {
+  const t = ` ${nome.toLowerCase()}`;
+  return t.includes(" par ") || t.includes("alianças") || t.includes("aliancas") ? 2 : 1;
+}
+
+const mmTexto = (v: number) => `${v.toLocaleString("pt-BR", { maximumFractionDigits: 2 })} mm`;
+
+/**
+ * Prata 950: o peso sai da largura do nome, não de uma lista de produtos. O
+ * peso gravado no produto vence a conta (peça que pesa diferente da média).
+ */
+function custoDaPrata(c: CustoGravado | null, nome: string | null, p: Parametros): Custo {
+  const resto = c?.resto ?? p.prataResto;
+  let gramas = c?.gramas ?? null;
+  let comoPesou = "peso do produto";
+  if (gramas === null) {
+    if (!nome || !/alian|anel|anéis|aneis/i.test(nome)) {
+      return { valor: null, detalhe: null, falta: "Não é aliança nem anel: informe o peso ou o custo da peça" };
+    }
+    const largura = larguraDoNome(nome);
+    if (largura === null) {
+      return { valor: null, detalhe: null, falta: "Sem largura no nome: informe o peso ou o custo da peça" };
+    }
+    if (!p.prataGramasPorMm) return { valor: null, detalhe: null, falta: "Falta as gramas por milímetro da prata" };
+    const pecas = pecasDoNome(nome!);
+    gramas = Math.round(largura * p.prataGramasPorMm * pecas * 1000) / 1000;
+    comoPesou = `${pecas === 2 ? "2 peças x " : ""}${mmTexto(largura)} x ${p.prataGramasPorMm.toLocaleString("pt-BR", { maximumFractionDigits: 4 })} g/mm`;
+  }
+  if (!p.cotacaoPrata) return { valor: null, detalhe: null, falta: "Falta o preço do grama da prata 950" };
+  const valor = Math.round((gramas * p.cotacaoPrata + n(resto)) * 100) / 100;
+  const partes = [`${gramasTexto(gramas)} x ${reais(p.cotacaoPrata)}`, resto !== null ? `${reais(resto)} de resto` : null].filter(Boolean);
+  return { valor, detalhe: `${partes.join(" + ")} (${comoPesou})`, falta: null };
+}
+
+/**
+ * O custo de um produto. `nome` é o do catálogo: com ele, prata 950 sem linha
+ * de custo já sai calculada pela largura.
+ */
+export function custoDoProduto(
+  c: CustoGravado | null,
+  familias: Map<string, Familia>,
+  p: Parametros,
+  nome: string | null = null,
+): Custo {
+  if (c?.custoFixo !== null && c?.custoFixo !== undefined) return { valor: c.custoFixo, detalhe: "Custo fixo", falta: null };
+  if (!c) {
+    if (nome && materialPeloNome(nome) === "prata_950") return custoDaPrata(null, nome, p);
+    return { valor: null, detalhe: null, falta: "Sem custo" };
+  }
   if (!c.material) return { valor: null, detalhe: null, falta: "Sem custo" };
+  if (c.material === "prata_950") return custoDaPrata(c, nome, p);
 
   const familia = c.familia ? familias.get(c.familia) : undefined;
   const gramas = c.gramas ?? familia?.gramas ?? null;
@@ -217,6 +283,7 @@ export function materialPeloNome(nome: string): Material | null {
   const t = nome.toLowerCase();
   if (t.includes("banhad") || t.includes("semijoia")) return null;
   if (t.includes("prata") && t.includes("ouro")) return "prata_com_ouro";
+  if (t.includes("prata")) return "prata_950";
   if (t.includes("10k")) return "ouro_10k";
   if (t.includes("ouro") || t.includes("18k")) return "ouro_18k";
   return null;
@@ -224,7 +291,7 @@ export function materialPeloNome(nome: string): Material | null {
 
 export function chaveDaFamilia(nome: string): { material: Material; tipo: string; largura: string; perfil: string } | null {
   const material = materialPeloNome(nome);
-  if (!material) return null;
+  if (!material || material === "prata_950") return null;
   const t = nome.toLowerCase();
   const m = t.match(/(\d+(?:[.,]\d+)?)\s*mm/);
   if (!m) return null;

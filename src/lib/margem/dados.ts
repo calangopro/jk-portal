@@ -32,11 +32,14 @@ const num = (v: unknown) => (v === null || v === undefined || v === "" ? null : 
 export async function lerParametros(db: SupabaseClient): Promise<Parametros> {
   const { data } = await db
     .from("custo_parametros")
-    .select("cotacao_18k, cotacao_10k, taxa, imposto, frete, embalagem, margem_minima")
+    .select("cotacao_18k, cotacao_10k, cotacao_prata, prata_gramas_por_mm, prata_resto, taxa, imposto, frete, embalagem, margem_minima")
     .maybeSingle();
   return {
     cotacao18k: num(data?.cotacao_18k),
     cotacao10k: num(data?.cotacao_10k),
+    cotacaoPrata: num(data?.cotacao_prata),
+    prataGramasPorMm: num(data?.prata_gramas_por_mm),
+    prataResto: num(data?.prata_resto),
     taxa: num(data?.taxa),
     imposto: num(data?.imposto),
     frete: num(data?.frete),
@@ -48,6 +51,9 @@ export async function lerParametros(db: SupabaseClient): Promise<Parametros> {
 const COLUNA: Record<keyof Parametros, string> = {
   cotacao18k: "cotacao_18k",
   cotacao10k: "cotacao_10k",
+  cotacaoPrata: "cotacao_prata",
+  prataGramasPorMm: "prata_gramas_por_mm",
+  prataResto: "prata_resto",
   taxa: "taxa",
   imposto: "imposto",
   frete: "frete",
@@ -145,6 +151,8 @@ const gravado = (l: LinhaDeCusto): CustoGravado => ({
 
 export type CustoDoItem = {
   gravado: CustoGravado | null;
+  /** O material que vale: o gravado ou, sem linha, o que o nome diz (prata 950). */
+  material: Material | null;
   custo: number | null;
   detalhe: string | null;
   falta: string | null;
@@ -159,7 +167,7 @@ export async function margensDoCatalogo(
   db: SupabaseClient,
   // Aceita a lista ainda a caminho: quem chama pode pedir o catálogo e os
   // custos ao mesmo tempo, em vez de esperar um para começar o outro.
-  itensOuPromessa: Pick<ItemDoCatalogo, "id" | "preco" | "precoAntes">[] | Promise<Pick<ItemDoCatalogo, "id" | "preco" | "precoAntes">[]>,
+  itensOuPromessa: Pick<ItemDoCatalogo, "id" | "nome" | "preco" | "precoAntes">[] | Promise<Pick<ItemDoCatalogo, "id" | "nome" | "preco" | "precoAntes">[]>,
 ): Promise<{ parametros: Parametros; porProduto: Record<string, CustoDoItem> }> {
   const [parametros, familias, linhas, itens] = await Promise.all([
     lerParametros(db),
@@ -172,11 +180,12 @@ export async function margensDoCatalogo(
   const porProduto: Record<string, CustoDoItem> = {};
   for (const p of itens) {
     const g = porId.get(p.id) ?? null;
-    const c = custoDoProduto(g, mapaFamilias, parametros);
+    const c = custoDoProduto(g, mapaFamilias, parametros, p.nome);
     const cheio = p.precoAntes ?? p.preco;
     const hoje = p.precoAntes ? p.preco : null;
     porProduto[p.id] = {
       gravado: g,
+      material: g ? g.material : materialPeloNome(p.nome) === "prata_950" ? "prata_950" : null,
       custo: c.valor,
       detalhe: c.detalhe,
       falta: c.falta,

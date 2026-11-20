@@ -106,11 +106,19 @@ function lerAba(xml: string, compartilhados: string[]): Aba {
   return aba;
 }
 
+/**
+ * Tira o prefixo de namespace das TAGS (`<x:row>` vira `<row>`). O Excel não
+ * usa prefixo, mas planilha gerada por outro programa (as de peso do ouro de
+ * 20/11/2026, feitas com o Open XML SDK) escreve tudo como `x:`, e a leitura
+ * por nome de tag não achava nenhuma aba. Atributo (`r:id`) fica como está.
+ */
+const semPrefixo = (xml: string) => xml.replace(/<(\/?)[A-Za-z_][\w.-]*:/g, "<$1");
+
 export async function lerXlsx(arquivo: Uint8Array): Promise<Pasta> {
   const zip = entradasDoZip(arquivo);
   const ler = async (nome: string) => {
     const e = zip.get(nome);
-    return e ? lerEntrada(arquivo, e) : null;
+    return e ? semPrefixo(await lerEntrada(arquivo, e)) : null;
   };
 
   const livro = await ler("xl/workbook.xml");
