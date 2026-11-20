@@ -38,7 +38,7 @@ export default async function UsuariosPage() {
 
   const { data, error } = await supabase
     .from("profiles")
-    .select("id, email, full_name, role, is_active, created_at")
+    .select("id, email, full_name, role, is_active, created_at, loja")
     .order("created_at", { ascending: true });
 
   const users = (data ?? []) as Row[];

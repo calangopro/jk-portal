@@ -4,7 +4,7 @@ import { ETAPAS_DE_FABRICA } from "@/lib/fabrica/etapas";
 import type { Demo } from "../tipos";
 
 const base: Omit<PedidoDaFabrica, "ref" | "pedido" | "os" | "dia" | "feitoEm" | "pecas" | "etapa" | "cliente"> = {
-  tipo: "venda_nova", prioridade: "normal", prazo: null, pedidoOrigem: null, alteracoes: [], origem: "loja", statusDaLoja: "A ENVIAR",
+  tipo: "venda_nova", prioridade: "normal", prazo: null, pedidoOrigem: null, alteracoes: [], relato: null, loja: null, numeroPapel: null, fotos: [], transcricao: null, origem: "loja", statusDaLoja: "A ENVIAR",
   etapaEm: "2026-11-19T12:00:00Z", movidoPor: null, cidade: null, uf: null, entrega: "Retire na loja do Shopping Exemplo", endereco: null,
   vendedor: null, rastreio: null, nota: null, kommo: null, desfeitoNaKommo: false,
 };

@@ -2,7 +2,9 @@
 
 import { useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Check, ClipboardCopy, Loader2, MessageSquareWarning, Plus, Search, X } from "lucide-react";
+import { Camera, Check, ClipboardCopy, Loader2, MessageSquareWarning, Plus, Search, X } from "lucide-react";
+import type { SugestaoDaFoto } from "@/lib/fabrica/foto-do-pedido";
+import { PECA_VAZIA, PRODUCAO_VAZIA, type PecaDoFormulario, type ProducaoDoFormulario } from "@/lib/vendas/producao";
 import type { FilaDaFabrica, PedidoDaFabrica } from "@/lib/fabrica/dados";
 import {
   ETAPAS_DE_FABRICA, NOME_DO_TIPO, PRIORIDADES, SEM_FILTRO, TIPOS, ehFinal, etapasAtivas, filtrarFila, fraseParaOCliente,
@@ -11,11 +13,12 @@ import {
 import { avisarOTime } from "@/lib/time/ao-vivo";
 import { nomeLimpo } from "@/lib/vendas/origem";
 import { AlteracoesDoTrabalho } from "../fabrica/Alteracoes";
+import { DaOs } from "../fabrica/DaOs";
 import { nomeDoTrabalho } from "../fabrica/Lista";
 import { BotaoDoHistorico } from "../pedido/abrir";
 import { ProducaoDaVenda, type ProdutoDoFormulario } from "../registrar-venda/ProducaoDaVenda";
 import { BotaoDeGarantia } from "../fabrica/BotaoDeGarantia";
-import { emitirGarantiaNaVenda, type AbrirOs, type PedirAlteracao } from "./actions";
+import { emitirGarantiaNaVenda, lerFotoDoPedido, verFotoDaOs, type AbrirOs, type PedirAlteracao } from "./actions";
 
 /**
  * Na fábrica, do lado de quem vende. O desenho; a leitura fica em `page.tsx`.
@@ -223,6 +226,7 @@ function CartaoDoVendedor({ p, etapas, agora, pedirAlteracao }: { p: PedidoDaFab
       </ol>
 
       <AlteracoesDoTrabalho lista={p.alteracoes} />
+      <DaOs p={p} verFoto={verFotoDaOs} />
 
       <blockquote className="mt-3 rounded-[10px] border border-ink/10 bg-white p-2.5 text-xs leading-relaxed text-ink">{frase}</blockquote>
 
@@ -260,11 +264,83 @@ function CartaoDoVendedor({ p, etapas, agora, pedirAlteracao }: { p: PedidoDaFab
   );
 }
 
+/** Reduz a foto no navegador: a ação de servidor aceita 1 MB, e foto de celular tem 3 a 5. */
+async function reduzir(arquivo: File): Promise<string> {
+  const img = await createImageBitmap(arquivo);
+  const escala = Math.min(1, 1600 / Math.max(img.width, img.height));
+  const tela = document.createElement("canvas");
+  tela.width = Math.round(img.width * escala);
+  tela.height = Math.round(img.height * escala);
+  tela.getContext("2d")!.drawImage(img, 0, 0, tela.width, tela.height);
+  let q = 0.82;
+  let url = tela.toDataURL("image/jpeg", q);
+  while (url.length > 1_500_000 && q > 0.4) {
+    q -= 0.12;
+    url = tela.toDataURL("image/jpeg", q);
+  }
+  return url;
+}
+
+/** A sugestão da IA vira o formulário de peças da venda por fora. Gravação lida do papel fica "a confirmar": a IA não sabe se é laser ou manual. */
+function producaoDaSugestao(s: SugestaoDaFoto, lojas: string[]): ProducaoDoFormulario {
+  const e = (s.entrega ?? "").toLowerCase();
+  const entrega: ProducaoDoFormulario["entrega"] = /sedex|correio|pac|transportadora/.test(e) ? "correios" : /moto|uber/.test(e) ? "moto" : "retirada";
+  const loja = lojas.find((l) => e && e.includes(l.toLowerCase().replace(/^shopping\s+/, ""))) ?? "";
+  const pecas = (s.pecas.length ? s.pecas : [{ nome: "", aro1: null, aro2: null, gravar1: null, gravar2: null, detalhes: null }]).slice(0, 8).map((x) => ({
+    ...PECA_VAZIA,
+    nome: x.nome ?? "",
+    aro1: x.aro1 ?? "",
+    aro2: x.aro2 ?? "",
+    gravar1: x.gravar1 ?? "",
+    gravar2: x.gravar2 ?? "",
+    gravacao: (x.gravar1 || x.gravar2 ? "a_confirmar" : "sem") as PecaDoFormulario["gravacao"],
+    detalhes: (x.detalhes ?? "").slice(0, 300),
+  }));
+  return { ...PRODUCAO_VAZIA, pecas, entrega, loja };
+}
+
 function FormularioDeOs({ produtos, lojas, abrir, onAberta }: { produtos: ProdutoDoFormulario[]; lojas: string[]; abrir: AbrirOs; onAberta: (os: number) => void }) {
   const router = useRouter();
   const form = useRef<HTMLFormElement>(null);
   const [ocupado, comecar] = useTransition();
   const [erro, setErro] = useState<string | null>(null);
+  const [fotos, setFotos] = useState<string[]>([]);
+  const [lendo, setLendo] = useState(false);
+  const [aviso, setAviso] = useState<string | null>(null);
+  const [sugestao, setSugestao] = useState<SugestaoDaFoto | null>(null);
+  // Trocar a versão remonta os campos com o que a IA leu, sem prender o formulário em estado controlado.
+  const [versao, setVersao] = useState(0);
+
+  const escolherFotos = async (lista: FileList | null) => {
+    if (!lista || lista.length === 0) return;
+    setErro(null);
+    setAviso(null);
+    setLendo(true);
+    try {
+      const novas = [...lista].slice(0, 4 - fotos.length);
+      const guardadas: string[] = [];
+      for (let k = 0; k < novas.length; k++) {
+        const ler = fotos.length === 0 && k === 0;
+        const r = await lerFotoDoPedido(await reduzir(novas[k]), ler);
+        if (!r.ok) {
+          setErro(r.erro);
+          break;
+        }
+        guardadas.push(r.caminho);
+        if (r.aviso) setAviso(r.aviso);
+        if (r.sugestao) {
+          setSugestao(r.sugestao);
+          setVersao((v) => v + 1);
+          setAviso("A IA preencheu o que conseguiu ler. Confira campo por campo antes de abrir a OS.");
+        }
+      }
+      setFotos((f) => [...f, ...guardadas]);
+    } catch {
+      setErro("Não deu para ler a foto. Tente de novo ou preencha à mão.");
+    } finally {
+      setLendo(false);
+    }
+  };
 
   // `onSubmit`, não `action`: com `action` o React apaga o formulário quando a ação volta com erro (ver CLAUDE.md).
   const enviar = (e: React.FormEvent<HTMLFormElement>) => {
@@ -281,48 +357,78 @@ function FormularioDeOs({ produtos, lojas, abrir, onAberta }: { produtos: Produt
     });
   };
 
+  const s = sugestao;
   return (
     <form ref={form} onSubmit={enviar} className="glass mt-4 grid grid-cols-1 gap-3 rounded-[18px] p-4 sm:grid-cols-2">
       <h2 className="text-base font-semibold text-ink sm:col-span-2">Abrir OS na fábrica</h2>
-      <div className="min-w-0">
-        <label className={rotulo} htmlFor="os-tipo">O que é</label>
-        <select id="os-tipo" name="tipo" defaultValue="troca" className={campo}>
-          {TIPOS.map((t) => (
-            <option key={t.chave} value={t.chave}>{t.nome}</option>
-          ))}
-        </select>
+
+      <div className="rounded-[12px] border border-dashed border-ink/20 bg-white/70 p-3 sm:col-span-2">
+        <p className="text-sm font-semibold text-ink">Foto do pedido escrito</p>
+        <p className="mt-0.5 text-xs leading-relaxed text-muted">
+          Tire a foto da OS de papel: a IA lê e preenche o que conseguir, e a foto fica guardada na OS. Até 4 fotos.
+        </p>
+        <label className={`painel-toque mt-2 inline-flex h-10 cursor-pointer items-center gap-1.5 rounded-full px-4 text-xs font-semibold ${lendo || fotos.length >= 4 ? "pointer-events-none opacity-60" : ""} border border-ink/12 bg-white text-ink`}>
+          {lendo ? <Loader2 size={14} className="animate-spin" aria-hidden="true" /> : <Camera size={14} aria-hidden="true" />}
+          {lendo ? "Lendo a foto..." : fotos.length ? "Mais uma foto" : "Tirar ou escolher foto"}
+          <input type="file" accept="image/*" capture="environment" multiple className="sr-only" onChange={(e) => { void escolherFotos(e.target.files); e.target.value = ""; }} />
+        </label>
+        {fotos.length ? <p className="mt-2 text-xs font-semibold text-[#046c4e]">{fotos.length === 1 ? "1 foto guardada" : `${fotos.length} fotos guardadas`}</p> : null}
+        {aviso ? <p role="status" className="mt-2 text-xs font-semibold text-[#7a3d06]">{aviso}</p> : null}
+        {s?.transcricao ? (
+          <details className="mt-2 text-xs">
+            <summary className="cursor-pointer font-semibold text-muted">O que a IA leu</summary>
+            <p className="mt-1 whitespace-pre-line text-ink [overflow-wrap:anywhere]">{s.transcricao}</p>
+          </details>
+        ) : null}
+        <input type="hidden" name="fotos" value={JSON.stringify(fotos)} />
+        <input type="hidden" name="transcricao" value={s?.transcricao ?? ""} />
       </div>
-      <div className="min-w-0">
-        <label className={rotulo} htmlFor="os-prioridade">Prioridade</label>
-        <select id="os-prioridade" name="prioridade" defaultValue="normal" className={campo}>
-          {PRIORIDADES.map((p) => (
-            <option key={p.chave} value={p.chave}>{p.nome}</option>
-          ))}
-        </select>
+
+      <div key={`a${versao}`} className="contents">
+        <div className="min-w-0">
+          <label className={rotulo} htmlFor="os-tipo">O que é</label>
+          <select id="os-tipo" name="tipo" defaultValue={s?.tipo ?? "troca"} className={campo}>
+            {TIPOS.map((t) => (
+              <option key={t.chave} value={t.chave}>{t.nome}</option>
+            ))}
+          </select>
+        </div>
+        <div className="min-w-0">
+          <label className={rotulo} htmlFor="os-prioridade">Prioridade</label>
+          <select id="os-prioridade" name="prioridade" defaultValue={s?.prioridade ?? "normal"} className={campo}>
+            {PRIORIDADES.map((p) => (
+              <option key={p.chave} value={p.chave}>{p.nome}</option>
+            ))}
+          </select>
+        </div>
+        <div className="min-w-0">
+          <label className={rotulo} htmlFor="os-origem">Pedido de origem (se houver)</label>
+          <input id="os-origem" name="pedido_origem" defaultValue={s?.pedido_origem?.replace(/\D/g, "") ?? ""} inputMode="numeric" maxLength={12} placeholder="Ex.: 11389" className={`${campo} numeros`} />
+        </div>
+        <div className="min-w-0">
+          <label className={rotulo} htmlFor="os-prazo">Cliente precisa até</label>
+          <input id="os-prazo" name="prazo" type="date" defaultValue={s?.prazo && /^\d{4}-\d{2}-\d{2}$/.test(s.prazo) ? s.prazo : ""} className={`${campo} numeros`} />
+        </div>
+        <div className="min-w-0">
+          <label className={rotulo} htmlFor="os-nome">Nome do cliente</label>
+          <input id="os-nome" name="cliente_nome" defaultValue={s?.cliente_nome ?? ""} maxLength={120} placeholder="Sem pedido de origem, é obrigatório" className={campo} />
+        </div>
+        <div className="min-w-0">
+          <label className={rotulo} htmlFor="os-telefone">WhatsApp do cliente</label>
+          <input id="os-telefone" name="cliente_telefone" defaultValue={s?.cliente_telefone ?? ""} inputMode="tel" maxLength={30} placeholder="(11) 99999-9999" className={`${campo} numeros`} />
+        </div>
+        <div className="min-w-0">
+          <label className={rotulo} htmlFor="os-papel">Número da OS de papel</label>
+          <input id="os-papel" name="numero_papel" defaultValue={s?.numero_papel ?? ""} maxLength={30} placeholder="Ex.: 522" className={`${campo} numeros`} />
+        </div>
+        <div className="min-w-0 sm:col-span-2">
+          <label className={rotulo} htmlFor="os-relato">O que fazer (o que o cliente disse)</label>
+          <textarea id="os-relato" name="relato" defaultValue={s?.relato ?? ""} maxLength={1000} rows={3} placeholder="Ex.: a pedra do solitário caiu; trocar a aliança do 16 pelo 17" className={campo} />
+        </div>
+        <ProducaoDaVenda key={`p${versao}`} produtos={produtos} lojas={lojas} sempreLigada inicial={s ? producaoDaSugestao(s, lojas) : undefined} />
       </div>
-      <div className="min-w-0">
-        <label className={rotulo} htmlFor="os-origem">Pedido de origem (se houver)</label>
-        <input id="os-origem" name="pedido_origem" inputMode="numeric" maxLength={12} placeholder="Ex.: 11389" className={`${campo} numeros`} />
-      </div>
-      <div className="min-w-0">
-        <label className={rotulo} htmlFor="os-prazo">Cliente precisa até</label>
-        <input id="os-prazo" name="prazo" type="date" className={`${campo} numeros`} />
-      </div>
-      <div className="min-w-0">
-        <label className={rotulo} htmlFor="os-nome">Nome do cliente</label>
-        <input id="os-nome" name="cliente_nome" maxLength={120} placeholder="Sem pedido de origem, é obrigatório" className={campo} />
-      </div>
-      <div className="min-w-0">
-        <label className={rotulo} htmlFor="os-telefone">WhatsApp do cliente</label>
-        <input id="os-telefone" name="cliente_telefone" inputMode="tel" maxLength={30} placeholder="(11) 99999-9999" className={`${campo} numeros`} />
-      </div>
-      <div className="min-w-0 sm:col-span-2">
-        <label className={rotulo} htmlFor="os-relato">O que fazer (o que o cliente disse)</label>
-        <textarea id="os-relato" name="relato" maxLength={1000} rows={3} placeholder="Ex.: a pedra do solitário caiu; trocar a aliança do 16 pelo 17" className={campo} />
-      </div>
-      <ProducaoDaVenda produtos={produtos} lojas={lojas} sempreLigada />
       <div className="flex flex-wrap items-center gap-2 sm:col-span-2">
-        <button type="submit" disabled={ocupado} className="painel-toque painel-aba-ativa inline-flex h-11 items-center gap-2 rounded-full px-5 text-sm font-semibold disabled:opacity-60">
+        <button type="submit" disabled={ocupado || lendo} className="painel-toque painel-aba-ativa inline-flex h-11 items-center gap-2 rounded-full px-5 text-sm font-semibold disabled:opacity-60">
           {ocupado ? <Loader2 size={15} className="animate-spin" aria-hidden="true" /> : null} Abrir a OS
         </button>
         {erro ? <p role="alert" className="text-sm font-semibold text-[#b01919]">{erro}</p> : null}

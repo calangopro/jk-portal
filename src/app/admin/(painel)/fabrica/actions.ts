@@ -8,6 +8,7 @@ import {
 } from "@/lib/fabrica/dados";
 import { PRIORIDADES, TIPOS, lerEtapa, type Prioridade, type TipoDeTrabalho } from "@/lib/fabrica/etapas";
 import { emitirGarantia } from "@/lib/garantia/dados";
+import { assinarFoto } from "@/lib/fabrica/foto-do-pedido";
 import { createClient } from "@/lib/supabase/server";
 
 /**
@@ -113,4 +114,11 @@ export async function emitirGarantiaNaFabrica(ref: string): Promise<{ ok: true; 
   await requireArea("fabrica");
   if (typeof ref !== "string" || !REF_DA_FABRICA.test(ref)) return { ok: false, erro: "Pedido inválido." };
   return emitirGarantia(await createClient(), ref);
+}
+
+/** Link de uma hora para ver a foto do pedido escrito (0195). */
+export async function verFotoNaFabrica(caminho: string): Promise<string | null> {
+  await requireArea("fabrica");
+  if (typeof caminho !== "string" || !/^[0-9a-f-]{36}\/[0-9a-f-]{36}\.jpg$/.test(caminho)) return null;
+  return assinarFoto(await createClient(), caminho);
 }

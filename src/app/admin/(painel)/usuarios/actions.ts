@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { requireAdmin, type AppRole } from "@/lib/auth/session";
 import { ehAdmin, PAPEIS } from "@/lib/auth/acessos";
+import { ehLojaFisica } from "@/lib/fabrica/etapas";
 import { absoluteUrl } from "@/lib/seo/site";
 
 export type UsersState = { error?: string; success?: string };
@@ -201,5 +202,17 @@ export async function toggleActive(formData: FormData) {
     });
     if (erroDoBloqueio) console.error("[usuarios] o login não foi bloqueado:", erroDoBloqueio.message);
   }
+  revalidatePath("/admin/usuarios");
+}
+
+/** Liga a pessoa a uma loja física (0195), ou desliga com o valor vazio. Só a diretoria; o banco confere de novo. */
+export async function definirLoja(formData: FormData) {
+  await requireAdmin();
+  const userId = String(formData.get("user_id") ?? "");
+  const loja = String(formData.get("loja") ?? "");
+  if (!/^[0-9a-f-]{36}$/.test(userId) || (loja && !ehLojaFisica(loja))) return;
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("definir_loja_da_pessoa", { p_pessoa: userId, p_loja: loja || null });
+  if (error) console.error("[usuarios] definir_loja_da_pessoa:", error.message);
   revalidatePath("/admin/usuarios");
 }

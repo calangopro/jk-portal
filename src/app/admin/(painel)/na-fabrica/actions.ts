@@ -6,6 +6,7 @@ import { REF_DA_FABRICA, abrirOsDaFabrica, pedirAlteracaoNaFabrica } from "@/lib
 import { PRIORIDADES, TIPOS, type Prioridade, type TipoDeTrabalho } from "@/lib/fabrica/etapas";
 import { lerProducao } from "@/lib/vendas/producao";
 import { emitirGarantia } from "@/lib/garantia/dados";
+import { assinarFoto, guardarELerFoto, type FotoLida } from "@/lib/fabrica/foto-do-pedido";
 import { createClient } from "@/lib/supabase/server";
 
 /**
@@ -51,11 +52,32 @@ export async function abrirOs(dados: FormData): Promise<{ ok: true; os: number }
     cidade: p.cidade,
     uf: p.uf,
     numeroPapel: texto(dados.get("numero_papel"), 30),
+    fotos: lerFotos(dados.get("fotos")),
+    transcricao: texto(dados.get("transcricao"), 8000),
   });
   if (!r.ok) return r;
   revalidatePath("/admin/na-fabrica");
   revalidatePath("/admin/fabrica");
   return { ok: true, os: r.os };
+}
+
+/** Os caminhos das fotos que subiram, do campo escondido. O banco confere de novo a pasta e se o arquivo existe. */
+function lerFotos(v: FormDataEntryValue | null): string[] {
+  try {
+    const l = JSON.parse(String(v ?? "[]"));
+    return Array.isArray(l) ? l.filter((x): x is string => typeof x === "string" && /^[0-9a-f-]{36}\/[0-9a-f-]{36}\.jpg$/.test(x)).slice(0, 4) : [];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Guarda a foto do pedido escrito e, na primeira, pede a leitura à IA (cartão
+ * 66). Volta a sugestão de preenchimento, que a pessoa confere antes de mandar.
+ */
+export async function lerFotoDoPedido(dataUrl: string, ler: boolean): Promise<FotoLida> {
+  const quem = await requireArea("lancar_venda");
+  return guardarELerFoto(quem.id, dataUrl, ler === true);
 }
 
 export type PedirAlteracao = (ref: string, texto: string) => Promise<{ ok: true } | { ok: false; erro: string }>;
@@ -79,4 +101,11 @@ export async function emitirGarantiaNaVenda(ref: string): Promise<{ ok: true; co
   await requireArea("lancar_venda");
   if (typeof ref !== "string" || !REF_DA_FABRICA.test(ref)) return { ok: false, erro: "Pedido inválido." };
   return emitirGarantia(await createClient(), ref);
+}
+
+/** Link de uma hora para ver a foto do pedido escrito. */
+export async function verFotoDaOs(caminho: string): Promise<string | null> {
+  await requireArea("lancar_venda");
+  if (typeof caminho !== "string" || !/^[0-9a-f-]{36}\/[0-9a-f-]{36}\.jpg$/.test(caminho)) return null;
+  return assinarFoto(await createClient(), caminho);
 }

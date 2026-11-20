@@ -11,6 +11,8 @@ import {
 } from "@/lib/fabrica/etapas";
 import { aoAvisar, avisarOTime, useAoVivo, useLigacao } from "@/lib/time/ao-vivo";
 import { AlteracoesDoTrabalho, type DarCiencia } from "../(painel)/fabrica/Alteracoes";
+import { verFotoNaFabrica } from "../(painel)/fabrica/actions";
+import { DaOs } from "../(painel)/fabrica/DaOs";
 import { nomeLimpo } from "@/lib/vendas/origem";
 
 /**
@@ -373,6 +375,7 @@ function Cartao({
 
         {entrega ? <p className="mt-2 text-xs font-semibold" style={{ color: cor.apagado }}>{entrega.nome}</p> : null}
         <AlteracoesDoTrabalho lista={p.alteracoes} ciente={ciente} grande />
+        <DaOs p={p} verFoto={verFotoNaFabrica} escuro={cor.fundo === "#14161a"} />
         {p.nota ? (
           <p className="mt-2 flex gap-1.5 rounded-[8px] px-2 py-1.5 text-xs font-semibold" style={{ background: "#fcefd9", color: "#6d3505" }}>
             <NotebookPen size={13} className="mt-px shrink-0" aria-hidden="true" /> <span className="[overflow-wrap:anywhere]">{p.nota}</span>

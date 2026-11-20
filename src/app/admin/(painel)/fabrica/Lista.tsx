@@ -16,6 +16,8 @@ import { diaCurto } from "@/lib/vendas/periodo";
 import { SeloDeTom } from "../Pecas";
 import { AcoesDoPedido } from "./AcoesDoPedido";
 import { AlteracoesDoTrabalho, type DarCiencia } from "./Alteracoes";
+import { verFotoNaFabrica } from "./actions";
+import { DaOs } from "./DaOs";
 import { BotaoDoHistorico } from "../pedido/abrir";
 
 /**
@@ -277,6 +279,7 @@ function CartaoDoPedido({
       </ul>
 
       <AlteracoesDoTrabalho lista={p.alteracoes} ciente={ciente} />
+      <DaOs p={p} verFoto={verFotoNaFabrica} />
 
       {p.endereco ? (
         <p className="mt-3 break-words rounded-[10px] border border-ink/10 bg-white p-2.5 text-xs leading-relaxed text-ink">

@@ -495,3 +495,17 @@ export function duracaoCurta(segundos: number | null | undefined): string {
 export function parteDoRetrabalho(retrabalho: number, entradas: number): number | null {
   return entradas > 0 ? Math.round((retrabalho / entradas) * 100) : null;
 }
+
+// ------------------------------------------------- as lojas físicas (66)
+
+/**
+ * As lojas que mandam pedido para a fábrica, com os nomes do sistema do Daniel
+ * (é como a fábrica já chama cada uma). "JK Marketing" é o time da loja
+ * online. Pessoa ligada a uma loja (0195) abre OS com a loja dela.
+ */
+export const LOJAS_FISICAS = [
+  "JK Aricanduva", "JK Center Norte", "JK Grand Plaza", "JK Granja", "JK Guarulhos", "JK Interlagos",
+  "JK Marketing", "JK Osasco", "JK Plaza", "JK Raposo", "JK Santana", "JK Tamboré",
+] as const;
+
+export const ehLojaFisica = (v: unknown): v is (typeof LOJAS_FISICAS)[number] => typeof v === "string" && (LOJAS_FISICAS as readonly string[]).includes(v);

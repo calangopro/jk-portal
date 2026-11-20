@@ -34,6 +34,12 @@ export type PedidoDaFabrica = {
   pedidoOrigem: number | null;
   /** Os pedidos de alteração do cliente (0192). Os sem `cienteEm` deixam o cartão em vermelho. */
   alteracoes: AlteracaoDaFabrica[];
+  /** Na OS aberta à mão (0195): o que fazer, a loja física, o número da OS de papel, as fotos dela e a transcrição. */
+  relato: string | null;
+  loja: string | null;
+  numeroPapel: string | null;
+  fotos: string[];
+  transcricao: string | null;
   /** O número do pedido na loja. `null` em venda por fora. */
   pedido: number | null;
   /** Código da ordem de serviço (0191): o número grande da fábrica. `null` em pedido antigo que ninguém tocou. */
@@ -93,6 +99,11 @@ export async function lerFilaDaFabrica(db: SupabaseClient, dias: number): Promis
     ref: texto(p.ref) ?? String(p.pedido ?? ""),
     origem: p.origem === "por_fora" ? "por_fora" : p.origem === "avulso" ? "avulso" : "loja",
     pedidoOrigem: p.pedido_origem === null || p.pedido_origem === undefined || !Number.isFinite(Number(p.pedido_origem)) ? null : Number(p.pedido_origem),
+    relato: texto(p.relato),
+    loja: texto(p.loja),
+    numeroPapel: texto(p.numero_papel),
+    fotos: Array.isArray(p.fotos) ? (p.fotos as unknown[]).filter((x): x is string => typeof x === "string") : [],
+    transcricao: texto(p.transcricao),
     alteracoes: (Array.isArray(p.alteracoes) ? (p.alteracoes as Record<string, unknown>[]) : []).map((a) => ({
       id: Number(a.id),
       texto: texto(a.texto) ?? "",
@@ -230,7 +241,7 @@ export async function salvarEtapasDaFabrica(
 const erroDaFuncao = (nome: string, msg: string, padrao: string) => {
   console.error(`[fabrica] ${nome}:`, msg);
   // As mensagens das funções da fábrica já estão em português e são para a pessoa ler.
-  return /acesso|Diga|Escreva|Tipo|Prioridade|prazo|Telefone|pedido|OS|alteração|peças/i.test(msg) ? msg : padrao;
+  return /acesso|Diga|Escreva|Tipo|Prioridade|prazo|Telefone|pedido|OS|alteração|peças|foto/i.test(msg) ? msg : padrao;
 };
 
 export type OsParaAbrir = {
@@ -248,6 +259,9 @@ export type OsParaAbrir = {
   uf: string | null;
   loja?: string | null;
   numeroPapel?: string | null;
+  /** Caminhos no balde `fabrica-os`, na pasta de quem abre (0195). */
+  fotos?: string[];
+  transcricao?: string | null;
 };
 
 /** Abre uma OS à mão (0192): troca, refazer, ajuste, upgrade, polimento ou serviço. */
@@ -257,6 +271,7 @@ export async function abrirOsDaFabrica(db: SupabaseClient, os: OsParaAbrir): Pro
       tipo: os.tipo, prioridade: os.prioridade, prazo: os.prazo, pedido_origem: os.pedidoOrigem,
       cliente_nome: os.clienteNome, cliente_telefone: os.clienteTelefone, relato: os.relato, pecas: os.pecas,
       entrega: os.entrega, endereco: os.endereco, cidade: os.cidade, uf: os.uf, loja: os.loja ?? null, numero_papel: os.numeroPapel ?? null,
+      fotos: os.fotos ?? [], transcricao: os.transcricao ?? null,
     },
   });
   if (error) return { ok: false, erro: erroDaFuncao("fabrica_abrir_os", error.message, "Não deu para abrir a OS agora. Tente de novo em alguns segundos.") };
