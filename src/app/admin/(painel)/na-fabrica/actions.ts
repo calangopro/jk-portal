@@ -5,6 +5,7 @@ import { requireArea } from "@/lib/auth/session";
 import { REF_DA_FABRICA, abrirOsDaFabrica, pedirAlteracaoNaFabrica } from "@/lib/fabrica/dados";
 import { PRIORIDADES, TIPOS, type Prioridade, type TipoDeTrabalho } from "@/lib/fabrica/etapas";
 import { lerProducao } from "@/lib/vendas/producao";
+import { emitirGarantia } from "@/lib/garantia/dados";
 import { createClient } from "@/lib/supabase/server";
 
 /**
@@ -71,4 +72,11 @@ export async function pedirAlteracao(ref: string, pedido: string): Promise<{ ok:
     revalidatePath("/admin/fabrica");
   }
   return r;
+}
+
+/** Emite (ou devolve) a garantia digital do trabalho (0194), do lado de quem vende. */
+export async function emitirGarantiaNaVenda(ref: string): Promise<{ ok: true; codigo: string } | { ok: false; erro: string }> {
+  await requireArea("lancar_venda");
+  if (typeof ref !== "string" || !REF_DA_FABRICA.test(ref)) return { ok: false, erro: "Pedido inválido." };
+  return emitirGarantia(await createClient(), ref);
 }

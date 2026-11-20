@@ -8,6 +8,8 @@ import {
   type Etapa, type EtapaDaFabrica, type Prioridade, type TipoDeTrabalho,
 } from "@/lib/fabrica/etapas";
 import { avisarOTime } from "@/lib/time/ao-vivo";
+import { emitirGarantiaNaFabrica } from "./actions";
+import { BotaoDeGarantia } from "./BotaoDeGarantia";
 
 /**
  * Os botões de um pedido da fábrica: levar para a etapa seguinte, mudar para
@@ -209,6 +211,7 @@ export function AcoesDoPedido({
           <button type="button" disabled={ocupado} onClick={() => setAberto("tipo")} className={botaoSecundario}>
             <CalendarClock size={13} aria-hidden="true" /> Tipo e prazo
           </button>
+          <BotaoDeGarantia referencia={pedido} emitir={emitirGarantiaNaFabrica} className={botaoSecundario} />
         </div>
       )}
       {erro ? <p className="mt-2 text-xs font-semibold text-[#b01919]">{erro}</p> : null}

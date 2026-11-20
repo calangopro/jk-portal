@@ -7,6 +7,7 @@ import {
   REF_DA_FABRICA, darCienciaNaFabrica, marcarTrabalhoDaFabrica, moverPedidoDaFabrica, moverPedidosDaFabrica, salvarEtapasDaFabrica,
 } from "@/lib/fabrica/dados";
 import { PRIORIDADES, TIPOS, lerEtapa, type Prioridade, type TipoDeTrabalho } from "@/lib/fabrica/etapas";
+import { emitirGarantia } from "@/lib/garantia/dados";
 import { createClient } from "@/lib/supabase/server";
 
 /**
@@ -105,4 +106,11 @@ export async function darCiencia(id: number): Promise<{ ok: true } | { ok: false
   const r = await darCienciaNaFabrica(await createClient(), id);
   if (r.ok) revalidatePath("/admin/fabrica");
   return r;
+}
+
+/** Emite (ou devolve) a garantia digital do trabalho (0194) e diz o código para o cartão. */
+export async function emitirGarantiaNaFabrica(ref: string): Promise<{ ok: true; codigo: string } | { ok: false; erro: string }> {
+  await requireArea("fabrica");
+  if (typeof ref !== "string" || !REF_DA_FABRICA.test(ref)) return { ok: false, erro: "Pedido inválido." };
+  return emitirGarantia(await createClient(), ref);
 }
