@@ -76,7 +76,7 @@ import { SETORES, abasDaBarra, nomeDoSetor, ondeEstou, setoresDe } from "../src/
 import { PECA_VAZIA, lerProducao, montarInfo } from "../src/lib/vendas/producao.ts";
 import { avaliarSaude, diaEHora, haQuantoTempo, resumoDoErro, sinaisDaSaude, type SaudeCrua } from "../src/lib/painel/saude.ts";
 import { REGRAS_DE_PARTIDA, diaPorExtenso, diasDeProducao, diasDesde, lerRegras, proximoMalote, quandoFica, somarDiasUteis } from "../src/lib/vendas/prazos.ts";
-import { DIAS_DE_ATENCAO, DIAS_DE_ATRASO, ETAPAS_DE_FABRICA, SEM_FILTRO, acaoPara, atrasado, colunasDoQuadro, dataInterna, diaEmSaoPaulo, lerEstacao, tempoNaEtapa, diasEntreDatas, esperaEmPalavra, etapaAnterior, filtrarFila, grupoDaEntrega, lerEntrega, lerEspecificacoes, lerEtapa, lerEtapas, lerPrioridade, lerTipo, nomeDaEtapa, ordenarFila, proximaEtapa, situacaoDoPrazo, tomDaEspera } from "../src/lib/fabrica/etapas.ts";
+import { DIAS_DE_ATENCAO, DIAS_DE_ATRASO, ETAPAS_DE_FABRICA, SEM_FILTRO, acaoPara, alteracoesAbertas, atrasado, colunasDoQuadro, fraseParaOCliente, dataInterna, diaEmSaoPaulo, lerEstacao, tempoNaEtapa, diasEntreDatas, esperaEmPalavra, etapaAnterior, filtrarFila, grupoDaEntrega, lerEntrega, lerEspecificacoes, lerEtapa, lerEtapas, lerPrioridade, lerTipo, nomeDaEtapa, ordenarFila, proximaEtapa, situacaoDoPrazo, tomDaEspera } from "../src/lib/fabrica/etapas.ts";
 
 let falhas = 0;
 function confere(nome: string, ok: boolean, detalhe = "") {
@@ -1110,6 +1110,11 @@ console.log("\nFila da fábrica");
   const agora = Date.parse("2026-11-20T15:00:00Z");
   confere("o tempo na etapa, curto", tempoNaEtapa("2026-11-20T14:59:30Z", agora) === "agora" && tempoNaEtapa("2026-11-20T14:48:00Z", agora) === "12 min" && tempoNaEtapa("2026-11-20T12:00:00Z", agora) === "3 h" && tempoNaEtapa("2026-11-18T12:00:00Z", agora) === "2 dias" && tempoNaEtapa(null, agora) === null);
   confere("a estação do endereço só aceita etapa ligada", lerEstacao("gravacao,embalar,gravacao", E).join(",") === "gravacao,embalar" && lerEstacao("entregue,XX,../a", E).length === 0 && lerEstacao(null, E).length === 0);
+  // O que dizer ao cliente (cartão 63).
+  confere("a frase diz a etapa, com o primeiro nome e o pedido", fraseParaOCliente({ cliente: "MARIA silva", pedido: 11389, etapa: "gravacao", nomeDaEtapa: "Gravação", rastreio: null }) === "Oi, Maria! Seu pedido 11389 está na gravação.");
+  confere("enviado leva o rastreio; etapa nova usa o nome dela", fraseParaOCliente({ cliente: null, pedido: 7, etapa: "enviado", nomeDaEtapa: "Enviado", rastreio: "AA1BR" }) === "Oi! Seu pedido 7 já saiu da nossa fábrica. O código de rastreio é AA1BR."
+    && fraseParaOCliente({ cliente: "Ana", pedido: null, etapa: "cravacao", nomeDaEtapa: "Cravação", rastreio: null }) === "Oi, Ana! Seu pedido está na etapa de cravação.");
+  confere("alteração aberta é a sem ciência", alteracoesAbertas([{ cienteEm: null }, { cienteEm: "2026-11-20T10:00:00Z" }]).length === 1);
   confere("a busca acha pela OS e pelo tipo", filtrarFila([{ ...base, etapa: "a_produzir", os: 1135, tipo: "troca" as const }], { ...SEM_FILTRO, busca: "os 1135" }, "2026-11-20").length === 1
     && filtrarFila([{ ...base, etapa: "a_produzir", os: 1135, tipo: "troca" as const }], { ...SEM_FILTRO, busca: "troca" }, "2026-11-20").length === 1);
   confere("conta os dias corridos desde o pagamento", diasEntreDatas("2026-11-10", "2026-11-14") === 4 && diasEntreDatas("2026-10-30", "2026-11-02") === 3 && diasEntreDatas("2026-11-14", "2026-11-14") === 0);
@@ -1276,7 +1281,7 @@ console.log("\nSetores do painel");
 
   const vendedor = setoresDe(["lancar_venda", "recuperacao"]);
   confere("o vendedor só vê o início e as vendas, e a primeira sala se chama Início", vendedor.length === 2 && nomeDoSetor(vendedor[0]) === "Início"
-    && vendedor[1].itens.map((i) => i.href).join() === "/admin/registrar-venda,/admin/pedidos-do-site,/admin/suporte,/admin/oportunidades,/admin/clientes,/admin/vendas-da-kommo,/admin/recuperacao");
+    && vendedor[1].itens.map((i) => i.href).join() === "/admin/registrar-venda,/admin/pedidos-do-site,/admin/suporte,/admin/na-fabrica,/admin/oportunidades,/admin/clientes,/admin/vendas-da-kommo,/admin/recuperacao");
   confere("com menos de três setores, a barra de baixo é por tela, e da quinta em diante fica no Mais", abasDaBarra(vendedor).map((a) => a.href).join() === "/admin,/admin/registrar-venda,/admin/pedidos-do-site,/admin/suporte");
   confere("a ficha de um cliente acende a tela de clientes", ondeEstou(tudo, "/admin/clientes/p48213").item?.href === "/admin/clientes");
   confere("a primeira tela de vendas do vendedor é registrar", vendedor[1].itens[0].href === "/admin/registrar-venda");

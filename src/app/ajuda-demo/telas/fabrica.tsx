@@ -4,7 +4,7 @@ import { ETAPAS_DE_FABRICA } from "@/lib/fabrica/etapas";
 import type { Demo } from "../tipos";
 
 const base: Omit<PedidoDaFabrica, "ref" | "pedido" | "dia" | "feitoEm" | "cliente" | "pecas" | "etapa" | "os"> = {
-  tipo: "venda_nova", prioridade: "normal", prazo: null,
+  tipo: "venda_nova", prioridade: "normal", prazo: null, pedidoOrigem: null, alteracoes: [],
   origem: "loja", statusDaLoja: "A ENVIAR", etapaEm: null, movidoPor: null, cidade: "Cidade Exemplo", uf: "SP",
   entrega: "Retirada na loja Exemplo", endereco: null, vendedor: null, rastreio: null, nota: null, kommo: null, desfeitoNaKommo: false,
 };
@@ -12,6 +12,7 @@ const peca = (nome: string, info: string) => ({ nome, quantidade: 1, referencia:
 
 const fila: FilaDaFabrica = {
   dias: 15,
+  podeMover: true,
   etapas: ETAPAS_DE_FABRICA,
   pedidos: [
     { ...base, ref: "11001", pedido: 11001, os: 1001, dia: "2026-11-09", feitoEm: "2026-11-09T14:00:00Z", cliente: "Cliente Exemplo Um", etapa: "a_produzir", pecas: [peca("Par de alianças de ouro 18k", "Numeração: 12 e 20<br />Gravação a laser: Exemplo e Exemplo, 01.01.2026")] },
@@ -29,6 +30,10 @@ const moverVarios = async () => {
   "use server";
   return { ok: true as const, movidos: 0, fora: 0 };
 };
+const ciente = async () => {
+  "use server";
+  return { ok: true as const };
+};
 const marcar = async () => {
   "use server";
   return { ok: true as const };
@@ -36,6 +41,6 @@ const marcar = async () => {
 
 const demo: Demo = {
   caminho: "/admin/fabrica",
-  desenho: () => <TelaDaFabrica fila={fila} etapa="a_produzir" dias={15} hoje="2026-11-19" mover={mover} moverVarios={moverVarios} marcar={marcar} />,
+  desenho: () => <TelaDaFabrica fila={fila} etapa="a_produzir" dias={15} hoje="2026-11-19" mover={mover} moverVarios={moverVarios} marcar={marcar} ciente={ciente} />,
 };
 export default demo;

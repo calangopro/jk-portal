@@ -3,6 +3,7 @@ import { Maximize } from "lucide-react";
 import type { FilaDaFabrica } from "@/lib/fabrica/dados";
 import { DIAS_ANTES_DO_PRAZO, DIAS_DE_ATENCAO, DIAS_DE_ATRASO, ETAPAS_DE_FABRICA, atrasado, etapasAtivas, type Etapa } from "@/lib/fabrica/etapas";
 import { EditorDeEtapas, type SalvarEtapas } from "./EditorDeEtapas";
+import type { DarCiencia } from "./Alteracoes";
 import { ListaDaFabrica, type Marcar, type Mover, type MoverVarios } from "./Lista";
 
 /**
@@ -25,7 +26,7 @@ import { ListaDaFabrica, type Marcar, type Mover, type MoverVarios } from "./Lis
 export const JANELAS = [15, 30, 60];
 
 export function TelaDaFabrica({
-  fila, etapa, dias, hoje, buscaInicial = "", mover, moverVarios, marcar, salvarEtapas,
+  fila, etapa, dias, hoje, buscaInicial = "", mover, moverVarios, marcar, ciente, salvarEtapas,
 }: {
   fila: FilaDaFabrica | null;
   etapa: Etapa;
@@ -36,6 +37,7 @@ export function TelaDaFabrica({
   mover: Mover;
   moverVarios: MoverVarios;
   marcar: Marcar;
+  ciente: DarCiencia;
   /** Só para diretoria e gerente: sem ela, o botão de editar as etapas não aparece. */
   salvarEtapas?: SalvarEtapas;
 }) {
@@ -116,7 +118,7 @@ export function TelaDaFabrica({
             </nav>
           </div>
 
-          <ListaDaFabrica pedidos={pedidos} etapas={etapas} etapa={etapa} hoje={hoje} buscaInicial={buscaInicial} mover={mover} moverVarios={moverVarios} marcar={marcar} />
+          <ListaDaFabrica pedidos={pedidos} etapas={etapas} etapa={etapa} hoje={hoje} buscaInicial={buscaInicial} mover={mover} moverVarios={moverVarios} marcar={marcar} ciente={ciente} />
 
           <p className="mt-5 max-w-3xl text-[0.7rem] leading-relaxed text-muted">
             A fila mostra os pedidos pagos nos últimos {dias} dias, e pedido que a fábrica já pegou continua nela mesmo
