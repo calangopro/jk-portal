@@ -159,9 +159,13 @@ export function lerHistorico(v: unknown, pedido: number): LeituraDoHistorico {
 
 // --------------------------------------------------------------- as palavras
 
-/** As etapas da fábrica. É a mesma lista de `NOME_DA_ETAPA` (`lib/time/chat.ts`) e da trava do banco. */
-const ETAPA: Record<string, string> = { a_produzir: "A produzir", em_producao: "Em produção", pronto: "Pronto", enviado: "Enviado" };
-export const nomeDaEtapa = (e: string | null) => (e ? (ETAPA[e] ?? e) : "");
+/**
+ * As etapas da fábrica de partida (0191): a mesma lista de `NOME_DA_ETAPA`
+ * (`lib/time/chat.ts`) e de `ETAPAS_DE_FABRICA`. Etapa criada no painel cai no
+ * nome da chave ("polimento_extra" vira "Polimento extra").
+ */
+const ETAPA: Record<string, string> = { a_produzir: "Chegou pedido", separacao: "Separação", em_producao: "Produção", gravacao: "Gravação", embalar: "Embalar", verificar: "Verificar", pronto: "Enviar", enviado: "Enviado", entregue: "Entregue" };
+export const nomeDaEtapa = (e: string | null) => (e ? (ETAPA[e] ?? e.replace(/_/g, " ").replace(/^./, (l) => l.toUpperCase())) : "");
 
 const RECUPERACAO: Record<string, string> = {
   a_recuperar: "Entrou na fila de recuperação",

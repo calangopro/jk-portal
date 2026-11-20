@@ -412,7 +412,7 @@ console.log("\nAs marcações");
   confere("a prévia lê o que o banco manda e descarta peça sem nome", previa !== null && previa.pecas.length === 1 && previa.pecas[0].quantidade === 2 && previa.cliente === null && previa.total === null && previa.pode.fabrica && !previa.pode.ficha);
   confere("sem número não há prévia", lerPreviaDoPedido(null) === null && lerPreviaDoPedido({ numero: 0 }) === null);
   confere("a situação do pedido: cancelado, esperando pagamento, etapa da fábrica, enviado", situacaoDoPedido({ situacao: "cancelado", etapa: null }).tom === "ruim" && situacaoDoPedido({ situacao: "aguardando", etapa: null }).palavra === "Esperando pagamento"
-    && situacaoDoPedido({ situacao: "pago", etapa: "em_producao" }).palavra === "Em produção" && situacaoDoPedido({ situacao: "pago", etapa: "enviado" }).tom === "bom" && situacaoDoPedido({ situacao: "pago", etapa: null }).palavra === "Pago");
+    && situacaoDoPedido({ situacao: "pago", etapa: "em_producao" }).palavra === "Produção" && situacaoDoPedido({ situacao: "pago", etapa: "enviado" }).tom === "bom" && situacaoDoPedido({ situacao: "pago", etapa: null }).palavra === "Pago");
   confere("a busca lê os pedidos achados", lerPedidosAchados([{ numero: 11389, dia: "2026-11-12", situacao: "pago", etapa: "a_produzir", cliente: null, peca: "Par", pecas: 2 }, { numero: 0 }, "x"]).length === 1 && lerPedidosAchados(null).length === 0);
 }
 

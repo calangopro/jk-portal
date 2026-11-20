@@ -5,7 +5,7 @@ import { ehAdmin } from "@/lib/auth/acessos";
 import { lerLojasFisicas, lerOportunidades } from "@/lib/clientes/dados";
 import { DIAS_DO_AVISO, NOME_DO_TIPO, prazoEmPalavra, separarParaOAviso, tomDoPrazo } from "@/lib/clientes/oportunidades";
 import { lerFilaDaFabrica } from "@/lib/fabrica/dados";
-import { NOME_DA_ETAPA, diasEntreDatas, tomDaEspera } from "@/lib/fabrica/etapas";
+import { diasEntreDatas, nomeDaEtapa, situacaoDoPrazo, tomDaEspera } from "@/lib/fabrica/etapas";
 import { PRAZOS_DA_KOMMO, tomDaEsperaNaKommo, type AlertasDaKommo } from "@/lib/kommo/funil";
 import { MOTIVOS, lerListaDaKommo } from "@/lib/kommo/vendas";
 import { lerMeuMesNoServidor } from "@/lib/pedidos/dados";
@@ -169,7 +169,7 @@ export async function lerHoje(db: SupabaseClient, profile: Profile): Promise<Ent
           atrasados: fila.pedidos
             .map((p) => {
               const dias = diasEntreDatas(p.dia, hoje);
-              return { ref: p.ref, cliente: p.cliente, etapa: NOME_DA_ETAPA[p.etapa], tom: tomDaEspera(dias, p.etapa), minutos: dias * 1440 };
+              return { ref: p.ref, cliente: p.cliente, etapa: nomeDaEtapa(p.etapa, fila.etapas), tom: situacaoDoPrazo(p, hoje)?.tom ?? tomDaEspera(dias, p.etapa), minutos: dias * 1440 };
             })
             .filter((p) => p.tom !== "neutro"),
         }

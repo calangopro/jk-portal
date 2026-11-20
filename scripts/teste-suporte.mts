@@ -186,7 +186,7 @@ console.log("\nO histórico do pedido (0103)");
   const textos = (h?.eventos ?? []).map((e) => textoDoEvento(e, canal));
   confere("a chegada diz o canal e a campanha", textos.some((t) => t.titulo === "Chegou ao site por Instagram e Facebook" && t.detalhe === "Anúncio do Meta: Campanha de exemplo"));
   confere("o suporte diz o assunto e quem passou", textos.some((t) => t.titulo === "Passado para o suporte: Caiu a pedra" && t.quem === "Pessoa Vendedora"));
-  confere("a fábrica diz a etapa nova e a de antes", textos.some((t) => t.titulo === "Fábrica: em produção" && t.detalhe === 'Estava em "a produzir"'));
+  confere("a fábrica diz a etapa nova e a de antes", textos.some((t) => t.titulo === "Fábrica: produção" && t.detalhe === 'Estava em "chegou pedido"'));
   const todos: EventoDoPedido[] = [
     { tipo: "status", em: ha(1), de: "A ENVIAR", para: "ENVIADO" },
     { tipo: "envio", dia: "2026-11-12", codigo: "AB123BR" },

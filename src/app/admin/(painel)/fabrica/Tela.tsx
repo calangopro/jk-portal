@@ -1,31 +1,30 @@
 import Link from "next/link";
-import { Hammer, PackageCheck, PackageOpen, Truck } from "lucide-react";
-import type { LucideIcon } from "lucide-react";
 import type { FilaDaFabrica } from "@/lib/fabrica/dados";
-import { DIAS_DE_ATENCAO, DIAS_DE_ATRASO, ETAPAS, diasEntreDatas, tomDaEspera, type Etapa } from "@/lib/fabrica/etapas";
-import { ListaDaFabrica, type Mover, type MoverVarios } from "./Lista";
+import { DIAS_ANTES_DO_PRAZO, DIAS_DE_ATENCAO, DIAS_DE_ATRASO, ETAPAS_DE_FABRICA, atrasado, etapasAtivas, type Etapa } from "@/lib/fabrica/etapas";
+import { EditorDeEtapas, type SalvarEtapas } from "./EditorDeEtapas";
+import { ListaDaFabrica, type Marcar, type Mover, type MoverVarios } from "./Lista";
 
 /**
  * A fila da fábrica, só o desenho. A leitura fica em `page.tsx`, para a tela
  * poder ser vista sem sessão durante o desenvolvimento.
  *
- * DESENHADA PARA O CELULAR DA BANCADA. As quatro etapas ficam em cima, cada uma
- * com a contagem, e são elas que escolhem a lista. A lista em si (busca,
+ * DESENHADA PARA O CELULAR DA BANCADA. As etapas ligadas ficam em cima, cada
+ * uma com a contagem, e são elas que escolhem a lista. Elas vêm da tabela
+ * `fabrica_etapas` (0191): diretoria e gerente mudam pelo botão "Editar
+ * etapas", sem publicar código. A lista em si (busca,
  * filtros, foto da peça, seleção de vários) mora em `Lista.tsx`, que roda no
  * navegador: filtrar não vai ao servidor.
  *
- * A ordem é a de chegada, o mais antigo primeiro: é o que está esperando há
- * mais tempo. Em "Enviado" a ordem inverte, para o que acabou de sair ficar em
- * cima.
+ * A ordem é a da bancada (`ordenarFila`): motoboy e urgente primeiro, depois a
+ * data interna mais perto, depois a chegada. Nas etapas finais a ordem
+ * inverte, para o que acabou de sair ficar em cima.
  */
 
 /** As janelas de dias que a tela oferece. A primeira é a de fábrica. */
 export const JANELAS = [15, 30, 60];
 
-const ICONE_DA_ETAPA: Record<Etapa, LucideIcon> = { a_produzir: PackageOpen, em_producao: Hammer, pronto: PackageCheck, enviado: Truck };
-
 export function TelaDaFabrica({
-  fila, etapa, dias, hoje, buscaInicial = "", mover, moverVarios,
+  fila, etapa, dias, hoje, buscaInicial = "", mover, moverVarios, marcar, salvarEtapas,
 }: {
   fila: FilaDaFabrica | null;
   etapa: Etapa;
@@ -35,10 +34,14 @@ export function TelaDaFabrica({
   buscaInicial?: string;
   mover: Mover;
   moverVarios: MoverVarios;
+  marcar: Marcar;
+  /** Só para diretoria e gerente: sem ela, o botão de editar as etapas não aparece. */
+  salvarEtapas?: SalvarEtapas;
 }) {
   const pedidos = fila?.pedidos ?? [];
+  const etapas = fila?.etapas ?? ETAPAS_DE_FABRICA;
   const quantos = (e: Etapa) => pedidos.filter((p) => p.etapa === e).length;
-  const atrasados = (e: Etapa) => pedidos.filter((p) => p.etapa === e && tomDaEspera(diasEntreDatas(p.dia, hoje), e) === "ruim").length;
+  const atrasados = (e: Etapa) => pedidos.filter((p) => p.etapa === e && atrasado(p, hoje)).length;
 
   return (
     <div data-painel-largo>
@@ -46,9 +49,10 @@ export function TelaDaFabrica({
         <p className="eyebrow">Fábrica</p>
         <h1 className="font-display mt-2 text-3xl text-ink sm:text-4xl">Fila da fábrica</h1>
         <p className="mt-2 max-w-3xl text-sm text-muted sm:text-base">
-          Os pedidos pagos na loja, do mais antigo para o mais novo. O botão grande leva para a etapa seguinte, Mudar
-          etapa pula direto (de A produzir para Enviado, por exemplo) e Marcar vários move muitos de uma vez.
+          Cada trabalho tem o código da ordem de serviço (OS). Urgente e motoboy vêm primeiro. O botão grande leva para
+          a etapa seguinte, Mudar etapa pula direto e Marcar vários move muitos de uma vez.
         </p>
+        {salvarEtapas && fila ? <EditorDeEtapas etapas={etapas} pedidos={pedidos} salvar={salvarEtapas} /> : null}
       </header>
 
       {fila === null ? (
@@ -57,10 +61,10 @@ export function TelaDaFabrica({
         </p>
       ) : (
         <>
-          <nav aria-label="Etapas" className="mt-6 grid grid-cols-2 gap-2 sm:grid-cols-4">
-            {ETAPAS.map((e) => {
+          {/* No celular as etapas rolam de lado numa linha só: em grade eram quatro linhas antes do primeiro pedido. */}
+          <nav aria-label="Etapas" className="painel-fila -mx-4 mt-6 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:grid sm:grid-cols-4 sm:overflow-visible sm:px-0 sm:pb-0 xl:grid-cols-8">
+            {etapasAtivas(etapas).map((e) => {
               const ativa = e.chave === etapa;
-              const Icone = ICONE_DA_ETAPA[e.chave];
               const tarde = atrasados(e.chave);
               return (
                 <Link
@@ -68,16 +72,17 @@ export function TelaDaFabrica({
                   href={`?etapa=${e.chave}&dias=${dias}`}
                   scroll={false}
                   aria-current={ativa ? "page" : undefined}
-                  className={`painel-toque flex flex-col rounded-[14px] p-3 ${ativa ? "painel-aba-ativa" : "border border-ink/10 bg-white text-ink"}`}
+                  className={`painel-toque flex w-40 shrink-0 flex-col rounded-[14px] p-3 sm:w-auto ${ativa ? "painel-aba-ativa" : "border border-ink/10 bg-white text-ink"}`}
                 >
                   <span className="flex items-center justify-between gap-2">
-                    <span className="flex items-center gap-1.5 text-xs font-semibold">
-                      <Icone size={14} aria-hidden="true" /> {e.nome}
+                    <span className="flex min-w-0 items-center gap-1.5 text-xs font-semibold">
+                      <span aria-hidden="true" className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: e.cor }} />
+                      <span className="truncate">{e.nome}</span>
                     </span>
                     <span className="numeros text-xl font-bold leading-none">{quantos(e.chave)}</span>
                   </span>
                   <span className={`mt-1 text-[0.68rem] leading-snug ${ativa ? "opacity-85" : "text-muted"}`}>
-                    {tarde > 0 ? `${tarde} há ${DIAS_DE_ATRASO} dias ou mais` : e.frase}
+                    {tarde > 0 ? `${tarde} atrasado${tarde === 1 ? "" : "s"}` : e.frase}
                   </span>
                 </Link>
               );
@@ -104,13 +109,15 @@ export function TelaDaFabrica({
             </nav>
           </div>
 
-          <ListaDaFabrica pedidos={pedidos} etapa={etapa} hoje={hoje} buscaInicial={buscaInicial} mover={mover} moverVarios={moverVarios} />
+          <ListaDaFabrica pedidos={pedidos} etapas={etapas} etapa={etapa} hoje={hoje} buscaInicial={buscaInicial} mover={mover} moverVarios={moverVarios} marcar={marcar} />
 
           <p className="mt-5 max-w-3xl text-[0.7rem] leading-relaxed text-muted">
             A fila mostra os pedidos pagos nos últimos {dias} dias, e pedido que a fábrica já pegou continua nela mesmo
-            passando disso. A data fica em âmbar a partir de {DIAS_DE_ATENCAO} dias do pagamento e em vermelho a partir de {DIAS_DE_ATRASO}. São prazos de
-            partida, não o prazo de produção da JK: dá para trocar. Pedido que a loja marca como enviado ou finalizado sai
-            da produção sozinho. O rastreio anotado aqui ainda não vai para a loja.
+            passando disso. Com prazo anotado, a fábrica termina {DIAS_ANTES_DO_PRAZO} dias antes dele (no próprio dia, em urgente e
+            motoboy), e o selo fica em âmbar a partir dessa data e em vermelho depois do prazo. Sem prazo, a data fica em
+            âmbar a partir de {DIAS_DE_ATENCAO} dias do pagamento e em vermelho a partir de {DIAS_DE_ATRASO}. São regras de partida, a
+            confirmar com a fábrica. Pedido que a loja marca como enviado ou finalizado sai da produção sozinho. O rastreio
+            anotado aqui ainda não vai para a loja.
           </p>
         </>
       )}

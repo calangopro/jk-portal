@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Hammer, HandCoins, Receipt, Sun } from "lucide-react";
-import { NOME_DA_ETAPA, lerEtapa } from "@/lib/fabrica/etapas";
+import { nomeDaEtapa } from "@/lib/fabrica/etapas";
 import { CANAIS, DIAS_PARA_TRAS, FORMAS, NOME_DA_FORMA, NOME_DO_CANAL_DE_VENDA, type ResumoPorFora, type VendaLancadaAgora, type VendaNaFabrica } from "@/lib/vendas/por-fora";
 import { diaCurto, nomeDoMes, primeiroDoMes, somarDias } from "@/lib/vendas/periodo";
 import { Cartao, Dinheiro, reais } from "../vendas/PainelDeVendas";
@@ -121,7 +121,7 @@ export function TelaDeRegistrarVenda({
                       {v.conferir ? <span className="mt-0.5 block text-xs font-semibold" style={{ color: "#b45309" }}>Conferir: {v.conferir}</span> : null}
                       {naFabrica[v.id] ? (
                         <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-ink/[0.06] px-2 py-0.5 text-[0.68rem] font-semibold text-ink">
-                          <Hammer size={11} aria-hidden="true" /> Fábrica: {NOME_DA_ETAPA[lerEtapa(naFabrica[v.id].etapa) ?? "a_produzir"].toLowerCase()}
+                          <Hammer size={11} aria-hidden="true" /> Fábrica: {nomeDaEtapa(naFabrica[v.id].etapa).toLowerCase()}
                           {naFabrica[v.id].rastreio ? `, rastreio ${naFabrica[v.id].rastreio}` : ""}
                         </span>
                       ) : null}

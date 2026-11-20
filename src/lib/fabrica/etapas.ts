@@ -12,37 +12,177 @@
  */
 import type { Tom } from "../painel/tons.ts";
 
-export type Etapa = "a_produzir" | "em_producao" | "pronto" | "enviado";
+/**
+ * A chave de uma etapa. Desde a 0191 as etapas moram na tabela
+ * `fabrica_etapas` e a diretoria cria etapa nova pelo painel, então a chave é
+ * texto. Quatro chaves são fixas e outras funções do banco olham para elas:
+ * `a_produzir` (a entrada, "Chegou pedido"), `em_producao`, `pronto` ("Enviar",
+ * esperando sair) e `enviado` (final).
+ */
+export type Etapa = string;
 
-export const ETAPAS: { chave: Etapa; nome: string; frase: string }[] = [
-  { chave: "a_produzir", nome: "A produzir", frase: "Pago na loja, esperando a fábrica começar" },
-  { chave: "em_producao", nome: "Em produção", frase: "Na bancada" },
-  { chave: "pronto", nome: "Pronto", frase: "Feito, esperando sair" },
-  { chave: "enviado", nome: "Enviado", frase: "Saiu da fábrica" },
-];
+export type PapelDaEtapa = "entrada" | "meio" | "final";
 
-export const NOME_DA_ETAPA = Object.fromEntries(ETAPAS.map((e) => [e.chave, e.nome])) as Record<Etapa, string>;
-
-/** O texto do botão que LEVA o pedido para a etapa. */
-export const ACAO_PARA: Record<Etapa, string> = {
-  a_produzir: "Voltar para a fila",
-  em_producao: "Começar a produzir",
-  pronto: "Marcar como pronto",
-  enviado: "Marcar como enviado",
+export type EtapaDaFabrica = {
+  chave: Etapa;
+  nome: string;
+  frase: string | null;
+  /** `#rrggbb`, a cor do selo da etapa. */
+  cor: string;
+  ativa: boolean;
+  papel: PapelDaEtapa;
 };
 
+export const ENTRADA = "a_produzir";
+export const ENVIADO = "enviado";
+/** As finais fixas. Etapa criada no painel é sempre do meio. */
+const FINAIS = new Set(["enviado", "entregue"]);
+
+/**
+ * As etapas de fábrica da 0191. Só servem quando a leitura do banco não trouxe
+ * a lista (e para dar nome à etapa em tela que não lê a tabela): quem manda é
+ * `fabrica_etapas`.
+ */
+export const ETAPAS_DE_FABRICA: EtapaDaFabrica[] = [
+  { chave: "a_produzir", nome: "Chegou pedido", frase: "Pago, esperando a fábrica começar", cor: "#5b6472", ativa: true, papel: "entrada" },
+  { chave: "separacao", nome: "Separação", frase: "Separando metal, pedras e caixinha", cor: "#1d5fa8", ativa: true, papel: "meio" },
+  { chave: "em_producao", nome: "Produção", frase: "Na bancada", cor: "#6a3fb5", ativa: true, papel: "meio" },
+  { chave: "gravacao", nome: "Gravação", frase: "Gravando o texto do cliente", cor: "#a3540f", ativa: true, papel: "meio" },
+  { chave: "embalar", nome: "Embalar", frase: "Embalando com o cartão", cor: "#0e6e69", ativa: true, papel: "meio" },
+  { chave: "verificar", nome: "Verificar", frase: "Conferência final antes de sair", cor: "#a3195b", ativa: true, papel: "meio" },
+  { chave: "pronto", nome: "Enviar", frase: "Conferido, esperando sair", cor: "#1d6b3a", ativa: true, papel: "meio" },
+  { chave: "enviado", nome: "Enviado", frase: "Saiu da fábrica", cor: "#2f3a48", ativa: true, papel: "final" },
+  { chave: "entregue", nome: "Entregue", frase: "Na mão do cliente", cor: "#2f3a48", ativa: false, papel: "final" },
+];
+
+const CHAVE = /^[a-z][a-z0-9_]{1,39}$/;
+const COR = /^#[0-9a-f]{6}$/;
+
 export function lerEtapa(v: unknown): Etapa | null {
-  return ETAPAS.some((e) => e.chave === v) ? (v as Etapa) : null;
+  return typeof v === "string" && CHAVE.test(v) ? v : null;
 }
 
-export function proximaEtapa(e: Etapa): Etapa | null {
-  const i = ETAPAS.findIndex((x) => x.chave === e);
-  return ETAPAS[i + 1]?.chave ?? null;
+/** A lista que veio do banco, conferida. Vazia ou quebrada: a de fábrica. */
+export function lerEtapas(cru: unknown): EtapaDaFabrica[] {
+  if (!Array.isArray(cru)) return ETAPAS_DE_FABRICA;
+  const lista: EtapaDaFabrica[] = [];
+  for (const e of cru as Record<string, unknown>[]) {
+    const chave = lerEtapa(e?.chave);
+    const nome = typeof e?.nome === "string" ? e.nome.trim() : "";
+    if (!chave || !nome) continue;
+    const papel: PapelDaEtapa = e.papel === "entrada" || e.papel === "final" ? e.papel : "meio";
+    lista.push({
+      chave,
+      nome,
+      frase: typeof e.frase === "string" && e.frase.trim() ? e.frase.trim() : null,
+      cor: typeof e.cor === "string" && COR.test(e.cor) ? e.cor : "#5b6472",
+      ativa: e.ativa !== false,
+      papel,
+    });
+  }
+  return lista.some((e) => e.chave === ENTRADA) ? lista : ETAPAS_DE_FABRICA;
 }
 
-export function etapaAnterior(e: Etapa): Etapa | null {
-  const i = ETAPAS.findIndex((x) => x.chave === e);
-  return i > 0 ? ETAPAS[i - 1].chave : null;
+export const etapasAtivas = (etapas: EtapaDaFabrica[]) => etapas.filter((e) => e.ativa);
+
+/** "polimento_extra" vira "Polimento extra": para etapa que a tela não conhece. */
+const humanizar = (chave: string) => {
+  const t = chave.replace(/_/g, " ").trim();
+  return t ? t[0].toUpperCase() + t.slice(1) : chave;
+};
+
+export function nomeDaEtapa(chave: Etapa | null | undefined, etapas: EtapaDaFabrica[] = ETAPAS_DE_FABRICA): string {
+  if (!chave) return ETAPAS_DE_FABRICA[0].nome;
+  return etapas.find((e) => e.chave === chave)?.nome ?? ETAPAS_DE_FABRICA.find((e) => e.chave === chave)?.nome ?? humanizar(chave);
+}
+
+/** O trabalho saiu da fábrica: não espera mais nada. */
+export const ehFinal = (chave: Etapa) => FINAIS.has(chave);
+
+/** A próxima etapa LIGADA depois desta. Nada depois da primeira final. */
+export function proximaEtapa(etapas: EtapaDaFabrica[], e: Etapa): Etapa | null {
+  if (ehFinal(e)) return null;
+  const ativas = etapasAtivas(etapas);
+  const i = ativas.findIndex((x) => x.chave === e);
+  return i >= 0 ? (ativas[i + 1]?.chave ?? null) : null;
+}
+
+export function etapaAnterior(etapas: EtapaDaFabrica[], e: Etapa): Etapa | null {
+  const ativas = etapasAtivas(etapas);
+  const i = ativas.findIndex((x) => x.chave === e);
+  return i > 0 ? ativas[i - 1].chave : null;
+}
+
+/** O texto do botão que LEVA o trabalho para a etapa. */
+export function acaoPara(e: EtapaDaFabrica): string {
+  if (e.chave === ENTRADA) return "Voltar para o começo";
+  if (e.chave === ENVIADO) return "Marcar como enviado";
+  if (e.chave === "entregue") return "Marcar como entregue";
+  return `Levar para ${e.nome}`;
+}
+
+// ------------------------------------------------- tipo, prioridade e prazo
+
+export type TipoDeTrabalho = "venda_nova" | "troca" | "refazer" | "ajuste" | "upgrade" | "polimento" | "servico";
+
+export const TIPOS: { chave: TipoDeTrabalho; nome: string }[] = [
+  { chave: "venda_nova", nome: "Venda nova" },
+  { chave: "troca", nome: "Troca" },
+  { chave: "refazer", nome: "Refazer" },
+  { chave: "ajuste", nome: "Ajuste" },
+  { chave: "upgrade", nome: "Upgrade" },
+  { chave: "polimento", nome: "Polimento" },
+  { chave: "servico", nome: "Serviço" },
+];
+
+export const NOME_DO_TIPO = Object.fromEntries(TIPOS.map((t) => [t.chave, t.nome])) as Record<TipoDeTrabalho, string>;
+
+export function lerTipo(v: unknown): TipoDeTrabalho {
+  return TIPOS.some((t) => t.chave === v) ? (v as TipoDeTrabalho) : "venda_nova";
+}
+
+export type Prioridade = "normal" | "urgente" | "motoboy";
+
+export const PRIORIDADES: { chave: Prioridade; nome: string; curta: string }[] = [
+  { chave: "normal", nome: "Pedido normal", curta: "Normal" },
+  { chave: "urgente", nome: "Urgente ou refazer", curta: "Urgente" },
+  { chave: "motoboy", nome: "Motoboy, cliente precisa no dia", curta: "Motoboy" },
+];
+
+export const NOME_DA_PRIORIDADE = Object.fromEntries(PRIORIDADES.map((p) => [p.chave, p.curta])) as Record<Prioridade, string>;
+
+export function lerPrioridade(v: unknown): Prioridade {
+  return v === "urgente" || v === "motoboy" ? v : "normal";
+}
+
+/**
+ * A fábrica termina antes do prazo da loja para sobrar tempo de levar a peça.
+ * É a regra que o sistema do Daniel aplica (`calcularDataInternaFabrica`):
+ * prazo menos 3 dias corridos, e o próprio prazo quando é urgente ou motoboy.
+ * O comentário de lá fala em ciclos de malote; o código não faz isso, e a
+ * regra de verdade está para ser confirmada com ele.
+ */
+export const DIAS_ANTES_DO_PRAZO = 3;
+
+const somarDias = (dia: string, n: number) => new Date(Date.parse(`${dia}T12:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
+const diaEMes = (dia: string) => `${dia.slice(8, 10)}/${dia.slice(5, 7)}`;
+
+/** A data em que a fábrica precisa terminar, `AAAA-MM-DD`. Sem prazo, nenhuma. */
+export function dataInterna(prazo: string | null | undefined, prioridade: Prioridade): string | null {
+  if (!prazo || !/^\d{4}-\d{2}-\d{2}$/.test(prazo)) return null;
+  return prioridade === "normal" ? somarDias(prazo, -DIAS_ANTES_DO_PRAZO) : prazo;
+}
+
+/**
+ * Como está o prazo de um trabalho, para o selo do cartão. Sem prazo, `null`:
+ * quem dá a cor é a espera desde o pagamento (`tomDaEspera`).
+ */
+export function situacaoDoPrazo(p: { prazo: string | null; prioridade: Prioridade; etapa: Etapa }, hoje: string): { tom: Tom; palavra: string } | null {
+  const interna = dataInterna(p.prazo, p.prioridade);
+  if (!interna || !p.prazo || ehFinal(p.etapa)) return null;
+  if (hoje > p.prazo) return { tom: "ruim", palavra: `Passou do prazo, ${diaEMes(p.prazo)}` };
+  if (hoje >= interna) return { tom: "atencao", palavra: hoje === p.prazo ? "Prazo é hoje" : `Fábrica até ${diaEMes(interna)}, prazo ${diaEMes(p.prazo)}` };
+  return { tom: "neutro", palavra: `Fábrica até ${diaEMes(interna)}` };
 }
 
 // ---------------------------------------------------------------- a espera
@@ -62,9 +202,9 @@ export function diasEntreDatas(de: string, ate: string): number {
   return Math.round((Date.parse(`${ate}T12:00:00Z`) - Date.parse(`${de}T12:00:00Z`)) / 86_400_000);
 }
 
-/** A cor da espera. Pedido enviado não espera mais nada. */
+/** A cor da espera. Trabalho que saiu da fábrica não espera mais nada. */
 export function tomDaEspera(dias: number, etapa: Etapa): Tom {
-  if (etapa === "enviado") return "neutro";
+  if (ehFinal(etapa)) return "neutro";
   if (dias >= DIAS_DE_ATRASO) return "ruim";
   if (dias >= DIAS_DE_ATENCAO) return "atencao";
   return "neutro";
@@ -179,7 +319,41 @@ export type PedidoParaFiltro = {
   rastreio: string | null;
   nota: string | null;
   pecas: { nome: string; referencia: string | null; info: string | null }[];
+  /** Código da ordem de serviço (0191). `null` em pedido antigo que ninguém tocou. */
+  os?: number | null;
+  tipo?: TipoDeTrabalho;
+  prioridade?: Prioridade;
+  prazo?: string | null;
 };
+
+/**
+ * Atrasado é o que passou do prazo da loja ou, sem prazo, o que espera desde o
+ * pagamento há mais que `DIAS_DE_ATRASO`. É a régua do filtro e da contagem.
+ */
+export function atrasado(p: PedidoParaFiltro, hoje: string): boolean {
+  const prazo = situacaoDoPrazo({ prazo: p.prazo ?? null, prioridade: p.prioridade ?? "normal", etapa: p.etapa }, hoje);
+  if (prazo) return prazo.tom === "ruim";
+  return tomDaEspera(diasEntreDatas(p.dia, hoje), p.etapa) === "ruim";
+}
+
+const PESO_DA_PRIORIDADE: Record<Prioridade, number> = { motoboy: 0, urgente: 1, normal: 2 };
+
+/**
+ * A ordem da bancada: motoboy e urgente em cima, depois quem tem a data
+ * interna mais perto, e por último a ordem de chegada. Trabalho sem prazo usa
+ * o dia do pedido no lugar da data interna, para não ir para o fim só por não
+ * ter prazo anotado.
+ */
+export function ordenarFila<T extends PedidoParaFiltro>(pedidos: T[]): T[] {
+  const chave = (p: T) => dataInterna(p.prazo ?? null, p.prioridade ?? "normal") ?? p.dia;
+  return pedidos
+    .map((p, i) => ({ p, i }))
+    .sort((a, b) =>
+      PESO_DA_PRIORIDADE[a.p.prioridade ?? "normal"] - PESO_DA_PRIORIDADE[b.p.prioridade ?? "normal"]
+      || chave(a.p).localeCompare(chave(b.p))
+      || a.i - b.i)
+    .map((x) => x.p);
+}
 
 export type FiltroDaFila = {
   busca: string;
@@ -194,7 +368,7 @@ const semAcento = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLo
 
 /**
  * A busca procura em tudo o que está escrito no cartão: número do pedido,
- * cliente, cidade, loja de retirada, peça, referência, numeração, texto da
+ * código da OS ("1135" ou "os 1135"), tipo do trabalho, cliente, cidade, loja de retirada, peça, referência, numeração, texto da
  * gravação, rastreio e anotação. Sem acento e sem maiúscula, e com mais de uma
  * palavra todas precisam aparecer ("osasco eternal" acha a Eternal Love que
  * retira em Osasco).
@@ -203,13 +377,13 @@ export function filtrarFila<T extends PedidoParaFiltro>(pedidos: T[], f: FiltroD
   const palavras = semAcento(f.busca).split(/\s+/).filter(Boolean);
   return pedidos.filter((p) => {
     if (f.entrega !== "todas" && grupoDaEntrega(p.entrega) !== f.entrega) return false;
-    if (f.soAtrasados && tomDaEspera(diasEntreDatas(p.dia, hoje), p.etapa) !== "ruim") return false;
+    if (f.soAtrasados && !atrasado(p, hoje)) return false;
     if (f.soComNota && !p.nota) return false;
     if (palavras.length === 0) return true;
     const texto = semAcento(
       [
         // Venda por fora não tem número: é achada por "por fora" e pelo nome de quem vendeu.
-        p.pedido ?? "venda por fora", p.vendedor, p.cliente, p.cidade, p.entrega, p.rastreio, p.nota,
+        p.pedido ?? "venda por fora", p.os ? `os ${p.os} os${p.os}` : null, p.tipo ? NOME_DO_TIPO[p.tipo] : null, p.vendedor, p.cliente, p.cidade, p.entrega, p.rastreio, p.nota,
         ...p.pecas.flatMap((x) => [x.nome, x.referencia, (x.info ?? "").replace(/<[^>]+>/g, " ")]),
       ].filter(Boolean).join(" "),
     );
