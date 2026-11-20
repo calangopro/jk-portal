@@ -1,6 +1,7 @@
 import type { LucideIcon } from "lucide-react";
 import {
   Factory,
+  Gauge,
   Activity, Banknote, CircleHelp, BellRing, BookCheck, Bot, Cable, CalendarDays, Contact, Crosshair, FileText, Filter, Flame, Globe, Hammer, HandCoins,
   Handshake, HeartPulse, Kanban, History, ImageIcon, LayoutDashboard, LayoutTemplate, LibraryBig, LifeBuoy, Lightbulb, ListChecks, MapPin, MessageCircle,
   MessageSquareText, MessagesSquare, Milestone, Package, PackageSearch, Palette, PenLine, Percent, Plug, QrCode, RotateCcw, Route, Send, Settings,
@@ -166,6 +167,7 @@ export const SETORES: Setor[] = [
     Icone: Hammer,
     itens: [
       { href: "/admin/fabrica", area: "fabrica", label: "Fila da fábrica", curto: "Fila", Icone: Hammer, desc: "O que produzir e o que enviar" },
+      { href: "/admin/fabrica/resumo", area: "vendas", label: "Resumo da fábrica", curto: "Resumo", Icone: Gauge, desc: "Agora, atrasos, saídas e tempo por etapa" },
     ],
   },
   {

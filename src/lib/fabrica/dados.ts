@@ -277,3 +277,34 @@ export async function darCienciaNaFabrica(db: SupabaseClient, id: number): Promi
   if (error) return { ok: false, erro: erroDaFuncao("fabrica_ciente", error.message, "Não deu para marcar agora. Tente de novo em alguns segundos.") };
   return { ok: true };
 }
+
+export type ResumoDaFabrica = {
+  dias: number;
+  entradas: number;
+  retrabalho: number;
+  porTipo: Record<string, number>;
+  saidas: number;
+  saidasPorDia: { dia: string; saidas: number }[];
+  /** Quanto cada etapa segura um trabalho, medido entre dois movimentos (0193). */
+  tempos: { etapa: string; vezes: number; mediaS: number; medianaS: number }[];
+};
+
+/** O histórico da fábrica para a gestão (0193). `null` sem acesso ou na falha. */
+export async function lerResumoDaFabrica(db: SupabaseClient, dias: number): Promise<ResumoDaFabrica | null> {
+  const { data, error } = await db.rpc("fabrica_resumo", { p_dias: dias });
+  if (error || !data) {
+    if (error) console.error("[fabrica] fabrica_resumo:", error.message);
+    return null;
+  }
+  const r = data as Record<string, unknown>;
+  const n = (v: unknown) => (Number.isFinite(Number(v)) ? Number(v) : 0);
+  return {
+    dias: n(r.dias),
+    entradas: n(r.entradas),
+    retrabalho: n(r.retrabalho),
+    porTipo: Object.fromEntries(Object.entries((r.por_tipo ?? {}) as Record<string, unknown>).map(([k, v]) => [k, n(v)])),
+    saidas: n(r.saidas),
+    saidasPorDia: (Array.isArray(r.saidas_por_dia) ? (r.saidas_por_dia as Record<string, unknown>[]) : []).map((x) => ({ dia: String(x.dia), saidas: n(x.saidas) })),
+    tempos: (Array.isArray(r.tempos) ? (r.tempos as Record<string, unknown>[]) : []).map((x) => ({ etapa: String(x.etapa), vezes: n(x.vezes), mediaS: n(x.media_s), medianaS: n(x.mediana_s) })),
+  };
+}
