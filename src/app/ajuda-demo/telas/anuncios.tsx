@@ -4,7 +4,10 @@ import type { Parametros } from "@/lib/margem/calculo";
 import type { Demo } from "../tipos";
 
 /** Limite de anúncio com produtos, preços e custos inventados, redondos. */
-const parametros: Parametros = { cotacao18k: 500, cotacao10k: 300, taxa: 0.05, imposto: 0.1, frete: 0, embalagem: 10, margemMinima: 0.3 };
+const parametros: Parametros = { cotacao18k: 500, cotacao10k: 300,
+  cotacaoPrata: 10,
+  prataGramasPorMm: 0.95,
+  prataResto: 30, taxa: 0.05, imposto: 0.1, frete: 0, embalagem: 10, margemMinima: 0.3 };
 
 const p = (id: string, nome: string, categoria: string, vendidos: number, preco: number, custo: number | null): LinhaDeAnuncio => ({
   id, trayId: id, nome, categoria, vendidos, precoCheio: preco, precoHoje: preco, custo, falta: custo === null ? "Falta o custo" : null,

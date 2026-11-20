@@ -79,7 +79,7 @@ export default async function ProdutosPage() {
           cpaMaximo: c.margem?.anuncio.cpaMaximo ?? null,
           cpaEmpate: c.margem?.anuncio.cpaEmpate ?? null,
           roasMinimo: c.margem?.anuncio.roasMinimo ?? null,
-          material: c.gravado?.material ?? null,
+          material: c.material,
           familia: c.gravado?.familia ?? null,
           gramas: c.gravado?.gramas ?? null,
           resto: c.gravado?.resto ?? null,

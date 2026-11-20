@@ -18,6 +18,7 @@ const mostrar = (n: number | null) => (n === null ? "" : n.toLocaleString("pt-BR
 export function MargemNaGaveta({ productId, margem }: { productId: string; margem: MargemNaLista | null }) {
   const router = useRouter();
   const ouro = Boolean(margem?.material);
+  const prata = margem?.material === "prata_950";
   const [gramas, setGramas] = useState(mostrar(margem?.gramas ?? null));
   const [resto, setResto] = useState(mostrar(margem?.resto ?? null));
   const [fixo, setFixo] = useState(mostrar(margem?.custoFixo ?? null));
@@ -105,16 +106,20 @@ export function MargemNaGaveta({ productId, margem }: { productId: string; marge
             <label className="text-xs font-semibold text-ink">
               Gramas deste produto
               <input inputMode="decimal" value={gramas} onChange={(e) => setGramas(e.target.value)} className={campo}
-                placeholder={margem?.familia ? `vazio: o da ${margem.familia}` : ""} />
+                placeholder={prata ? "vazio: pela largura" : margem?.familia ? `vazio: o da ${margem.familia}` : ""} />
             </label>
             <label className="text-xs font-semibold text-ink">
               Resto da peça (R$)
               <input inputMode="decimal" value={resto} onChange={(e) => setResto(e.target.value)} className={campo}
-                placeholder={margem?.familia ? `vazio: o da ${margem.familia}` : ""} />
+                placeholder={prata ? "vazio: o dos parâmetros" : margem?.familia ? `vazio: o da ${margem.familia}` : ""} />
             </label>
             <p className="col-span-2 text-[0.7rem] text-muted">
               {ROTULO_DO_MATERIAL[margem!.material!]}
-              {margem?.familia ? `, família ${margem.familia}. Preencha só se este produto pesar diferente da família.` : ", sem família: preencha o peso aqui."}
+              {prata
+                ? ". O peso sai da largura do nome x gramas por milímetro. Preencha só se esta peça pesar diferente."
+                : margem?.familia
+                  ? `, família ${margem.familia}. Preencha só se este produto pesar diferente da família.`
+                  : ", sem família: preencha o peso aqui."}
             </p>
           </>
         ) : (

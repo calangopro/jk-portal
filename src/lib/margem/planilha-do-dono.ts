@@ -145,3 +145,57 @@ export function lerPlanilhaDoDono(pasta: Pasta): ImportacaoDeCustos {
 
   return { parametros, familias, ouro, fixos, avisos };
 }
+
+// ------------------------------------------------------------------ pesos por produto
+
+/**
+ * A planilha de pesos do ouro por produto ("Peso e Valores Ouro18k.xlsx" e
+ * "Ouro10k", do Carlos, 20/11/2026): uma ou mais abas com as colunas
+ * "Referência", "ID do produto" (o código da Tray) e "Peso do ouro (g)". Vale
+ * qualquer aba que tenha as duas últimas; o resto da pasta é ignorado.
+ */
+const TITULO_ID = "id do produto";
+const TITULO_PESO = "peso do ouro";
+
+function abasDePeso(pasta: Pasta): [string, Aba][] {
+  return Object.entries(pasta).filter(([, aba]) => {
+    const titulos = Object.values(aba[1] ?? {}).map((v) => (typeof v === "string" ? semAcento(v) : ""));
+    return titulos.some((t) => t.startsWith(TITULO_ID)) && titulos.some((t) => t.startsWith(TITULO_PESO));
+  });
+}
+
+export function ehPlanilhaDePesos(pasta: Pasta): boolean {
+  return abasDePeso(pasta).length > 0;
+}
+
+export function lerPlanilhaDePesos(pasta: Pasta): ImportacaoDeCustos {
+  const abas = abasDePeso(pasta);
+  if (!abas.length) {
+    throw new PlanilhaDoDonoInvalida('Não achei as colunas "ID do produto" e "Peso do ouro (g)" em nenhuma aba.');
+  }
+  const avisos: string[] = [];
+  const porCodigo = new Map<string, number>();
+  for (const [nome, aba] of abas) {
+    const c = colunas(aba, { codigo: "ID do produto", gramas: "Peso do ouro" }, nome);
+    for (const l of linhas(aba)) {
+      const cod = codigo(l[c.codigo] ?? null);
+      if (!cod) continue;
+      const gramas = numeroDaCelula(l[c.gramas] ?? null);
+      if (gramas === null) continue;
+      if (!(gramas > 0) || gramas > 200) {
+        avisos.push(`Produto ${cod} (aba ${nome}): peso ${gramas} g ignorado.`);
+        continue;
+      }
+      const antes = porCodigo.get(cod);
+      if (antes !== undefined && antes !== gramas) avisos.push(`Produto ${cod} aparece com ${antes} g e ${gramas} g: vale o último.`);
+      porCodigo.set(cod, gramas);
+    }
+  }
+  return {
+    parametros: {},
+    familias: [],
+    ouro: Array.from(porCodigo, ([trayId, gramas]) => ({ trayId, gramas, resto: null })),
+    fixos: [],
+    avisos,
+  };
+}
