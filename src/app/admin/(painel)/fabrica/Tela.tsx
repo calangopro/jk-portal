@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Maximize } from "lucide-react";
 import type { FilaDaFabrica } from "@/lib/fabrica/dados";
 import { DIAS_ANTES_DO_PRAZO, DIAS_DE_ATENCAO, DIAS_DE_ATRASO, ETAPAS_DE_FABRICA, atrasado, etapasAtivas, type Etapa } from "@/lib/fabrica/etapas";
 import { EditorDeEtapas, type SalvarEtapas } from "./EditorDeEtapas";
@@ -52,7 +53,13 @@ export function TelaDaFabrica({
           Cada trabalho tem o código da ordem de serviço (OS). Urgente e motoboy vêm primeiro. O botão grande leva para
           a etapa seguinte, Mudar etapa pula direto e Marcar vários move muitos de uma vez.
         </p>
-        {salvarEtapas && fila ? <EditorDeEtapas etapas={etapas} pedidos={pedidos} salvar={salvarEtapas} /> : null}
+        <div className="mt-3 flex flex-wrap items-start gap-2">
+          {/* O quadro fica fora da moldura do painel: sem menu, só os pedidos, para a TV e o tablet da bancada. */}
+          <Link href="/admin/fabrica-quadro" className="painel-toque painel-aba-ativa inline-flex h-9 items-center gap-1.5 rounded-full px-3.5 text-xs font-semibold">
+            <Maximize size={14} aria-hidden="true" /> Quadro em tela cheia
+          </Link>
+          {salvarEtapas && fila ? <EditorDeEtapas etapas={etapas} pedidos={pedidos} salvar={salvarEtapas} /> : null}
+        </div>
       </header>
 
       {fila === null ? (

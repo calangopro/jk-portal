@@ -7,6 +7,7 @@ import {
   ENVIADO, PRIORIDADES, TIPOS, acaoPara, etapasAtivas, proximaEtapa,
   type Etapa, type EtapaDaFabrica, type Prioridade, type TipoDeTrabalho,
 } from "@/lib/fabrica/etapas";
+import { avisarOTime } from "@/lib/time/ao-vivo";
 
 /**
  * Os botões de um pedido da fábrica: levar para a etapa seguinte, mudar para
@@ -63,6 +64,7 @@ export function AcoesDoPedido({
       const r = await marcar(pedido, { tipo: qualTipo, prioridade: qualPrioridade, prazo: qualPrazo });
       if (r.ok) {
         setAberto(null);
+        avisarOTime("fila-da-fabrica");
         router.refresh();
       } else setErro(r.erro);
     });
@@ -73,6 +75,8 @@ export function AcoesDoPedido({
       const r = await mover(pedido, destino, extras);
       if (r.ok) {
         setAberto(null);
+        // O quadro da fábrica e as outras telas abertas releem a fila.
+        avisarOTime("fila-da-fabrica");
         router.refresh();
       } else setErro(r.erro);
     });

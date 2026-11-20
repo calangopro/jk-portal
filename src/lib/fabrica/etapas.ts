@@ -390,3 +390,60 @@ export function filtrarFila<T extends PedidoParaFiltro>(pedidos: T[], f: FiltroD
     return palavras.every((w) => texto.includes(w));
   });
 }
+
+// ------------------------------------------------------------ o quadro (62)
+
+/** O que o quadro precisa saber de um trabalho. O pedido da fila tem tudo isso e mais. */
+export type TrabalhoDoQuadro = PedidoParaFiltro & { ref: string; etapaEm: string | null };
+
+export type ColunaDoQuadro<T> = { etapa: EtapaDaFabrica; trabalhos: T[] };
+
+/** O dia de São Paulo de um instante, `AAAA-MM-DD`. */
+export function diaEmSaoPaulo(instante: string | number | Date): string {
+  return new Date(instante).toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
+}
+
+/**
+ * As colunas do quadro da fábrica: uma por etapa LIGADA, na ordem da tabela,
+ * cada uma na ordem da bancada (`ordenarFila`). A coluna de Enviado mostra só o
+ * que a fábrica marcou como enviado HOJE, com o mais recente em cima: o quadro
+ * é do que está na bancada, e o que saiu ontem já não pede nada a ninguém.
+ * Entregue não entra. `so` limita às etapas de uma estação (o tablet da
+ * gravação mostra só Gravação); vazio é todas.
+ */
+export function colunasDoQuadro<T extends TrabalhoDoQuadro>(
+  etapas: EtapaDaFabrica[],
+  trabalhos: T[],
+  hoje: string,
+  so: Etapa[] = [],
+): ColunaDoQuadro<T>[] {
+  return etapasAtivas(etapas)
+    .filter((e) => e.chave !== "entregue")
+    .filter((e) => so.length === 0 || so.includes(e.chave))
+    .map((etapa) => {
+      const daEtapa = trabalhos.filter((t) => t.etapa === etapa.chave);
+      if (!ehFinal(etapa.chave)) return { etapa, trabalhos: ordenarFila(daEtapa) };
+      const deHoje = daEtapa.filter((t) => t.etapaEm && diaEmSaoPaulo(t.etapaEm) === hoje);
+      return { etapa, trabalhos: deHoje.sort((a, b) => (b.etapaEm ?? "").localeCompare(a.etapaEm ?? "")) };
+    });
+}
+
+/** Há quanto tempo o trabalho está na etapa, curto: "agora", "12 min", "3 h", "2 dias". */
+export function tempoNaEtapa(etapaEm: string | null, agora: number): string | null {
+  if (!etapaEm) return null;
+  const min = Math.floor((agora - Date.parse(etapaEm)) / 60_000);
+  if (!Number.isFinite(min)) return null;
+  if (min < 1) return "agora";
+  if (min < 60) return `${min} min`;
+  const h = Math.floor(min / 60);
+  if (h < 24) return `${h} h`;
+  const d = Math.floor(h / 24);
+  return d === 1 ? "1 dia" : `${d} dias`;
+}
+
+/** As etapas de uma estação, lidas do endereço (`?so=gravacao,embalar`). Só chave válida e ligada. */
+export function lerEstacao(cru: string | null | undefined, etapas: EtapaDaFabrica[]): Etapa[] {
+  if (!cru) return [];
+  const ligadas = new Set(etapasAtivas(etapas).map((e) => e.chave));
+  return [...new Set(cru.split(",").map((x) => x.trim()))].filter((x) => lerEtapa(x) && ligadas.has(x));
+}
