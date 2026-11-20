@@ -160,6 +160,47 @@ const PROVEDOR_DO_DESTINO: Record<Destino, ProvedorDeChave> = {
 
 const PROVEDORES_EDITAVEIS = Object.values(PROVEDOR_DO_DESTINO);
 
+/**
+ * A chave da API de Conversões se confere pelo que ela precisa fazer: MANDAR
+ * evento. O token gerado em Gerenciador de Eventos, API de Conversões, pode não
+ * ter leitura do pixel, e a conferência antiga (`GET /pixel?fields=id`)
+ * recusou um token bom em 20/11/2026.
+ *
+ * Manda um evento com data de 2001. O Meta confere a chave ANTES do evento:
+ * chave ruim volta 190 (token inválido) ou 100/33 (sem permissão no pixel);
+ * chave boa passa e o evento é recusado pela data (mais de 7 dias), sem gravar
+ * nada. Com `data` vazio o Meta recusa antes de olhar a chave, por isso o
+ * evento existe. Medido em 20/11/2026 com chave falsa (190) e sem chave
+ * (100/33); a recusa pela data com chave boa vem da regra dos 7 dias.
+ */
+async function conferirChaveDoMeta(valor: string, pixel: string): Promise<string | null> {
+  const leitura = await fetch(`https://graph.facebook.com/v24.0/${pixel}?fields=id`, {
+    headers: { Authorization: `Bearer ${valor}` },
+    signal: AbortSignal.timeout(8000),
+    cache: "no-store",
+  });
+  if (leitura.ok) return null;
+
+  const corpo = new URLSearchParams({
+    data: JSON.stringify([
+      { event_name: "ConferenciaDeChave", event_time: 1_000_000_000, action_source: "system_generated", user_data: { external_id: ["0"] } },
+    ]),
+  });
+  const r = await fetch(`https://graph.facebook.com/v24.0/${pixel}/events`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${valor}` },
+    body: corpo,
+    signal: AbortSignal.timeout(8000),
+    cache: "no-store",
+  });
+  if (r.ok) return null;
+  const erro = ((await r.json().catch(() => null)) as { error?: { code?: number; error_subcode?: number; message?: string } } | null)?.error;
+  const chaveRuim = !erro || erro.code === 190 || erro.code === 10 || erro.code === 200 || (erro.code === 100 && erro.error_subcode === 33);
+  if (!chaveRuim) return null;
+  const motivo = erro?.message ? ` O Meta disse: "${erro.message.slice(0, 160)}".` : "";
+  return `O Meta recusou essa chave para o pixel ${pixel}.${motivo} Gere o token no Gerenciador de Eventos, no pixel da JK, em Configurações, API de Conversões.`;
+}
+
 /** Confere a chave no próprio destino antes de gravar, quando dá para conferir sem mandar contato falso. */
 async function conferirChave(provider: ProvedorDeChave, valor: string, meta: Record<string, string>): Promise<string | null> {
   try {
@@ -171,13 +212,7 @@ async function conferirChave(provider: ProvedorDeChave, valor: string, meta: Rec
       });
       return r.ok ? null : "A Kommo recusou essa chave. Confira se copiou a chave de longa duração inteira.";
     }
-    if (provider === "meta_capi") {
-      const r = await fetch(
-        `https://graph.facebook.com/v24.0/${meta.pixel_id || PIXEL_DA_JK}?fields=id&access_token=${encodeURIComponent(valor)}`,
-        { signal: AbortSignal.timeout(8000), cache: "no-store" },
-      );
-      return r.ok ? null : "O Meta recusou essa chave para o pixel da JK. Gere o token no Gerenciador de Eventos, em Configurações do pixel.";
-    }
+    if (provider === "meta_capi") return conferirChaveDoMeta(valor, meta.pixel_id || PIXEL_DA_JK);
     if (provider === "grupo_webhook") {
       const u = new URL(valor);
       return u.protocol === "https:" ? null : "O webhook precisa começar com https://.";
