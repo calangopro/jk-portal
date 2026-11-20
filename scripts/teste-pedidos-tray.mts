@@ -76,6 +76,7 @@ import { SETORES, abasDaBarra, nomeDoSetor, ondeEstou, setoresDe } from "../src/
 import { PECA_VAZIA, lerProducao, montarInfo } from "../src/lib/vendas/producao.ts";
 import { avaliarSaude, diaEHora, haQuantoTempo, resumoDoErro, sinaisDaSaude, type SaudeCrua } from "../src/lib/painel/saude.ts";
 import { REGRAS_DE_PARTIDA, diaPorExtenso, diasDeProducao, diasDesde, lerRegras, proximoMalote, quandoFica, somarDiasUteis } from "../src/lib/vendas/prazos.ts";
+import { codigoEmBlocos, dataDoFormulario, dataParaLer, digitosValidos, lerCodigo } from "../src/lib/garantia/garantia.ts";
 import { DIAS_DE_ATENCAO, DIAS_DE_ATRASO, ETAPAS_DE_FABRICA, SEM_FILTRO, acaoPara, alteracoesAbertas, duracaoCurta, parteDoRetrabalho, atrasado, colunasDoQuadro, fraseParaOCliente, dataInterna, diaEmSaoPaulo, lerEstacao, tempoNaEtapa, diasEntreDatas, esperaEmPalavra, etapaAnterior, filtrarFila, grupoDaEntrega, lerEntrega, lerEspecificacoes, lerEtapa, lerEtapas, lerPrioridade, lerTipo, nomeDaEtapa, ordenarFila, proximaEtapa, situacaoDoPrazo, tomDaEspera } from "../src/lib/fabrica/etapas.ts";
 
 let falhas = 0;
@@ -1117,6 +1118,12 @@ console.log("\nFila da fábrica");
   confere("alteração aberta é a sem ciência", alteracoesAbertas([{ cienteEm: null }, { cienteEm: "2026-11-20T10:00:00Z" }]).length === 1);
   confere("duração curta", duracaoCurta(30) === "1 min" && duracaoCurta(2400) === "40 min" && duracaoCurta(5 * 3600) === "5 h" && duracaoCurta(2.5 * 86400) === "2,5 dias" && duracaoCurta(2 * 86400) === "2 dias" && duracaoCurta(null) === "sem medida");
   confere("parte do retrabalho", parteDoRetrabalho(3, 40) === 8 && parteDoRetrabalho(0, 0) === null);
+  // Garantia digital (cartão 65).
+  confere("código da garantia: sem I, O, 0 e 1, aceita minúscula e espaço", lerCodigo("wpawr 4xmrw") === "WPAWR4XMRW" && lerCodigo("WPAWR4XMR0") === null && lerCodigo("ABCDEFGHI2") === null && lerCodigo(null) === null);
+  confere("código em dois blocos", codigoEmBlocos("WPAWR4XMRW") === "WPAWR 4XMRW");
+  confere("data do formulário vira a da ficha", dataDoFormulario("15/03") === "03-15" && dataDoFormulario("5/3/1995") === "1995-03-05" && dataDoFormulario("29/02") === "02-29" && dataDoFormulario("29/02/2023") === null && dataDoFormulario("31/04") === null && dataDoFormulario("13/13") === null && dataDoFormulario("ontem") === null);
+  confere("data da ficha volta para quem lê", dataParaLer("03-15") === "15/03" && dataParaLer("1995-03-05") === "05/03/1995" && dataParaLer(null) === "");
+  confere("quatro dígitos", digitosValidos("0123") && !digitosValidos("123") && !digitosValidos("12a4"));
   confere("a busca acha pela OS e pelo tipo", filtrarFila([{ ...base, etapa: "a_produzir", os: 1135, tipo: "troca" as const }], { ...SEM_FILTRO, busca: "os 1135" }, "2026-11-20").length === 1
     && filtrarFila([{ ...base, etapa: "a_produzir", os: 1135, tipo: "troca" as const }], { ...SEM_FILTRO, busca: "troca" }, "2026-11-20").length === 1);
   confere("conta os dias corridos desde o pagamento", diasEntreDatas("2026-11-10", "2026-11-14") === 4 && diasEntreDatas("2026-10-30", "2026-11-02") === 3 && diasEntreDatas("2026-11-14", "2026-11-14") === 0);

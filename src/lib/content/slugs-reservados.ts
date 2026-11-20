@@ -34,6 +34,7 @@ const RESERVADOS = new Set([
   "bio",
   "grupo",
   "qrcode",
+  "garantia",
 
   // Fora do grupo (site), mas no mesmo nível de endereço.
   "admin",

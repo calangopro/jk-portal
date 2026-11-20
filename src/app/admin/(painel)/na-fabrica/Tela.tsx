@@ -14,7 +14,8 @@ import { AlteracoesDoTrabalho } from "../fabrica/Alteracoes";
 import { nomeDoTrabalho } from "../fabrica/Lista";
 import { BotaoDoHistorico } from "../pedido/abrir";
 import { ProducaoDaVenda, type ProdutoDoFormulario } from "../registrar-venda/ProducaoDaVenda";
-import type { AbrirOs, PedirAlteracao } from "./actions";
+import { BotaoDeGarantia } from "../fabrica/BotaoDeGarantia";
+import { emitirGarantiaNaVenda, type AbrirOs, type PedirAlteracao } from "./actions";
 
 /**
  * Na fábrica, do lado de quem vende. O desenho; a leitura fica em `page.tsx`.
@@ -251,6 +252,7 @@ function CartaoDoVendedor({ p, etapas, agora, pedirAlteracao }: { p: PedidoDaFab
             </button>
           )}
           {p.pedido !== null ? <BotaoDoHistorico numero={p.pedido} /> : null}
+          <BotaoDeGarantia referencia={p.ref} emitir={emitirGarantiaNaVenda} className="painel-toque inline-flex h-10 items-center gap-1.5 rounded-full border border-ink/12 bg-white px-3.5 text-xs font-semibold text-ink disabled:opacity-60" />
         </div>
       )}
       {erro ? <p className="mt-2 text-xs font-semibold text-[#b01919]">{erro}</p> : null}
