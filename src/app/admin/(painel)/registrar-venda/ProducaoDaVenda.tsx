@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Bike, Handshake, Plus, Store, Trash2, Truck } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { PECA_VAZIA, PRODUCAO_VAZIA, TETO_DE_PECAS, type ModoDeEntrega, type PecaDoFormulario, type ProducaoDoFormulario, type TipoDeGravacao } from "@/lib/vendas/producao";
@@ -180,7 +180,7 @@ function Peca({
 }
 
 export function ProducaoDaVenda({
-  produtos, lojas, inicial, sempreLigada = false,
+  produtos, lojas, inicial, sempreLigada = false, aoMudar,
 }: {
   produtos: ProdutoDoFormulario[];
   lojas: string[];
@@ -188,6 +188,8 @@ export function ProducaoDaVenda({
   inicial?: ProducaoDoFormulario;
   /** Completar a produção de uma venda já lançada: a caixa de "mandar para a fábrica" não aparece, porque é o motivo da tela. */
   sempreLigada?: boolean;
+  /** Avisa cada mudança: o balcão da loja (cartão 71) guarda o rascunho no aparelho. */
+  aoMudar?: (dados: ProducaoDoFormulario) => void;
 }) {
   const [ligadaAqui, setLigada] = useState(false);
   const ligada = sempreLigada || ligadaAqui;
@@ -197,6 +199,12 @@ export function ProducaoDaVenda({
   const [veioAConfirmar] = useState(() => new Set((inicial?.pecas ?? []).map((p, i) => (p.gravacao === "a_confirmar" ? i : -1)).filter((i) => i >= 0)));
   const lojasDaLista = inicial?.loja && !lojas.includes(inicial.loja) ? [inicial.loja, ...lojas] : lojas;
   const indice = useMemo(() => produtos.map((p) => ({ p, texto: semAcento(`${p.nome} ${p.codigo}`) })), [produtos]);
+
+  const avisar = useRef(aoMudar);
+  avisar.current = aoMudar;
+  useEffect(() => {
+    avisar.current?.(dados);
+  }, [dados]);
 
   const mudarPeca = (i: number, m: Partial<PecaDoFormulario>) => setDados((d) => ({ ...d, pecas: d.pecas.map((p, k) => (k === i ? { ...p, ...m } : p)) }));
 

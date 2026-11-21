@@ -23,7 +23,9 @@ export type AppRole =
   | "reviewer"
   | "author"
   /** Quem cuida das redes: só o Social Media e o Time (0090). Fora de `is_staff()`, como vendas e fábrica. */
-  | "social";
+  | "social"
+  /** Conta do balcão de UMA loja física (0198): o pedido da loja, a consulta e o Time. Fora de `is_staff()` e do conector. */
+  | "loja";
 
 export type Area =
   | "conteudo"
@@ -51,7 +53,9 @@ export type Area =
   /** Atender o suporte pós-venda: assumir e fechar o caso que o vendedor passou (0102). Gerente e diretoria. Passar o caso é de `lancar_venda`. */
   | "suporte"
   /** O Roadmap: o quadro de trabalho de quem mexe no código do painel (0141). Administrador, dono e GM. */
-  | "roadmap";
+  | "roadmap"
+  /** O balcão da loja física: pedido com sinal, entrega, fábrica e anexos (0198). Loja, gerente e diretoria. */
+  | "balcao";
 
 /** Na ordem em que aparecem para quem convida: da empresa para o editorial. */
 export const NIVEIS: { papel: AppRole; nome: string; resumo: string }[] = [
@@ -61,6 +65,7 @@ export const NIVEIS: { papel: AppRole; nome: string; resumo: string }[] = [
   { papel: "trafego", nome: "Tráfego", resumo: "Gasto de anúncio, retorno, vendas, métricas e campanhas" },
   { papel: "vendas", nome: "Vendas", resumo: "Consulta de produto e prazo, registrar venda e fila de recuperação" },
   { papel: "fabrica", nome: "Fábrica", resumo: "A fila da fábrica e a consulta de produto e prazo" },
+  { papel: "loja", nome: "Loja física", resumo: "O balcão de uma loja: pedidos, sinal, fábrica e consulta. Escolha a loja da pessoa abaixo" },
   { papel: "social", nome: "Social media", resumo: "Só o Social Media: posts, stories, comentários, ideias e números das redes" },
   { papel: "editor", nome: "Editor", resumo: "Conteúdo, Social Media, site, produtos e campanhas" },
   { papel: "reviewer", nome: "Revisor", resumo: "Conteúdo e métricas" },
@@ -81,11 +86,11 @@ export function ehAdmin(papel: string | null | undefined): boolean {
 }
 
 /**
- * Vendas, fábrica e Social media não mexem em conteúdo do site: ficam de fora
+ * Vendas, fábrica, Social media e loja física não mexem em conteúdo do site: ficam de fora
  * de `is_staff()` no banco (0090), e por isso também de `requireStaff()` no
  * painel. A lista é a mesma nos dois lados.
  */
-export const FORA_DO_CONTEUDO: readonly AppRole[] = ["vendas", "fabrica", "social"];
+export const FORA_DO_CONTEUDO: readonly AppRole[] = ["vendas", "fabrica", "social", "loja"];
 
 export function ehEquipeDeConteudo(papel: string | null | undefined): boolean {
   return Boolean(papel) && !FORA_DO_CONTEUDO.includes(papel as AppRole);

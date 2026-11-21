@@ -22,7 +22,7 @@
  * confere que as duas andam juntas. Não é import porque módulo puro só importa
  * TIPO de outro arquivo (o teste roda com `.ts` no caminho e o `tsc` recusa).
  */
-const NAO_USAM: readonly string[] = ["vendas", "fabrica"];
+const NAO_USAM: readonly string[] = ["vendas", "fabrica", "loja"];
 
 /** Nível que usa o conector só em parte: o nome exato da operação, ou a área inteira terminada em ponto. */
 const SO_ESTAS: Readonly<Record<string, readonly string[]>> = {
