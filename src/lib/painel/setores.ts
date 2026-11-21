@@ -120,6 +120,7 @@ export const SETORES: Setor[] = [
       { href: "/admin/trafego", area: "trafego", label: "Gasto e retorno", curto: "Resumo", Icone: Activity, desc: "Quanto saiu e quanto voltou" },
       { href: "/admin/trafego/campanhas", area: "trafego", label: "Campanhas e anúncios", curto: "Anúncios", Icone: Table2, desc: "Campanha, conjunto e anúncio" },
       { href: "/admin/trafego/origem", area: "trafego", label: "Origem dos pedidos", curto: "Origem", Icone: Route, desc: "De qual anúncio veio cada venda" },
+      { href: "/admin/trafego/utms", area: "trafego", label: "Links e UTMs", curto: "UTMs", Icone: Tags, desc: "O padrão de etiqueta para copiar" },
       { href: "/admin/anuncios", area: "anuncios", label: "Limite de anúncio", curto: "Limite", Icone: Crosshair, desc: "Quanto dá para pagar por venda" },
     ],
   },

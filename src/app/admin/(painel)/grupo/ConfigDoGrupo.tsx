@@ -7,13 +7,13 @@ import { NOMES_DOS_TEMAS } from "@/lib/bio/tipos";
 import { LINK_DO_GRUPO, PAGINA_DO_GRUPO, TEMAS_DO_GRUPO, type ConfigDoGrupo } from "@/lib/grupo/tipos";
 import { BotaoCopiar } from "../bio/LinksParaDivulgar";
 import { salvarGrupo, type EstadoDoGrupo } from "./actions";
+import { PARAMETROS_DO_META } from "@/lib/trafego/utms";
 
 const campo =
   "w-full rounded-[10px] border border-border bg-white/80 px-3 py-2 text-sm text-ink outline-none transition-colors hover:border-brand/40 focus:border-brand";
 
-/** Parâmetros do gerenciador do Meta, os mesmos da bio, com a campanha e o anúncio pelo nome. */
-const PARAMETROS_DO_ANUNCIO =
-  "utm_source=instagram&utm_medium=paid_social&utm_campaign={{campaign.name}}&utm_content={{ad.name}}";
+// O padrão de UTM mora num lugar só (cartão 69): `lib/trafego/utms.ts`, a mesma linha da tela Links e UTMs.
+const PARAMETROS_DO_ANUNCIO = PARAMETROS_DO_META;
 
 const curto = (url: string) => url.replace(/^https:\/\/www\./, "");
 
