@@ -6,6 +6,7 @@ import { Camera, Check, Factory, FileText, Loader2, Paperclip, Plus, RotateCcw, 
 import { ProducaoDaVenda, type ProdutoDoFormulario } from "../registrar-venda/ProducaoDaVenda";
 import { PECA_VAZIA, PRODUCAO_VAZIA, type PecaDoFormulario, type ProducaoDoFormulario } from "@/lib/vendas/producao";
 import type { SugestaoDaFoto } from "@/lib/fabrica/foto-do-pedido";
+import { ORIGENS } from "@/lib/kommo/balcao-regra";
 import {
   FORMAS, MOTIVOS, dinheiro, emPortugues, faltaNoRascunho, lerValor, numeroDoPedido, sinalSugerido, somarDias, telefoneNaTela, telefoneParaLink,
   type AnexoDoRascunho, type FormaDePagamento, type Motivo, type RascunhoDoBalcao, type VendedorDaLoja,
@@ -595,6 +596,15 @@ function Cliente({ r, mudar, hoje, alertar }: { r: RascunhoDoBalcao; mudar: (m: 
           {r.data_especial && r.data_especial >= hoje ? <p className="mt-1 text-xs text-muted">Vira oportunidade de chamar o cliente perto da data.</p> : null}
         </>
       ) : null}
+
+      <span className={`${rotulo} mt-3`}>Como conheceu a JK</span>
+      <div className="flex flex-wrap gap-2">
+        {ORIGENS.map((o) => (
+          <button key={o.chave} type="button" onClick={() => mudar({ origem_cliente: r.origem_cliente === o.chave ? "" : o.chave })} className={chip(r.origem_cliente === o.chave)} aria-pressed={r.origem_cliente === o.chave}>
+            {o.nome}
+          </button>
+        ))}
+      </div>
 
       <details className="mt-3">
         <summary className="cursor-pointer text-xs font-semibold text-muted">E-mail (se o cliente quiser)</summary>

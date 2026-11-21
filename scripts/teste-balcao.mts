@@ -16,6 +16,26 @@ import {
 import { SETORES } from "../src/lib/painel/setores.ts";
 import { FORA_DO_CONTEUDO, NIVEIS } from "../src/lib/auth/acessos.ts";
 import { podeUsarConector } from "../src/lib/conector/quem-usa.ts";
+import { register } from "node:module";
+import {
+  decidirLeadDoBalcao, decidirPedidoDoBalcao, diaEmSegundos, gravacaoDasPecas, metalDasPecas, numeracaoDasPecas, sugerirLigacao, tagsDoBalcao, tipoDasPecas,
+  type LigacaoDaLoja, type PedidoParaKommo,
+} from "../src/lib/kommo/balcao-regra.ts";
+import { camposParaKommo, lerDefinicoes } from "../src/lib/kommo/automacoes-regra.ts";
+
+// O mesmo gancho do teste das automações da Kommo: troca o `server-only` por vazio e completa o `.ts` dos imports relativos.
+register(
+  "data:text/javascript," +
+    encodeURIComponent(`
+      export async function resolve(especificador, contexto, proximo) {
+        if (especificador === "server-only") return { url: "data:text/javascript,", shortCircuit: true };
+        try { return await proximo(especificador, contexto); }
+        catch (e) {
+          if (/^\\.\\.?\\//.test(especificador) && !/\\.[cm]?[jt]s$/.test(especificador)) return proximo(especificador + ".ts", contexto);
+          throw e;
+        }
+      }`),
+);
 
 let falhas = 0;
 function confere(nome: string, ok: boolean, detalhe = "") {
@@ -116,6 +136,93 @@ console.log("\nDatas, menu, nível e conector");
   confere("o Balcão está no menu, com a área balcao", item?.area === "balcao");
   confere("o nível Loja existe para quem convida", NIVEIS.some((n) => n.papel === "loja"));
   confere("o nível Loja fica fora do conteúdo do site e do conector", FORA_DO_CONTEUDO.includes("loja") && !podeUsarConector("loja"));
+}
+
+console.log("\nO balcão na Kommo: o que vai em cada campo");
+const LIG: LigacaoDaLoja = { loja: "JK Granja", loja_kommo: "Granja Vianna", tag: null, funil_pedido: 14110367, etapa_pedido: 108923747, funil_lead: 13518815, etapa_lead: 105986843, responsavel_id: 15075055 };
+const PED: PedidoParaKommo = {
+  id: "aaaaaaaa-0000-4000-8000-000000000001", numero: 12, loja: "JK Granja", vendedor: "Maria Teste", cliente_nome: "Ana Paula", cliente_telefone: "5511988887777", cliente_email: null,
+  motivo: "casamento", data_especial: "2027-03-20", origem_cliente: "instagram",
+  pecas: [{ nome: "Par de Alianças Ouro 18k 5mm", quantidade: 1, info: "Numeração - Aro 01: 18<br />Numeração - Aro 02: 24<br />Modelo de Gravação: Gravação Laser<br />Gravação - Aro 01: Ana &amp; Beto<br />Detalhes: caixinha<br />" }],
+  total: "3000.00", entrega_texto: "Retire na loja do JK Granja", prazo: "2026-11-30", observacao: null, criado_em: "2026-11-20T23:30:00Z",
+  pagamentos: [{ valor: "1500.00", forma: "pix", parcelas: 1 }],
+};
+{
+  const a = decidirPedidoDoBalcao(PED, LIG)!;
+  const c = a.negocio.campos;
+  confere("pedido vai para o funil e a etapa do pedido da loja", a.negocio.funilId === 14110367 && a.negocio.etapaId === 108923747 && a.negocio.responsavelId === 15075055);
+  confere("a chave é uma por pedido", a.chave === "balcao_pedido:aaaaaaaa-0000-4000-8000-000000000001" && a.automacao === "balcao_pedido" && !a.desistirSeAberto);
+  confere("campos: Loja, Produto, Pix, Casamento, Instagram, Alianças, Ouro", c["Loja"] === "Granja Vianna" && c["Produto"] === "Par de Alianças Ouro 18k 5mm" && c["Método de pagamento"] === "Pix" && c["Motivo da Compra"] === "Casamento" && c["Origem do cliente"] === "Instagram" && c["Tipo de Produto"] === "Alianças" && c["Metal"] === "Ouro", JSON.stringify(c));
+  confere("sinal com saldo aberto não é À vista nem Parcelamento", !("Pagamento" in c));
+  confere("numeração e gravação saem do texto da fábrica", c["Numeração"] === "18 e 24" && c["Gravura"] === "Ana & Beto", `${c["Numeração"]} / ${c["Gravura"]}`);
+  confere("Data da Compra é a meia-noite de São Paulo (23h30 UTC de 20/11 ainda é dia 20)", c["Data da Compra"] === diaEmSegundos("2026-11-20") && c["Data da Compra"] === Math.round(Date.parse("2026-11-20T03:00:00Z") / 1000));
+  confere("tags: loja-fisica, Painel JK, a da loja e o vendedor", JSON.stringify(a.negocio.tags) === JSON.stringify(["loja-fisica", "Painel JK", "LOJA GRANJA VIANNA", "MARIA TESTE"]), JSON.stringify(a.negocio.tags));
+  confere("a nota resume pedido, dinheiro e prazo, sem travessão", a.nota.includes("PL-12") && a.nota.includes("falta R$ 1.500,00") && a.nota.includes("30/11/2026") && !/[—–]/.test(a.nota), a.nota);
+  confere("pago à vista inteiro vira À vista; crédito parcelado, Parcelamento", decidirPedidoDoBalcao({ ...PED, pagamentos: [{ valor: "3000", forma: "pix", parcelas: 1 }] }, LIG)!.negocio.campos["Pagamento"] === "À vista" && decidirPedidoDoBalcao({ ...PED, pagamentos: [{ valor: "3000", forma: "credito", parcelas: 6 }] }, LIG)!.negocio.campos["Pagamento"] === "Parcelamento");
+  confere("formas diferentes: método fica vazio", !("Método de pagamento" in decidirPedidoDoBalcao({ ...PED, pagamentos: [{ valor: "1000", forma: "pix", parcelas: 1 }, { valor: "2000", forma: "dinheiro", parcelas: 1 }] }, LIG)!.negocio.campos));
+  confere("loja sem ligação completa: nada", decidirPedidoDoBalcao(PED, { ...LIG, responsavel_id: null }) === null && decidirPedidoDoBalcao(PED, undefined) === null);
+  confere("metal e tipo só com a palavra no nome", metalDasPecas([{ nome: "Anel Solitário", quantidade: 1, info: null }]) === null && tipoDasPecas([{ nome: "Anel Solitário Prata 925", quantidade: 1, info: null }]) === "Anéis" && metalDasPecas([{ nome: "Aliança prata com ouro", quantidade: 1, info: null }]) === "Prata encapada a ouro");
+  confere("peças de tipos diferentes: tipo vazio", tipoDasPecas([{ nome: "Aliança", quantidade: 1, info: null }, { nome: "Brinco", quantidade: 1, info: null }]) === null);
+  confere("numeração e gravação vazias sem info", numeracaoDasPecas([{ nome: "x", quantidade: 1, info: null }]) === "" && gravacaoDasPecas([{ nome: "x", quantidade: 1, info: null }]) === "");
+  confere("tag sem ligação de nome usa o nome da loja", tagsDoBalcao({ ...LIG, loja_kommo: null }, "Zé").includes("LOJA GRANJA"));
+
+  const l = decidirLeadDoBalcao({ id: "bbbbbbbb-0000-4000-8000-000000000001", loja: "JK Granja", vendedor: "Maria Teste", cliente_nome: "Beto", cliente_telefone: "5511977776666", interesse: "par de ouro 5 mm", tipo_produto: "aliancas", motivo: "noivado", data_especial: null, origem_cliente: "shopping", observacao: null, criado_em: "2026-11-20T15:00:00Z" }, LIG)!;
+  confere("lead vai para o funil do lead e desiste se já houver negócio aberto", l.negocio.funilId === 13518815 && l.negocio.etapaId === 105986843 && l.desistirSeAberto && l.negocio.tags.includes("lead-balcao"));
+  confere("lead leva Noivado, Shopping (passante), Alianças e o que procurava", l.negocio.campos["Motivo da Compra"] === "Noivado" && l.negocio.campos["Origem do cliente"] === "Shopping (passante)" && l.negocio.campos["Tipo de Produto"] === "Alianças" && l.negocio.campos["Produto"] === "par de ouro 5 mm");
+}
+
+console.log("\nCampos pelo nome viram id");
+{
+  const defs = lerDefinicoes({ _embedded: { custom_fields: [
+    { id: 1, name: "Método de pagamento", type: "select", enums: [{ id: 11, value: "Pix" }, { id: 12, value: "Dinheiro" }] },
+    { id: 2, name: "Produto", type: "text" },
+    { id: 3, name: "Produto", type: "text" },
+    { id: 4, name: "Data da Compra", type: "date" },
+    { id: 5, name: "Quantidade de produtos", type: "numeric" },
+  ] } });
+  const r = camposParaKommo({ "Método de pagamento": "pix", Produto: "Par", "Data da Compra": 1763607600, "Quantidade de produtos": 2, Metal: "Ouro", "Método de pagamento 2": "x" }, defs);
+  confere("lista vai pela opção (sem diferença de maiúscula), texto pelo valor, data em segundos, número em texto", JSON.stringify(r.valores) === JSON.stringify([{ field_id: 1, values: [{ enum_id: 11 }] }, { field_id: 2, values: [{ value: "Par" }] }, { field_id: 4, values: [{ value: 1763607600 }] }, { field_id: 5, values: [{ value: "2" }] }]), JSON.stringify(r.valores));
+  confere("campo que a Kommo não tem volta em faltaram", r.faltaram.includes("Metal") && r.faltaram.includes("Método de pagamento 2"));
+  confere("opção que não existe na lista volta em faltaram", camposParaKommo({ "Método de pagamento": "Cheque" }, defs).faltaram[0] === "Método de pagamento: Cheque");
+}
+
+console.log("\nSugestão de ligação pelo nome");
+{
+  const funis = [
+    { id: 1, nome: "GRANJA VIANNA | PDV", etapas: [{ id: 11, nome: "Incoming leads", tipo: "entrada" }, { id: 12, nome: "Lançamento", tipo: "aberta" }] },
+    { id: 2, nome: "GRANJA VIANNA | WHATS", etapas: [{ id: 21, nome: "Entrada", tipo: "aberta" }] },
+    { id: 3, nome: "Tamboré | PÓS VENDAS", etapas: [{ id: 31, nome: "Lançamento", tipo: "aberta" }] },
+    { id: 4, nome: "UNIÃO OSASCO | PDV", etapas: [{ id: 41, nome: "Lançamento", tipo: "aberta" }] },
+  ];
+  const s1 = sugerirLigacao("JK Granja", funis, ["Granja Vianna", "Raposo"]);
+  confere("Granja: PDV/Lançamento, WHATS/Entrada e a opção Granja Vianna", s1.funil_pedido === 1 && s1.etapa_pedido === 12 && s1.funil_lead === 2 && s1.etapa_lead === 21 && s1.loja_kommo === "Granja Vianna", JSON.stringify(s1));
+  confere("Tamboré acha o PÓS VENDAS", sugerirLigacao("JK Tamboré", funis, ["Tamboré"]).funil_pedido === 3);
+  confere("Osasco e Plaza são ambíguas: sem sugestão", sugerirLigacao("JK Osasco", funis, ["União Osasco"]).funil_pedido == null && sugerirLigacao("JK Plaza", funis, ["Osasco Plaza"]).loja_kommo === null);
+}
+
+console.log("\nA escrita do balcão com uma Kommo de mentira");
+{
+  const { escreverNaKommo } = await import("../src/lib/kommo/escrever.ts");
+  const rpcs: { nome: string; args: Record<string, unknown> }[] = [];
+  const db = { rpc: async (nome: string, args: Record<string, unknown>) => { rpcs.push({ nome, args }); return nome === "kommo_escrita_reservar" ? { data: { ok: true, id: 1, feita_por: "autor" }, error: null } : { data: { ok: true }, error: null }; } };
+  const chamadas: { caminho: string; metodo: string; corpo?: unknown }[] = [];
+  const pedir = async (caminho: string, o: { metodo?: string; corpo?: unknown; busca?: URLSearchParams } = {}) => {
+    chamadas.push({ caminho, metodo: o.metodo ?? "GET", corpo: o.corpo });
+    if (caminho === "/api/v4/contacts") return { _embedded: { contacts: [{ id: 501, custom_fields_values: [{ field_code: "PHONE", values: [{ value: "+5511988887777" }] }], _embedded: { leads: [{ id: 9 }] } }] } };
+    if (caminho === "/api/v4/leads/custom_fields") return { _embedded: { custom_fields: [{ id: 3185306, name: "Loja", type: "select", enums: [{ id: 7, value: "Granja Vianna" }] }, { id: 3173632, name: "Produto", type: "text" }] } };
+    if (caminho === "/api/v4/leads/complex") return [{ id: 777, contact_id: 501 }];
+    if (caminho === "/api/v4/leads/777") return { id: 777, pipeline_id: 14110367, status_id: 108923747, responsible_user_id: 15075055 };
+    return {};
+  };
+  const r = await escreverNaKommo(db as never, pedir as never, decidirPedidoDoBalcao(PED, LIG)!);
+  const criar = chamadas.find((c) => c.caminho === "/api/v4/leads/complex")?.corpo as { pipeline_id: number; custom_fields_values: unknown[]; _embedded: { contacts: unknown[]; tags: { name: string }[] } }[];
+  confere("criou e conferiu: estado ok com o negócio 777", r.estado === "ok" && "negocioId" in r && r.negocioId === 777, JSON.stringify(r));
+  confere("o registro grava como criar_negocio, sem negócio antes", rpcs[0].nome === "kommo_escrita_reservar" && rpcs[0].args.p_acao === "criar_negocio" && rpcs[0].args.p_negocio === null);
+  confere("usou o contato que já existe, com as tags e os campos que a Kommo tem", JSON.stringify(criar[0]._embedded.contacts) === JSON.stringify([{ id: 501 }]) && criar[0]._embedded.tags.some((t) => t.name === "loja-fisica") && criar[0].custom_fields_values.length === 2);
+  confere("pedido do cliente que já tem negócio aberto cria do mesmo jeito (cada compra é um negócio)", !chamadas.some((c) => c.caminho === "/api/v4/leads" && c.metodo === "GET"));
+  confere("deixou a nota com o resumo no negócio criado", chamadas.some((c) => c.caminho === "/api/v4/leads/notes" && c.metodo === "POST" && JSON.stringify(c.corpo).includes("PL-12")));
+  const fim = rpcs.find((x) => x.nome === "kommo_escrita_terminar")!.args;
+  confere("o registro diz quais campos a Kommo não tem", typeof fim.p_erro === "string" && (fim.p_erro as string).includes("Campos que a Kommo não tem"), String(fim.p_erro));
 }
 
 if (falhas) {

@@ -3,22 +3,24 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, ChevronRight, Loader2, Plus, Search, UserRound, Users } from "lucide-react";
+import { AlertTriangle, ChevronRight, Loader2, MessageCircle, Plus, Search, UserPlus, UserRound, Users } from "lucide-react";
 import { SeloDeTom } from "../Pecas";
 import {
-  agrupar, atrasado, dataCurta, dinheiro, dinheiroRedondo, numeroDoPedido, pagamento, pecaEmTexto, situacao,
-  type PedidoDoBalcao, type VendedorDaLoja,
+  agrupar, atrasado, dataCurta, dinheiro, dinheiroRedondo, kommoEmPalavras, linkDoWhatsapp, numeroDoPedido, pagamento, pecaEmTexto, situacao,
+  type LeadDoBalcao, type PedidoDoBalcao, type VendedorDaLoja,
 } from "@/lib/balcao/regras";
 import { salvarVendedor } from "./actions";
+import { TIPOS_DE_PRODUTO } from "@/lib/kommo/balcao-regra";
 
 const semAcento = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 
 /** A lista do balcão, no celular primeiro: cada pedido é um cartão que abre com um toque. */
 export function TelaDoBalcao({
-  lista, vendedores, loja, minhaLoja, lojas, busca, semLoja, hoje,
+  lista, vendedores, leads = [], loja, minhaLoja, lojas, busca, semLoja, hoje,
 }: {
   lista: PedidoDoBalcao[] | null;
   vendedores: VendedorDaLoja[];
+  leads?: LeadDoBalcao[];
   loja: string | null;
   minhaLoja: string | null;
   lojas: string[];
@@ -90,9 +92,16 @@ export function TelaDoBalcao({
             </select>
           )}
         </div>
-        <Link href={`/admin/balcao/novo${sufixo}`} className="painel-toque painel-aba-ativa inline-flex min-h-12 items-center gap-2 rounded-full px-5 text-base font-semibold">
-          <Plus size={18} aria-hidden="true" /> Novo pedido
-        </Link>
+        <div className="flex gap-2">
+          {loja ? (
+            <Link href={`/admin/balcao/lead${sufixo}`} className="painel-toque inline-flex min-h-12 items-center gap-2 rounded-full border border-ink/15 bg-white px-4 text-base font-semibold text-ink">
+              <UserPlus size={18} aria-hidden="true" /> Lead
+            </Link>
+          ) : null}
+          <Link href={`/admin/balcao/novo${sufixo}`} className="painel-toque painel-aba-ativa inline-flex min-h-12 items-center gap-2 rounded-full px-5 text-base font-semibold">
+            <Plus size={18} aria-hidden="true" /> Pedido
+          </Link>
+        </div>
       </header>
 
       {lista === null ? (
@@ -150,6 +159,8 @@ export function TelaDoBalcao({
           </div>
         ) : null}
       </div>
+
+      {leads.length ? <Leads leads={leads} hoje={hoje} /> : null}
 
       {loja ? <Vendedores vendedores={vendedores} loja={loja} /> : null}
     </div>
@@ -250,6 +261,40 @@ function Vendedores({ vendedores, loja }: { vendedores: VendedorDaLoja[]; loja: 
         </button>
       </form>
       {erro ? <p role="alert" className="mt-2 text-sm font-semibold text-[#b01919]">{erro}</p> : null}
+    </details>
+  );
+}
+
+function Leads({ leads, hoje }: { leads: LeadDoBalcao[]; hoje: string }) {
+  return (
+    <details className="glass mt-6 rounded-[18px] p-4">
+      <summary className="flex cursor-pointer items-center gap-2 text-sm font-semibold text-ink">
+        <UserPlus size={16} aria-hidden="true" /> Leads dos últimos 30 dias <span className="numeros text-xs text-muted">({leads.length})</span>
+      </summary>
+      <ul className="mt-3 space-y-2">
+        {leads.map((l) => {
+          const k = kommoEmPalavras(l.kommo);
+          const tipo = TIPOS_DE_PRODUTO.find((t) => t.chave === l.tipo_produto)?.nome;
+          const zap = linkDoWhatsapp(l.cliente_telefone, `Olá, ${l.cliente_nome.split(" ")[0]}! Aqui é da JK Alianças, ${l.loja}.`);
+          return (
+            <li key={l.id} className="rounded-[12px] border border-ink/10 bg-white/70 p-3">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold text-ink">{l.cliente_nome}</p>
+                  <p className="text-xs text-muted [overflow-wrap:anywhere]">{[tipo, l.interesse].filter(Boolean).join(", ") || "Sem o que procurava"}</p>
+                  <p className="mt-1 text-xs text-muted">{dataCurta(l.criado_em.slice(0, 10), hoje)} · {l.vendedor_nome}</p>
+                </div>
+                {zap ? (
+                  <a href={zap} target="_blank" rel="noopener noreferrer" className="painel-toque inline-flex min-h-10 shrink-0 items-center gap-1 rounded-full border border-ink/12 bg-white px-3 text-xs font-semibold text-ink" aria-label={`Chamar ${l.cliente_nome} no WhatsApp`}>
+                    <MessageCircle size={14} aria-hidden="true" /> Chamar
+                  </a>
+                ) : null}
+              </div>
+              {k ? <div className="mt-2"><SeloDeTom tom={k.tom}>{k.texto}</SeloDeTom></div> : null}
+            </li>
+          );
+        })}
+      </ul>
     </details>
   );
 }

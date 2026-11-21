@@ -1,6 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { rodarBalcaoNaKommo } from "@/lib/kommo/balcao";
+import { ORIGENS, TIPOS_DE_PRODUTO } from "@/lib/kommo/balcao-regra";
 import { requireArea } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { lerProducao } from "@/lib/vendas/producao";
@@ -97,7 +101,9 @@ export async function salvarPedidoDoBalcao(
     },
   });
   if (error) return { ok: false, erro: erroDoBanco(error) };
-  const salvo = data as { id: string; numero: number };
+  const salvo = data as { id: string; numero: number; novo: boolean };
+  const origem = ORIGENS.some((o) => o.chave === r.origem_cliente) ? r.origem_cliente! : null;
+  if (origem || !salvo.novo) await db.rpc("balcao_definir_origem", { p_pedido: salvo.id, p_origem: origem });
 
   let foi = false;
   let avisoDaFabrica: string | null = null;
@@ -108,6 +114,8 @@ export async function salvarPedidoDoBalcao(
     else avisoDaFabrica = `O pedido foi salvo, mas não foi para a fábrica: ${f.erro}`;
   }
   limpar();
+  // Vai para a Kommo logo depois de responder à loja (cartão 72). Automação desligada ou loja sem ligação: não vai nada.
+  if (salvo.novo) after(() => rodarBalcaoNaKommo(createAdminClient(), { pedido: salvo.id, prazoMs: 20_000 }).then(() => undefined));
   return { ok: true, id: salvo.id, numero: salvo.numero, fabrica: foi, avisoDaFabrica };
 }
 
@@ -210,4 +218,45 @@ export async function pedirAlteracao(pedido: string, texto: string): Promise<Res
   const r = await chamar(await createClient(), "balcao_pedir_alteracao", { p_pedido: pedido, p_texto: t });
   if (r.ok) limpar();
   return r;
+}
+
+export type LeadParaSalvar = {
+  id: string;
+  loja: string;
+  vendedor: string;
+  cliente_nome: string;
+  cliente_telefone: string;
+  interesse: string;
+  tipo_produto: string;
+  motivo: string;
+  data_especial: string;
+  origem_cliente: string;
+  observacao: string;
+};
+
+/** O lead do balcão (cartão 72): quem visitou e não comprou. Vai para a Kommo logo depois de salvar. */
+export async function salvarLeadDoBalcao(l: LeadParaSalvar): Promise<{ ok: true; id: string } | { ok: false; erro: string }> {
+  await requireArea("balcao");
+  if (!l || !UUID.test(String(l.id))) return { ok: false, erro: "Lead sem identificação. Recarregue a tela." };
+  const db = await createClient();
+  const { data, error } = await db.rpc("balcao_salvar_lead", {
+    p: {
+      id: l.id,
+      loja: l.loja || null,
+      vendedor: l.vendedor || null,
+      cliente_nome: l.cliente_nome,
+      cliente_telefone: l.cliente_telefone,
+      interesse: l.interesse || null,
+      tipo_produto: TIPOS_DE_PRODUTO.some((t) => t.chave === l.tipo_produto) ? l.tipo_produto : null,
+      motivo: l.motivo || null,
+      data_especial: /^\d{4}-\d{2}-\d{2}$/.test(l.data_especial ?? "") ? l.data_especial : null,
+      origem_cliente: ORIGENS.some((o) => o.chave === l.origem_cliente) ? l.origem_cliente : null,
+      observacao: l.observacao || null,
+    },
+  });
+  if (error) return { ok: false, erro: erroDoBanco(error) };
+  const r = data as { id: string; repetido: boolean };
+  revalidatePath("/admin/balcao", "layout");
+  if (!r.repetido) after(() => rodarBalcaoNaKommo(createAdminClient(), { lead: r.id, prazoMs: 20_000 }).then(() => undefined));
+  return { ok: true, id: r.id };
 }

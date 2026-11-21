@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import { SeloDeTom } from "../../Pecas";
 import {
-  FORMAS, MOTIVOS, atrasado, avisoDeChegada, dataCurta, dinheiro, lerValor, linkDoWhatsapp, nomeDaForma, numeroDoPedido, pagamento,
+  FORMAS, MOTIVOS, atrasado, avisoDeChegada, dataCurta, dinheiro, kommoEmPalavras, lerValor, linkDoWhatsapp, nomeDaForma, numeroDoPedido, pagamento,
   pecaEmTexto, resumoParaOCliente, situacao, telefoneNaTela,
   type FormaDePagamento, type PedidoDoBalcao,
 } from "@/lib/balcao/regras";
@@ -82,6 +82,7 @@ export function PedidoDoBalcaoNaTela({ inicial, hoje, salvo, aviso }: { inicial:
           <SeloDeTom tom={s.tom}>{s.nome}</SeloDeTom>
           {!p.cancelado_em ? <SeloDeTom tom={g.chave === "pago" ? "bom" : g.chave === "nada" ? "ruim" : "atencao"}>{g.chave === "sinal" ? `Falta ${dinheiro(g.falta)}` : g.nome}</SeloDeTom> : null}
           {tarde ? <SeloDeTom tom="ruim"><AlertTriangle size={11} aria-hidden="true" /> Prazo era {dataCurta(p.prazo, hoje)}</SeloDeTom> : null}
+          {kommoEmPalavras(p.kommo) ? <SeloDeTom tom={kommoEmPalavras(p.kommo)!.tom} titulo={p.kommo?.erro ?? undefined}>{kommoEmPalavras(p.kommo)!.texto}</SeloDeTom> : null}
         </div>
         <p className="mt-2 text-sm text-muted">{s.frase}</p>
       </header>

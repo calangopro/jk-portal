@@ -19,7 +19,12 @@ const ERROS: Record<string, string> = {
   etapas: "Escolha uma etapa aberta do funil para pelo menos um marco.",
   ordem: "As etapas precisam seguir a ordem do funil: pago, depois enviado, depois entregue.",
   responsavel: "Esse usuário não está ativo na Kommo.",
+  lojas: "Ligue pelo menos uma loja com funil, etapa e responsável antes de ligar.",
 };
+
+/** As duas do balcão da loja (0201) entram pelas mesmas portas de ligar e desligar. */
+const ehDoBalcao = (id: string) => id === "balcao_pedido" || id === "balcao_lead";
+const valida = (id: string) => ehAutomacao(id) || ehDoBalcao(id);
 
 const erro = (codigo: string | undefined, padrao: string) => ERROS[codigo ?? ""] ?? padrao;
 
@@ -43,7 +48,7 @@ export async function salvarAutomacao(id: string, config: Record<string, unknown
 /** Liga. A pessoa logada vira a autora de cada escrita desta automação. */
 export async function ligarAutomacao(id: string, conferiu: boolean): Promise<ResultadoDaAutomacao> {
   await requireAdmin();
-  if (!ehAutomacao(id)) return { ok: false, erro: ERROS.nao_encontrada };
+  if (!valida(id)) return { ok: false, erro: ERROS.nao_encontrada };
   if (!conferiu) return { ok: false, erro: "Marque que conferiu o Salesbot das etapas escolhidas antes de ligar." };
   const { data, error } = await (await createClient()).rpc("kommo_automacao_ligar", { p_id: id });
   if (error) return { ok: false, erro: error.message };
@@ -55,11 +60,23 @@ export async function ligarAutomacao(id: string, conferiu: boolean): Promise<Res
 
 export async function desligarAutomacao(id: string): Promise<ResultadoDaAutomacao> {
   await requireAdmin();
-  if (!ehAutomacao(id)) return { ok: false, erro: ERROS.nao_encontrada };
+  if (!valida(id)) return { ok: false, erro: ERROS.nao_encontrada };
   const { data, error } = await (await createClient()).rpc("kommo_automacao_desligar", { p_id: id });
   if (error) return { ok: false, erro: error.message };
   const r = data as { ok?: boolean; erro?: string } | null;
   if (!r?.ok) return { ok: false, erro: erro(r?.erro, "Não deu para desligar.") };
   depois();
   return { ok: true, aviso: "Desligada." };
+}
+
+/** A ligação de UMA loja do balcão com a Kommo (0201). Mudar desliga as duas automações do balcão. */
+export async function salvarLigacaoDoBalcao(loja: string, ligacao: Record<string, unknown>): Promise<ResultadoDaAutomacao> {
+  await requireAdmin();
+  const limpo = Object.fromEntries(Object.entries(ligacao ?? {}).map(([k, v]) => [k, typeof v === "string" ? v.trim().slice(0, 60) : null]));
+  const { data, error } = await (await createClient()).rpc("balcao_kommo_salvar", { p_loja: String(loja ?? "").slice(0, 60), p: limpo });
+  if (error) return { ok: false, erro: error.message };
+  const r = data as { ok?: boolean; erro?: string; desligou?: boolean } | null;
+  if (!r?.ok) return { ok: false, erro: erro(r?.erro, "Não deu para salvar.") };
+  depois();
+  return { ok: true, aviso: r.desligou ? "Salvo, e as automações do balcão foram desligadas: confira e ligue de novo." : "Salvo." };
 }
