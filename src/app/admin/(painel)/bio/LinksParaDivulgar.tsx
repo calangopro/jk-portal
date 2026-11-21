@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Check, Copy } from "lucide-react";
 import { SITE } from "@/lib/seo/site";
+import { PARAMETROS_DO_META } from "@/lib/trafego/utms";
 
 /**
  * O link da bio, curto, e o que ainda precisa de etiqueta.
@@ -20,8 +21,8 @@ import { SITE } from "@/lib/seo/site";
 const BIO = `${SITE.lojaUrl}/bio`;
 const BIO_CURTO = BIO.replace(/^https:\/\/www\./, "");
 
-const PARAMETROS_DO_ANUNCIO =
-  "utm_source=instagram&utm_medium=paid_social&utm_campaign={{campaign.name}}&utm_content={{ad.name}}";
+// O padrão de UTM mora num lugar só (cartão 69): `lib/trafego/utms.ts`, a mesma linha da tela Links e UTMs.
+const PARAMETROS_DO_ANUNCIO = PARAMETROS_DO_META;
 
 export function BotaoCopiar({ valor }: { valor: string }) {
   const [copiado, setCopiado] = useState(false);

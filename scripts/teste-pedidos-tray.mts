@@ -33,6 +33,7 @@ import { alteradosEm, compararComOBanco, pedidoDaApi, semOsJaLidos, ultimaAltera
 import vm from "node:vm";
 import { ABERTAS, contarPorEstado, lerRoadmap, origemDaCasa, telaDoPainel } from "../src/lib/sugestoes/sugestoes.ts";
 import { scriptDaOrigemDaBio } from "../src/lib/bio/origem-script.ts";
+import { ATALHOS, PARAMETROS_DO_META, SUFIXO_DO_GOOGLE, etiqueta, montarLink } from "../src/lib/trafego/utms.ts";
 import {
   COOKIE_DO_ANUNCIO,
   MARCA_DA_BIO,
@@ -1579,6 +1580,44 @@ console.log("\nSugestões de melhoria");
       !origemDaCasa("https://jkaliancas.com.br.outro.site", "jk-portal.vercel.app", true) &&
       !origemDaCasa("http://localhost:3000", "jk-portal.vercel.app", true),
   );
+}
+
+console.log("\nPadrão de UTM (Links e UTMs)");
+{
+  // O padrão preenchido como o Meta e o Google preenchem, lido pela MESMA regra da chegada.
+  const doMeta = new URLSearchParams(
+    PARAMETROS_DO_META.replace("{{site_source_name}}", "ig").replace(/\{\{campaign\.name\}\}/g, "Vendas Black").replace(/\{\{campaign\.id\}\}/g, "120200000000001")
+      .replace("{{adset.name}}", "SP 25-45").replace("{{adset.id}}", "120200000000002").replace("{{ad.name}}", "Reels Kelvin").replace("{{ad.id}}", "120200000000003"),
+  );
+  const chegouMeta = lerChegada({
+    url: `https://www.jkaliancas.com.br/?${doMeta}`,
+    agente: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36",
+    daCasa: (h: string) => h === "jkaliancas.com.br",
+    canalDaEtiqueta: canalDaOrigem,
+  });
+  confere("Meta: cai no canal Instagram e Facebook", chegouMeta?.canal === "meta", String(chegouMeta?.canal));
+  confere("Meta: mídia paga", MIDIA_PAGA.test(doMeta.get("utm_medium") ?? ""));
+  confere("Meta: os três números entram nos códigos", ["120200000000001", "120200000000002", "120200000000003"].every((n) => chegouMeta?.ids.includes(n)), JSON.stringify(chegouMeta?.ids));
+  confere("Meta: fb e an também são Instagram e Facebook", ["fb", "an", "msg"].every((s) => canalDaOrigem(s) === "meta"));
+  const doGoogle = new URLSearchParams(SUFIXO_DO_GOOGLE.replace(/\{campaignid\}/g, "23000000001").replace("{keyword}", "alianca de ouro").replace("{creative}", "700000000001"));
+  confere("Google: utm_source google cai em Google Ads", canalDaOrigem(doGoogle.get("utm_source")) === "google_ads");
+  confere("Google: cpc é mídia paga", MIDIA_PAGA.test(doGoogle.get("utm_medium") ?? ""));
+
+  // Link sem anúncio: nenhum atalho pode contar como anúncio, e cada um cai no canal que promete.
+  for (const a of ATALHOS) {
+    const l = montarLink({ destino: "https://www.jkaliancas.com.br/aliancas", source: a.source, medium: a.medium, campaign: "Black 2026" });
+    confere(`atalho ${a.nome}: canal ${a.canal}, sem aviso de anúncio`, l.canal === a.canal && l.avisos.length === 0 && !MIDIA_PAGA.test(a.medium), JSON.stringify(l));
+  }
+  const troca = montarLink({ destino: "jkaliancas.com.br/produto?cor=ouro&utm_source=velho&utm_medium=x", source: "WhatsApp", medium: "Grupo", campaign: "Natal Ação 2026", content: "Anel @Solitário" });
+  confere(
+    "troca a UTM velha, mantém o resto e escreve sem acento",
+    troca.url === "https://jkaliancas.com.br/produto?cor=ouro&utm_source=whatsapp&utm_medium=grupo&utm_campaign=natal_acao_2026&utm_content=anel_solitario",
+    String(troca.url),
+  );
+  confere("meio paid num link manual vira aviso", montarLink({ destino: "jkaliancas.com.br", source: "instagram", medium: "paid", campaign: "x" }).avisos.some((a) => a.includes("ANÚNCIO")));
+  confere("destino de fora da JK vira aviso", montarLink({ destino: "outro.site/x", source: "email", medium: "email", campaign: "x" }).avisos.some((a) => a.includes("não é da JK")));
+  confere("sem campanha não monta", montarLink({ destino: "jkaliancas.com.br", source: "email", medium: "email", campaign: "" }).url === null);
+  confere("etiqueta: '@Ana Paula ' vira 'ana_paula'", etiqueta("@Ana Paula ") === "ana_paula");
 }
 
 // A conferência das falhas é a ÚLTIMA coisa do arquivo, de propósito. Ela ficou meses no meio dele
