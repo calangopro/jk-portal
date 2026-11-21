@@ -77,6 +77,8 @@ export const SETORES: Setor[] = [
     cor: "#1a64a8",
     Icone: Banknote,
     itens: [
+      // O balcão da loja física (cartão 71): primeiro, porque é a tela do dia inteiro de quem está na loja.
+      { href: "/admin/balcao", area: "balcao", label: "Balcão da loja", curto: "Balcão", Icone: Store, desc: "Pedido da loja física: sinal, fábrica e retirada" },
       { href: "/admin/vendas", area: "vendas", label: "Pedidos da loja", curto: "Pedidos", Icone: Banknote, desc: "O que foi pago, por dia e por origem" },
       { href: "/admin/funil", area: "vendas", label: "Funil da Kommo", curto: "Funil", Icone: FunnelIcon, desc: "As conversas da Kommo por fase, e quem espera resposta" },
       { href: "/admin/consulta", area: "consulta", label: "Consulta", Icone: PackageSearch, desc: "Produto, pronta entrega e prazo" },
