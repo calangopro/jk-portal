@@ -1,44 +1,19 @@
+import { Suspense } from "react";
 import Link from "next/link";
 import { TriangleAlert } from "lucide-react";
-import { requireSessao, ROLE_LABEL, type Profile } from "@/lib/auth/session";
+import { requireSessao, ROLE_LABEL } from "@/lib/auth/session";
 import { ehAdmin } from "@/lib/auth/acessos";
-import { createClient } from "@/lib/supabase/server";
-import { lerLojasFisicas, lerOportunidades } from "@/lib/clientes/dados";
-import { DIAS_DO_AVISO } from "@/lib/clientes/oportunidades";
-import { contaDoMes } from "@/lib/custos/conta";
-import { lerDespesas } from "@/lib/custos/dados";
-import { lerFilaDaFabrica } from "@/lib/fabrica/dados";
-import { DIAS_DE_ATRASO, diasEntreDatas, tomDaEspera } from "@/lib/fabrica/etapas";
-import { andamentoDaMeta, diasDoMes, type Andamento } from "@/lib/painel/meta";
-import { sinaisDaSaude } from "@/lib/painel/saude";
-import { lerSaude } from "@/lib/painel/saude-dados";
-import { calcularSinais, type EntradaDosSinais, type Sinal } from "@/lib/painel/sinais";
-import { PRAZOS_DA_KOMMO, sinaisDaKommo, type AlertasDaKommo } from "@/lib/kommo/funil";
-import { SEM_RESUMO, esperandoPorMim as esperandoNoChat } from "@/lib/time/chat";
-import { lerResumoDoChat } from "@/lib/time/dados";
-import { SEM_RESUMO_DO_SUPORTE } from "@/lib/suporte/casos";
-import { lerResumoDoSuporteNoServidor } from "@/lib/suporte/dados";
-import { lerResumoDeGasto } from "@/lib/trafego/dados";
-import { retornoPorPlataforma } from "@/lib/trafego/retorno";
-import { lerResumoDeVendas, ultimaImportacao } from "@/lib/vendas/dados";
-import { agruparPorCanal } from "@/lib/vendas/origem";
-import { hojeEmSaoPaulo, primeiroDoMes, somarDias } from "@/lib/vendas/periodo";
-import { lerResumoPorFora } from "@/lib/vendas/por-fora";
-import { lerFilaDeRecuperacao } from "@/lib/vendas/recuperacao";
+import { Skeleton } from "@/components/ui/states";
 import { ChatParaMim } from "./ChatParaMim";
 import { definirMeta } from "./meta-actions";
 import { MetaDoMes } from "./MetaDoMes";
-import { OportunidadesDaSemana } from "./OportunidadesDaSemana";
-import { PainelGeral, type DadosDeVendas } from "./PainelGeral";
-import { ResultadoDoMes, type Resultado } from "./ResultadoDoMes";
-import { Salas, type NumerosDasSalas } from "./Salas";
-import { SuporteParaMim } from "./SuporteParaMim";
 import { MeuMesNoInicio } from "./MeuMes";
-import { lerMeuMesNoServidor } from "@/lib/pedidos/dados";
-import { totalDoMes, nomeDoMes } from "@/lib/pedidos/do-site";
-
-/** Quantos dias o painel compara: os últimos 30 contra os 30 anteriores. */
-const DIAS = 30;
+import { OportunidadesDaSemana } from "./OportunidadesDaSemana";
+import { PainelGeral } from "./PainelGeral";
+import { ResultadoDoMes } from "./ResultadoDoMes";
+import { Salas } from "./Salas";
+import { SuporteParaMim } from "./SuporteParaMim";
+import * as v from "./visao-geral-dados";
 
 /**
  * Visão geral: o painel de cada pessoa, montado pelo nível de acesso dela.
@@ -49,184 +24,20 @@ const DIAS = 30;
  * editoriais. Cada leitura só acontece se a área estiver liberada, e o banco
  * confere de novo: pedir sem ter a área devolve vazio.
  *
+ * Cada bloco aparece quando a leitura DELE termina (cartão 76): as leituras
+ * moram em `visao-geral-dados.ts`, guardadas por pedido, e começam todas juntas
+ * antes do primeiro bloco. Bloco que pode não existir (chat, suporte,
+ * oportunidades) espera sem esqueleto, para a tela não piscar um cartão que
+ * some em seguida.
+ *
  * Esta rota aceita qualquer pessoa ativa (`requireSessao`), porque é para onde
  * as outras telas mandam quem não tem acesso a elas.
  */
-async function lerPainel(profile: Profile) {
-  const db = await createClient();
-  const pode = (area: Profile["areas"][number]) => profile.areas.includes(area);
-  const hoje = hojeEmSaoPaulo();
-  const de = somarDias(hoje, -(DIAS - 1));
-
-  // Quem espera vendedor ou resposta na Kommo (0162). Só lê o espelho; sem leitura feita, não vira sinal. Começa já.
-  const alertasDaKommo = pode("vendas")
-    ? db.rpc("kommo_alertas", { p_atencao_min: PRAZOS_DA_KOMMO.atencao, p_ruim_min: PRAZOS_DA_KOMMO.ruim }).then((r) => (r.data ?? null) as AlertasDaKommo | null)
-    : null;
-  const [atual, anterior, ultima, fila, despesas, doMes, metaDoMes, porFora, gasto, gastoDoMes, oportunidades] = await Promise.all([
-    pode("vendas") ? lerResumoDeVendas(db, de, hoje) : null,
-    pode("vendas") ? lerResumoDeVendas(db, somarDias(de, -DIAS), somarDias(de, -1)) : null,
-    pode("vendas") ? ultimaImportacao(db) : null,
-    pode("recuperacao") ? lerFilaDeRecuperacao(db, 14) : null,
-    ehAdmin(profile.role) ? lerDespesas(db) : null,
-    pode("vendas") ? lerResumoDeVendas(db, primeiroDoMes(hoje), hoje) : null,
-    pode("vendas") ? db.from("metas").select("valor").eq("mes", primeiroDoMes(hoje)).maybeSingle() : null,
-    pode("vendas") ? lerResumoPorFora(db, primeiroDoMes(hoje), hoje) : null,
-    pode("trafego") ? lerResumoDeGasto(db, de, hoje) : null,
-    ehAdmin(profile.role) ? lerResumoDeGasto(db, primeiroDoMes(hoje), hoje) : null,
-    // O que vence para os clientes nos próximos sete dias, para quem atende.
-    pode("lancar_venda") ? lerLojasFisicas().then((lojas) => lerOportunidades(db, hoje, DIAS_DO_AVISO, lojas)) : null,
-  ]);
-  const kommo = await alertasDaKommo;
-
-  // O faturamento do mês é a loja mais o que foi registrado por fora dela.
-  const porForaNoMes = porFora?.valor ?? 0;
-  const faturamentoDoMes = doMes ? Number(doMes.totais.valor_pago) + porForaNoMes : 0;
-
-  const valorDaMeta = Number(metaDoMes?.data?.valor ?? 0);
-  const andamento: Andamento | null =
-    doMes && valorDaMeta > 0 ? andamentoDaMeta(valorDaMeta, faturamentoDoMes, hoje) : null;
-
-  const vendas: DadosDeVendas | null = atual ? { atual, anterior, dias: DIAS, de, ate: hoje } : null;
-
-  let custos: EntradaDosSinais["custos"] = null;
-  let resultado: Resultado | null = null;
-  if (despesas && doMes) {
-    // A mesma conta da tela de custos: com gasto de anúncio lançado, ele entra no lugar da estimativa.
-    const conta = contaDoMes({
-      despesas,
-      hoje,
-      diasNoMes: diasDoMes(hoje),
-      pedidosPagos: doMes.totais.pagos,
-      anuncioReal: gastoDoMes ? { gasto: gastoDoMes.gasto, dias: gastoDoMes.dias_com_gasto } : null,
-    });
-    custos = { custoAteHoje: conta.total, faturamento: faturamentoDoMes };
-    const ativos = despesas.filter((d) => d.ativo);
-    resultado = {
-      hoje,
-      diasNoMes: diasDoMes(hoje),
-      loja: Number(doMes.totais.valor_pago),
-      porFora: porForaNoMes,
-      pedidosPagos: doMes.totais.pagos,
-      conta,
-      estimativas: ativos.filter((d) => !d.confirmado).length,
-      itens: ativos.length,
-    };
-  }
-
-  const aRecuperar = fila?.resumo.a_recuperar;
-  const canaisDeAgora = atual ? agruparPorCanal(atual.por_origem) : [];
-  const sinaisDeVendas: Sinal[] = atual
-    ? calcularSinais({
-        atual: { ...atual, canais: canaisDeAgora },
-        anterior: anterior ? { ...anterior, canais: agruparPorCanal(anterior.por_origem) } : null,
-        dias: DIAS,
-        recuperar: aRecuperar ? { clientes: aRecuperar.clientes, valor: Number(aRecuperar.valor) } : null,
-        custos,
-        meta: andamento,
-        anuncios: gasto ? { gasto: gasto.gasto, linhas: retornoPorPlataforma(gasto.por_plataforma, canaisDeAgora) } : null,
-        horasDesdeALeitura: ultima ? (Date.now() - Date.parse(ultima.quando)) / 3_600_000 : null,
-      })
-    : aRecuperar && aRecuperar.clientes > 0
-      ? [
-          {
-            chave: "fila-de-recuperacao",
-            gravidade: "oportunidade" as const,
-            peso: Number(aRecuperar.valor),
-            titulo: `${aRecuperar.clientes} ${aRecuperar.clientes === 1 ? "cliente" : "clientes"} para chamar na fila de recuperação`,
-            texto: "São pessoas que criaram pedido na loja nos últimos 14 dias, não pagaram e ninguém chamou. A fila está por ordem de valor.",
-            link: { href: "/admin/recuperacao", rotulo: "Abrir a fila" },
-          },
-        ]
-      : [];
-  const GRAVIDADE = { problema: 0, atencao: 1, oportunidade: 2, bom: 3 } as const;
-  const sinais = [...sinaisDeVendas, ...sinaisDaKommo(kommo)].sort((a, b) => GRAVIDADE[a.gravidade] - GRAVIDADE[b.gravidade] || b.peso - a.peso);
-
-  // O número de cada sala, para os cartões de setor. Só entra o que foi lido.
-  const dinheiro = (n: number) => `R$ ${Math.round(n).toLocaleString("pt-BR")}`;
-  const mes = new Date(`${hoje}T12:00:00`).toLocaleDateString("pt-BR", { month: "long" });
-  const salas: NumerosDasSalas = {};
-  if (doMes) {
-    salas.vendas = {
-      valor: dinheiro(faturamentoDoMes),
-      apoio: `em ${mes}, com ${doMes.totais.pagos} ${doMes.totais.pagos === 1 ? "pedido pago" : "pedidos pagos"} na loja`,
-    };
-  }
-  if (gasto) salas.trafego = { valor: dinheiro(gasto.gasto), apoio: `em anúncio nos últimos ${DIAS} dias` };
-
-  return { vendas, sinais, andamento, hoje, porForaNoMes, resultado, salas, podeVerMeta: pode("vendas"), oportunidades: oportunidades?.lista ?? [] };
-}
-
-async function lerConteudo() {
-  const db = await createClient();
-  const [contents, published, media, products, pendingComments] = await Promise.all([
-    db.from("contents").select("*", { count: "exact", head: true }),
-    db.from("contents").select("*", { count: "exact", head: true }).eq("status", "published"),
-    db.from("media").select("*", { count: "exact", head: true }),
-    db.from("products").select("*", { count: "exact", head: true }),
-    db.from("comments").select("*", { count: "exact", head: true }).eq("status", "pending"),
-  ]);
-  return [
-    { label: "Conteúdos", value: contents.count ?? 0, hint: `${published.count ?? 0} publicados`, href: "/admin/conteudos" },
-    { label: "Imagens", value: media.count ?? 0, hint: "biblioteca de mídia", href: "/admin/midia" },
-    { label: "Produtos", value: products.count ?? 0, hint: "sincronizados da Tray", href: "/admin/produtos" },
-    { label: "Comentários", value: pendingComments.count ?? 0, hint: "aguardando moderação", href: "/admin/comentarios" },
-  ];
-}
-
 export default async function AdminDashboard({ searchParams }: { searchParams: Promise<{ sem?: string }> }) {
   const profile = await requireSessao();
+  v.comecarLeituras();
   const semAcesso = (await searchParams).sem === "acesso";
-  // Começa já, para andar junto das outras leituras; o resultado é esperado lá embaixo.
-  const filaDaFabrica = profile.areas.includes("fabrica") ? lerFilaDaFabrica(await createClient(), 15) : null;
-  // A saúde das ligações só responde a administrador, dono e GM. Também começa já.
-  const saude = ehAdmin(profile.role) ? lerSaude(await createClient()) : null;
-  // O que espera a pessoa no chat do time: o que ela não leu e os pedidos do setor dela. Também começa já.
-  const chatDoTime = profile.areas.includes("time") ? createClient().then(lerResumoDoChat) : null;
-  // E o suporte pós-venda: caso sem dono para quem atende, caso que fechou para quem passou. Também começa já.
-  const suporteDoTime = profile.areas.includes("lancar_venda") || profile.areas.includes("suporte") ? createClient().then(lerResumoDoSuporteNoServidor) : null;
-  // O mês de quem vende: por fora mais pedido do site marcado (0105). Também começa já.
-  const meuMesDeVendas = profile.areas.includes("lancar_venda") ? createClient().then(lerMeuMesNoServidor) : null;
-  const [{ vendas, sinais, andamento, hoje, porForaNoMes, resultado, salas, podeVerMeta, oportunidades }, conteudo] = await Promise.all([
-    lerPainel(profile),
-    profile.areas.includes("conteudo") ? lerConteudo() : null,
-  ]);
-  const chat = (await chatDoTime) ?? SEM_RESUMO;
-  const suporte = (await suporteDoTime) ?? SEM_RESUMO_DO_SUPORTE;
-  // O bloco do vendedor aparece para quem vende e não vê o faturamento, e para quem vê mas vendeu alguma coisa no mês.
-  const meuMes = await meuMesDeVendas;
-  const mostrarMeuMes = meuMes !== null && (!profile.areas.includes("vendas") || totalDoMes(meuMes) > 0);
-  if (meuMes && !salas.vendas && totalDoMes(meuMes) > 0) {
-    salas.vendas = {
-      valor: `R$ ${Math.round(totalDoMes(meuMes)).toLocaleString("pt-BR")}`,
-      apoio: `vendidos por você em ${nomeDoMes(meuMes.mes)}`,
-    };
-  }
-  const esperandoPorMim = esperandoNoChat(chat);
-  if (esperandoPorMim > 0) {
-    salas.time = {
-      valor: esperandoPorMim.toLocaleString("pt-BR"),
-      apoio: esperandoPorMim === 1 ? "mensagem esperando você no chat" : "mensagens esperando você no chat",
-    };
-  }
-  const semNada = !vendas && sinais.length === 0 && !conteudo && oportunidades.length === 0 && !saude && esperandoPorMim === 0 && suporte.fila + suporte.comigo + suporte.novidades === 0 && !mostrarMeuMes;
-  if (conteudo) {
-    const [posts, , produtos] = conteudo;
-    salas.conteudo = { valor: posts.value.toLocaleString("pt-BR"), apoio: `conteúdos, ${posts.hint}` };
-    salas.loja = { valor: produtos.value.toLocaleString("pt-BR"), apoio: "produtos espelhados da loja" };
-  }
-  // Ligação quebrada entra na frente dos outros avisos: ela contamina os números de todos.
-  const ligacoes = await saude;
-  const avisos = ligacoes ? [...sinaisDaSaude(ligacoes), ...sinais] : sinais;
-  // A sala da fábrica mostra o que está parado esperando começar. Sem isso, quem só tem a fábrica entrava numa tela sem número nenhum.
-  const fila = await filaDaFabrica;
-  if (fila) {
-    const aProduzir = fila.pedidos.filter((p) => p.etapa === "a_produzir");
-    const tarde = aProduzir.filter((p) => tomDaEspera(diasEntreDatas(p.dia, hoje), p.etapa) === "ruim").length;
-    salas.fabrica = {
-      valor: aProduzir.length.toLocaleString("pt-BR"),
-      apoio: `${aProduzir.length === 1 ? "pedido a produzir" : "pedidos a produzir"}${tarde > 0 ? `, ${tarde} há ${DIAS_DE_ATRASO} dias ou mais` : ""}`,
-    };
-  }
+  const podeVerMeta = profile.areas.includes("vendas");
 
   return (
     <div data-painel-largo>
@@ -248,45 +59,125 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
         </p>
       ) : null}
 
-      {mostrarMeuMes && meuMes ? <MeuMesNoInicio m={meuMes} areas={profile.areas} /> : null}
+      <Suspense fallback={null}>
+        <BlocoMeuMes areas={profile.areas} />
+      </Suspense>
 
       {podeVerMeta ? (
-        <MetaDoMes andamento={andamento} hoje={hoje} porFora={porForaNoMes} acao={ehAdmin(profile.role) ? definirMeta : undefined} />
+        <Suspense fallback={<Esqueleto altura="h-36" />}>
+          <BlocoMeta admin={ehAdmin(profile.role)} />
+        </Suspense>
       ) : null}
 
-      <Salas areas={profile.areas} numeros={salas} />
+      <Suspense fallback={<Esqueleto altura="h-28" />}>
+        <BlocoSalas areas={profile.areas} />
+      </Suspense>
 
-      <ChatParaMim resumo={chat} agora={Date.now()} />
+      <Suspense fallback={null}>
+        <BlocoChat />
+      </Suspense>
 
-      <SuporteParaMim resumo={suporte} agora={Date.now()} />
+      <Suspense fallback={null}>
+        <BlocoSuporte />
+      </Suspense>
 
-      <OportunidadesDaSemana lista={oportunidades} />
+      <Suspense fallback={null}>
+        <BlocoOportunidades />
+      </Suspense>
 
-      {resultado ? <ResultadoDoMes r={resultado} /> : null}
-
-      <PainelGeral vendas={vendas} sinais={avisos} />
-
-      {conteudo ? (
-        <section className="mt-10" aria-label="Conteúdo do site">
-          <p className="eyebrow">Site</p>
-          <div className="mt-3 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            {conteudo.map((c) => (
-              <Link key={c.label} href={c.href} className="glass rounded-[18px] p-5 transition-colors hover:border-brand/50">
-                <p className="eyebrow text-[0.62rem]">{c.label}</p>
-                <p className="font-display numeros mt-2 text-3xl text-ink">{c.value}</p>
-                <p className="mt-1 text-xs text-muted">{c.hint}</p>
-              </Link>
-            ))}
-          </div>
-        </section>
+      {ehAdmin(profile.role) ? (
+        <Suspense fallback={null}>
+          <BlocoResultado />
+        </Suspense>
       ) : null}
 
-      {semNada ? (
-        <p className="glass mt-9 rounded-[18px] p-6 text-sm text-muted">
-          <span className="font-semibold text-ink">Seu trabalho fica nos setores acima.</span> Aqui aparecem os avisos do
-          que pede atenção, conforme o seu acesso.
-        </p>
+      <Suspense fallback={podeVerMeta ? <Esqueleto altura="h-72" /> : null}>
+        <BlocoPainel />
+      </Suspense>
+
+      {profile.areas.includes("conteudo") ? (
+        <Suspense fallback={<Esqueleto altura="h-28" />}>
+          <BlocoConteudo />
+        </Suspense>
       ) : null}
+
+      <Suspense fallback={null}>
+        <BlocoSemNada />
+      </Suspense>
     </div>
+  );
+}
+
+function Esqueleto({ altura }: { altura: string }) {
+  return (
+    <div className="mt-8" role="status" aria-busy="true">
+      <span className="sr-only">Carregando</span>
+      <Skeleton className={`w-full ${altura}`} />
+    </div>
+  );
+}
+
+async function BlocoMeuMes({ areas }: { areas: Parameters<typeof MeuMesNoInicio>[0]["areas"] }) {
+  const [mostrar, m] = await Promise.all([v.mostrarMeuMes(), v.meuMes()]);
+  return mostrar && m ? <MeuMesNoInicio m={m} areas={areas} /> : null;
+}
+
+async function BlocoMeta({ admin }: { admin: boolean }) {
+  const [andamento, porFora] = await Promise.all([v.andamento(), v.porForaNoMes()]);
+  return <MetaDoMes andamento={andamento} hoje={v.datas().hoje} porFora={porFora} acao={admin ? definirMeta : undefined} />;
+}
+
+async function BlocoSalas({ areas }: { areas: Parameters<typeof Salas>[0]["areas"] }) {
+  return <Salas areas={areas} numeros={await v.numerosDasSalas()} />;
+}
+
+async function BlocoChat() {
+  return <ChatParaMim resumo={await v.chat()} agora={Date.now()} />;
+}
+
+async function BlocoSuporte() {
+  return <SuporteParaMim resumo={await v.suporte()} agora={Date.now()} />;
+}
+
+async function BlocoOportunidades() {
+  return <OportunidadesDaSemana lista={await v.oportunidades()} />;
+}
+
+async function BlocoResultado() {
+  const r = await v.resultadoDoMes();
+  return r ? <ResultadoDoMes r={r} /> : null;
+}
+
+async function BlocoPainel() {
+  const [vendas, sinais] = await Promise.all([v.dadosDeVendas(), v.avisos()]);
+  return <PainelGeral vendas={vendas} sinais={sinais} />;
+}
+
+async function BlocoConteudo() {
+  const conteudo = await v.conteudo();
+  if (!conteudo) return null;
+  return (
+    <section className="mt-10" aria-label="Conteúdo do site">
+      <p className="eyebrow">Site</p>
+      <div className="mt-3 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {conteudo.map((c) => (
+          <Link key={c.label} href={c.href} className="glass rounded-[18px] p-5 transition-colors hover:border-brand/50">
+            <p className="eyebrow text-[0.62rem]">{c.label}</p>
+            <p className="font-display numeros mt-2 text-3xl text-ink">{c.value}</p>
+            <p className="mt-1 text-xs text-muted">{c.hint}</p>
+          </Link>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+async function BlocoSemNada() {
+  if (!(await v.semNada())) return null;
+  return (
+    <p className="glass mt-9 rounded-[18px] p-6 text-sm text-muted">
+      <span className="font-semibold text-ink">Seu trabalho fica nos setores acima.</span> Aqui aparecem os avisos do
+      que pede atenção, conforme o seu acesso.
+    </p>
   );
 }

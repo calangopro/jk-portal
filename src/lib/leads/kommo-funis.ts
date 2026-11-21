@@ -1,4 +1,5 @@
 import "server-only";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { SUBDOMINIO_KOMMO, type Chave } from "./chaves";
 
 export type FunilDaKommo = { id: number; nome: string; etapas: { id: number; nome: string }[] };
@@ -40,4 +41,25 @@ export async function funisDaKommo(chave: Chave): Promise<FunilDaKommo[] | null>
   } catch {
     return null;
   }
+}
+
+/**
+ * Os mesmos funis e etapas, lidos do espelho da Kommo (`kommo_funis` e
+ * `kommo_etapas`, 0160), que a rotina de dez em dez minutos mantém em dia.
+ *
+ * A tela de Integrações perguntava à API da Kommo toda vez que abria, e era a
+ * leitura mais lenta dela (cartão 76). Com o espelho vazio (carga ainda não
+ * feita) ou com erro, devolve null e quem chama cai na API.
+ */
+export async function funisDoEspelho(db: SupabaseClient): Promise<FunilDaKommo[] | null> {
+  const [funis, etapas] = await Promise.all([
+    db.from("kommo_funis").select("id, nome, ordem").eq("arquivado", false).order("ordem"),
+    db.from("kommo_etapas").select("funil_id, id, nome, ordem").not("id", "in", "(142,143)").order("ordem"),
+  ]);
+  if (funis.error || etapas.error || !funis.data?.length) return null;
+  return funis.data.map((f) => ({
+    id: Number(f.id),
+    nome: f.nome as string,
+    etapas: (etapas.data ?? []).filter((e) => Number(e.funil_id) === Number(f.id)).map((e) => ({ id: Number(e.id), nome: e.nome as string })),
+  }));
 }

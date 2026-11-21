@@ -3,7 +3,7 @@ import { requireAdmin } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { lerChaves, PIXEL_DA_JK } from "@/lib/leads/chaves";
-import { funisDaKommo } from "@/lib/leads/kommo-funis";
+import { funisDaKommo, funisDoEspelho } from "@/lib/leads/kommo-funis";
 import { DESTINOS, DESTINOS_DESLIGADOS, type Destino } from "@/lib/leads/tipos";
 import { lerEstadoDoGoogle } from "@/lib/google-perfil/oauth";
 import { absoluteUrl } from "@/lib/seo/site";
@@ -37,27 +37,22 @@ export default async function IntegracoesPage({
   await requireAdmin();
   const { google: avisoDoGoogle, redes: erroDasRedes, redes_ok: avisoDasRedes } = await searchParams;
   const supabase = await createClient();
-  const { data } = await supabase.from("integrations").select("provider, status, config");
-
-  const linhas = (data ?? []) as Linha[];
-  const achar = (p: string) => linhas.find((l) => l.provider === p);
-
   // Chaves e contagens com a service_role: `integration_tokens` não tem policy,
   // e a página já exige administrador.
   const admin = createAdminClient();
-  const [chaves, estadoDoGoogle, conexoes, estadoDaTray, ligacoesDasRedes, armazenamentoDasRedes] = await Promise.all([
-    lerChaves(admin),
-    lerEstadoDoGoogle(admin),
-    lerConexoes(admin),
-    lerEstadoDaApiDePedidos(admin),
-    lerLigacoes(admin),
-    estadoDoArmazenamento(admin),
-  ]);
-  const anuncio = (p: "meta" | "google") => {
-    const c = conexoes.find((x) => x.plataforma === p);
-    return { configurada: Boolean(c?.configurada), lendo: Boolean(c?.lidaEm) && !c?.problema, problema: c?.problema ?? null, contaDeServico: c?.contaDeServico ?? null };
-  };
-  const [guardados, funis] = await Promise.all([
+
+  // Tudo sai junto (cartão 76): eram cinco etapas em fila, e a mais lenta era
+  // perguntar à API da Kommo os funis, que agora vêm do espelho.
+  const [{ data }, [chaves, estadoDoGoogle, conexoes, estadoDaTray, ligacoesDasRedes, armazenamentoDasRedes], guardados, funisEspelhados, { data: resumoBruto }, espelho] = await Promise.all([
+    supabase.from("integrations").select("provider, status, config"),
+    Promise.all([
+      lerChaves(admin),
+      lerEstadoDoGoogle(admin),
+      lerConexoes(admin),
+      lerEstadoDaApiDePedidos(admin),
+      lerLigacoes(admin),
+      estadoDoArmazenamento(admin),
+    ]),
     Promise.all(
       DESTINOS.map(async (d) => {
         const { count } = await admin
@@ -67,10 +62,21 @@ export default async function IntegracoesPage({
         return [d, count ?? 0] as const;
       }),
     ).then((pares) => Object.fromEntries(pares) as Record<Destino, number>),
-    chaves.kommo ? funisDaKommo(chaves.kommo) : Promise.resolve(null),
+    funisDoEspelho(admin),
+    // A compra da loja pelo servidor (0120): o resumo sai com a sessão de quem olha, sem dado de cliente.
+    supabase.rpc("meta_resumo_da_loja"),
+    // O espelho da Kommo (0160): a função confere de novo que quem olha é da diretoria.
+    supabase.rpc("kommo_estado_do_espelho"),
   ]);
-  // A compra da loja pelo servidor (0120): o resumo sai com a sessão de quem olha, sem dado de cliente.
-  const { data: resumoBruto } = await supabase.rpc("meta_resumo_da_loja");
+
+  const linhas = (data ?? []) as Linha[];
+  const achar = (p: string) => linhas.find((l) => l.provider === p);
+  const anuncio = (p: "meta" | "google") => {
+    const c = conexoes.find((x) => x.plataforma === p);
+    return { configurada: Boolean(c?.configurada), lendo: Boolean(c?.lidaEm) && !c?.problema, problema: c?.problema ?? null, contaDeServico: c?.contaDeServico ?? null };
+  };
+  // Sem espelho ainda (carga não feita), os funis vêm da API, como antes.
+  const funis = chaves.kommo ? (funisEspelhados ?? (await funisDaKommo(chaves.kommo))) : null;
   const r = (resumoBruto ?? {}) as {
     modo?: ResumoDaCompraNoMeta["modo"]; desde?: string | null; tem_codigo_de_teste?: boolean; por_estado?: Record<string, number>;
     ultimo_envio?: string | null; erros?: ResumoDaCompraNoMeta["erros"]; sinais_7_dias?: number;
@@ -86,8 +92,7 @@ export default async function IntegracoesPage({
     temToken: Boolean(chaves.meta_capi),
   };
 
-  // O espelho da Kommo (0160): a função confere de novo que quem olha é da diretoria.
-  const { data: espelhoBruto } = chaves.kommo ? await supabase.rpc("kommo_estado_do_espelho") : { data: null };
+  const espelhoBruto = chaves.kommo ? espelho.data : null;
   const ek = (espelhoBruto ?? null) as Record<string, unknown> | null;
   const ultimaLeitura = (ek?.ultima_leitura ?? null) as { detalhe?: string } | null;
   const espelhoDaKommo: EstadoDoEspelho | null = ek
