@@ -111,11 +111,13 @@ const campo = "w-full rounded-[10px] border border-border bg-white px-3 py-2 tex
 const rotulo = "block text-[0.68rem] font-semibold uppercase tracking-wider text-muted";
 
 export function TelaDeTrafego({
-  chave, hoje, acao, conexoes, origem, saude, de, ate, comparacao, gasto, gastoAnterior, linhas, vendaDaLoja, porFora, semEtiqueta, porDia,
+  chave, hoje, acao, conexoes, origem, saude, blocoDeOrigem, de, ate, comparacao, gasto, gastoAnterior, linhas, vendaDaLoja, porFora, semEtiqueta, porDia,
 }: TrafegoDaTela & {
   /** A origem anotada pelo coletor no período, e como o coletor está. Sem `saude` (prévia), o bloco não aparece. */
   origem?: OrigemDosPedidos | null;
   saude?: SaudeDoColetor | null;
+  /** O bloco da origem já pronto para entrar no lugar (a página manda ele em `Suspense`, cartão 76). Vence `origem` e `saude`. */
+  blocoDeOrigem?: React.ReactNode;
   chave: ChaveDePeriodo;
   hoje: string;
   acao: (f: FormData) => Promise<void>;
@@ -304,7 +306,7 @@ export function TelaDeTrafego({
         </>
       )}
 
-      <OrigemAnotada origem={origem ?? null} saude={saude ?? null} />
+      {blocoDeOrigem ?? <OrigemAnotada origem={origem ?? null} saude={saude ?? null} />}
 
       {conexoes ? (
         <section className="glass mt-6 rounded-[18px] p-5" aria-label="Leitura automática">

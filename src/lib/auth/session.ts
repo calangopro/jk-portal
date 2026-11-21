@@ -18,6 +18,39 @@ export type Profile = {
   areas: Area[];
 };
 
+type ClienteDoServidor = Awaited<ReturnType<typeof createClient>>;
+
+/**
+ * Quem está logado, conferido pela assinatura do token, sem ida ao serviço de
+ * login.
+ *
+ * `getUser` perguntava ao Supabase Auth a cada clique no painel, e era a
+ * primeira de três idas em fila antes de a tela começar a ler os próprios
+ * dados (medido em 21/11, cartão 76). As chaves do projeto são assimétricas
+ * (ES256), então `getClaims` confere a assinatura aqui mesmo, com a chave
+ * pública guardada no processo, e o token vencido continua sendo renovado pela
+ * sessão. O que `getUser` pegava a mais (conta apagada ou sessão revogada antes
+ * de o token vencer, em até uma hora) continua barrado pelo perfil: conta
+ * apagada não tem perfil, e desativar grava `is_active` e bloqueia o login.
+ * Se a conferência local falhar por qualquer motivo, volta ao `getUser`.
+ */
+async function lerUsuario(supabase: ClienteDoServidor): Promise<{ id: string; email: string | null } | null> {
+  const local = await supabase.auth.getClaims().catch(() => null);
+  const claims = local?.data?.claims;
+  if (claims?.sub && !local?.error) return { id: claims.sub, email: typeof claims.email === "string" ? claims.email : null };
+  // Sem sessão nenhuma não há o que perguntar ao serviço de login.
+  if (local && !local.error && !claims) return null;
+
+  let lido = await supabase.auth.getUser();
+  // Falha passageira não é falta de sessão: uma segunda tentativa, antes de mandar a pessoa para o login.
+  if (!lido.data.user && falhaPassageira(lido.error)) {
+    await new Promise((r) => setTimeout(r, 250));
+    lido = await supabase.auth.getUser();
+  }
+  const u = lido.data.user;
+  return u ? { id: u.id, email: u.email ?? null } : null;
+}
+
 /**
  * Perfil do usuário logado (ou null se não houver sessão válida).
  *
@@ -31,13 +64,7 @@ export type Profile = {
 export const getSessionProfile = cache(async function getSessionProfile(): Promise<Profile | null> {
   const supabase = await createClient();
 
-  let lido = await supabase.auth.getUser();
-  // Falha passageira não é falta de sessão: uma segunda tentativa, antes de mandar a pessoa para o login.
-  if (!lido.data.user && falhaPassageira(lido.error)) {
-    await new Promise((r) => setTimeout(r, 250));
-    lido = await supabase.auth.getUser();
-  }
-  const user = lido.data.user;
+  const user = await lerUsuario(supabase);
   if (!user) return null;
 
   const lerPerfil = () =>
