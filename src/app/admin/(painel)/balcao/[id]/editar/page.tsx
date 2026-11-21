@@ -34,6 +34,7 @@ export default async function EditarPedidoPage({ params }: { params: Promise<{ i
     cliente_email: p.cliente_email ?? "",
     motivo: p.motivo ?? "",
     data_especial: p.data_especial ?? "",
+    origem_cliente: p.origem_cliente ?? "",
     producao: f?.producao ?? { ...PRODUCAO_VAZIA, loja: p.loja },
     prazo: p.prazo ?? "",
     total: String(p.total).replace(".", ","),

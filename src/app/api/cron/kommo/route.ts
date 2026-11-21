@@ -6,6 +6,7 @@ import { rodarLeituraDaKommo } from "@/lib/kommo/espelho";
 import { conferirWebhook } from "@/lib/kommo/webhook";
 import { processarVendasDaKommo } from "@/lib/kommo/vendas-rodada";
 import { rodarAvisosDaKommo } from "@/lib/kommo/automacoes";
+import { rodarBalcaoNaKommo } from "@/lib/kommo/balcao";
 
 /**
  * A leitura da Kommo (0160, `lib/kommo/espelho.ts`), de dez em dez minutos pelo
@@ -48,7 +49,15 @@ export async function POST(request: Request) {
     } else {
       try {
         const avisos = await rodarAvisosDaKommo(db, { prazoMs: 10_000 });
-        await registrarPulso(db, "kommo-avisos", avisos.falhas === 0 || avisos.feitas > 0, avisos.detalhe);
+        // O balcão da loja (cartão 72): pega o que o envio na hora, logo depois de salvar, perdeu.
+        let balcao = { feitas: 0, falhas: 0, detalhe: "" };
+        try {
+          balcao = await rodarBalcaoNaKommo(db, { prazoMs: 8_000 });
+        } catch (e) {
+          balcao = { feitas: 0, falhas: 1, detalhe: `balcão: ${e instanceof Error ? e.message : String(e)}` };
+        }
+        const bom = (avisos.falhas === 0 || avisos.feitas > 0) && (balcao.falhas === 0 || balcao.feitas > 0);
+        await registrarPulso(db, "kommo-avisos", bom, [avisos.detalhe, balcao.detalhe].filter(Boolean).join("; "));
       } catch (e) {
         await registrarPulso(db, "kommo-avisos", false, e instanceof Error ? e.message : String(e));
       }

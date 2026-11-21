@@ -2,6 +2,11 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { PedirKommo } from "./cliente";
 import {
+  camposParaKommo,
+  corpoDaNota,
+  corpoDoNegocioDoBalcao,
+  lerDefinicoes,
+  type DefinicaoDeCampo,
   buscaDoContato,
   contatosDoCliente,
   corpoDaTarefa,
@@ -67,11 +72,12 @@ export async function escreverNaKommo(db: SupabaseClient, pedir: PedirKommo, a: 
   const { data: reserva, error: semReserva } = await db.rpc("kommo_escrita_reservar", {
     p_chave: a.chave,
     p_automacao: a.automacao,
-    p_acao: a.tipo,
+    // O negócio do balcão (0201) é "criar_negocio" no registro: só a regra de montar muda.
+    p_acao: a.tipo === "criar_negocio_balcao" ? "criar_negocio" : a.tipo,
     p_cliente: a.cliente,
     p_referencia: a.referencia,
     p_rotulo: a.rotulo,
-    p_negocio: a.tipo === "criar_negocio" ? null : a.negocioId,
+    p_negocio: a.tipo === "criar_negocio" || a.tipo === "criar_negocio_balcao" ? null : a.negocioId,
   });
   if (semReserva) {
     console.error("[kommo/escrever] reservar:", semReserva.message);
@@ -156,7 +162,8 @@ export async function escreverNaKommo(db: SupabaseClient, pedir: PedirKommo, a: 
     return fim("ok", { antes, pedido: corpo, depois: { tarefa, ...(depois as object) }, http: 200, erro: null, negocioId: a.negocioId });
   }
 
-  // ---- criar negócio
+  // ---- criar negócio (o do balcão tem caminho próprio, logo abaixo)
+  if (a.tipo === "criar_negocio_balcao") return criarDoBalcao(pedir, a, fim);
   const busca = buscaDoContato(a.contato);
   let contatos: { id: number; negocios: number[] }[] = [];
   let abertosNoFunil: number[] = [];
@@ -205,4 +212,81 @@ export async function escreverNaKommo(db: SupabaseClient, pedir: PedirKommo, a: 
     return fim("erro", { antes, pedido: corpo, depois: depois ?? resposta, http: 200, erro: "A Kommo respondeu, mas o negócio criado não pôde ser conferido.", negocioId: criado });
   }
   return fim("ok", { antes, pedido: corpo, depois, http: 200, erro: null, negocioId: criado });
+}
+
+type Fim = (estado: "ok" | "desistiu" | "recusada" | "erro", reg: Registro) => Promise<ResultadoDaEscrita>;
+
+/** As definições dos campos de negócio, lidas uma vez a cada dez minutos (a lista quase nunca muda). */
+let definicoes: { em: number; lista: DefinicaoDeCampo[] } | null = null;
+async function lerCampos(pedir: PedirKommo): Promise<DefinicaoDeCampo[]> {
+  if (definicoes && Date.now() - definicoes.em < 600_000) return definicoes.lista;
+  const lista = lerDefinicoes(await pedir<unknown>("/api/v4/leads/custom_fields", { busca: new URLSearchParams({ limit: "250" }) }));
+  definicoes = { em: Date.now(), lista };
+  return lista;
+}
+
+/**
+ * O pedido ou o lead do balcão (cartão 72): acha o contato pelo telefone, lê
+ * os campos da Kommo para trocar nome por id, cria o negócio com campos e
+ * tags, confere lendo de novo e deixa a nota com o resumo. A nota que falha
+ * não desfaz o negócio: fica escrito no registro.
+ */
+async function criarDoBalcao(pedir: PedirKommo, a: Extract<Acao, { tipo: "criar_negocio_balcao" }>, fim: Fim): Promise<ResultadoDaEscrita> {
+  const busca = buscaDoContato(a.contato);
+  let contatos: { id: number; negocios: number[] }[] = [];
+  let abertosNoFunil: number[] = [];
+  let defs: DefinicaoDeCampo[] = [];
+  try {
+    if (busca) {
+      const achados = await pedir<unknown>("/api/v4/contacts", { busca: new URLSearchParams({ query: busca, with: "leads", limit: "50" }) });
+      contatos = contatosDoCliente(achados, a.contato);
+    }
+    const ids = a.desistirSeAberto ? [...new Set(contatos.flatMap((c) => c.negocios))].slice(0, 50) : [];
+    if (ids.length) {
+      const q = new URLSearchParams({ limit: "50" });
+      ids.forEach((n, i) => q.append(`filter[id][${i}]`, String(n)));
+      const lidos = await pedir<{ _embedded?: { leads?: unknown[] } }>("/api/v4/leads", { busca: q });
+      abertosNoFunil = (lidos?._embedded?.leads ?? [])
+        .map(lerNegocio)
+        .filter((n): n is NonNullable<typeof n> => Boolean(n && !n.apagado && !n.fechado && n.funilId === a.negocio.funilId))
+        .map((n) => n.id);
+    }
+    defs = await lerCampos(pedir);
+  } catch (e) {
+    const { http, texto } = erroCurto(e);
+    return fim("erro", { antes: null, pedido: null, depois: null, http, erro: `Não deu para ler a Kommo antes de criar: ${texto}`, negocioId: null });
+  }
+  const antes = { contatos: contatos.map((c) => c.id), abertos_no_funil: abertosNoFunil };
+  if (abertosNoFunil.length) {
+    return fim("desistiu", { antes, pedido: null, depois: null, http: null, erro: "O cliente já tem negócio aberto nesse funil.", negocioId: abertosNoFunil[0] });
+  }
+  const { valores, faltaram } = camposParaKommo(a.negocio.campos, defs);
+  const corpo = corpoDoNegocioDoBalcao(a, contatos[0]?.id ?? null, valores);
+  let resposta;
+  try {
+    resposta = await pedir<unknown>("/api/v4/leads/complex", { metodo: "POST", corpo });
+  } catch (e) {
+    const { http, texto } = erroCurto(e);
+    return fim(estadoDoErro(http), { antes, pedido: corpo, depois: null, http, erro: texto, negocioId: null });
+  }
+  const criado = idDoNegocioCriado(resposta);
+  let depois = null;
+  if (criado) {
+    try {
+      depois = lerNegocio(await pedir<unknown>(`/api/v4/leads/${criado}`));
+    } catch {
+      depois = null;
+    }
+  }
+  if (!criado || !depois || depois.funilId !== a.negocio.funilId) {
+    return fim("erro", { antes, pedido: corpo, depois: depois ?? resposta, http: 200, erro: "A Kommo respondeu, mas o negócio criado não pôde ser conferido.", negocioId: criado });
+  }
+  let nota: string | null = null;
+  try {
+    await pedir("/api/v4/leads/notes", { metodo: "POST", corpo: corpoDaNota(criado, a.nota) });
+  } catch (e) {
+    nota = `A nota com o resumo não entrou: ${erroCurto(e).texto}`;
+  }
+  const aviso = [faltaram.length ? `Campos que a Kommo não tem: ${faltaram.join(", ")}.` : null, nota].filter(Boolean).join(" ") || null;
+  return fim("ok", { antes, pedido: corpo, depois: { ...depois, campos_faltaram: faltaram }, http: 200, erro: aviso, negocioId: criado });
 }

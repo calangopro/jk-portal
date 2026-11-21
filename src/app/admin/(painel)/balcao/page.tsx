@@ -1,6 +1,6 @@
 import { requireArea } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
-import { lerListaDoBalcao, lerMinhaLoja, lerVendedores } from "@/lib/balcao/dados";
+import { lerLeadsDoBalcao, lerListaDoBalcao, lerMinhaLoja, lerVendedores } from "@/lib/balcao/dados";
 import { hojeEmSaoPaulo } from "@/lib/vendas/periodo";
 import { LOJAS_DO_BALCAO, lojaDaTela } from "./comum";
 import { TelaDoBalcao } from "./Tela";
@@ -22,11 +22,14 @@ export default async function BalcaoPage({ searchParams }: { searchParams: Promi
   const loja = lojaDaTela(minhaLoja, sp.loja);
   const busca = typeof sp.busca === "string" ? sp.busca.slice(0, 60).trim() : "";
   const semLoja = quem.role === "loja" && !minhaLoja;
-  const [lista, vendedores] = semLoja ? [[], []] : await Promise.all([lerListaDoBalcao(db, loja, 30, busca || null), lerVendedores(db, loja)]);
+  const [lista, vendedores, leads] = semLoja
+    ? [[], [], []]
+    : await Promise.all([lerListaDoBalcao(db, loja, 30, busca || null), lerVendedores(db, loja), lerLeadsDoBalcao(db, loja, 30)]);
   return (
     <TelaDoBalcao
       lista={lista}
       vendedores={vendedores}
+      leads={leads}
       loja={loja}
       minhaLoja={minhaLoja}
       lojas={LOJAS_DO_BALCAO}

@@ -2,7 +2,7 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createAdminClient } from "@/lib/supabase/admin";
-import type { PedidoDoBalcao, VendedorDaLoja } from "./regras";
+import type { LeadDoBalcao, PedidoDoBalcao, VendedorDaLoja } from "./regras";
 
 /**
  * As leituras e as escritas do balcão da loja (cartão 71, 0198). Tudo passa
@@ -43,6 +43,15 @@ export async function lerPedidoDoBalcao(db: SupabaseClient, id: string): Promise
     return null;
   }
   return (data ?? null) as PedidoDoBalcao | null;
+}
+
+export async function lerLeadsDoBalcao(db: SupabaseClient, loja: string | null, dias = 30): Promise<LeadDoBalcao[]> {
+  const { data, error } = await db.rpc("balcao_leads", { p_loja: loja, p_dias: dias });
+  if (error) {
+    console.error("[balcao] leads:", error.message);
+    return [];
+  }
+  return (data ?? []) as LeadDoBalcao[];
 }
 
 export async function lerVendedores(db: SupabaseClient, loja: string | null): Promise<VendedorDaLoja[]> {

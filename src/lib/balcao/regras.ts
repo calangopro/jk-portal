@@ -63,6 +63,7 @@ export type PedidoDoBalcao = {
   cliente_email: string | null;
   motivo: Motivo | null;
   data_especial: string | null;
+  origem_cliente?: string | null;
   pecas: { nome: string; quantidade: number; info: string | null; produto_tray_id: string | null }[];
   formulario: RascunhoDoBalcao | null;
   entrega: "retirada" | "correios" | "moto" | "a_combinar";
@@ -94,8 +95,38 @@ export type PedidoDoBalcao = {
   ref: string | null;
   pagamentos: PagamentoDoBalcao[];
   anexos: AnexoDoBalcao[];
+  /** O que aconteceu na Kommo (0201): nulo enquanto não foi (ou a automação está desligada). */
+  kommo?: EstadoNaKommo | null;
   /** Pedidos de alteração mandados à fábrica (0199), com o "a fábrica viu". */
   alteracoes?: { id: number; texto: string; pedido_em: string; ciente_em: string | null }[];
+};
+
+export type EstadoNaKommo = { estado: "enviando" | "ok" | "recusada" | "erro" | "desistiu"; negocio_id: number | null; erro: string | null; em?: string | null };
+
+/** O que a tela diz do envio à Kommo. `null`: não diz nada (não foi, e pode nem ir). */
+export function kommoEmPalavras(k: EstadoNaKommo | null | undefined): { texto: string; tom: Tom } | null {
+  if (!k) return null;
+  if (k.estado === "ok") return { texto: "Na Kommo", tom: "bom" };
+  if (k.estado === "desistiu") return { texto: k.negocio_id ? "Já estava na Kommo" : "Não foi para a Kommo", tom: "neutro" };
+  if (k.estado === "enviando") return { texto: "Indo para a Kommo", tom: "atencao" };
+  return { texto: "A Kommo recusou", tom: "ruim" };
+}
+
+/** O lead do balcão, como `balcao_leads` devolve. */
+export type LeadDoBalcao = {
+  id: string;
+  loja: string;
+  vendedor_nome: string;
+  cliente_nome: string;
+  cliente_telefone: string;
+  interesse: string | null;
+  tipo_produto: string | null;
+  motivo: Motivo | null;
+  data_especial: string | null;
+  origem_cliente: string | null;
+  observacao: string | null;
+  criado_em: string;
+  kommo: EstadoNaKommo | null;
 };
 
 export type VendedorDaLoja = { id: string; loja: string; nome: string; ativo: boolean };
@@ -134,6 +165,8 @@ export type RascunhoDoBalcao = {
   transcricao: string;
   pagamento: PagamentoDoRascunho | null;
   anexos: AnexoDoRascunho[];
+  /** Como conheceu a JK (0201): vai para o campo Origem do cliente da Kommo. Opcional: rascunho antigo não tem. */
+  origem_cliente?: string;
   /** Quando foi mexido pela última vez (para "continuar o pedido de Ana, há 5 min"). */
   mexido_em: string;
 };

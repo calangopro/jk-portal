@@ -174,6 +174,35 @@ export type Acao =
       /** Prazo da tarefa, em segundos desde 1970. */
       prazo: number;
       responsavelId: number | null;
+    }
+  | {
+      /**
+       * O balcão da loja física (cartão 72, 0201): pedido ou lead do balcão vira
+       * negócio no funil escolhido para a loja, com os campos que a loja
+       * preenchia à mão (pelo NOME do campo; quem acha o id é a escrita, lendo a
+       * Kommo), as tags e uma nota com o resumo. O pedido sempre cria (cada
+       * compra é um negócio do pós-venda); o lead desiste se o cliente já tem
+       * negócio aberto naquele funil.
+       */
+      tipo: "criar_negocio_balcao";
+      automacao: "balcao_pedido" | "balcao_lead";
+      chave: string;
+      cliente: string | null;
+      referencia: string;
+      rotulo: string;
+      negocio: {
+        nome: string;
+        preco: number | null;
+        funilId: number;
+        etapaId: number;
+        responsavelId: number;
+        tags: string[];
+        /** Nome do campo da Kommo e o valor: texto, número, data em segundos, ou o nome da opção nos campos de lista. */
+        campos: Record<string, string | number>;
+      };
+      contato: ContatoNovo;
+      nota: string;
+      desistirSeAberto: boolean;
     };
 
 const limpo = (t: string | null | undefined, max: number) =>
@@ -391,6 +420,98 @@ export function corpoDoNegocio(a: Extract<Acao, { tipo: "criar_negocio" }>, cont
       _embedded: { contacts: [contato], tags: [{ name: "Painel JK" }] },
     },
   ];
+}
+
+/** Um campo personalizado de negócio como a Kommo descreve (`GET /api/v4/leads/custom_fields`). */
+export type DefinicaoDeCampo = { id: number; nome: string; tipo: string; opcoes: { id: number; valor: string }[] };
+
+export function lerDefinicoes(cru: unknown): DefinicaoDeCampo[] {
+  const lista = ((cru as { _embedded?: { custom_fields?: unknown[] } } | null)?._embedded?.custom_fields ?? []) as {
+    id?: unknown; name?: unknown; type?: unknown; enums?: { id?: unknown; value?: unknown }[] | null;
+  }[];
+  return lista
+    .filter((c) => Number.isSafeInteger(Number(c.id)) && typeof c.name === "string")
+    .map((c) => ({
+      id: Number(c.id),
+      nome: String(c.name),
+      tipo: String(c.type ?? ""),
+      opcoes: (c.enums ?? []).filter((e) => Number.isSafeInteger(Number(e.id))).map((e) => ({ id: Number(e.id), valor: String(e.value ?? "") })),
+    }));
+}
+
+const igual = (a: string, b: string) => a.normalize("NFD").replace(/[̀-ͯ]/g, "").trim().toLowerCase() === b.normalize("NFD").replace(/[̀-ͯ]/g, "").trim().toLowerCase();
+
+/**
+ * Os campos pelo nome viram `custom_fields_values` pelo id. Campo de lista vai
+ * pela opção (enum_id) com o mesmo nome. Campo ou opção que a Kommo não tem
+ * fica de fora e volta em `faltaram`, para o registro dizer o que não foi.
+ * Dois campos com o mesmo nome (a Kommo tem dois "Produto"): vale o primeiro.
+ */
+export function camposParaKommo(campos: Record<string, string | number>, defs: DefinicaoDeCampo[]): { valores: unknown[]; faltaram: string[] } {
+  const valores: unknown[] = [];
+  const faltaram: string[] = [];
+  for (const [nome, valor] of Object.entries(campos)) {
+    if (valor === "" || valor === null || valor === undefined) continue;
+    const def = defs.find((d) => igual(d.nome, nome));
+    if (!def) {
+      faltaram.push(nome);
+      continue;
+    }
+    if (def.tipo === "select" || def.tipo === "radiobutton" || def.tipo === "multiselect") {
+      const opcao = def.opcoes.find((o) => igual(o.valor, String(valor)));
+      if (!opcao) {
+        faltaram.push(`${nome}: ${valor}`);
+        continue;
+      }
+      valores.push({ field_id: def.id, values: [{ enum_id: opcao.id }] });
+    } else if (def.tipo === "numeric") {
+      const n = Number(valor);
+      if (!Number.isFinite(n)) {
+        faltaram.push(nome);
+        continue;
+      }
+      valores.push({ field_id: def.id, values: [{ value: String(n) }] });
+    } else if (def.tipo === "date" || def.tipo === "date_time" || def.tipo === "birthday") {
+      const n = Number(valor);
+      if (!Number.isSafeInteger(n)) {
+        faltaram.push(nome);
+        continue;
+      }
+      valores.push({ field_id: def.id, values: [{ value: n }] });
+    } else {
+      valores.push({ field_id: def.id, values: [{ value: String(valor).slice(0, 255) }] });
+    }
+  }
+  return { valores, faltaram };
+}
+
+/** `POST /api/v4/leads/complex` do balcão: o negócio com campos e tags, e o contato que já existe (id) ou um novo. */
+export function corpoDoNegocioDoBalcao(a: Extract<Acao, { tipo: "criar_negocio_balcao" }>, contatoId: number | null, campos: unknown[]): unknown[] {
+  const contato = contatoId
+    ? { id: contatoId }
+    : {
+        first_name: a.contato.nome,
+        custom_fields_values: [
+          ...(a.contato.telefone ? [{ field_code: "PHONE", values: [{ value: telefoneParaKommo(a.contato.telefone), enum_code: "MOB" }] }] : []),
+          ...(a.contato.email ? [{ field_code: "EMAIL", values: [{ value: a.contato.email, enum_code: "WORK" }] }] : []),
+        ],
+      };
+  return [
+    {
+      name: a.negocio.nome,
+      ...(a.negocio.preco !== null ? { price: Math.round(a.negocio.preco) } : {}),
+      pipeline_id: a.negocio.funilId,
+      status_id: a.negocio.etapaId,
+      responsible_user_id: a.negocio.responsavelId,
+      ...(campos.length ? { custom_fields_values: campos } : {}),
+      _embedded: { contacts: [contato], tags: a.negocio.tags.map((name) => ({ name })) },
+    },
+  ];
+}
+
+/** `POST /api/v4/leads/notes`: a nota comum no negócio. */
+export function corpoDaNota(negocioId: number, texto: string): unknown[] {
+  return [{ entity_id: negocioId, note_type: "common", params: { text: texto.slice(0, 4000) } }];
 }
 
 /** `PATCH /api/v4/leads/{id}`: só funil e etapa. */

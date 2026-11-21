@@ -5,6 +5,7 @@ import { useMemo, useState, useTransition } from "react";
 import { AlertTriangle, CircleCheck, CircleSlash, CircleX, ExternalLink, Hourglass, Power, PowerOff, Undo2 } from "lucide-react";
 import { AUTOMACOES, MARCOS, NOME_DA_AUTOMACAO, NOME_DO_MARCO, conferirConfig, type IdDaAutomacao, type Marco } from "@/lib/kommo/automacoes-regra";
 import type { ResultadoDaAutomacao } from "./actions";
+import { BalcaoNaKommo, type ConfigDoBalcao } from "./BalcaoNaKommo";
 
 /** O que `kommo_automacoes_lista` (0173) devolve. */
 export type DadosDasAutomacoes = {
@@ -48,6 +49,8 @@ type Props = {
   aoSalvar: (id: string, config: Record<string, unknown>) => Promise<ResultadoDaAutomacao>;
   aoLigar: (id: string, conferiu: boolean) => Promise<ResultadoDaAutomacao>;
   aoDesligar: (id: string) => Promise<ResultadoDaAutomacao>;
+  /** O balcão da loja (0201): duas automações com uma ligação por loja. */
+  balcao?: { config: ConfigDoBalcao | null; lojas: string[]; opcoesDeLoja: string[]; aoSalvar: (loja: string, ligacao: Record<string, unknown>) => Promise<ResultadoDaAutomacao> };
 };
 
 const campo = "w-full min-w-0 rounded-[10px] border border-border bg-white/80 px-3 py-2 text-sm text-ink outline-none focus:border-brand disabled:opacity-60";
@@ -71,6 +74,8 @@ const ESTADO: Record<DadosDasAutomacoes["escritas"][number]["estado"], { nome: s
 };
 
 type Automacao = DadosDasAutomacoes["automacoes"][number];
+
+const NOME_DO_BALCAO: Record<string, string> = { balcao_pedido: "Pedido do balcão", balcao_lead: "Lead do balcão" };
 type Funil = DadosDasAutomacoes["funis"][number];
 
 const abertas = (f: Funil | undefined) => (f?.etapas ?? []).filter((e) => e.tipo === "entrada" || e.tipo === "aberta");
@@ -356,7 +361,7 @@ function Registro({ escritas }: { escritas: DadosDasAutomacoes["escritas"] }) {
                   <span className={`inline-flex items-center gap-1 font-semibold ${est.cor}`}>
                     <est.Icone size={12} aria-hidden /> {est.nome}
                   </span>
-                  <span className="text-muted">{NOME_DA_AUTOMACAO[e.automacao]}</span>
+                  <span className="text-muted">{NOME_DA_AUTOMACAO[e.automacao] ?? NOME_DO_BALCAO[e.automacao as string] ?? e.automacao}</span>
                   <span className="text-muted">{quando(e.criado_em)}</span>
                   {e.feita_por ? <span className="text-muted">em nome de {e.feita_por}</span> : null}
                 </p>
@@ -388,8 +393,10 @@ function Registro({ escritas }: { escritas: DadosDasAutomacoes["escritas"] }) {
   );
 }
 
-export function TelaDasAutomacoes({ dados, aoSalvar, aoLigar, aoDesligar }: Props) {
-  const ligadas = dados?.automacoes.filter((a) => a.ativa).length ?? 0;
+export function TelaDasAutomacoes({ dados, aoSalvar, aoLigar, aoDesligar, balcao }: Props) {
+  // As do balcão têm cartão próprio, com a ligação por loja.
+  const gerais = dados?.automacoes.filter((a) => AUTOMACOES.some((x) => x.id === a.id)) ?? [];
+  const ligadas = gerais.filter((a) => a.ativa).length;
   return (
     <>
       <header>
@@ -416,10 +423,22 @@ export function TelaDasAutomacoes({ dados, aoSalvar, aoLigar, aoDesligar }: Prop
             </p>
           ) : null}
           <ul className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-2">
-            {dados.automacoes.map((a) => (
+            {gerais.map((a) => (
               <Cartao key={a.id} a={a} dados={dados} aoSalvar={aoSalvar} aoLigar={aoLigar} aoDesligar={aoDesligar} />
             ))}
           </ul>
+          {balcao ? (
+            <BalcaoNaKommo
+              config={balcao.config}
+              funis={dados.funis}
+              usuarios={dados.usuarios}
+              lojas={balcao.lojas}
+              opcoesDeLoja={balcao.opcoesDeLoja}
+              aoSalvar={balcao.aoSalvar}
+              aoLigar={aoLigar}
+              aoDesligar={aoDesligar}
+            />
+          ) : null}
           <Registro escritas={dados.escritas} />
         </>
       )}
