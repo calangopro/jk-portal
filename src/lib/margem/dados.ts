@@ -10,8 +10,10 @@ import {
   type Familia,
   type Margem,
   type Material,
+  type OrigemDoParametro,
   type Parametros,
   type TaxasDoGateway,
+  parametrosComMedias,
   taxaEfetiva,
 } from "./calculo";
 import type { ImportacaoDeCustos } from "./planilha-do-dono";
@@ -63,6 +65,36 @@ export async function lerParametros(db: SupabaseClient): Promise<Parametros> {
     embalagem: num(d.embalagem),
     margemMinima: num(d.margem_minima),
   };
+}
+
+export type ParametrosEfetivos = {
+  /** Como estão gravados: é o que o formulário mostra e edita. */
+  parametros: Parametros;
+  /** O que a conta usa: o gravado, e onde está vazio a média da lista de Custos. */
+  efetivos: Parametros;
+  origens: Record<"imposto" | "frete" | "embalagem", OrigemDoParametro>;
+  /** Os valores que a lista de Custos daria, para a tela dizer "vazio: a lista dá tanto". */
+  daLista: { imposto: number | null; frete: number | null; embalagem: number | null };
+};
+
+/**
+ * Os parâmetros com a média da lista de Custos nos vazios (cartão 81). As médias
+ * vêm da conta do período guardada por alguns minutos; se ela falhar, a conta
+ * segue só com o que está gravado, e nunca derruba a tela que a chamou.
+ * O import é feito na hora para não fechar um ciclo com a leitura de vendas.
+ */
+export async function lerParametrosEfetivos(db: SupabaseClient): Promise<ParametrosEfetivos> {
+  const parametros = await lerParametros(db);
+  let daLista = { imposto: null as number | null, frete: null as number | null, embalagem: null as number | null };
+  try {
+    const { mediasDeHoje } = await import("@/lib/vendas/sobra");
+    const { medias } = await mediasDeHoje();
+    daLista = { imposto: medias.imposto?.fracao ?? null, frete: medias.frete?.liquidoPorVenda ?? null, embalagem: medias.embalagem?.porVenda ?? null };
+  } catch (e) {
+    console.error("[margem] médias da lista de Custos:", e instanceof Error ? e.message : e);
+  }
+  const { efetivos, origens } = parametrosComMedias(parametros, daLista);
+  return { parametros, efetivos, origens, daLista };
 }
 
 const COLUNA: Record<Exclude<keyof Parametros, "gateway">, string> = {
@@ -202,9 +234,9 @@ export async function margensDoCatalogo(
   // Aceita a lista ainda a caminho: quem chama pode pedir o catálogo e os
   // custos ao mesmo tempo, em vez de esperar um para começar o outro.
   itensOuPromessa: Pick<ItemDoCatalogo, "id" | "nome" | "preco" | "precoAntes">[] | Promise<Pick<ItemDoCatalogo, "id" | "nome" | "preco" | "precoAntes">[]>,
-): Promise<{ parametros: Parametros; porProduto: Record<string, CustoDoItem> }> {
-  const [parametros, familias, linhas, itens] = await Promise.all([
-    lerParametros(db),
+): Promise<{ parametros: Parametros; efetivos: Parametros; origens: ParametrosEfetivos["origens"]; daLista: ParametrosEfetivos["daLista"]; porProduto: Record<string, CustoDoItem> }> {
+  const [{ parametros, efetivos, origens, daLista }, familias, linhas, itens] = await Promise.all([
+    lerParametrosEfetivos(db),
     lerFamilias(db),
     linhasDeCusto(db),
     itensOuPromessa,
@@ -214,7 +246,7 @@ export async function margensDoCatalogo(
   const porProduto: Record<string, CustoDoItem> = {};
   for (const p of itens) {
     const g = porId.get(p.id) ?? null;
-    const c = custoDoProduto(g, mapaFamilias, parametros, p.nome);
+    const c = custoDoProduto(g, mapaFamilias, efetivos, p.nome);
     const cheio = p.precoAntes ?? p.preco;
     const hoje = p.precoAntes ? p.preco : null;
     porProduto[p.id] = {
@@ -223,10 +255,10 @@ export async function margensDoCatalogo(
       custo: c.valor,
       detalhe: c.detalhe,
       falta: c.falta,
-      margem: c.valor !== null && cheio ? calcularMargem(cheio, hoje, c.valor, parametros) : null,
+      margem: c.valor !== null && cheio ? calcularMargem(cheio, hoje, c.valor, efetivos) : null,
     };
   }
-  return { parametros, porProduto };
+  return { parametros, efetivos, origens, daLista, porProduto };
 }
 
 /** Grava o custo de um produto pelo painel. Campo ausente não muda; nulo apaga. */

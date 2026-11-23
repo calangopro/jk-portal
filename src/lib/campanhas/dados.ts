@@ -12,7 +12,7 @@ import {
   type CustoGravado,
   type Material,
 } from "@/lib/margem/calculo";
-import { lerFamilias, lerParametros } from "@/lib/margem/dados";
+import { lerFamilias, lerParametrosEfetivos } from "@/lib/margem/dados";
 
 /**
  * Campanhas de desconto: a equipe monta, o administrador aprova, e a planilha
@@ -188,8 +188,8 @@ export async function avaliarItens(
 ): Promise<{ porProduto: Record<string, Avaliacao>; margemMinima: number | null }> {
   if (!itens.length) return { porProduto: {}, margemMinima: null };
   const ids = itens.map((i) => i.productId);
-  const [parametros, familias, { data: custos }, { data: produtos }] = await Promise.all([
-    lerParametros(servico),
+  const [{ efetivos: parametros }, familias, { data: custos }, { data: produtos }] = await Promise.all([
+    lerParametrosEfetivos(servico),
     lerFamilias(servico),
     servico.from("produto_custos").select("product_id, material, familia, gramas, resto, custo_fixo").in("product_id", ids),
     // O nome dá a largura da prata 950, que não tem linha de custo.

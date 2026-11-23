@@ -19,7 +19,7 @@ export default async function MargemPage() {
   await requireAdmin();
   const db = await createClient();
   const itens = (await listarCatalogo(db)).filter((p) => p.disponivel);
-  const [{ parametros, porProduto }, familias] = await Promise.all([margensDoCatalogo(db, itens), lerFamilias(db)]);
+  const [{ parametros, daLista, porProduto }, familias] = await Promise.all([margensDoCatalogo(db, itens), lerFamilias(db)]);
 
   const comCusto = itens.filter((p) => porProduto[p.id]?.custo !== null);
   const porVenda = (a: { vendidos: number }, b: { vendidos: number }) => b.vendidos - a.vendidos;
@@ -31,6 +31,7 @@ export default async function MargemPage() {
   return (
     <TelaDaMargem
       parametros={parametros}
+      daLista={daLista}
       familias={familias}
       comCusto={comCusto.length}
       total={itens.length}

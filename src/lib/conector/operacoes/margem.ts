@@ -36,7 +36,7 @@ export const OPERACOES_MARGEM = [
     soAdmin: true,
     async executar(a, ctx) {
       const itens = (await listarCatalogo(ctx.db)).filter((p) => p.disponivel);
-      const { parametros, porProduto } = await margensDoCatalogo(ctx.db, itens);
+      const { efetivos: parametros, porProduto } = await margensDoCatalogo(ctx.db, itens);
       const termo = a.produto ? semAcento(a.produto.trim()) : "";
       const cat = a.categoria ? semAcento(a.categoria.trim()) : "";
       const escolhidos = itens.filter(

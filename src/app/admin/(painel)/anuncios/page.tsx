@@ -3,6 +3,9 @@ import { requireAdmin } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { listarCatalogo } from "@/lib/catalogo/fotos";
 import { margensDoCatalogo } from "@/lib/margem/dados";
+import { hojeEmSaoPaulo, somarDias } from "@/lib/vendas/periodo";
+import { sobraDoPeriodo } from "@/lib/vendas/sobra";
+import { CpaIdealDoPeriodo } from "../vendas/SobraDoPeriodo";
 import { PainelDeAnuncios, type LinhaDeAnuncio } from "./PainelDeAnuncios";
 
 export const metadata = { title: "Anúncios" };
@@ -22,7 +25,15 @@ export default async function AnunciosPage() {
   await requireAdmin();
   const db = await createClient();
   const itens = (await listarCatalogo(db)).filter((p) => p.disponivel);
-  const { parametros, porProduto } = await margensDoCatalogo(db, itens);
+  const hoje = hojeEmSaoPaulo();
+  const [{ efetivos, porProduto }, geral] = await Promise.all([
+    margensDoCatalogo(db, itens),
+    // O CPA ideal do negócio inteiro, dos últimos 30 dias (cartão 81). Se a leitura falhar, a tela segue só com o CPA por produto.
+    sobraDoPeriodo(somarDias(hoje, -29), hoje).catch((e) => {
+      console.error("[anuncios] cpa geral:", e instanceof Error ? e.message : e);
+      return null;
+    }),
+  ]);
 
   const linhas: LinhaDeAnuncio[] = itens.map((p) => ({
     id: p.id,
@@ -50,7 +61,8 @@ export default async function AnunciosPage() {
           .
         </p>
       </header>
-      <PainelDeAnuncios linhas={linhas} parametros={parametros} />
+      {geral?.cpa ? <CpaIdealDoPeriodo cpa={geral.cpa} /> : null}
+      <PainelDeAnuncios linhas={linhas} parametros={efetivos} />
     </div>
   );
 }

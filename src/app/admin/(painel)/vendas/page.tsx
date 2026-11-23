@@ -1,6 +1,5 @@
 import { ehAdmin } from "@/lib/auth/acessos";
 import { requireArea } from "@/lib/auth/session";
-import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { lerVendasDaTela } from "@/lib/vendas/dados";
 import { hojeEmSaoPaulo, intervaloDoPeriodo, lerPeriodo } from "@/lib/vendas/periodo";
@@ -36,7 +35,7 @@ export default async function VendasPage({
   // Para onde vai cada venda é custo e taxa da empresa (cartão 80): só o administrador, e só ele dispara a leitura.
   const [dados, sobra] = await Promise.all([
     lerVendasDaTela(await createClient(), chave, hoje),
-    ehAdmin(perfil.role) ? sobraDoPeriodo(createAdminClient(), intervalo.de, intervalo.ate).catch((e) => { console.error("[vendas] sobra:", e instanceof Error ? e.message : e); return null; }) : Promise.resolve(null),
+    ehAdmin(perfil.role) ? sobraDoPeriodo(intervalo.de, intervalo.ate).catch((e) => { console.error("[vendas] sobra:", e instanceof Error ? e.message : e); return null; }) : Promise.resolve(null),
   ]);
   return <PainelDeVendas chave={chave} hoje={hoje} {...dados} sobra={sobra} />;
 }

@@ -18,6 +18,8 @@ import {
 } from "../src/lib/vendas/tray-csv.ts";
 import { appmaxDoPedido, lerLiquido, taxaMedida } from "../src/lib/appmax/liquido.ts";
 import { mediaDasCascatas, montarCascata } from "../src/lib/vendas/cascata.ts";
+import { calcularCpaIdeal, calcularMedias, type DespesaParaMedia } from "../src/lib/custos/medias.ts";
+import { parametrosComMedias } from "../src/lib/margem/calculo.ts";
 import { SO_DA_CHEGADA, agruparPorCanal, canalDaOrigem, nomeLimpo } from "../src/lib/vendas/origem.ts";
 import { diasEntre, hojeEmSaoPaulo, intervaloDoPeriodo, lerPeriodo, somarDias } from "../src/lib/vendas/periodo.ts";
 import { HORAS_ATE_A_LEITURA_ATRASAR, calcularSinais, porDiaDaSemana, taxaDeCancelamento, variacao } from "../src/lib/painel/sinais.ts";
@@ -1699,7 +1701,87 @@ console.log("\nPadrão de UTM (Links e UTMs)");
   confere("cascata: a média de uma linha divide por todas as vendas (25 em uma, falta na outra = 12,50)", mista.porTipo.anuncio === 12.5 && mista.comNumero.anuncio === 1 && mista.inteiras.anuncio === 1, JSON.stringify(mista.porTipo));
   const soma = Object.values(mista.porTipo).reduce<number>((s, v) => s + (v ?? 0), 0);
   confere("cascata: ticket médio = soma das linhas + sobra média", Math.abs(mista.total / 2 - soma - mista.sobra / 2) < 0.02, `${mista.total / 2} vs ${soma + mista.sobra / 2}`);
+  confere("cascata: conta em quantas vendas cada linha está em falta (mesmo com valor parcial)", mediaDasCascatas([vazia, c]).faltaEm.custo === 1, JSON.stringify(mediaDasCascatas([vazia, c]).faltaEm));
   confere("cascata: linha que nenhuma venda tem fica nula", mediaDasCascatas([vazia]).porTipo.imposto === null && mediaDasCascatas([vazia]).inteiras.imposto === 0);
+}
+
+// Os custos da empresa como médias por venda, e o CPA ideal (cartão 81). Os números são os da lista de Custos e
+// dos 217 pedidos pagos de 30 dias em 23/11/2026.
+{
+  const desp: DespesaParaMedia[] = [
+    { nome: "Anúncios", categoria: "anuncios", tipo: "mensal", valor: 25378.68, ativo: true },
+    { nome: "Frete", categoria: "frete", tipo: "mensal", valor: 4000, ativo: true },
+    { nome: "Taxas de cartão", categoria: "impostos_e_taxas", tipo: "mensal", valor: 9838.26, ativo: true },
+    { nome: "Impostos", categoria: "impostos_e_taxas", tipo: "mensal", valor: 5902.95, ativo: true },
+    { nome: "Caixinha das alianças", categoria: "embalagem", tipo: "mensal", valor: 2068, ativo: true },
+    { nome: "Caixa de envio", categoria: "embalagem", tipo: "por_pedido", valor: 3.33, ativo: true },
+    { nome: "Caixa de papelão", categoria: "embalagem", tipo: "por_pedido", valor: 2.57, ativo: true },
+    { nome: "Papel de seda", categoria: "embalagem", tipo: "por_pedido", valor: 0.82, ativo: true },
+    { nome: "Cartão de garantia", categoria: "embalagem", tipo: "por_pedido", valor: 0.49, ativo: true },
+    { nome: "Folha de pagamento", categoria: "pessoal", tipo: "mensal", valor: 21504, ativo: true },
+    { nome: "Locação", categoria: "estrutura", tipo: "mensal", valor: 2000, ativo: true },
+    { nome: "Tray", categoria: "plataformas", tipo: "mensal", valor: 1505.48, ativo: true },
+    { nome: "Antigo", categoria: "pessoal", tipo: "mensal", valor: 520, ativo: false },
+  ];
+  const fator = 30 / 30.4375;
+  const entrada = { despesas: desp, dias: 30, vendas: 217, faturamento: 88590.98, freteCobradoTotal: 1622.8, vendasComFreteCobrado: 40, taxaMedida: { total: 88000, descontado: 2200, pedidos: 216 }, anuncioReal: 21287.7, custoDasPecas: null };
+  const m = calcularMedias(entrada);
+  confere("médias: embalagem = R$ 7,21 por pedido mais a caixinha mensal rateada", m.embalagem?.porPedido === 7.21 && Math.abs((m.embalagem?.mensalRateada ?? 0) - (2068 * fator) / 217) < 0.006 && Math.abs((m.embalagem?.porVenda ?? 0) - (7.21 + (2068 * fator) / 217)) < 0.011, JSON.stringify(m.embalagem));
+  const custoFrete = 4000 * fator;
+  confere("médias: frete custa 3.942 no período, clientes pagaram 1.622,80", Math.abs((m.frete?.custoNoPeriodo ?? 0) - custoFrete) < 0.006 && m.frete?.cobradoNoPeriodo === 1622.8, JSON.stringify(m.frete));
+  confere("médias: o frete grátis custa o que sobra do custo, por pedido de frete grátis (177)", Math.abs((m.frete?.porVendaGratis ?? 0) - (custoFrete - 1622.8) / 177) < 0.006 && Math.abs((m.frete?.liquidoPorVenda ?? 0) - (custoFrete - 1622.8) / 217) < 0.006, JSON.stringify(m.frete));
+  confere("médias: imposto é o valor do período sobre o faturamento, só a linha 'Impostos'", Math.abs((m.imposto?.fracao ?? 0) - (5902.95 * fator) / 88590.98) < 1e-9, JSON.stringify(m.imposto));
+  confere("médias: a taxa do cartão da lista (a estimativa de 10%) não entra, vale a medida", Math.abs((m.taxa?.fracao ?? 0) - 2200 / 88000) < 1e-9);
+  confere("médias: o fixo soma pessoas, estrutura e plataformas, sem anúncio, frete, taxa nem o inativo", Math.abs((m.fixo?.noPeriodo ?? 0) - (21504 + 2000 + 1505.48) * fator) < 0.011, JSON.stringify(m.fixo));
+  confere("médias: o anúncio é o gasto real dividido pelas vendas (98,10)", m.anuncio?.porVenda === 98.1, JSON.stringify(m.anuncio));
+  confere("médias: ticket de R$ 408,25 e sem custo das peças fica nulo", m.ticket === 408.25 && m.pecas === null);
+  const poucas = calcularMedias({ ...entrada, custoDasPecas: { vendas: 10, receita: 4000, custo: 1000 } });
+  const muitas = calcularMedias({ ...entrada, custoDasPecas: { vendas: 60, receita: 24000, custo: 6000 } });
+  confere("médias: peças só viram média confiável com 15 vendas e 20% de cobertura", poucas.pecas?.confiavel === false && muitas.pecas?.confiavel === true && Math.abs((muitas.pecas?.fracaoDaReceita ?? 0) - 0.25) < 1e-9, JSON.stringify([poucas.pecas, muitas.pecas]));
+  confere("médias: sem despesa de frete nem de embalagem, essas médias não existem", calcularMedias({ ...entrada, despesas: desp.filter((d) => d.categoria !== "frete" && d.categoria !== "embalagem") }).frete === null && calcularMedias({ ...entrada, despesas: [] }).embalagem === null);
+  confere("médias: sem venda nada é dividido", calcularMedias({ ...entrada, vendas: 0, faturamento: 0 }).embalagem === null && calcularMedias({ ...entrada, vendas: 0, faturamento: 0 }).ticket === null);
+
+  // O CPA ideal: o ticket menos o que muda com a venda. O fixo só entra no CPA de lucro.
+  const base = { ticket: 408.25, pecas: 150, taxa: 10.25, imposto: 27.2, frete: 18.43, embalagem: 16.6, fixo: 179.5, margemMinima: 0.1, cpaReal: 98.1 };
+  const cpa = calcularCpaIdeal(base);
+  confere("CPA: contribuição = 408,25 - 222,48 = 185,77 e o CPA de empate é ela", cpa.contribuicao === 185.77 && cpa.cpaDeEmpate === 185.77 && !cpa.parcial, JSON.stringify(cpa));
+  confere("CPA: com a margem mínima de 10% sobra 185,77 - 40,83", Math.abs((cpa.cpaComMargem ?? 0) - (185.77 - 40.825)) < 0.011, String(cpa.cpaComMargem));
+  confere("CPA: o de lucro desconta o fixo (185,77 - 179,50 = 6,27)", Math.abs((cpa.cpaDeLucro ?? 0) - 6.27) < 0.011, String(cpa.cpaDeLucro));
+  confere("CPA: o real de 98,10 está entre o ideal e o de empate", cpa.situacao === "acima_do_ideal" && Math.abs((cpa.roasReal ?? 0) - 408.25 / 98.1) < 1e-9);
+  confere("CPA: ROAS de empate = ticket / CPA de empate", Math.abs((cpa.roasDeEmpate ?? 0) - 408.25 / 185.77) < 1e-9);
+  confere("CPA: real acima do empate é ruim, abaixo do ideal é dentro, sem gasto não compara",
+    calcularCpaIdeal({ ...base, cpaReal: 200 }).situacao === "acima_do_empate" && calcularCpaIdeal({ ...base, cpaReal: 5 }).situacao === "dentro" && calcularCpaIdeal({ ...base, cpaReal: null }).situacao === "sem_gasto");
+  const parcial = calcularCpaIdeal({ ...base, pecas: null, embalagem: null });
+  confere("CPA: sem o custo das peças e da embalagem fica parcial e diz o que falta", parcial.parcial && parcial.faltam.join() === "custo das peças,embalagem" && parcial.contribuicao === 408.25 - (10.25 + 27.2 + 18.43), JSON.stringify(parcial.faltam));
+  confere("CPA: sem custo fixo e sem margem mínima, o ideal é o de empate (nada vira zero)", calcularCpaIdeal({ ...base, fixo: null, margemMinima: null }).cpaDeLucro === null && calcularCpaIdeal({ ...base, fixo: null, margemMinima: null }).cpaComMargem === null);
+
+  // A cascata de um pedido SEM leitura: tudo o que não tem o exato vem da média, e diz que é média.
+  const sem = montarCascata({
+    total: 400, freteCobrado: 0, taxaReal: null,
+    parametros: { taxa: null, tarifaFixa: null, imposto: null, frete: null, embalagem: null },
+    itens: [{ nome: "Aliança", quantidade: 2, custo: null, falta: "Sem custo", preco: 150 }, { nome: "Anel", quantidade: 1, custo: 40, falta: null, preco: 100 }],
+    anuncioPorVenda: 98.1,
+    medias: { taxaFracao: 0.025, impostoFracao: 0.0666, freteGratis: 13.1, embalagem: 16.6, pecasFracao: 0.25 },
+  });
+  const l = (t: string) => sem.linhas.find((x) => x.tipo === t);
+  confere("cascata com médias: taxa 2,5% = 10,00, imposto 6,66% = 26,64, frete grátis 13,10, embalagem 16,60",
+    l("taxa")?.valor === 10 && l("imposto")?.valor === 26.64 && l("frete")?.valor === 13.1 && l("embalagem")?.valor === 16.6 && ["taxa", "imposto", "frete", "embalagem"].every((t) => l(t)?.origem === "media"), JSON.stringify(sem.linhas));
+  confere("cascata com médias: a peça sem custo entra pela média (2 x 150 x 25% = 75) somada ao custo exato de 40", l("custo")?.valor === 115 && l("custo")?.origem === "media", JSON.stringify(l("custo")));
+  confere("cascata com médias: sem nenhuma linha em falta a sobra é completa", sem.completa && sem.faltam.length === 0, JSON.stringify(sem.faltam));
+  const comParametro = montarCascata({ total: 400, freteCobrado: 0, taxaReal: null, parametros: { taxa: null, tarifaFixa: null, imposto: 0.05, frete: 20, embalagem: 5 }, itens: [], anuncioPorVenda: null, medias: { taxaFracao: 0.025, impostoFracao: 0.0666, freteGratis: 13.1, embalagem: 16.6, pecasFracao: null } });
+  const lp = (t: string) => comParametro.linhas.find((x) => x.tipo === t);
+  confere("cascata: o parâmetro da Margem vence a média, e vem como estimado", lp("imposto")?.valor === 20 && lp("imposto")?.origem === "estimado" && lp("frete")?.valor === 20 && lp("embalagem")?.valor === 5);
+  const semCobertura = montarCascata({ total: 400, freteCobrado: 0, taxaReal: null, parametros: { taxa: null, tarifaFixa: null, imposto: null, frete: null, embalagem: null }, itens: [{ nome: "A", quantidade: 1, custo: null, falta: "Sem custo", preco: 100 }], anuncioPorVenda: null, medias: { taxaFracao: null, impostoFracao: null, freteGratis: null, embalagem: null, pecasFracao: null } });
+  confere("cascata: sem cobertura mínima a peça sem custo continua em falta", semCobertura.linhas.find((x) => x.tipo === "custo")?.origem === "falta");
+
+  // Os parâmetros que a conta usa: o da Margem vence, o vazio cai na média da lista de Custos.
+  const efet = parametrosComMedias(
+    { cotacao18k: null, cotacao10k: null, cotacaoPrata: null, prataGramasPorMm: null, prataResto: null, taxa: 0.0232, imposto: null, frete: 5, embalagem: null, margemMinima: null },
+    { imposto: 0.0666, frete: 10.95, embalagem: 16.6 },
+  );
+  confere("parâmetros: imposto e embalagem vazios caem na lista de Custos, o frete preenchido vence",
+    efet.efetivos.imposto === 0.0666 && efet.efetivos.embalagem === 16.6 && efet.efetivos.frete === 5 && efet.origens.imposto === "custos" && efet.origens.frete === "margem" && efet.origens.embalagem === "custos", JSON.stringify(efet.origens));
+  confere("parâmetros: sem média e sem valor continua vazio", parametrosComMedias({ cotacao18k: null, cotacao10k: null, cotacaoPrata: null, prataGramasPorMm: null, prataResto: null, taxa: null, imposto: null, frete: null, embalagem: null, margemMinima: null }, null).efetivos.imposto === null);
 }
 
 // A conferência das falhas é a ÚLTIMA coisa do arquivo, de propósito. Ela ficou meses no meio dele

@@ -17,7 +17,13 @@
  * entrega esses por pedido, e a tela diz isso.
  */
 
-export type OrigemDoNumero = "real" | "estimado" | "falta";
+/**
+ * `real`: o exato desta venda (lido na Appmax, calculado pela Margem).
+ * `media`: a média geral do período, calculada da lista de Custos e dos pedidos (cartão 81).
+ * `estimado`: um valor informado à mão (parâmetro da Margem) ou uma suposição.
+ * `falta`: não há como calcular.
+ */
+export type OrigemDoNumero = "real" | "media" | "estimado" | "falta";
 export type TipoDaLinha = "taxa" | "imposto" | "custo" | "frete" | "embalagem" | "anuncio";
 
 export type LinhaDaCascata = {
@@ -39,11 +45,27 @@ export type EntradaDaCascata = {
   taxaReal: { processamento: number; gateway: number; descontado: number } | null;
   /** Os parâmetros da Margem (frações e reais). */
   parametros: { taxa: number | null; tarifaFixa?: number | null; imposto: number | null; frete: number | null; embalagem: number | null };
-  /** O custo de cada peça (da conta da Margem), com o motivo quando falta. */
-  itens: { nome: string; quantidade: number; custo: number | null; falta: string | null }[];
+  /** O custo de cada peça (da conta da Margem), com o motivo quando falta. `preco` é o unitário, para estimar a peça sem custo. */
+  itens: { nome: string; quantidade: number; custo: number | null; falta: string | null; preco?: number | null }[];
   /** O anúncio por venda, rateado, e como se chegou nele. Nulo sem gasto lançado. */
   anuncioPorVenda: number | null;
   anuncioDetalhe?: string | null;
+  /** As médias do período (cartão 81), para onde não há o exato nem parâmetro preenchido. */
+  medias?: MediasParaCascata | null;
+};
+
+/** O que a cascata pega da média do período, em números simples. */
+export type MediasParaCascata = {
+  /** A taxa do gateway medida na Appmax, em fração do que se vendeu. */
+  taxaFracao: number | null;
+  /** O imposto do período sobre o faturamento, em fração. */
+  impostoFracao: number | null;
+  /** O custo médio de frete por venda de frete grátis. */
+  freteGratis: number | null;
+  /** A embalagem média por venda. */
+  embalagem: number | null;
+  /** O custo das peças como fração do preço, nas vendas que têm custo inteiro. Nulo sem cobertura mínima. */
+  pecasFracao: number | null;
 };
 
 export type Cascata = {
@@ -62,12 +84,14 @@ export type Cascata = {
 const n = (v: number | null | undefined) => (typeof v === "number" && Number.isFinite(v) ? v : 0);
 const centavos = (v: number) => Math.round(v * 100) / 100;
 const reais = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+const pctTexto = (f: number) => `${(f * 100).toLocaleString("pt-BR", { maximumFractionDigits: 2 })}%`;
 
 export function montarCascata(e: EntradaDaCascata): Cascata {
   const p = e.parametros;
+  const m = e.medias ?? null;
   const linhas: LinhaDaCascata[] = [];
 
-  // Taxa do gateway: a lida da Appmax vale; sem ela, a média da Margem.
+  // Taxa do gateway: a lida na Appmax é a exata; sem ela, a média medida; sem ela, a da Margem.
   if (e.taxaReal) {
     linhas.push({
       tipo: "taxa",
@@ -76,34 +100,54 @@ export function montarCascata(e: EntradaDaCascata): Cascata {
       origem: "real",
       detalhe: `Lida na Appmax: ${reais(e.taxaReal.processamento)} de processamento e ${reais(e.taxaReal.gateway)} de gateway e antifraude.`,
     });
+  } else if (m?.taxaFracao !== null && m?.taxaFracao !== undefined) {
+    linhas.push({
+      tipo: "taxa",
+      rotulo: "Taxa do gateway",
+      valor: centavos(e.total * m.taxaFracao),
+      origem: "media",
+      detalhe: `Média lida na Appmax: ${pctTexto(m.taxaFracao)} do que se vendeu. A Appmax ainda não devolveu o valor deste pedido.`,
+    });
   } else if (p.taxa !== null || n(p.tarifaFixa) > 0) {
     linhas.push({
       tipo: "taxa",
       rotulo: "Taxa do gateway",
       valor: centavos(e.total * n(p.taxa) + n(p.tarifaFixa)),
       origem: "estimado",
-      detalhe: "Estimada com a taxa média da Margem. A Appmax ainda não devolveu o valor deste pedido.",
+      detalhe: "Estimada com a taxa da Margem. A Appmax ainda não devolveu o valor deste pedido.",
     });
   } else {
     linhas.push({ tipo: "taxa", rotulo: "Taxa do gateway", valor: null, origem: "falta", detalhe: "Sem leitura da Appmax e sem taxa na Margem." });
   }
 
-  // Imposto: sempre estimativa, é o percentual da Margem.
-  linhas.push(
-    p.imposto === null
-      ? { tipo: "imposto", rotulo: "Imposto", valor: null, origem: "falta", detalhe: "Falta o imposto nos parâmetros da Margem." }
-      : { tipo: "imposto", rotulo: "Imposto", valor: centavos(e.total * p.imposto), origem: "estimado", detalhe: `${(p.imposto * 100).toLocaleString("pt-BR", { maximumFractionDigits: 2 })}% sobre o total, o percentual da Margem.` },
-  );
+  // Imposto: o percentual da Margem, se houver; senão o da lista de Custos sobre o faturamento.
+  if (p.imposto !== null) {
+    linhas.push({ tipo: "imposto", rotulo: "Imposto", valor: centavos(e.total * p.imposto), origem: "estimado", detalhe: `${pctTexto(p.imposto)} sobre o total, o percentual da Margem.` });
+  } else if (m?.impostoFracao !== null && m?.impostoFracao !== undefined) {
+    linhas.push({ tipo: "imposto", rotulo: "Imposto", valor: centavos(e.total * m.impostoFracao), origem: "media", detalhe: `Média: ${pctTexto(m.impostoFracao)} do faturamento, o imposto do mês na lista de Custos.` });
+  } else {
+    linhas.push({ tipo: "imposto", rotulo: "Imposto", valor: null, origem: "falta", detalhe: "Falta o imposto nos parâmetros da Margem e na lista de Custos." });
+  }
 
-  // Custo das peças: a conta da Margem, produto a produto. Parcial conta o que sabe e diz o que falta.
+  // Custo das peças: o exato por item. Para a peça sem custo, a média das vendas que têm (só com cobertura mínima).
   const comCusto = e.itens.filter((i) => i.custo !== null);
+  const semCusto = e.itens.filter((i) => i.custo === null);
   const somaDoCusto = centavos(comCusto.reduce((s, i) => s + (i.custo as number) * Math.max(i.quantidade, 1), 0));
   if (e.itens.length === 0) {
     linhas.push({ tipo: "custo", rotulo: "Custo das peças", valor: null, origem: "falta", detalhe: "O pedido não trouxe as peças." });
-  } else if (comCusto.length === e.itens.length) {
+  } else if (semCusto.length === 0) {
     linhas.push({ tipo: "custo", rotulo: "Custo das peças", valor: somaDoCusto, origem: "real", detalhe: "Peso, preço do grama e resto de cada peça, pela conta da Margem." });
+  } else if (m?.pecasFracao !== null && m?.pecasFracao !== undefined && semCusto.every((i) => typeof i.preco === "number" && i.preco > 0)) {
+    const receitaSemCusto = semCusto.reduce((s, i) => s + (i.preco as number) * Math.max(i.quantidade, 1), 0);
+    const estimado = centavos(receitaSemCusto * m.pecasFracao);
+    linhas.push({
+      tipo: "custo",
+      rotulo: "Custo das peças",
+      valor: centavos(somaDoCusto + estimado),
+      origem: "media",
+      detalhe: `${semCusto.length === 1 ? "1 peça" : `${semCusto.length} peças`} sem custo na Margem ${semCusto.length === 1 ? "entra" : "entram"} pela média das vendas que têm custo: ${pctTexto(m.pecasFracao)} do preço.${comCusto.length ? " As outras usam o custo da Margem." : ""}`,
+    });
   } else {
-    const semCusto = e.itens.filter((i) => i.custo === null);
     linhas.push({
       tipo: "custo",
       rotulo: "Custo das peças",
@@ -113,25 +157,29 @@ export function montarCascata(e: EntradaDaCascata): Cascata {
     });
   }
 
-  // Frete: o que o cliente pagou é repassado à transportadora (suposição); no frete grátis, o médio da Margem.
+  // Frete: o que o cliente pagou é repassado à transportadora (suposição); no frete grátis, o valor da Margem ou a média da lista de Custos.
   if (e.freteCobrado > 0) {
     linhas.push({ tipo: "frete", rotulo: "Frete", valor: centavos(e.freteCobrado), origem: "estimado", detalhe: "O cliente pagou este frete. Supõe-se repassado à transportadora, sem sobra nem perda." });
   } else if (p.frete !== null) {
     linhas.push({ tipo: "frete", rotulo: "Frete", valor: centavos(p.frete), origem: "estimado", detalhe: "Frete grátis para o cliente: vale o frete médio que a JK paga, da Margem." });
+  } else if (m?.freteGratis !== null && m?.freteGratis !== undefined) {
+    linhas.push({ tipo: "frete", rotulo: "Frete", valor: centavos(m.freteGratis), origem: "media", detalhe: "Média do frete grátis: o custo de frete do mês na lista de Custos, menos o que os clientes pagaram, dividido pelos pedidos de frete grátis." });
   } else {
-    linhas.push({ tipo: "frete", rotulo: "Frete", valor: null, origem: "falta", detalhe: "Frete grátis e sem o frete médio nos parâmetros da Margem." });
+    linhas.push({ tipo: "frete", rotulo: "Frete", valor: null, origem: "falta", detalhe: "Frete grátis e sem frete médio na Margem nem na lista de Custos." });
+  }
+
+  if (p.embalagem !== null) {
+    linhas.push({ tipo: "embalagem", rotulo: "Embalagem e brinde", valor: centavos(p.embalagem), origem: "estimado", detalhe: "O valor por pedido da Margem." });
+  } else if (m?.embalagem !== null && m?.embalagem !== undefined) {
+    linhas.push({ tipo: "embalagem", rotulo: "Embalagem e brinde", valor: centavos(m.embalagem), origem: "media", detalhe: "Média: o que a lista de Custos tem por pedido, mais a parte mensal dividida pelas vendas do período." });
+  } else {
+    linhas.push({ tipo: "embalagem", rotulo: "Embalagem e brinde", valor: null, origem: "falta", detalhe: "Falta a embalagem na Margem e na lista de Custos." });
   }
 
   linhas.push(
-    p.embalagem === null
-      ? { tipo: "embalagem", rotulo: "Embalagem e brinde", valor: null, origem: "falta", detalhe: "Falta a embalagem nos parâmetros da Margem." }
-      : { tipo: "embalagem", rotulo: "Embalagem e brinde", valor: centavos(p.embalagem), origem: "estimado", detalhe: "O valor por pedido da Margem." },
-  );
-
-  linhas.push(
     e.anuncioPorVenda === null
-      ? { tipo: "anuncio", rotulo: "Anúncio", valor: null, origem: "falta", detalhe: "Sem gasto de anúncio lançado nos últimos 30 dias." }
-      : { tipo: "anuncio", rotulo: "Anúncio", valor: centavos(e.anuncioPorVenda), origem: "estimado", detalhe: e.anuncioDetalhe ?? "Rateio: o gasto de anúncio dos últimos 30 dias dividido pelos pedidos pagos." },
+      ? { tipo: "anuncio", rotulo: "Anúncio", valor: null, origem: "falta", detalhe: "Sem gasto de anúncio lançado no período." }
+      : { tipo: "anuncio", rotulo: "Anúncio", valor: centavos(e.anuncioPorVenda), origem: "media", detalhe: e.anuncioDetalhe ?? "Rateio: o gasto de anúncio do período dividido pelos pedidos pagos." },
   );
 
   const total = centavos(e.total);
@@ -157,20 +205,24 @@ export function mediaDasCascatas(cascatas: Cascata[]): {
   comNumero: Record<TipoDaLinha, number>;
   /** Em quantas vendas a linha é inteira (lida ou calculada, sem faltar peça nem parâmetro). */
   inteiras: Record<TipoDaLinha, number>;
+  /** Em quantas vendas a linha está em falta (mesmo que outra parte dela tenha número). */
+  faltaEm: Record<TipoDaLinha, number>;
   completas: number;
 } {
   const tipos: TipoDaLinha[] = ["taxa", "imposto", "custo", "frete", "embalagem", "anuncio"];
   const porTipo = {} as Record<TipoDaLinha, number | null>;
   const comNumero = {} as Record<TipoDaLinha, number>;
   const inteiras = {} as Record<TipoDaLinha, number>;
+  const faltaEm = {} as Record<TipoDaLinha, number>;
   for (const t of tipos) {
     const linhas = cascatas.map((c) => c.linhas.find((l) => l.tipo === t));
     const valores = linhas.map((l) => (typeof l?.valor === "number" ? l.valor : null));
     comNumero[t] = valores.filter((v) => v !== null).length;
     inteiras[t] = linhas.filter((l) => l && l.origem !== "falta").length;
+    faltaEm[t] = linhas.filter((l) => l?.origem === "falta").length;
     porTipo[t] = comNumero[t] ? centavos(valores.reduce<number>((s, v) => s + (v ?? 0), 0) / cascatas.length) : null;
   }
   const total = centavos(cascatas.reduce((s, c) => s + c.total, 0));
   const sobra = centavos(cascatas.reduce((s, c) => s + c.sobra, 0));
-  return { vendas: cascatas.length, total, sobra, fracao: total > 0 ? sobra / total : null, porTipo, comNumero, inteiras, completas: cascatas.filter((c) => c.completa).length };
+  return { vendas: cascatas.length, total, sobra, fracao: total > 0 ? sobra / total : null, porTipo, comNumero, inteiras, faltaEm, completas: cascatas.filter((c) => c.completa).length };
 }

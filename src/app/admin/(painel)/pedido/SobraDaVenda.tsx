@@ -23,7 +23,7 @@ import { sobraDoPedido } from "./sobra-actions";
 const reais = (n: number) => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 const pct = (f: number) => `${(f * 100).toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`;
 
-const ROTULO_DA_ORIGEM: Record<OrigemDoNumero, string> = { real: "lido", estimado: "estimado", falta: "falta" };
+const ROTULO_DA_ORIGEM: Record<OrigemDoNumero, string> = { real: "lido", media: "média", estimado: "estimado", falta: "falta" };
 /** O custo não é lido de lugar nenhum: sai da conta da Margem. */
 const rotuloDaOrigem = (l: LinhaDaCascata) => (l.tipo === "custo" && l.origem === "real" ? "da Margem" : ROTULO_DA_ORIGEM[l.origem]);
 const COR = COR_DA_CASCATA;
