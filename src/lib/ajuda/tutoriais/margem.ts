@@ -23,14 +23,21 @@ export const margem: Tutorial = {
         titulo: "Troque o preço do grama do ouro",
         texto: "Quando o ouro mudar, edite o preço do grama e toque em Salvar parâmetros. Todas as margens se recalculam sozinhas.",
         print: "margem-2.webp",
-        regiao: { x: 24.4, y: 21.5, l: 35.8, a: 11 },
+        regiao: { x: 24.4, y: 23, l: 35.8, a: 13 },
         alt: "Campos de preço do grama do ouro 18k e 10k nos parâmetros.",
+      },
+      {
+        titulo: "Preencha as taxas da Appmax",
+        texto: "Em Taxas do gateway, escreva a taxa do cartão e do Pix, a antecipação e a tarifa fixa por venda. A taxa efetiva aparece embaixo e entra em toda margem. Campo vazio conta zero.",
+        print: "margem-4.webp",
+        regiao: { x: 24.4, y: 10.5, l: 35.8, a: 50 },
+        alt: "Bloco Taxas do gateway com os campos de tarifa fixa, taxa do cartão, do Pix e da antecipação.",
       },
       {
         titulo: "Importe a planilha de custos",
         texto: "Toque em Escolher a planilha e envie o arquivo .xlsx preenchido. Só as células com valor entram, e célula vazia nunca apaga um custo que já está lá.",
         print: "margem-2.webp",
-        regiao: { x: 61.7, y: 8.6, l: 35.8, a: 32 },
+        regiao: { x: 61.7, y: 8.6, l: 35.8, a: 22 },
         alt: "Bloco Importar a planilha do dono com o botão Escolher a planilha.",
       },
       {

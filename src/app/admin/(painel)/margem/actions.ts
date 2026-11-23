@@ -11,7 +11,7 @@ import {
   salvarParametros,
   type ResultadoDaImportacao,
 } from "@/lib/margem/dados";
-import type { Parametros } from "@/lib/margem/calculo";
+import { GATEWAY_VAZIO, type Parametros, type TaxasDoGateway } from "@/lib/margem/calculo";
 import type { ImportacaoDeCustos } from "@/lib/margem/planilha-do-dono";
 
 type Resposta<T = object> = ({ ok: true } & T) | { ok: false; erro: string };
@@ -35,9 +35,21 @@ export async function salvarParametrosDeCusto(p: Partial<Parametros>): Promise<R
   return tentar(async () => {
     const limpo: Partial<Parametros> = {};
     for (const [k, v] of Object.entries(p) as [keyof Parametros, unknown][]) {
+      if (k === "gateway") {
+        if (typeof v !== "object" || v === null) throw new ErroDeMargem("Valor inválido.");
+        const partes: Partial<TaxasDoGateway> = {};
+        for (const [parte, valor] of Object.entries(v) as [keyof TaxasDoGateway, unknown][]) {
+          if (!(parte in GATEWAY_VAZIO)) throw new ErroDeMargem("Valor inválido.");
+          const n = finito(valor);
+          if (n === undefined || (n !== null && n < 0)) throw new ErroDeMargem("Valor inválido.");
+          partes[parte] = n;
+        }
+        limpo.gateway = partes as TaxasDoGateway;
+        continue;
+      }
       const n = finito(v);
       if (n === undefined) throw new ErroDeMargem("Valor inválido.");
-      limpo[k] = n;
+      (limpo as Record<string, number | null>)[k] = n;
     }
     await salvarParametros(await createClient(), limpo, perfil.id);
     return {};

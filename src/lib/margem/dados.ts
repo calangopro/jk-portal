@@ -11,6 +11,8 @@ import {
   type Margem,
   type Material,
   type Parametros,
+  type TaxasDoGateway,
+  taxaEfetiva,
 } from "./calculo";
 import type { ImportacaoDeCustos } from "./planilha-do-dono";
 
@@ -32,39 +34,71 @@ const num = (v: unknown) => (v === null || v === undefined || v === "" ? null : 
 export async function lerParametros(db: SupabaseClient): Promise<Parametros> {
   const { data } = await db
     .from("custo_parametros")
-    .select("cotacao_18k, cotacao_10k, cotacao_prata, prata_gramas_por_mm, prata_resto, taxa, imposto, frete, embalagem, margem_minima")
+    .select(
+      "cotacao_18k, cotacao_10k, cotacao_prata, prata_gramas_por_mm, prata_resto, taxa, imposto, frete, embalagem, margem_minima, " +
+        "taxa_cartao, taxa_pix, taxa_antecipacao_mes, fracao_antecipada, prazo_medio_meses, proporcao_cartao, tarifa_fixa",
+    )
     .maybeSingle();
+  const d = (data ?? {}) as Record<string, unknown>;
+  const gateway: TaxasDoGateway = {
+    cartao: num(d.taxa_cartao),
+    pix: num(d.taxa_pix),
+    antecipacaoAoMes: num(d.taxa_antecipacao_mes),
+    fracaoAntecipada: num(d.fracao_antecipada),
+    prazoMeses: num(d.prazo_medio_meses),
+    proporcaoCartao: num(d.proporcao_cartao),
+  };
   return {
-    cotacao18k: num(data?.cotacao_18k),
-    cotacao10k: num(data?.cotacao_10k),
-    cotacaoPrata: num(data?.cotacao_prata),
-    prataGramasPorMm: num(data?.prata_gramas_por_mm),
-    prataResto: num(data?.prata_resto),
-    taxa: num(data?.taxa),
-    imposto: num(data?.imposto),
-    frete: num(data?.frete),
-    embalagem: num(data?.embalagem),
-    margemMinima: num(data?.margem_minima),
+    cotacao18k: num(d.cotacao_18k),
+    cotacao10k: num(d.cotacao_10k),
+    cotacaoPrata: num(d.cotacao_prata),
+    prataGramasPorMm: num(d.prata_gramas_por_mm),
+    prataResto: num(d.prata_resto),
+    // Com alguma parte do gateway preenchida, a taxa sai delas; senão vale a única.
+    taxa: taxaEfetiva(gateway) ?? num(d.taxa),
+    gateway,
+    tarifaFixa: num(d.tarifa_fixa),
+    imposto: num(d.imposto),
+    frete: num(d.frete),
+    embalagem: num(d.embalagem),
+    margemMinima: num(d.margem_minima),
   };
 }
 
-const COLUNA: Record<keyof Parametros, string> = {
+const COLUNA: Record<Exclude<keyof Parametros, "gateway">, string> = {
   cotacao18k: "cotacao_18k",
   cotacao10k: "cotacao_10k",
   cotacaoPrata: "cotacao_prata",
   prataGramasPorMm: "prata_gramas_por_mm",
   prataResto: "prata_resto",
   taxa: "taxa",
+  tarifaFixa: "tarifa_fixa",
   imposto: "imposto",
   frete: "frete",
   embalagem: "embalagem",
   margemMinima: "margem_minima",
 };
 
+const COLUNA_DO_GATEWAY: Record<keyof TaxasDoGateway, string> = {
+  cartao: "taxa_cartao",
+  pix: "taxa_pix",
+  antecipacaoAoMes: "taxa_antecipacao_mes",
+  fracaoAntecipada: "fracao_antecipada",
+  prazoMeses: "prazo_medio_meses",
+  proporcaoCartao: "proporcao_cartao",
+};
+
 export async function salvarParametros(db: SupabaseClient, p: Partial<Parametros>, quem: string) {
   const linha: Record<string, unknown> = { atualizado_por: quem, atualizado_em: new Date().toISOString() };
-  for (const [k, v] of Object.entries(p) as [keyof Parametros, number | null][]) {
-    if (v !== undefined) linha[COLUNA[k]] = v;
+  for (const [k, v] of Object.entries(p) as [keyof Parametros, unknown][]) {
+    if (v === undefined) continue;
+    if (k === "gateway") {
+      for (const [parte, valor] of Object.entries(v as Partial<TaxasDoGateway>) as [keyof TaxasDoGateway, number | null | undefined][]) {
+        if (valor !== undefined) linha[COLUNA_DO_GATEWAY[parte]] = valor;
+      }
+    } else {
+      linha[COLUNA[k]] = v;
+    }
   }
   const { error } = await db.from("custo_parametros").update(linha).eq("id", true);
   if (error) throw new ErroDeMargem(`Não deu para salvar os parâmetros: ${error.message}`);

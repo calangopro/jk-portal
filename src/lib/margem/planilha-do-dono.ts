@@ -68,7 +68,7 @@ function linhas(aba: Aba): Record<string, Celula>[] {
     .map((n) => aba[n]);
 }
 
-const PARAMETROS: { chave: keyof Parametros; comeco: string; pct: boolean }[] = [
+const PARAMETROS: { chave: Exclude<keyof Parametros, "gateway">; comeco: string; pct: boolean }[] = [
   { chave: "cotacao18k", comeco: "preco do grama do ouro 18k", pct: false },
   { chave: "cotacao10k", comeco: "preco do grama do ouro 10k", pct: false },
   { chave: "taxa", comeco: "taxa media", pct: true },

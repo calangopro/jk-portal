@@ -6,9 +6,13 @@
  *                  da prata + resto da peça                  (prata 950)
  *                = custo fixo                                (semijoia, o que não tem largura)
  *   líquido      = preço x (1 - taxa - imposto)
- *   margem (R$)  = líquido - custo - frete - embalagem
+ *   margem (R$)  = líquido - tarifa fixa - custo - frete - embalagem
  *   margem (%)   = margem / preço
- *   desconto máx = 1 - (custo + frete + embalagem) / (preço cheio x (1 - taxa - imposto - margem mínima))
+ *   desconto máx = 1 - (custo + frete + embalagem + tarifa fixa) / (preço cheio x (1 - taxa - imposto - margem mínima))
+ *
+ * A taxa é a efetiva do gateway (`taxaEfetiva`): a soma das partes do cartão
+ * (taxa, mais a antecipação paga), do Pix e da proporção entre os dois. A
+ * tarifa fixa por venda (R$ 0,99 da Appmax) sai em reais, não em %.
  *
  * E o limite de anúncio, que é a mesma margem vista pelo lado de quem compra
  * mídia: quanto a venda aguenta pagar de anúncio.
@@ -33,6 +37,34 @@ export const ROTULO_DO_MATERIAL: Record<Material, string> = {
   prata_950: "Prata 950",
 };
 
+/**
+ * As partes da taxa do gateway, em frações (0,0349 = 3,49%). Tudo vazio = o
+ * painel usa a `taxa` única de antes.
+ */
+export type TaxasDoGateway = {
+  /** Taxa do cartão de crédito sobre a venda. */
+  cartao: number | null;
+  /** Taxa do Pix sobre a venda. */
+  pix: number | null;
+  /** Taxa de antecipação por mês (2,49% = 0,0249), proporcional aos dias. */
+  antecipacaoAoMes: number | null;
+  /** Que fração das vendas no cartão é antecipada (0 a 1). */
+  fracaoAntecipada: number | null;
+  /** Prazo médio, em meses, que a antecipação adianta o dinheiro. */
+  prazoMeses: number | null;
+  /** Que fração das vendas é no cartão (o resto é Pix). Vazio: tudo cartão. */
+  proporcaoCartao: number | null;
+};
+
+export const GATEWAY_VAZIO: TaxasDoGateway = {
+  cartao: null,
+  pix: null,
+  antecipacaoAoMes: null,
+  fracaoAntecipada: null,
+  prazoMeses: null,
+  proporcaoCartao: null,
+};
+
 export type Parametros = {
   cotacao18k: number | null;
   cotacao10k: number | null;
@@ -42,9 +74,17 @@ export type Parametros = {
   prataGramasPorMm: number | null;
   /** Resto da peça de prata, por produto: feitio, solitário de brinde, caixinha. */
   prataResto: number | null;
-  /** Frações: 0,05 = 5%. */
+  /**
+   * Fração: 0,05 = 5%. É a taxa que a conta usa: sai das partes do gateway
+   * quando alguma está preenchida, senão é a taxa única gravada antes.
+   */
   taxa: number | null;
+  /** As partes do gateway, como estão gravadas (para a tela). */
+  gateway?: TaxasDoGateway;
+  /** Tarifa fixa por venda, em reais (gateway e antifraude). */
+  tarifaFixa?: number | null;
   imposto: number | null;
+  /** Frete médio que a JK paga por pedido, em reais, já diluindo o frete grátis. */
   frete: number | null;
   embalagem: number | null;
   margemMinima: number | null;
@@ -112,6 +152,19 @@ export const porcento = (f: number, casas = 1) =>
   `${(f * 100).toLocaleString("pt-BR", { minimumFractionDigits: casas, maximumFractionDigits: casas })}%`;
 
 const gramasTexto = (g: number) => `${g.toLocaleString("pt-BR", { maximumFractionDigits: 3 })} g`;
+
+/**
+ * A taxa efetiva do gateway, como fração do preço. Nula quando nenhuma parte
+ * foi preenchida (aí vale a taxa única).
+ *   cartão efetivo = taxa do cartão + fração antecipada x taxa ao mês x prazo
+ *   taxa           = proporção no cartão x cartão efetivo + (1 - proporção) x Pix
+ */
+export function taxaEfetiva(t: TaxasDoGateway | null | undefined): number | null {
+  if (!t || (t.cartao === null && t.pix === null)) return null;
+  const cartao = n(t.cartao) + n(t.fracaoAntecipada) * n(t.antecipacaoAoMes) * n(t.prazoMeses);
+  const noCartao = t.proporcaoCartao ?? (t.cartao !== null ? 1 : 0);
+  return noCartao * cartao + (1 - noCartao) * n(t.pix);
+}
 
 export function cotacaoDo(material: Material, p: Parametros): number | null {
   if (material === "prata_950") return p.cotacaoPrata;
@@ -201,7 +254,7 @@ export function custoDoProduto(
 /** Margem a um preço qualquer. */
 export function margemNoPreco(preco: number, custo: number, p: Parametros): { reais: number; fracao: number } {
   const liquido = preco * (1 - n(p.taxa) - n(p.imposto));
-  const r = liquido - custo - n(p.frete) - n(p.embalagem);
+  const r = liquido - n(p.tarifaFixa) - custo - n(p.frete) - n(p.embalagem);
   return { reais: Math.round(r * 100) / 100, fracao: preco > 0 ? r / preco : 0 };
 }
 
@@ -209,7 +262,7 @@ export function margemNoPreco(preco: number, custo: number, p: Parametros): { re
 export function descontoMaximo(precoCheio: number, custo: number, p: Parametros): number {
   const base = precoCheio * (1 - n(p.taxa) - n(p.imposto) - n(p.margemMinima));
   if (base <= 0) return 0;
-  return Math.max(0, 1 - (custo + n(p.frete) + n(p.embalagem)) / base);
+  return Math.max(0, 1 - (custo + n(p.frete) + n(p.embalagem) + n(p.tarifaFixa)) / base);
 }
 
 /** Quanto uma venda a este preço aguenta pagar de anúncio. */
