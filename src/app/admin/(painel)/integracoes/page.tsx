@@ -9,8 +9,10 @@ import { lerEstadoDoGoogle } from "@/lib/google-perfil/oauth";
 import { absoluteUrl } from "@/lib/seo/site";
 import { CLIENTE_DO_GOOGLE_ADS, CONTA_DO_META, lerConexoes } from "@/lib/trafego/plataformas";
 import { lerEstadoDaApiDePedidos } from "@/lib/vendas/pedidos-da-api";
+import { lerEstadoDaAppmax } from "@/lib/appmax/estado";
 import { Cartao } from "./Cartao";
 import { CartaoDaTray } from "./CartaoDaTray";
+import { CartaoDaAppmax } from "./CartaoDaAppmax";
 import { CartaoGoogleAds, CartaoMetaAds } from "./CartaoDeAnuncios";
 import { CartaoDeChave } from "./CartaoDeChave";
 import { CartaoGoogle } from "./CartaoGoogle";
@@ -43,7 +45,7 @@ export default async function IntegracoesPage({
 
   // Tudo sai junto (cartão 76): eram cinco etapas em fila, e a mais lenta era
   // perguntar à API da Kommo os funis, que agora vêm do espelho.
-  const [{ data }, [chaves, estadoDoGoogle, conexoes, estadoDaTray, ligacoesDasRedes, armazenamentoDasRedes], guardados, funisEspelhados, { data: resumoBruto }, espelho] = await Promise.all([
+  const [{ data }, [chaves, estadoDoGoogle, conexoes, estadoDaTray, ligacoesDasRedes, armazenamentoDasRedes], guardados, funisEspelhados, { data: resumoBruto }, espelho, estadoDaAppmax] = await Promise.all([
     supabase.from("integrations").select("provider, status, config"),
     Promise.all([
       lerChaves(admin),
@@ -67,6 +69,8 @@ export default async function IntegracoesPage({
     supabase.rpc("meta_resumo_da_loja"),
     // O espelho da Kommo (0160): a função confere de novo que quem olha é da diretoria.
     supabase.rpc("kommo_estado_do_espelho"),
+    // A taxa real da Appmax (0205): a credencial, o que já foi lido e o resumo dos últimos 30 dias.
+    lerEstadoDaAppmax(admin, supabase),
   ]);
 
   const linhas = (data ?? []) as Linha[];
@@ -192,6 +196,17 @@ export default async function IntegracoesPage({
             contaDeServico={anuncio("google").contaDeServico}
             cliente={CLIENTE_DO_GOOGLE_ADS.replace(/(\d{3})(\d{3})(\d{4})/, "$1-$2-$3")}
           />
+        </div>
+      </section>
+
+      <section className="mt-12 scroll-mt-24" id="appmax">
+        <p className="eyebrow">Pagamentos</p>
+        <h2 className="font-display mt-2 text-2xl text-ink">O que o gateway desconta</h2>
+        <p className="mt-2 max-w-3xl text-sm text-muted">
+          A Appmax diz, pedido a pedido, quanto ficou com ela. Com isso a margem deixa de usar uma taxa estimada. O painel só lê.
+        </p>
+        <div className="mt-6 grid gap-5 lg:grid-cols-2">
+          <CartaoDaAppmax estado={estadoDaAppmax} />
         </div>
       </section>
 

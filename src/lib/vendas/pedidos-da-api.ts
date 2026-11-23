@@ -4,6 +4,8 @@ import type { TrayCliente } from "@/lib/tray/cliente";
 import { LOJAS, PROVEDOR_DO_APLICATIVO, clienteDaLoja, type Loja } from "@/lib/tray/lojas";
 import { alteradosEm, compararComOBanco, pedidoDaApi, semOsJaLidos, ultimaAlteracao, type LinhaDoBanco } from "./tray-api";
 import { situacaoDoStatus, type ItemDoPedido, type PedidoDaTray } from "./tray-csv";
+import { appmaxDoPedido } from "@/lib/appmax/liquido";
+import { guardarVinculos, type VinculoDeUmPedido } from "@/lib/appmax/vincular";
 
 /**
  * Pedidos da Tray lidos pela API, sem depender de ninguém exportar arquivo.
@@ -61,6 +63,8 @@ export type Leitura = {
   ate: string | null;
   /** Os pedidos desta rodada alterados exatamente em `ate`: a próxima rodada pula esses. */
   noAte: number[];
+  /** O número do pedido da Appmax de cada pedido pago por ela (0205): sai do mesmo pedido completo, sem chamada a mais. */
+  appmax: VinculoDeUmPedido[];
 };
 
 /**
@@ -96,7 +100,12 @@ export async function lerPedidosDaApi(cliente: TrayCliente, desde: string, maxim
 
   const pedidos = completos.map((c) => pedidoDaApi(c, situacaoDoStatus)).filter((p): p is PedidoComItens => p !== null);
   const ate = ultimaAlteracao(fila);
-  return { pedidos, total: Math.max(total - pulados, 0), semFormato: fila.length - pedidos.length, ate, noAte: alteradosEm(fila, ate) };
+  const appmax = completos.flatMap((c) => {
+    const v = appmaxDoPedido(c);
+    const pedido = Number(c.id);
+    return v && Number.isInteger(pedido) ? [{ pedido, ...v }] : [];
+  });
+  return { pedidos, total: Math.max(total - pulados, 0), semFormato: fila.length - pedidos.length, ate, noAte: alteradosEm(fila, ate), appmax };
 }
 
 export type ResultadoDaApi =
@@ -171,6 +180,8 @@ export async function sincronizarPedidosDaTray(
       novos += r.novos;
       mudaram += r.mudaram;
     }
+    // O vínculo com a Appmax é acréscimo: nunca faz a rodada falhar.
+    await guardarVinculos(db, lido.appmax);
     // O ponto de partida só anda depois de tudo gravado. A linha é relida antes,
     // porque a renovação do token pode ter mexido nela no meio do caminho.
     const atual = await lerMeta(db, loja.provedor);

@@ -147,6 +147,11 @@ export const ROTINAS: Rotina[] = [
     paraQue: "Retira do Google Ads o pedido cancelado e manda a compra paga de quem veio por anúncio do Google, de 15 em 15 minutos.",
     tolerancia: 90, seParar: "Abra docs/google-compra-paga.md: o último erro diz se falta acesso de edição da conta de serviço ou o número da ação.",
   },
+  {
+    chave: "appmax", origem: "pulso", id: "appmax", nome: "Taxa real da Appmax",
+    paraQue: "Lê na Appmax o que foi descontado de cada venda paga (taxa, gateway e líquido), de 10 em 10 minutos. Sem a chave em Integrações, só deixa o pulso.",
+    tolerancia: 60, seParar: "Abra o cartão da Appmax em Integrações: o último erro diz se a Appmax recusou o Client ID e o Client Secret.",
+  },
 ];
 
 const DESTINOS: Record<string, { nome: string; paraQue: string }> = {
