@@ -49,7 +49,7 @@ const GATEWAY: (Campo & { chave: keyof TaxasDoGateway })[] = [
 
 const paraTela = (v: number | null | undefined, pct: boolean) => mostrar(v === null || v === undefined ? null : pct ? v * 100 : v, 4);
 
-export function FormParametros({ inicial }: { inicial: Parametros }) {
+export function FormParametros({ inicial, daLista }: { inicial: Parametros; daLista?: { imposto: number | null; frete: number | null; embalagem: number | null } }) {
   const router = useRouter();
   const gatewayInicial = inicial.gateway ?? GATEWAY_VAZIO;
   const [valores, setValores] = useState<Record<string, string>>(() => ({
@@ -95,6 +95,15 @@ export function FormParametros({ inicial }: { inicial: Parametros }) {
       if (r.ok) router.refresh();
     });
 
+  /** O que a lista de Custos daria quando o campo está vazio: a conta usa isso, e o campo preenchido passa na frente. */
+  const doCustos = (chave: string): string | null => {
+    if ((valores[chave] ?? "").trim() !== "" || !daLista) return null;
+    if (chave === "imposto" && daLista.imposto !== null) return `${(daLista.imposto * 100).toLocaleString("pt-BR", { maximumFractionDigits: 2 })}% (o imposto do mês na lista de Custos sobre o faturamento)`;
+    if (chave === "frete" && daLista.frete !== null) return `${reais(daLista.frete)} (o frete do mês na lista de Custos menos o que os clientes pagam, por venda)`;
+    if (chave === "embalagem" && daLista.embalagem !== null) return `${reais(daLista.embalagem)} (o por pedido da lista de Custos mais a parte mensal dividida pelas vendas)`;
+    return null;
+  };
+
   const entrada = (d: Campo) => (
     <label key={d.chave} className="block">
       <span className="text-xs font-semibold text-ink">{d.rotulo}</span>
@@ -105,6 +114,7 @@ export function FormParametros({ inicial }: { inicial: Parametros }) {
         className={`mt-1 ${campo}`}
       />
       <span className="mt-0.5 block text-[0.7rem] text-muted">{d.ajuda}</span>
+      {doCustos(d.chave) ? <span className="mt-0.5 block text-[0.7rem] font-semibold text-brand-strong">Vazio: a conta usa {doCustos(d.chave)}.</span> : null}
     </label>
   );
 

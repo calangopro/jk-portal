@@ -8,9 +8,11 @@ export type LinhaDaMargem = { codigo: string; nome: string; direita: string };
 
 /** O desenho da tela de Margem. A leitura fica em `page.tsx`, para a tela de exemplo do Como usar poder montar este desenho com dados inventados. */
 export function TelaDaMargem({
-  parametros, familias, comCusto, total, hojePassa, abaixo, semCusto,
+  parametros, daLista, familias, comCusto, total, hojePassa, abaixo, semCusto,
 }: {
   parametros: Parametros;
+  /** O que a lista de Custos daria para os parâmetros vazios (imposto em fração, frete e embalagem em reais). */
+  daLista?: { imposto: number | null; frete: number | null; embalagem: number | null };
   familias: FamiliaComProdutos[];
   comCusto: number;
   total: number;
@@ -59,7 +61,7 @@ export function TelaDaMargem({
       ) : null}
 
       <section className="mt-8 grid gap-5 xl:grid-cols-2">
-        <FormParametros inicial={parametros} />
+        <FormParametros inicial={parametros} daLista={daLista} />
         <ImportarPlanilha />
       </section>
 

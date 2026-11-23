@@ -18,10 +18,10 @@ export const COR_DA_CASCATA: Record<TipoDaLinha | "sobra", string> = {
   sobra: "#1b1b1b",
 };
 
-/** Cheio quando lido, hachurado quando estimado, vazio e tracejado quando falta. */
+/** Cheio quando exato, hachurado quando média ou estimado, vazio e tracejado quando falta. */
 export function preenchimentoDaCascata(cor: string, origem: OrigemDoNumero): CSSProperties {
   if (origem === "real") return { background: cor };
-  if (origem === "estimado") return { backgroundImage: `repeating-linear-gradient(135deg, ${cor} 0 3px, rgba(255,255,255,0.55) 3px 6px)`, backgroundColor: cor };
+  if (origem === "estimado" || origem === "media") return { backgroundImage: `repeating-linear-gradient(135deg, ${cor} 0 3px, rgba(255,255,255,0.55) 3px 6px)`, backgroundColor: cor };
   return { background: "transparent", border: `1.5px dashed ${cor}` };
 }
 

@@ -251,6 +251,30 @@ export function custoDoProduto(
   return { valor, detalhe: `${partes.join(" + ")} (${deOnde})`, falta: null };
 }
 
+/** De onde veio o valor que a conta usa: o que a diretoria preencheu na Margem, ou a média da lista de Custos. */
+export type OrigemDoParametro = "margem" | "custos" | null;
+
+/**
+ * Os parâmetros que a conta USA: o que a Margem tem preenchido vence, e o vazio
+ * cai na média da lista de Custos (cartão 81). Só imposto, frete e embalagem têm
+ * média; o resto (preço do grama, margem mínima) é decisão de gente.
+ *
+ * O frete da média é o que fica com a JK por venda, já descontado o que o cliente
+ * paga: é o que o preço do PRODUTO precisa cobrir, que é o que a margem por
+ * produto conta.
+ */
+export function parametrosComMedias(
+  p: Parametros,
+  m: { imposto: number | null; frete: number | null; embalagem: number | null } | null,
+): { efetivos: Parametros; origens: Record<"imposto" | "frete" | "embalagem", OrigemDoParametro> } {
+  const escolhe = (propria: number | null, media: number | null | undefined): [number | null, OrigemDoParametro] =>
+    propria !== null ? [propria, "margem"] : media !== null && media !== undefined ? [media, "custos"] : [null, null];
+  const [imposto, oImposto] = escolhe(p.imposto, m?.imposto);
+  const [frete, oFrete] = escolhe(p.frete, m?.frete);
+  const [embalagem, oEmbalagem] = escolhe(p.embalagem, m?.embalagem);
+  return { efetivos: { ...p, imposto, frete, embalagem }, origens: { imposto: oImposto, frete: oFrete, embalagem: oEmbalagem } };
+}
+
 /** Margem a um preço qualquer. */
 export function margemNoPreco(preco: number, custo: number, p: Parametros): { reais: number; fracao: number } {
   const liquido = preco * (1 - n(p.taxa) - n(p.imposto));
