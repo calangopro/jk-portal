@@ -26,13 +26,14 @@ import { Cartao, Dinheiro, ListaComBarra, SeloDeTom } from "../Pecas";
 import { BotaoDoHistorico } from "../pedido/abrir";
 import { SeletorDePeriodo } from "../SeletorDePeriodo";
 import { Barras, type Barra } from "./Barras";
+import { SobraDoPeriodo } from "./SobraDoPeriodo";
+import type { SobraDoPeriodo as SobraDoPeriodoDados } from "@/lib/vendas/sobra";
 
 /**
  * A parte da tela de vendas que só desenha. Fica separada da leitura para
  * poder ser vista sem sessão durante o desenvolvimento e para o mesmo desenho
  * servir a outra fonte quando a API da Tray chegar.
  */
-
 export const reais = (n: number) => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 const inteiro = (n: number) => n.toLocaleString("pt-BR");
 const DIAS_DA_SEMANA = ["domingo", "segunda", "terça", "quarta", "quinta", "sexta", "sábado"];
@@ -407,8 +408,8 @@ function Periodo({
 }
 
 export function PainelDeVendas({
-  chave, hoje, topo, resumo, anterior, ultima, porFora,
-}: VendasDaTela & { chave: ChaveDePeriodo; hoje: string }) {
+  chave, hoje, topo, resumo, anterior, ultima, porFora, sobra = null,
+}: VendasDaTela & { chave: ChaveDePeriodo; hoje: string; sobra?: SobraDoPeriodoDados | null }) {
   const ontem = somarDias(hoje, -1);
   const inicioDoMes = primeiroDoMes(hoje);
   const intervalo = intervaloDoPeriodo(chave, hoje);
@@ -483,6 +484,7 @@ export function PainelDeVendas({
               </div>
               <SeletorDePeriodo atual={chave} />
             </div>
+            {sobra ? <SobraDoPeriodo d={sobra} /> : null}
             <Periodo resumo={resumo} anterior={anterior} de={intervalo.de} ate={intervalo.ate} comparacao={intervalo.comparacao} />
           </section>
         </>
