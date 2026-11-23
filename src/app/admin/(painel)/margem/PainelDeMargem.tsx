@@ -39,8 +39,8 @@ const PARAMETROS: (Campo & { chave: Exclude<keyof Parametros, "gateway" | "taxa"
 ];
 
 const GATEWAY: (Campo & { chave: keyof TaxasDoGateway })[] = [
-  { chave: "cartao", rotulo: "Cartão de crédito: taxa (%)", pct: true, ajuda: "Sobre a venda no cartão. Na Appmax: 3,49% com repasse em 30 dias." },
-  { chave: "pix", rotulo: "Pix: taxa (%)", pct: true, ajuda: "Sobre a venda no Pix. Na Appmax: 0,89%." },
+  { chave: "cartao", rotulo: "Cartão de crédito: taxa (%)", pct: true, ajuda: "Sobre o total do pedido, frete incluso. Na Appmax: 3,49% com repasse em 30 dias." },
+  { chave: "pix", rotulo: "Pix: taxa (%)", pct: true, ajuda: "Sobre a venda no Pix. Na Appmax: 0,89%, e o R$ 0,99 vai na tarifa fixa." },
   { chave: "antecipacaoAoMes", rotulo: "Antecipação: taxa ao mês (%)", pct: true, ajuda: "Proporcional aos dias. Na Appmax: 2,49% ao mês." },
   { chave: "fracaoAntecipada", rotulo: "Antecipação: parte das vendas no cartão que é antecipada (%)", pct: true, ajuda: "100 se toda venda é antecipada, 0 se nenhuma." },
   { chave: "prazoMeses", rotulo: "Antecipação: prazo médio adiantado (meses)", pct: false, ajuda: "Quanto o dinheiro vem antes, em média. Venda em 10x costuma ficar perto de 5,5." },
@@ -120,7 +120,7 @@ export function FormParametros({ inicial }: { inicial: Parametros }) {
         mais honesta à medida que você preenche. Com todas vazias, vale a taxa única de antes.
       </p>
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
-        {entrada({ chave: "tarifaFixa", rotulo: "Tarifa fixa por venda (R$)", pct: false, ajuda: "Em reais, não em %. Na Appmax: R$ 0,99 por venda aprovada (confira se vale também no Pix)." })}
+        {entrada({ chave: "tarifaFixa", rotulo: "Tarifa fixa por venda (R$)", pct: false, ajuda: "Em reais, não em %. Na Appmax: R$ 0,99 por venda aprovada, no cartão e no Pix (um valor só, não soma)." })}
         {GATEWAY.map(entrada)}
       </div>
       <p className="mt-3 text-sm text-ink" aria-live="polite">
