@@ -19,6 +19,7 @@ import {
   descontoMaximo,
   limiteDeAnuncio,
   margemNoPreco,
+  taxaEfetiva,
   terminadoEm90,
   terminadoEm90ParaCima,
   type Familia,
@@ -87,6 +88,33 @@ console.log("Margem");
   confere("produto sem folga: CPA máximo negativo e sem ROAS", sem.cpaMaximo < 0 && sem.roasMinimo === null, String(sem.cpaMaximo));
   const m = calcularMargem(449.9, 399.9, 100, P);
   confere("a margem traz o limite no preço de HOJE (399,90)", m.anuncio.preco === 399.9);
+}
+
+// 1c. Taxa do gateway por partes e tarifa fixa por venda (cartão 77).
+{
+  const g = { cartao: 0.0349, pix: 0.0089, antecipacaoAoMes: 0.0249, fracaoAntecipada: 0.75, prazoMeses: 2, proporcaoCartao: 0.8 };
+  // cartão efetivo = 3,49% + 0,75 x 2,49% x 2 = 7,225%; mistura 0,8 x 7,225% + 0,2 x 0,89% = 5,958%
+  confere("taxa efetiva: 80% cartão com antecipação e 20% Pix = 5,958%", perto(taxaEfetiva(g)!, 0.05958, 1e-9), String(taxaEfetiva(g)));
+  confere("sem nenhuma parte, a taxa efetiva é nula (vale a única)", taxaEfetiva({ ...g, cartao: null, pix: null }) === null && taxaEfetiva(undefined) === null);
+  confere("só cartão e proporção vazia: tudo cartão", perto(taxaEfetiva({ cartao: 0.0349, pix: null, antecipacaoAoMes: null, fracaoAntecipada: null, prazoMeses: null, proporcaoCartao: null })!, 0.0349, 1e-9));
+  confere("só Pix preenchido: tudo Pix", perto(taxaEfetiva({ cartao: null, pix: 0.0089, antecipacaoAoMes: null, fracaoAntecipada: null, prazoMeses: null, proporcaoCartao: null })!, 0.0089, 1e-9));
+  confere("antecipação sem prazo não custa nada", perto(taxaEfetiva({ ...g, prazoMeses: null, proporcaoCartao: 1 })!, 0.0349, 1e-9));
+
+  // 399,90 com custo 98,50, imposto 6%, frete 25, embalagem 10, tarifa 0,99:
+  // líquido 399,90 x (1 - 5,958% - 6%) = 352,08; menos 0,99, 98,50, 25 e 10 = 217,59
+  const Q: Parametros = { ...P, taxa: taxaEfetiva(g), tarifaFixa: 0.99 };
+  const m = margemNoPreco(399.9, 98.5, Q);
+  confere("Eternal Love a 399,90: margem R$ 217,59", perto(m.reais, 217.59, 0.01), String(m.reais));
+  const sem = margemNoPreco(399.9, 98.5, { ...Q, tarifaFixa: null });
+  confere("a tarifa fixa tira reais, não percentual (0,99)", perto(sem.reais - m.reais, 0.99, 0.01), String(sem.reais - m.reais));
+  const antes = margemNoPreco(399.9, 98.5, P);
+  confere("com taxa e tarifa de verdade a margem cai", m.reais < antes.reais + 1 && perto(antes.reais, 399.9 * (1 - 0.05 - 0.06) - 98.5 - 25 - 10, 0.01));
+  // O desconto máximo conta a tarifa fixa junto do custo.
+  const dm = descontoMaximo(399.9, 98.5, Q);
+  const base = 399.9 * (1 - 0.05958 - 0.06 - 0.3);
+  confere("desconto máximo inclui a tarifa fixa", perto(dm, 1 - (98.5 + 25 + 10 + 0.99) / base, 1e-6), String(dm));
+  const l = limiteDeAnuncio(399.9, 98.5, Q);
+  confere("CPA de empate = margem em reais", perto(l.cpaEmpate, 217.59, 0.01), String(l.cpaEmpate));
 }
 
 // 2. Exceção do produto vence a família; custo fixo vence tudo.

@@ -3,7 +3,7 @@
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Check, FileUp, Loader2 } from "lucide-react";
-import { cotacaoDo, reais, ROTULO_DO_MATERIAL, type Parametros } from "@/lib/margem/calculo";
+import { cotacaoDo, GATEWAY_VAZIO, porcento, reais, ROTULO_DO_MATERIAL, taxaEfetiva, type Parametros, type TaxasDoGateway } from "@/lib/margem/calculo";
 import type { FamiliaComProdutos } from "@/lib/margem/dados";
 import { lerXlsx } from "@/lib/margem/ler-xlsx";
 import { ehPlanilhaDePesos, lerPlanilhaDePesos, lerPlanilhaDoDono, type ImportacaoDeCustos } from "@/lib/margem/planilha-do-dono";
@@ -24,63 +24,113 @@ const campo =
 
 // ------------------------------------------------------------------ parâmetros
 
-const PARAMETROS: { chave: keyof Parametros; rotulo: string; pct: boolean; ajuda: string }[] = [
+type Campo = { chave: string; rotulo: string; pct: boolean; ajuda: string };
+
+const PARAMETROS: (Campo & { chave: Exclude<keyof Parametros, "gateway" | "taxa"> })[] = [
   { chave: "cotacao18k", rotulo: "Preço do grama do ouro 18k (R$)", pct: false, ajuda: "Quanto a JK paga hoje." },
   { chave: "cotacao10k", rotulo: "Preço do grama do ouro 10k (R$)", pct: false, ajuda: "Idem, ouro 10k." },
   { chave: "cotacaoPrata", rotulo: "Preço médio do grama da prata 950 (R$)", pct: false, ajuda: "Média do que a JK paga." },
   { chave: "prataGramasPorMm", rotulo: "Prata: gramas por milímetro de largura", pct: false, ajuda: "Numa aliança só. O par conta duas vezes." },
   { chave: "prataResto", rotulo: "Prata: resto da peça por produto (R$)", pct: false, ajuda: "Feitio, solitário de brinde, caixinha." },
-  { chave: "taxa", rotulo: "Taxa de cartão e gateway (%)", pct: true, ajuda: "Média por venda." },
   { chave: "imposto", rotulo: "Imposto sobre a venda (%)", pct: true, ajuda: "Sobre o valor vendido." },
-  { chave: "frete", rotulo: "Frete grátis médio por pedido (R$)", pct: false, ajuda: "0 se o cliente paga." },
+  { chave: "frete", rotulo: "Frete médio que a JK paga por pedido (R$)", pct: false, ajuda: "A média de todos os pedidos, contando os de frete grátis. 0 se o cliente paga." },
   { chave: "embalagem", rotulo: "Embalagem e brinde (R$)", pct: false, ajuda: "Caixinha, saquinho, cartão." },
   { chave: "margemMinima", rotulo: "Margem mínima (%)", pct: true, ajuda: "Abaixo disso, fica vermelho." },
 ];
 
+const GATEWAY: (Campo & { chave: keyof TaxasDoGateway })[] = [
+  { chave: "cartao", rotulo: "Cartão de crédito: taxa (%)", pct: true, ajuda: "Sobre a venda no cartão. Na Appmax: 3,49% com repasse em 30 dias." },
+  { chave: "pix", rotulo: "Pix: taxa (%)", pct: true, ajuda: "Sobre a venda no Pix. Na Appmax: 0,89%." },
+  { chave: "antecipacaoAoMes", rotulo: "Antecipação: taxa ao mês (%)", pct: true, ajuda: "Proporcional aos dias. Na Appmax: 2,49% ao mês." },
+  { chave: "fracaoAntecipada", rotulo: "Antecipação: parte das vendas no cartão que é antecipada (%)", pct: true, ajuda: "100 se toda venda é antecipada, 0 se nenhuma." },
+  { chave: "prazoMeses", rotulo: "Antecipação: prazo médio adiantado (meses)", pct: false, ajuda: "Quanto o dinheiro vem antes, em média. Venda em 10x costuma ficar perto de 5,5." },
+  { chave: "proporcaoCartao", rotulo: "Vendas no cartão (%)", pct: true, ajuda: "O resto é Pix. Vazio conta tudo como cartão." },
+];
+
+const paraTela = (v: number | null | undefined, pct: boolean) => mostrar(v === null || v === undefined ? null : pct ? v * 100 : v, 4);
+
 export function FormParametros({ inicial }: { inicial: Parametros }) {
   const router = useRouter();
-  const [valores, setValores] = useState<Record<string, string>>(() =>
-    Object.fromEntries(
-      PARAMETROS.map((p) => [p.chave, mostrar(inicial[p.chave] === null ? null : p.pct ? inicial[p.chave]! * 100 : inicial[p.chave], 4)]),
-    ),
-  );
+  const gatewayInicial = inicial.gateway ?? GATEWAY_VAZIO;
+  const [valores, setValores] = useState<Record<string, string>>(() => ({
+    ...Object.fromEntries(PARAMETROS.map((p) => [p.chave, paraTela(inicial[p.chave], p.pct)])),
+    tarifaFixa: paraTela(inicial.tarifaFixa, false),
+    ...Object.fromEntries(GATEWAY.map((g) => [g.chave, paraTela(gatewayInicial[g.chave], g.pct)])),
+  }));
   const [aviso, setAviso] = useState<{ ok: boolean; texto: string } | null>(null);
   const [salvando, comecar] = useTransition();
 
+  const ler = (d: Campo): number | null => {
+    const n = lerNumero(valores[d.chave] ?? "");
+    return n === null ? null : d.pct ? n / 100 : n;
+  };
+  const invalido = (d: Campo) => {
+    const n = lerNumero(valores[d.chave] ?? "");
+    if (n === null) return false;
+    if (!Number.isFinite(n) || n < 0) return true;
+    if (d.chave === "prazoMeses") return n > 24;
+    if (!d.pct) return false;
+    return GATEWAY.some((g) => g.chave === d.chave) ? n > 100 : n >= 100;
+  };
+
+  const gatewayAgora = (): TaxasDoGateway =>
+    Object.fromEntries(GATEWAY.map((g) => [g.chave, ler(g)])) as TaxasDoGateway;
+  const efetiva = taxaEfetiva(
+    Object.fromEntries(GATEWAY.map((g) => [g.chave, invalido(g) ? null : ler(g)])) as TaxasDoGateway,
+  );
+
   const salvar = () =>
     comecar(async () => {
-      const p: Partial<Parametros> = {};
-      for (const d of PARAMETROS) {
-        const n = lerNumero(valores[d.chave] ?? "");
-        if (n !== null && (!Number.isFinite(n) || n < 0 || (d.pct && n >= 100))) {
-          setAviso({ ok: false, texto: `Valor inválido em "${d.rotulo}".` });
-          return;
-        }
-        p[d.chave] = n === null ? null : d.pct ? n / 100 : n;
+      const todos = [...PARAMETROS, { chave: "tarifaFixa", rotulo: "Tarifa fixa por venda (R$)", pct: false, ajuda: "" }, ...GATEWAY];
+      const ruim = todos.find(invalido);
+      if (ruim) {
+        setAviso({ ok: false, texto: `Valor inválido em "${ruim.rotulo}".` });
+        return;
       }
+      const p: Partial<Parametros> = { gateway: gatewayAgora() };
+      for (const d of PARAMETROS) p[d.chave] = ler(d);
+      p.tarifaFixa = lerNumero(valores.tarifaFixa ?? "");
       const r = await salvarParametrosDeCusto(p);
       setAviso(r.ok ? { ok: true, texto: "Salvo. As margens já usam os valores novos." } : { ok: false, texto: r.erro });
       if (r.ok) router.refresh();
     });
 
+  const entrada = (d: Campo) => (
+    <label key={d.chave} className="block">
+      <span className="text-xs font-semibold text-ink">{d.rotulo}</span>
+      <input
+        inputMode="decimal"
+        value={valores[d.chave] ?? ""}
+        onChange={(e) => setValores((v) => ({ ...v, [d.chave]: e.target.value }))}
+        className={`mt-1 ${campo}`}
+      />
+      <span className="mt-0.5 block text-[0.7rem] text-muted">{d.ajuda}</span>
+    </label>
+  );
+
   return (
     <div className="glass rounded-[20px] p-5">
       <p className="text-sm font-semibold text-ink">Parâmetros</p>
       <p className="mt-1 text-sm text-muted">Quando o ouro ou a prata mudar, troque só o preço do grama: todas as margens se recalculam. A prata 950 pesa pela largura do nome do produto.</p>
+      <div className="mt-4 grid gap-3 sm:grid-cols-2">{PARAMETROS.map(entrada)}</div>
+
+      <p className="mt-6 text-sm font-semibold text-ink">Taxas do gateway (Appmax)</p>
+      <p className="mt-1 text-sm text-muted">
+        A taxa que a margem desconta de cada venda é a soma destas partes. Campo vazio conta zero, então a margem só fica
+        mais honesta à medida que você preenche. Com todas vazias, vale a taxa única de antes.
+      </p>
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
-        {PARAMETROS.map((d) => (
-          <label key={d.chave} className="block">
-            <span className="text-xs font-semibold text-ink">{d.rotulo}</span>
-            <input
-              inputMode="decimal"
-              value={valores[d.chave] ?? ""}
-              onChange={(e) => setValores((v) => ({ ...v, [d.chave]: e.target.value }))}
-              className={`mt-1 ${campo}`}
-            />
-            <span className="mt-0.5 block text-[0.7rem] text-muted">{d.ajuda}</span>
-          </label>
-        ))}
+        {entrada({ chave: "tarifaFixa", rotulo: "Tarifa fixa por venda (R$)", pct: false, ajuda: "Em reais, não em %. Na Appmax: R$ 0,99 por venda aprovada (confira se vale também no Pix)." })}
+        {GATEWAY.map(entrada)}
       </div>
+      <p className="mt-3 text-sm text-ink" aria-live="polite">
+        {efetiva === null
+          ? inicial.taxa === null
+            ? "Taxa efetiva: ainda não preenchida, conta como zero."
+            : `Taxa efetiva: ${porcento(inicial.taxa, 2)} (a taxa única de antes; preencha as partes para trocar).`
+          : `Taxa efetiva: ${porcento(efetiva, 2)} do preço, mais a tarifa fixa por venda.`}
+      </p>
+
       <div className="mt-4 flex items-center gap-3">
         <button
           type="button"
