@@ -16,6 +16,7 @@ import {
   resumirPorDia,
   situacaoDoStatus,
 } from "../src/lib/vendas/tray-csv.ts";
+import { appmaxDoPedido, lerLiquido, taxaMedida } from "../src/lib/appmax/liquido.ts";
 import { SO_DA_CHEGADA, agruparPorCanal, canalDaOrigem, nomeLimpo } from "../src/lib/vendas/origem.ts";
 import { diasEntre, hojeEmSaoPaulo, intervaloDoPeriodo, lerPeriodo, somarDias } from "../src/lib/vendas/periodo.ts";
 import { HORAS_ATE_A_LEITURA_ATRASAR, calcularSinais, porDiaDaSemana, taxaDeCancelamento, variacao } from "../src/lib/painel/sinais.ts";
@@ -1618,6 +1619,39 @@ console.log("\nPadrão de UTM (Links e UTMs)");
   confere("destino de fora da JK vira aviso", montarLink({ destino: "outro.site/x", source: "email", medium: "email", campaign: "x" }).avisos.some((a) => a.includes("não é da JK")));
   confere("sem campanha não monta", montarLink({ destino: "jkaliancas.com.br", source: "email", medium: "email", campaign: "" }).url === null);
   confere("etiqueta: '@Ana Paula ' vira 'ana_paula'", etiqueta("@Ana Paula ") === "ana_paula");
+}
+
+// Appmax: o que foi descontado de cada venda, lido da API (cartão 78). Os números são os de dois pedidos reais
+// de 23/11/2026, lidos na tela "Ver taxas" da Appmax.
+{
+  const cartao = lerLiquido({
+    data: { site: "Jk Aliancas", currency: "BRL", producer: { total_order: 500.27, total_liquid: 481.82, interest: null, installment_fee: null,
+      processing_fee: [{ key: "Taxa de processamento (3.49%)", value: "17.46", internal_name: "creditcard-processing-rate" }, { key: "Taxa de Gateway e Antifraude", value: "0.99", internal_name: "gateway-antifraud" }] }, total: 481.82 },
+  });
+  confere("Appmax cartão: total 500,27 e líquido 481,82", cartao?.totalPedido === 500.27 && cartao?.liquido === 481.82, JSON.stringify(cartao));
+  confere("Appmax cartão: descontou 18,45 (17,46 de processamento e 0,99 de gateway)", cartao?.descontado === 18.45 && cartao?.taxaProcessamento === 17.46 && cartao?.taxaGateway === 0.99, JSON.stringify(cartao));
+  const pix = lerLiquido({ data: { producer: { total_order: "398.71", total_liquid: "394.17", processing_fee: [{ key: "Taxa de processamento (0.89%)", value: "3.55", internal_name: "pix-processing-rate" }, { key: "Taxa de Gateway", value: "0.99" }] } } });
+  confere("Appmax Pix: valores em texto, descontou 4,54", pix?.descontado === 4.54 && pix?.taxaProcessamento === 3.55 && pix?.taxaGateway === 0.99, JSON.stringify(pix));
+  const parcelado = lerLiquido({ data: { producer: { total_order: 100, total_liquid: 90, installment_fee: 4, processing_fee: [{ key: "Taxa de processamento (3.49%)", value: "3.49" }] } } });
+  confere("Appmax: a taxa de parcelamento fora da lista entra", parcelado?.taxaParcelamento === 4 && parcelado?.descontado === 10, JSON.stringify(parcelado));
+  confere("Appmax: resposta sem o líquido não é lida", lerLiquido({ data: { producer: { total_order: 10 } } }) === null && lerLiquido({ erro: "x" }) === null && lerLiquido(null) === null);
+  const medida = taxaMedida([
+    { meio: "credit_card", total_pedido: 500.27, descontado: 18.45, taxa_processamento: 17.46, taxa_gateway: 0.99, taxa_parcelamento: 0 },
+    { meio: "pix", total_pedido: 398.71, descontado: 4.54, taxa_processamento: 3.55, taxa_gateway: 0.99, taxa_parcelamento: 0 },
+  ]);
+  confere("Appmax: taxa efetiva medida = 22,99 / 898,98 = 2,56%", medida.pedidos === 2 && Math.abs((medida.taxaEfetiva ?? 0) - 22.99 / 898.98) < 1e-9 && medida.descontadoPorVenda === 11.5, JSON.stringify(medida));
+  confere("Appmax: sem venda não há taxa", taxaMedida([]).taxaEfetiva === null);
+
+  // O número do pedido da Appmax dentro do pedido da Tray (pedido 11851, de 18/11/2026).
+  const doPedido = appmaxDoPedido({
+    id: "11851", store_note: "18/11/2026 20:18:14 Pedido em 7 vezes de R$ 57.10 através do Cartão de Crédito Mastercard - Appmax -", payment_method_type: "credit_card",
+    Payment: [{ Payment: { method: "Cartão de Crédito - Appmax", note: "133444274 |  | 18/11/2026 20:18:20 |  |  | 133444274", unique_number: "AM-133444274" } }],
+  });
+  confere("Appmax: acha o 133444274, em 7 vezes, no cartão", doPedido?.id === 133444274 && doPedido?.parcelas === 7 && doPedido?.meio === "credit_card", JSON.stringify(doPedido));
+  const soNota = appmaxDoPedido({ id: 1, Payment: [{ method: "Pix - Appmax", note: "133894742 | x" }], payment_method_type: "pix" });
+  confere("Appmax: sem unique_number, vale o começo da nota quando o meio é Appmax", soNota?.id === 133894742 && soNota?.meio === "pix" && soNota?.parcelas === null, JSON.stringify(soNota));
+  confere("Appmax: pedido pago por outro meio ou sem pagamento não tem vínculo",
+    appmaxDoPedido({ Payment: [{ Payment: { method: "Boleto", note: "123456 | x" } }] }) === null && appmaxDoPedido({ Payment: [] }) === null && appmaxDoPedido({}) === null);
 }
 
 // A conferência das falhas é a ÚLTIMA coisa do arquivo, de propósito. Ela ficou meses no meio dele
