@@ -17,6 +17,7 @@ import {
   situacaoDoStatus,
 } from "../src/lib/vendas/tray-csv.ts";
 import { appmaxDoPedido, lerLiquido, taxaMedida } from "../src/lib/appmax/liquido.ts";
+import { mediaDasCascatas, montarCascata } from "../src/lib/vendas/cascata.ts";
 import { SO_DA_CHEGADA, agruparPorCanal, canalDaOrigem, nomeLimpo } from "../src/lib/vendas/origem.ts";
 import { diasEntre, hojeEmSaoPaulo, intervaloDoPeriodo, lerPeriodo, somarDias } from "../src/lib/vendas/periodo.ts";
 import { HORAS_ATE_A_LEITURA_ATRASAR, calcularSinais, porDiaDaSemana, taxaDeCancelamento, variacao } from "../src/lib/painel/sinais.ts";
@@ -1652,6 +1653,53 @@ console.log("\nPadrão de UTM (Links e UTMs)");
   confere("Appmax: sem unique_number, vale o começo da nota quando o meio é Appmax", soNota?.id === 133894742 && soNota?.meio === "pix" && soNota?.parcelas === null, JSON.stringify(soNota));
   confere("Appmax: pedido pago por outro meio ou sem pagamento não tem vínculo",
     appmaxDoPedido({ Payment: [{ Payment: { method: "Boleto", note: "123456 | x" } }] }) === null && appmaxDoPedido({ Payment: [] }) === null && appmaxDoPedido({}) === null);
+}
+
+// A cascata de uma venda: do valor pago até o que sobrou (cartão 80).
+{
+  // Pedido de R$ 500,27 no cartão, com R$ 30,47 de frete pago pelo cliente (o de 23/11/2026): a Appmax descontou R$ 18,45.
+  const base = {
+    total: 500.27, freteCobrado: 30.47,
+    taxaReal: { processamento: 17.46, gateway: 0.99, descontado: 18.45 },
+    parametros: { taxa: 0.0232, tarifaFixa: 0.99, imposto: 0.06, frete: 25, embalagem: 10 },
+    itens: [{ nome: "Par de Alianças Viena", quantidade: 1, custo: 98.5, falta: null }, { nome: "Brinco Semijoia", quantidade: 1, custo: 80, falta: null }],
+    anuncioPorVenda: 25,
+  };
+  const c = montarCascata(base);
+  const de = (t: string) => c.linhas.find((l) => l.tipo === t);
+  confere("cascata: taxa real 18,45, imposto 30,02 e custo 178,50", de("taxa")?.valor === 18.45 && de("taxa")?.origem === "real" && de("imposto")?.valor === 30.02 && de("custo")?.valor === 178.5, JSON.stringify(c.linhas));
+  confere("cascata: frete pago pelo cliente é repassado (30,47) e o anúncio entra", de("frete")?.valor === 30.47 && de("anuncio")?.valor === 25);
+  confere("cascata: sobra = 500,27 - 292,44 = 207,83, completa", c.descontos === 292.44 && c.sobra === 207.83 && c.completa && c.faltam.length === 0, JSON.stringify({ d: c.descontos, s: c.sobra }));
+  confere("cascata: a sobra sobre o total é 41,5%", Math.abs((c.fracao ?? 0) - 207.83 / 500.27) < 1e-9);
+
+  // Sem leitura da Appmax cai na média da Margem, marcada como estimativa.
+  const semLeitura = montarCascata({ ...base, taxaReal: null });
+  confere("cascata: sem leitura, a taxa é a da Margem (estimada) e diz isso", semLeitura.linhas[0].origem === "estimado" && semLeitura.linhas[0].valor === Math.round((500.27 * 0.0232 + 0.99) * 100) / 100, JSON.stringify(semLeitura.linhas[0]));
+
+  // Frete grátis usa o médio; o que não tem número vira "falta", e a sobra deixa de ser completa.
+  const vazia = montarCascata({ ...base, freteCobrado: 0, parametros: { taxa: null, tarifaFixa: null, imposto: null, frete: null, embalagem: null }, taxaReal: null, anuncioPorVenda: null,
+    itens: [{ nome: "Anel", quantidade: 2, custo: null, falta: "Falta o preço do grama do ouro 18k" }] });
+  confere("cascata: sem parâmetros nem custo, tudo vira falta e nada vira zero", vazia.linhas.every((l) => l.origem === "falta" && l.valor === null) && vazia.descontos === 0 && vazia.sobra === 500.27 && !vazia.completa && vazia.faltam.length === 6, JSON.stringify(vazia.faltam));
+  const gratis = montarCascata({ ...base, freteCobrado: 0 });
+  confere("cascata: frete grátis usa o frete médio da Margem (25)", gratis.linhas.find((l) => l.tipo === "frete")?.valor === 25 && gratis.linhas.find((l) => l.tipo === "frete")?.origem === "estimado");
+
+  // Custo parcial: soma o que tem, marca falta e diz quantas peças faltam. Quantidade multiplica.
+  const parcial = montarCascata({ ...base, itens: [{ nome: "A", quantidade: 2, custo: 50, falta: null }, { nome: "B", quantidade: 1, custo: null, falta: "Sem custo" }] });
+  const custoParcial = parcial.linhas.find((l) => l.tipo === "custo");
+  confere("cascata: custo parcial soma 2 x 50 = 100, é falta e diz que falta 1 de 2", custoParcial?.valor === 100 && custoParcial?.origem === "falta" && custoParcial.detalhe.includes("Falta o custo de 1 peça") && custoParcial.detalhe.includes("de 2 no pedido") && !parcial.completa, JSON.stringify(custoParcial));
+
+  // A média de várias vendas.
+  const m = mediaDasCascatas([c, montarCascata({ ...base, total: 400, freteCobrado: 0, taxaReal: { processamento: 3.55, gateway: 0.99, descontado: 4.54 } })]);
+  confere("cascata: média de duas vendas soma total e sobra e conta as completas", m.vendas === 2 && m.total === 900.27 && m.completas === 2 && m.porTipo.taxa === Math.round(((18.45 + 4.54) / 2) * 100) / 100, JSON.stringify(m));
+  confere("cascata: média sem venda não inventa número", mediaDasCascatas([]).fracao === null && mediaDasCascatas([]).porTipo.custo === null);
+
+  // O que falta numa venda conta zero NELA, para as linhas e a sobra fecharem com o ticket médio.
+  const semAnuncio = montarCascata({ ...base, anuncioPorVenda: null });
+  const mista = mediaDasCascatas([c, semAnuncio]);
+  confere("cascata: a média de uma linha divide por todas as vendas (25 em uma, falta na outra = 12,50)", mista.porTipo.anuncio === 12.5 && mista.comNumero.anuncio === 1 && mista.inteiras.anuncio === 1, JSON.stringify(mista.porTipo));
+  const soma = Object.values(mista.porTipo).reduce<number>((s, v) => s + (v ?? 0), 0);
+  confere("cascata: ticket médio = soma das linhas + sobra média", Math.abs(mista.total / 2 - soma - mista.sobra / 2) < 0.02, `${mista.total / 2} vs ${soma + mista.sobra / 2}`);
+  confere("cascata: linha que nenhuma venda tem fica nula", mediaDasCascatas([vazia]).porTipo.imposto === null && mediaDasCascatas([vazia]).inteiras.imposto === 0);
 }
 
 // A conferência das falhas é a ÚLTIMA coisa do arquivo, de propósito. Ela ficou meses no meio dele

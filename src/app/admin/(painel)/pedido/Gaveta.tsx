@@ -18,6 +18,7 @@ import { SeloDeTom } from "../Pecas";
 import { botaoCheio, botaoClaro } from "../biblioteca/pecas";
 import { CascaDoHistorico } from "./Casca";
 import { OrigemDoPedido } from "./Origem";
+import { SobraDaVenda } from "./SobraDaVenda";
 import { avisarQueOPedidoMudou, fecharHistoricoDoPedido } from "./abrir";
 
 /**
@@ -236,6 +237,9 @@ export function Historico({ h, recarregar }: { h: HistoricoDoPedido; recarregar:
           </ul>
         </section>
       ) : null}
+
+      {/* Quanto sobrou: custo e taxa da empresa, só o administrador recebe os dados (cartão 80). */}
+      {h.situacao === "pago" ? <SobraDaVenda numero={h.numero} /> : null}
 
       {/* Quem e por onde. */}
       <section aria-label="Quem e por onde" className="glass mt-3 rounded-[16px] px-3.5 py-1">
