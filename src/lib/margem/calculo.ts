@@ -1,10 +1,11 @@
 /**
  * A conta de custo e margem, igual à da planilha do dono.
  *
- *   custo        = gramas x preço do grama + resto da peça   (ouro)
- *                = largura (mm) x gramas por mm x peças x preço do grama
- *                  da prata + resto da peça                  (prata 950)
- *                = custo fixo                                (semijoia, o que não tem largura)
+ *   custo        = custo fixo do produto, se houver
+ *                = gramas gravadas x preço do grama + resto  (peso do Carlos, família)
+ *                = pelas REGRAS, lendo o nome do produto:   (o resto do catálogo, cartão 82)
+ *                  largura x gramas por mm x fator do modelo x peças x preço do grama
+ *                  + pedras + folga sobre o estimado + brinde + caixinha
  *   líquido      = preço x (1 - taxa - imposto)
  *   margem (R$)  = líquido - tarifa fixa - custo - frete - embalagem
  *   margem (%)   = margem / preço
@@ -72,8 +73,10 @@ export type Parametros = {
   cotacaoPrata: number | null;
   /** Gramas de prata por milímetro de largura, numa peça (uma aliança). Média, não aro a aro. */
   prataGramasPorMm: number | null;
-  /** Resto da peça de prata, por produto: feitio, solitário de brinde, caixinha. */
+  /** Resto da peça de prata, por produto: o que não é prata, fora o brinde e a caixinha (que estão nas regras). */
   prataResto: number | null;
+  /** As regras do custo das peças (cartão 82). Ausente: tudo vazio. */
+  regras?: RegrasDeCusto;
   /**
    * Fração: 0,05 = 5%. É a taxa que a conta usa: sai das partes do gateway
    * quando alguma está preenchida, senão é a taxa única gravada antes.
@@ -111,8 +114,8 @@ export type CustoGravado = {
 };
 
 export type Custo =
-  | { valor: number; detalhe: string; falta: null }
-  | { valor: null; detalhe: null; falta: string };
+  | { valor: number; detalhe: string; falta: null; origem?: OrigemDoCusto }
+  | { valor: null; detalhe: null; falta: string; motivo?: MotivoDaFalta };
 
 export type Margem = {
   custo: number;
@@ -186,37 +189,267 @@ export function pecasDoNome(nome: string): 1 | 2 {
 }
 
 const mmTexto = (v: number) => `${v.toLocaleString("pt-BR", { maximumFractionDigits: 2 })} mm`;
+const numTexto = (v: number, casas = 4) => v.toLocaleString("pt-BR", { maximumFractionDigits: casas });
+const centavos = (v: number) => Math.round(v * 100) / 100;
+
+// ------------------------------------------------------------------ regras de custo (cartão 82)
 
 /**
- * Prata 950: o peso sai da largura do nome, não de uma lista de produtos. O
- * peso gravado no produto vence a conta (peça que pesa diferente da média).
+ * O custo das peças por REGRAS, para o catálogo inteiro ter custo sem ninguém
+ * preencher produto por produto. O painel lê o nome do produto (largura, par ou
+ * peça, aliança ou anel, modelo, pedras, brinde) e calcula:
+ *
+ *   metal   = largura x gramas por mm (do material e do tipo) x fator do modelo x peças x preço do grama
+ *   pedras  = pedras da meia volta ou da volta completa x custo da pedra (numa peça só do par)
+ *   folga   = % sobre o que é ESTIMADO (metal pelas regras e pedras), nunca sobre o peso gravado
+ *   brinde  = anel solitário que vem junto ("+ Anel Solitário ...")
+ *   caixinha= uma por produto de aliança
+ *
+ * Peso gravado no produto (planilha do Carlos) e custo fixo vencem as regras.
+ * Regra vazia NÃO vira zero escondido: falta o número, o produto fica sem custo
+ * e diz o que falta; parte pequena vazia (pedras, brinde) sai no detalhe.
  */
-function custoDaPrata(c: CustoGravado | null, nome: string | null, p: Parametros): Custo {
-  const resto = c?.resto ?? p.prataResto;
-  let gramas = c?.gramas ?? null;
-  let comoPesou = "peso do produto";
-  if (gramas === null) {
-    if (!nome || !/alian|anel|anéis|aneis/i.test(nome)) {
-      return { valor: null, detalhe: null, falta: "Não é aliança nem anel: informe o peso ou o custo da peça" };
+
+export const TIPOS_DE_PECA = ["alianca", "anel"] as const;
+export type TipoDePeca = (typeof TIPOS_DE_PECA)[number];
+
+/** Os modelos que mudam o peso. "Reta" é a base: fator 1, sempre. */
+export const MODELOS = ["anatomica", "chanfrada", "abaulada", "fio_de_ouro"] as const;
+export type Modelo = (typeof MODELOS)[number] | "reta";
+
+export const ROTULO_DO_MODELO: Record<Modelo, string> = {
+  reta: "Reta",
+  anatomica: "Anatômica",
+  chanfrada: "Chanfrada",
+  abaulada: "Abaulada",
+  fio_de_ouro: "Com fio de ouro",
+};
+
+/** Os tamanhos de zircônia que a JK compra, em mm. */
+export const TAMANHOS_DE_PEDRA = ["1,00", "1,25", "1,50"] as const;
+export type TamanhoDePedra = (typeof TAMANHOS_DE_PEDRA)[number];
+
+/** Os materiais que as gramas por mm atendem (prata com ouro não: a parte de ouro não sai da largura). */
+export const MATERIAIS_POR_MM = ["prata_950", "ouro_18k", "ouro_10k"] as const;
+export type MaterialPorMm = (typeof MATERIAIS_POR_MM)[number];
+
+export type RegrasDeCusto = {
+  /** Gramas por milímetro de largura, numa peça (uma aliança, um anel). */
+  gramasPorMm: Record<MaterialPorMm, Record<TipoDePeca, number | null>>;
+  /** Quanto o modelo pesa em relação à reta (1,33 = 33% mais). Vazio: conta como reta. */
+  fatorDoModelo: Record<(typeof MODELOS)[number], number | null>;
+  /** Custo de UMA pedra de zircônia, por tamanho. */
+  custoDaPedra: Record<TamanhoDePedra, number | null>;
+  pedrasMeiaVolta: number | null;
+  pedrasVoltaCompleta: number | null;
+  /** O anel solitário que vai junto ("+ Anel Solitário Brinde"). */
+  brinde: number | null;
+  /** A caixinha das alianças, uma por produto de aliança. */
+  caixinha: number | null;
+  /** Folga sobre o custo estimado, em fração (0,05 = 5%). */
+  folga: number | null;
+};
+
+const doTipo = (): Record<TipoDePeca, number | null> => ({ alianca: null, anel: null });
+
+export const REGRAS_VAZIAS: RegrasDeCusto = {
+  gramasPorMm: { prata_950: doTipo(), ouro_18k: doTipo(), ouro_10k: doTipo() },
+  fatorDoModelo: { anatomica: null, chanfrada: null, abaulada: null, fio_de_ouro: null },
+  custoDaPedra: { "1,00": null, "1,25": null, "1,50": null },
+  pedrasMeiaVolta: null,
+  pedrasVoltaCompleta: null,
+  brinde: null,
+  caixinha: null,
+  folga: null,
+};
+
+/**
+ * Lê as regras do jeito que vierem (do banco ou do formulário) e devolve só o
+ * que é número válido. O que não reconhece fica vazio, nunca vira zero.
+ */
+export function lerRegras(cru: unknown): RegrasDeCusto {
+  const o = (v: unknown): Record<string, unknown> => (v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : {});
+  const num = (v: unknown, max = Infinity): number | null =>
+    typeof v === "number" && Number.isFinite(v) && v >= 0 && v <= max ? v : null;
+  const r = o(cru);
+  const g = o(r.gramasPorMm);
+  const f = o(r.fatorDoModelo);
+  const p = o(r.custoDaPedra);
+  const folga = num(r.folga, 0.99);
+  return {
+    gramasPorMm: Object.fromEntries(
+      MATERIAIS_POR_MM.map((m) => [m, Object.fromEntries(TIPOS_DE_PECA.map((t) => [t, num(o(g[m])[t], 50) || null]))]),
+    ) as RegrasDeCusto["gramasPorMm"],
+    fatorDoModelo: Object.fromEntries(MODELOS.map((m) => [m, num(f[m], 10) || null])) as RegrasDeCusto["fatorDoModelo"],
+    custoDaPedra: Object.fromEntries(TAMANHOS_DE_PEDRA.map((t) => [t, num(p[t], 10000)])) as RegrasDeCusto["custoDaPedra"],
+    pedrasMeiaVolta: num(r.pedrasMeiaVolta, 1000),
+    pedrasVoltaCompleta: num(r.pedrasVoltaCompleta, 1000),
+    brinde: num(r.brinde, 100000),
+    caixinha: num(r.caixinha, 100000),
+    folga,
+  };
+}
+
+/** O que o NOME do produto diz, para a conta das regras. Função pura, com teste. */
+export type LeituraDoNome = {
+  material: Material | null;
+  semijoia: boolean;
+  tipo: TipoDePeca | null;
+  largura: number | null;
+  pecas: 1 | 2;
+  modelo: Modelo;
+  /** O modelo veio escrito no nome (sem ele, conta como reta e o detalhe não comenta). */
+  modeloNoNome: boolean;
+  pedras: "meia_volta" | "volta_completa" | null;
+  /** "+ Anel Solitário ...": o anel que vai junto do par. */
+  comBrinde: boolean;
+};
+
+export function lerNome(nome: string): LeituraDoNome {
+  const t = ` ${nome.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "")} `;
+  const semijoia = /banhad|semijoia/.test(t);
+  // O que vem depois do primeiro "+" é o que acompanha; o tipo e o modelo saem do que vem antes.
+  const mais = t.indexOf("+");
+  const antes = mais >= 0 ? t.slice(0, mais) : t;
+  const depois = mais >= 0 ? t.slice(mais) : "";
+  const tipo: TipoDePeca | null = /alianc/.test(antes) ? "alianca" : /\banel\b|\baneis\b/.test(antes) ? "anel" : null;
+  const modelo: Modelo = /fio de ouro/.test(antes)
+    ? "fio_de_ouro"
+    : /anat/.test(antes)
+      ? "anatomica"
+      : /chanfrad/.test(antes)
+        ? "chanfrada"
+        : /abaulad/.test(antes)
+          ? "abaulada"
+          : "reta";
+  const pedras = /volta completa|volta inteira|eternity/.test(antes)
+    ? "volta_completa"
+    : /meia volta|meia-volta|cravejad|zirconia/.test(antes)
+      ? "meia_volta"
+      : null;
+  return {
+    material: materialPeloNome(nome),
+    semijoia,
+    tipo,
+    largura: larguraDoNome(antes),
+    pecas: pecasDoNome(nome),
+    modelo,
+    modeloNoNome: modelo !== "reta" || /\breta\b/.test(antes),
+    pedras,
+    comBrinde: /\banel\b/.test(depois),
+  };
+}
+
+/** Os extras que o nome pede, somados ao custo do metal: pedras (estimado), brinde e caixinha (preço da unidade). */
+type Extras = { estimado: number; fixo: number; partes: string[]; avisos: string[] };
+
+function extrasDoNome(l: LeituraDoNome, r: RegrasDeCusto): Extras {
+  const e: Extras = { estimado: 0, fixo: 0, partes: [], avisos: [] };
+  if (l.pedras) {
+    const qtd = l.pedras === "volta_completa" ? r.pedrasVoltaCompleta : r.pedrasMeiaVolta;
+    // O nome não diz o tamanho da pedra: vale a mais cara que estiver preenchida.
+    const custo = TAMANHOS_DE_PEDRA.map((k) => r.custoDaPedra[k]).filter((v): v is number => v !== null);
+    const nomeDaVolta = l.pedras === "volta_completa" ? "volta completa" : "meia volta";
+    if (qtd && custo.length) {
+      const unidade = Math.max(...custo);
+      e.estimado += qtd * unidade;
+      e.partes.push(`${qtd} pedras da ${nomeDaVolta} x ${reais(unidade)}${l.pecas === 2 ? " (numa peça do par)" : ""}`);
+    } else {
+      e.avisos.push(`pedras da ${nomeDaVolta} sem ${qtd ? "custo da pedra" : "quantidade"} nas regras, não entraram`);
     }
-    const largura = larguraDoNome(nome);
-    if (largura === null) {
-      return { valor: null, detalhe: null, falta: "Sem largura no nome: informe o peso ou o custo da peça" };
-    }
-    if (!p.prataGramasPorMm) return { valor: null, detalhe: null, falta: "Falta as gramas por milímetro da prata" };
-    const pecas = pecasDoNome(nome!);
-    gramas = Math.round(largura * p.prataGramasPorMm * pecas * 1000) / 1000;
-    comoPesou = `${pecas === 2 ? "2 peças x " : ""}${mmTexto(largura)} x ${p.prataGramasPorMm.toLocaleString("pt-BR", { maximumFractionDigits: 4 })} g/mm`;
   }
-  if (!p.cotacaoPrata) return { valor: null, detalhe: null, falta: "Falta o preço do grama da prata 950" };
-  const valor = Math.round((gramas * p.cotacaoPrata + n(resto)) * 100) / 100;
-  const partes = [`${gramasTexto(gramas)} x ${reais(p.cotacaoPrata)}`, resto !== null ? `${reais(resto)} de resto` : null].filter(Boolean);
-  return { valor, detalhe: `${partes.join(" + ")} (${comoPesou})`, falta: null };
+  if (l.comBrinde) {
+    if (r.brinde !== null) {
+      e.fixo += r.brinde;
+      e.partes.push(`${reais(r.brinde)} do anel de brinde`);
+    } else e.avisos.push("anel de brinde sem valor nas regras, não entrou");
+  }
+  if (l.tipo === "alianca") {
+    if (r.caixinha !== null) {
+      e.fixo += r.caixinha;
+      e.partes.push(`${reais(r.caixinha)} da caixinha`);
+    } else e.avisos.push("caixinha sem valor nas regras, não entrou");
+  }
+  return e;
+}
+
+/** Por que um produto ficou sem custo. É o que a cobertura agrupa. */
+export type MotivoDaFalta =
+  | "semijoia"
+  | "sem_material"
+  | "prata_com_ouro"
+  | "nao_e_alianca_nem_anel"
+  | "sem_largura"
+  | "falta_gramas_por_mm"
+  | "falta_preco_do_grama";
+
+export const ROTULO_DO_MOTIVO: Record<MotivoDaFalta, string> = {
+  semijoia: "Semijoia: a JK ainda não passou o custo",
+  sem_material: "O nome não diz o material (caixinha, conjunto, personalizado)",
+  prata_com_ouro: "Prata com ouro: falta quanto ouro vai em cada peça",
+  nao_e_alianca_nem_anel: "Não é aliança nem anel (corrente, brinco, conjunto)",
+  sem_largura: "Sem largura em mm no nome",
+  falta_gramas_por_mm: "Falta as gramas por mm nas regras",
+  falta_preco_do_grama: "Falta o preço do grama",
+};
+
+/** De onde veio o custo: custo fixo do produto, peso gravado (produto ou família) ou as regras. */
+export type OrigemDoCusto = "fixo" | "gravado" | "regras";
+
+const falta = (motivo: MotivoDaFalta, texto: string): Custo => ({ valor: null, detalhe: null, falta: texto, motivo });
+
+/** Junta o metal, os extras e a folga num custo só, com o detalhe por extenso. */
+function montarCusto(
+  metal: { valor: number; texto: string; estimado: boolean },
+  outros: { resto: number | null; extras: Extras | null },
+  folga: number | null,
+  origem: OrigemDoCusto,
+): Custo {
+  const ex = outros.extras;
+  const estimado = (metal.estimado ? metal.valor : 0) + (ex?.estimado ?? 0);
+  const valorDaFolga = folga && estimado > 0 ? estimado * folga : 0;
+  const valor = centavos(metal.valor + n(outros.resto) + (ex ? ex.estimado + ex.fixo : 0) + valorDaFolga);
+  const partes = [metal.texto, outros.resto !== null ? `${reais(outros.resto)} de resto` : null, ...(ex?.partes ?? [])].filter(Boolean);
+  if (valorDaFolga > 0) partes.push(`${porcento(folga!, 0)} de folga sobre o estimado (${reais(centavos(valorDaFolga))})`);
+  const avisos = ex?.avisos.length ? `. Atenção: ${ex.avisos.join("; ")}` : "";
+  return { valor, detalhe: `${partes.join(" + ")}${avisos}`, falta: null, origem };
+}
+
+/** As gramas por mm que valem para o material e o tipo. Na prata, o número antigo (um só) serve de reserva. */
+function gramasPorMmDe(material: MaterialPorMm, tipo: TipoDePeca, p: Parametros): number | null {
+  const r = p.regras ?? REGRAS_VAZIAS;
+  return r.gramasPorMm[material][tipo] ?? (material === "prata_950" ? p.prataGramasPorMm : null);
+}
+
+/** O metal pelas regras: largura x gramas por mm x fator do modelo x peças. */
+function metalPelasRegras(
+  material: MaterialPorMm,
+  l: LeituraDoNome,
+  p: Parametros,
+): { ok: true; gramas: number; texto: string } | { ok: false; custo: Custo } {
+  const nomeDoMaterial = ROTULO_DO_MATERIAL[material].toLowerCase();
+  if (!l.tipo) return { ok: false, custo: falta("nao_e_alianca_nem_anel", "Não é aliança nem anel: informe o peso ou o custo da peça") };
+  if (l.largura === null) return { ok: false, custo: falta("sem_largura", "Sem largura no nome: informe o peso ou o custo da peça") };
+  const gmm = gramasPorMmDe(material, l.tipo, p);
+  if (!gmm) {
+    return { ok: false, custo: falta("falta_gramas_por_mm", `Falta as gramas por mm ${l.tipo === "alianca" ? "da aliança" : "do anel"} de ${nomeDoMaterial}`) };
+  }
+  const r = p.regras ?? REGRAS_VAZIAS;
+  const fator = l.modelo === "reta" ? 1 : (r.fatorDoModelo[l.modelo] ?? 1);
+  const gramas = Math.round(l.largura * gmm * fator * l.pecas * 1000) / 1000;
+  const modelo =
+    l.modelo === "reta"
+      ? ""
+      : r.fatorDoModelo[l.modelo] !== null
+        ? ` x ${numTexto(fator, 3)} (${ROTULO_DO_MODELO[l.modelo].toLowerCase()})`
+        : `, ${ROTULO_DO_MODELO[l.modelo].toLowerCase()} sem fator nas regras: conta como reta`;
+  const texto = `${l.pecas === 2 ? "2 peças x " : ""}${mmTexto(l.largura)} x ${numTexto(gmm)} g/mm${modelo}`;
+  return { ok: true, gramas, texto };
 }
 
 /**
- * O custo de um produto. `nome` é o do catálogo: com ele, prata 950 sem linha
- * de custo já sai calculada pela largura.
+ * O custo de um produto. `nome` é o do catálogo: com ele, o produto sem linha
+ * de custo (ou de ouro sem peso) sai calculado pelas regras.
  */
 export function custoDoProduto(
   c: CustoGravado | null,
@@ -224,31 +457,125 @@ export function custoDoProduto(
   p: Parametros,
   nome: string | null = null,
 ): Custo {
-  if (c?.custoFixo !== null && c?.custoFixo !== undefined) return { valor: c.custoFixo, detalhe: "Custo fixo", falta: null };
-  if (!c) {
-    if (nome && materialPeloNome(nome) === "prata_950") return custoDaPrata(null, nome, p);
-    return { valor: null, detalhe: null, falta: "Sem custo" };
+  if (c?.custoFixo !== null && c?.custoFixo !== undefined) return { valor: c.custoFixo, detalhe: "Custo fixo", falta: null, origem: "fixo" };
+  const l = nome ? lerNome(nome) : null;
+  const material = c?.material ?? l?.material ?? null;
+  if (!material) {
+    if (l?.semijoia) return falta("semijoia", "Semijoia: sem custo informado");
+    return falta("sem_material", "Sem custo");
   }
-  if (!c.material) return { valor: null, detalhe: null, falta: "Sem custo" };
-  if (c.material === "prata_950") return custoDaPrata(c, nome, p);
+  const regras = p.regras ?? REGRAS_VAZIAS;
+  const folga = regras.folga;
+  const cotacao = cotacaoDo(material, p);
+  const nomeDoGrama =
+    material === "prata_950" ? "Falta o preço do grama da prata 950" : `Falta o preço do grama do ${material === "ouro_10k" ? "ouro 10k" : "ouro 18k"}`;
 
-  const familia = c.familia ? familias.get(c.familia) : undefined;
-  const gramas = c.gramas ?? familia?.gramas ?? null;
-  const resto = c.resto ?? familia?.resto ?? null;
-  if (gramas === null && resto === null) {
-    return { valor: null, detalhe: null, falta: familia ? `Falta o peso da família ${familia.codigo}` : "Falta o peso" };
+  // Peso gravado: do produto, da família ou, na prata, o resto geral.
+  const familia = c?.familia ? familias.get(c.familia) : undefined;
+  const gramas = c?.gramas ?? (material === "prata_950" ? null : (familia?.gramas ?? null));
+  const restoGravado = c?.resto ?? (material === "prata_950" ? null : (familia?.resto ?? null));
+  // Os extras do nome só entram quando ninguém escreveu o "resto" da peça (o resto já cobre o que não é metal).
+  const extras = l && restoGravado === null ? extrasDoNome(l, regras) : null;
+  const restoGeral = material === "prata_950" ? (restoGravado ?? p.prataResto) : restoGravado;
+
+  if (gramas !== null || (material !== "prata_950" && restoGravado !== null)) {
+    if (gramas !== null && !cotacao) return falta("falta_preco_do_grama", nomeDoGrama);
+    const deOnde = c?.gramas !== null && c?.gramas !== undefined ? "peso do produto" : familia ? `família ${familia.codigo}` : "do produto";
+    const metal = gramas !== null ? { valor: gramas * n(cotacao), texto: `${gramasTexto(gramas)} x ${reais(n(cotacao))} (${deOnde})`, estimado: false } : { valor: 0, texto: "", estimado: false };
+    return montarCusto(metal, { resto: restoGeral, extras }, folga, "gravado");
   }
-  const cotacao = cotacaoDo(c.material, p);
-  if (gramas !== null && !cotacao) {
-    return { valor: null, detalhe: null, falta: `Falta o preço do grama do ${c.material === "ouro_10k" ? "ouro 10k" : "ouro 18k"}` };
+
+  // Sem peso gravado: as regras. Prata com ouro não sai da largura.
+  if (material === "prata_com_ouro") {
+    return falta("prata_com_ouro", familia ? `Falta o peso da família ${familia.codigo}` : "Prata com ouro: falta o peso");
   }
-  const valor = Math.round((n(gramas) * n(cotacao) + n(resto)) * 100) / 100;
-  const partes = [
-    gramas !== null ? `${gramasTexto(gramas)} x ${reais(n(cotacao))}` : null,
-    resto !== null ? `${reais(resto)} de resto` : null,
-  ].filter(Boolean);
-  const deOnde = c.gramas !== null || c.resto !== null ? "do produto" : familia ? `da família ${familia.codigo}` : "do produto";
-  return { valor, detalhe: `${partes.join(" + ")} (${deOnde})`, falta: null };
+  if (!l) return falta("sem_largura", c ? "Falta o peso" : "Sem custo");
+  const m = metalPelasRegras(material, l, p);
+  if (!m.ok) return m.custo;
+  if (!cotacao) return falta("falta_preco_do_grama", nomeDoGrama);
+  return montarCusto(
+    { valor: m.gramas * cotacao, texto: `${gramasTexto(m.gramas)} x ${reais(cotacao)} (${m.texto})`, estimado: true },
+    { resto: restoGeral, extras },
+    folga,
+    "regras",
+  );
+}
+
+// ------------------------------------------------------------------ cobertura
+
+export type CoberturaDoCusto = {
+  total: number;
+  /** Produtos e quanto já venderam (a contagem da loja), por origem do custo. */
+  porOrigem: Record<OrigemDoCusto, { produtos: number; vendidos: number }>;
+  semCusto: { produtos: number; vendidos: number };
+  /** Os motivos de quem ficou sem custo, do que mais vende para o que menos vende. */
+  faltas: { motivo: MotivoDaFalta; rotulo: string; produtos: number; vendidos: number; exemplos: string[] }[];
+};
+
+/** Quantos produtos o painel calcula sozinho, quantos têm valor gravado e quantos ficam de fora, e por quê. */
+export function coberturaDoCusto(itens: { nome: string; vendidos: number; custo: Custo }[]): CoberturaDoCusto {
+  const porOrigem: CoberturaDoCusto["porOrigem"] = { fixo: { produtos: 0, vendidos: 0 }, gravado: { produtos: 0, vendidos: 0 }, regras: { produtos: 0, vendidos: 0 } };
+  const semCusto = { produtos: 0, vendidos: 0 };
+  const faltas = new Map<MotivoDaFalta, { produtos: number; vendidos: number; exemplos: { nome: string; vendidos: number }[] }>();
+  for (const i of itens) {
+    const v = Math.max(0, i.vendidos || 0);
+    if (i.custo.valor !== null) {
+      const o = porOrigem[i.custo.origem ?? "gravado"];
+      o.produtos++;
+      o.vendidos += v;
+      continue;
+    }
+    semCusto.produtos++;
+    semCusto.vendidos += v;
+    const motivo = i.custo.motivo ?? "sem_material";
+    const f = faltas.get(motivo) ?? { produtos: 0, vendidos: 0, exemplos: [] };
+    f.produtos++;
+    f.vendidos += v;
+    f.exemplos.push({ nome: i.nome, vendidos: v });
+    faltas.set(motivo, f);
+  }
+  return {
+    total: itens.length,
+    porOrigem,
+    semCusto,
+    faltas: [...faltas.entries()]
+      .map(([motivo, f]) => ({
+        motivo,
+        rotulo: ROTULO_DO_MOTIVO[motivo],
+        produtos: f.produtos,
+        vendidos: f.vendidos,
+        exemplos: f.exemplos.sort((a, b) => b.vendidos - a.vendidos).slice(0, 3).map((e) => e.nome),
+      }))
+      .sort((a, b) => b.vendidos - a.vendidos || b.produtos - a.produtos),
+  };
+}
+
+/**
+ * As gramas por mm que os pesos JÁ GRAVADOS dão (a planilha do Carlos), por
+ * material e modelo: a mediana de gramas / (largura x peças). É referência para
+ * a tela, não entra na conta sozinha.
+ */
+export function gramasPorMmMedidas(
+  itens: { nome: string; material: Material | null; gramas: number | null }[],
+): { material: MaterialPorMm; modelo: Modelo; mediana: number; produtos: number }[] {
+  const grupos = new Map<string, number[]>();
+  for (const i of itens) {
+    if (i.gramas === null || !i.material || !(MATERIAIS_POR_MM as readonly string[]).includes(i.material)) continue;
+    const l = lerNome(i.nome);
+    if (l.largura === null || l.tipo !== "alianca") continue;
+    const k = `${i.material}|${l.modelo}`;
+    grupos.set(k, [...(grupos.get(k) ?? []), i.gramas / (l.largura * l.pecas)]);
+  }
+  return [...grupos.entries()]
+    .filter(([, v]) => v.length >= 5)
+    .map(([k, v]) => {
+      const [material, modelo] = k.split("|") as [MaterialPorMm, Modelo];
+      const o = [...v].sort((a, b) => a - b);
+      const meio = Math.floor(o.length / 2);
+      const mediana = o.length % 2 ? o[meio] : (o[meio - 1] + o[meio]) / 2;
+      return { material, modelo, mediana: Math.round(mediana * 1000) / 1000, produtos: v.length };
+    })
+    .sort((a, b) => a.material.localeCompare(b.material) || a.modelo.localeCompare(b.modelo));
 }
 
 /** De onde veio o valor que a conta usa: o que a diretoria preencheu na Margem, ou a média da lista de Custos. */

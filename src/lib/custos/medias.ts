@@ -50,7 +50,16 @@ export type EntradaDasMedias = {
   anuncioReal: number | null;
   /** O custo das peças nas vendas em que TODAS as peças têm custo. */
   custoDasPecas: { vendas: number; receita: number; custo: number } | null;
+  /**
+   * A caixinha das alianças já está no custo de cada produto (regras da Margem,
+   * cartão 82): a despesa de embalagem com "caixinha" no nome sai da média,
+   * senão a mesma caixinha contaria duas vezes.
+   */
+  caixinhaNoProduto?: boolean;
 };
+
+/** A despesa que é a caixinha das alianças: sai da média quando a caixinha já está no custo do produto. */
+export const ehCaixinhaDasAliancas = (d: { nome?: string; categoria: string }) => d.categoria === "embalagem" && /caixinha/i.test(d.nome ?? "");
 
 export type Medias = {
   dias: number;
@@ -92,7 +101,7 @@ const FORA_DO_FIXO = new Set(["anuncios", "embalagem", "frete", "impostos_e_taxa
 const centavos = (v: number) => Math.round(v * 100) / 100;
 
 export function calcularMedias(e: EntradaDasMedias): Medias {
-  const ativas = e.despesas.filter((d) => d.ativo);
+  const ativas = e.despesas.filter((d) => d.ativo && !(e.caixinhaNoProduto && ehCaixinhaDasAliancas(d)));
   const fator = e.dias > 0 ? e.dias / DIAS_DO_MES : 0;
   const soma = (f: (d: DespesaParaMedia) => boolean) => ativas.filter(f).reduce((s, d) => s + d.valor, 0);
   const tem = (f: (d: DespesaParaMedia) => boolean) => ativas.some(f);

@@ -12,7 +12,10 @@ import {
   type Material,
   type OrigemDoParametro,
   type Parametros,
+  type MotivoDaFalta,
+  type OrigemDoCusto,
   type TaxasDoGateway,
+  lerRegras,
   parametrosComMedias,
   taxaEfetiva,
 } from "./calculo";
@@ -38,7 +41,7 @@ export async function lerParametros(db: SupabaseClient): Promise<Parametros> {
     .from("custo_parametros")
     .select(
       "cotacao_18k, cotacao_10k, cotacao_prata, prata_gramas_por_mm, prata_resto, taxa, imposto, frete, embalagem, margem_minima, " +
-        "taxa_cartao, taxa_pix, taxa_antecipacao_mes, fracao_antecipada, prazo_medio_meses, proporcao_cartao, tarifa_fixa",
+        "taxa_cartao, taxa_pix, taxa_antecipacao_mes, fracao_antecipada, prazo_medio_meses, proporcao_cartao, tarifa_fixa, regras_custo",
     )
     .maybeSingle();
   const d = (data ?? {}) as Record<string, unknown>;
@@ -56,6 +59,7 @@ export async function lerParametros(db: SupabaseClient): Promise<Parametros> {
     cotacaoPrata: num(d.cotacao_prata),
     prataGramasPorMm: num(d.prata_gramas_por_mm),
     prataResto: num(d.prata_resto),
+    regras: lerRegras(d.regras_custo),
     // Com alguma parte do gateway preenchida, a taxa sai delas; senão vale a única.
     taxa: taxaEfetiva(gateway) ?? num(d.taxa),
     gateway,
@@ -97,7 +101,7 @@ export async function lerParametrosEfetivos(db: SupabaseClient): Promise<Paramet
   return { parametros, efetivos, origens, daLista };
 }
 
-const COLUNA: Record<Exclude<keyof Parametros, "gateway">, string> = {
+const COLUNA: Record<Exclude<keyof Parametros, "gateway" | "regras">, string> = {
   cotacao18k: "cotacao_18k",
   cotacao10k: "cotacao_10k",
   cotacaoPrata: "cotacao_prata",
@@ -124,7 +128,10 @@ export async function salvarParametros(db: SupabaseClient, p: Partial<Parametros
   const linha: Record<string, unknown> = { atualizado_por: quem, atualizado_em: new Date().toISOString() };
   for (const [k, v] of Object.entries(p) as [keyof Parametros, unknown][]) {
     if (v === undefined) continue;
-    if (k === "gateway") {
+    if (k === "regras") {
+      // Grava o objeto inteiro, já limpo: o que não for número válido fica vazio.
+      linha.regras_custo = lerRegras(v);
+    } else if (k === "gateway") {
       for (const [parte, valor] of Object.entries(v as Partial<TaxasDoGateway>) as [keyof TaxasDoGateway, number | null | undefined][]) {
         if (valor !== undefined) linha[COLUNA_DO_GATEWAY[parte]] = valor;
       }
@@ -222,6 +229,10 @@ export type CustoDoItem = {
   custo: number | null;
   detalhe: string | null;
   falta: string | null;
+  /** De onde veio o custo (fixo, gravado ou regras); nulo sem custo. */
+  origem: OrigemDoCusto | null;
+  /** Por que ficou sem custo; nulo com custo. */
+  motivo: MotivoDaFalta | null;
   margem: Margem | null;
 };
 
@@ -251,10 +262,12 @@ export async function margensDoCatalogo(
     const hoje = p.precoAntes ? p.preco : null;
     porProduto[p.id] = {
       gravado: g,
-      material: g ? g.material : materialPeloNome(p.nome) === "prata_950" ? "prata_950" : null,
+      material: g?.material ?? materialPeloNome(p.nome),
       custo: c.valor,
       detalhe: c.detalhe,
       falta: c.falta,
+      origem: c.valor !== null ? (c.origem ?? "gravado") : null,
+      motivo: c.valor === null ? (c.motivo ?? "sem_material") : null,
       margem: c.valor !== null && cheio ? calcularMargem(cheio, hoje, c.valor, efetivos) : null,
     };
   }

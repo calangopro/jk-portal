@@ -1739,6 +1739,8 @@ console.log("\nPadrão de UTM (Links e UTMs)");
   const muitas = calcularMedias({ ...entrada, custoDasPecas: { vendas: 60, receita: 24000, custo: 6000 } });
   confere("médias: peças só viram média confiável com 15 vendas e 20% de cobertura", poucas.pecas?.confiavel === false && muitas.pecas?.confiavel === true && Math.abs((muitas.pecas?.fracaoDaReceita ?? 0) - 0.25) < 1e-9, JSON.stringify([poucas.pecas, muitas.pecas]));
   confere("médias: sem despesa de frete nem de embalagem, essas médias não existem", calcularMedias({ ...entrada, despesas: desp.filter((d) => d.categoria !== "frete" && d.categoria !== "embalagem") }).frete === null && calcularMedias({ ...entrada, despesas: [] }).embalagem === null);
+  const semCaixinha = calcularMedias({ ...entrada, caixinhaNoProduto: true });
+  confere("médias: com a caixinha no custo do produto (cartão 82), ela sai da embalagem e o resto fica", semCaixinha.embalagem?.porVenda === 7.21 && semCaixinha.embalagem?.mensalRateada === 0 && semCaixinha.fixo?.noPeriodo === m.fixo?.noPeriodo, JSON.stringify(semCaixinha.embalagem));
   confere("médias: sem venda nada é dividido", calcularMedias({ ...entrada, vendas: 0, faturamento: 0 }).embalagem === null && calcularMedias({ ...entrada, vendas: 0, faturamento: 0 }).ticket === null);
 
   // O CPA ideal: o ticket menos o que muda com a venda. O fixo só entra no CPA de lucro.
