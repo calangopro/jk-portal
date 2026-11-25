@@ -7,9 +7,10 @@ const rolar = (seletor: string) => async (p: any) => {
 };
 
 const prints: Print[] = [
-  { arquivo: "margem-1", demo: "margem", nivel: "diretoria", alvos: { numeros: "section.grid >> nth=0", promocao: "section:has-text('Promoção de hoje abaixo da margem mínima') >> nth=1" } },
+  { arquivo: "margem-1", demo: "margem", nivel: "diretoria", alvos: { numeros: "section.grid >> nth=0", cobertura: "section[aria-labelledby=cobertura-titulo]" } },
+  { arquivo: "margem-6", demo: "margem", nivel: "diretoria", antes: rolar("text=A promoção que está valendo na loja"), alvos: { promocao: "section:has-text('A promoção que está valendo na loja') >> nth=0" } },
   { arquivo: "margem-2", demo: "margem", nivel: "diretoria", antes: rolar("text=Parâmetros"), alvos: { parametros: "div.glass:has-text('Quando o ouro ou a prata mudar') >> nth=0", importar: "div.glass:has-text('Importar a planilha do dono') >> nth=0" } },
-  { arquivo: "margem-3", demo: "margem", nivel: "diretoria", antes: rolar("text=Ouro por família"), alvos: { tabela: "section:has-text('Ouro por família') >> nth=0", gramas: "input[aria-label='Gramas da F01']", resto: "input[aria-label='Resto da peça da F01']" } },
   { arquivo: "margem-4", demo: "margem", nivel: "diretoria", antes: rolar("text=Taxas do gateway (Appmax)"), alvos: { gateway: "div.glass:has-text('Taxas do gateway (Appmax)') >> nth=0", efetiva: "p:has-text('Taxa efetiva')" } },
+  { arquivo: "margem-5", demo: "margem", nivel: "diretoria", antes: rolar("#regras"), alvos: { regras: "#regras", gramas: "#regras div.grid >> nth=0", salvar: "#regras button:has-text('Salvar regras')" } },
 ];
 export default prints;

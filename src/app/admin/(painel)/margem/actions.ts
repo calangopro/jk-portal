@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { requireAdmin } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import {
@@ -11,7 +11,7 @@ import {
   salvarParametros,
   type ResultadoDaImportacao,
 } from "@/lib/margem/dados";
-import { GATEWAY_VAZIO, type Parametros, type TaxasDoGateway } from "@/lib/margem/calculo";
+import { GATEWAY_VAZIO, lerRegras, type Parametros, type TaxasDoGateway } from "@/lib/margem/calculo";
 import type { ImportacaoDeCustos } from "@/lib/margem/planilha-do-dono";
 
 type Resposta<T = object> = ({ ok: true } & T) | { ok: false; erro: string };
@@ -22,6 +22,11 @@ async function tentar<T extends object>(fn: () => Promise<T>): Promise<Resposta<
     revalidatePath("/admin/margem");
     revalidatePath("/admin/produtos");
     revalidatePath("/admin/campanhas", "layout");
+    revalidatePath("/admin/anuncios");
+    revalidatePath("/admin/vendas");
+    // A cascata e o CPA ideal guardam as médias por alguns minutos: custo novo vale na hora.
+    revalidateTag("medias-da-loja");
+    revalidateTag("sobra-do-periodo");
     return { ok: true, ...r };
   } catch (e) {
     return { ok: false, erro: e instanceof ErroDeMargem || e instanceof Error ? e.message : "Algo deu errado." };
@@ -35,6 +40,11 @@ export async function salvarParametrosDeCusto(p: Partial<Parametros>): Promise<R
   return tentar(async () => {
     const limpo: Partial<Parametros> = {};
     for (const [k, v] of Object.entries(p) as [keyof Parametros, unknown][]) {
+      if (k === "regras") {
+        if (typeof v !== "object" || v === null) throw new ErroDeMargem("Valor inválido.");
+        limpo.regras = lerRegras(v);
+        continue;
+      }
       if (k === "gateway") {
         if (typeof v !== "object" || v === null) throw new ErroDeMargem("Valor inválido.");
         const partes: Partial<TaxasDoGateway> = {};

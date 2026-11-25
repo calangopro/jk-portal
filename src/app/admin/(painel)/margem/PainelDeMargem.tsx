@@ -26,15 +26,14 @@ const campo =
 
 type Campo = { chave: string; rotulo: string; pct: boolean; ajuda: string };
 
-const PARAMETROS: (Campo & { chave: Exclude<keyof Parametros, "gateway" | "taxa"> })[] = [
+const PARAMETROS: (Campo & { chave: Exclude<keyof Parametros, "gateway" | "taxa" | "regras" | "prataGramasPorMm"> })[] = [
   { chave: "cotacao18k", rotulo: "Preço do grama do ouro 18k (R$)", pct: false, ajuda: "Quanto a JK paga hoje." },
   { chave: "cotacao10k", rotulo: "Preço do grama do ouro 10k (R$)", pct: false, ajuda: "Idem, ouro 10k." },
   { chave: "cotacaoPrata", rotulo: "Preço médio do grama da prata 950 (R$)", pct: false, ajuda: "Média do que a JK paga." },
-  { chave: "prataGramasPorMm", rotulo: "Prata: gramas por milímetro de largura", pct: false, ajuda: "Numa aliança só. O par conta duas vezes." },
-  { chave: "prataResto", rotulo: "Prata: resto da peça por produto (R$)", pct: false, ajuda: "Feitio, solitário de brinde, caixinha." },
+  { chave: "prataResto", rotulo: "Prata: outro custo por produto (R$)", pct: false, ajuda: "O que não é prata, fora o brinde e a caixinha (que estão nas regras). Vazio se não houver." },
   { chave: "imposto", rotulo: "Imposto sobre a venda (%)", pct: true, ajuda: "Sobre o valor vendido." },
   { chave: "frete", rotulo: "Frete médio que a JK paga por pedido (R$)", pct: false, ajuda: "A média de todos os pedidos, contando os de frete grátis. 0 se o cliente paga." },
-  { chave: "embalagem", rotulo: "Embalagem e brinde (R$)", pct: false, ajuda: "Caixinha, saquinho, cartão." },
+  { chave: "embalagem", rotulo: "Embalagem do pedido (R$)", pct: false, ajuda: "Caixa de envio, papel, cartão. A caixinha das alianças e o anel de brinde estão nas regras de custo." },
   { chave: "margemMinima", rotulo: "Margem mínima (%)", pct: true, ajuda: "Abaixo disso, fica vermelho." },
 ];
 
@@ -121,7 +120,7 @@ export function FormParametros({ inicial, daLista }: { inicial: Parametros; daLi
   return (
     <div className="glass rounded-[20px] p-5">
       <p className="text-sm font-semibold text-ink">Parâmetros</p>
-      <p className="mt-1 text-sm text-muted">Quando o ouro ou a prata mudar, troque só o preço do grama: todas as margens se recalculam. A prata 950 pesa pela largura do nome do produto.</p>
+      <p className="mt-1 text-sm text-muted">Quando o ouro ou a prata mudar, troque só o preço do grama: todas as margens se recalculam. O peso de cada peça sai das regras de custo, logo abaixo.</p>
       <div className="mt-4 grid gap-3 sm:grid-cols-2">{PARAMETROS.map(entrada)}</div>
 
       <p className="mt-6 text-sm font-semibold text-ink">Taxas do gateway (Appmax)</p>
@@ -269,8 +268,8 @@ export function TabelaDeFamilias({ familias, parametros }: { familias: FamiliaCo
         <p className="text-sm font-semibold text-ink">Ouro por família</p>
         <p className="mt-1 text-sm text-muted">
           O mesmo modelo pesa igual, então o peso se escreve uma vez por família. Gramas: o ouro do par (ou da peça) no
-          tamanho que mais vende. Resto: tudo que não é ouro (feitio, pedras, prata, caixinha). Produto que pesar diferente
-          se corrige na gaveta dele, em Produtos.
+          tamanho que mais vende. Resto: tudo que não é ouro (feitio, pedras, prata, caixinha); vazio, pedras, brinde e
+          caixinha saem das regras de custo. Produto que pesar diferente se corrige na gaveta dele, em Produtos.
         </p>
       </div>
       <div className="overflow-x-auto">

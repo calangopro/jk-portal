@@ -13,7 +13,7 @@ const mostrar = (n: number | null) => (n === null ? "" : n.toLocaleString("pt-BR
 
 /**
  * Custo e margem do produto, na gaveta. Só aparece para administrador. Peça de
- * ouro mostra o peso (vazio = o da família); o resto, o custo fixo.
+ * metal mostra o peso (vazio = o da família ou as regras da Margem); o resto, o custo fixo.
  */
 export function MargemNaGaveta({ productId, margem }: { productId: string; margem: MargemNaLista | null }) {
   const router = useRouter();
@@ -106,20 +106,20 @@ export function MargemNaGaveta({ productId, margem }: { productId: string; marge
             <label className="text-xs font-semibold text-ink">
               Gramas deste produto
               <input inputMode="decimal" value={gramas} onChange={(e) => setGramas(e.target.value)} className={campo}
-                placeholder={prata ? "vazio: pela largura" : margem?.familia ? `vazio: o da ${margem.familia}` : ""} />
+                placeholder={margem?.familia ? `vazio: o da ${margem.familia}` : "vazio: pelas regras"} />
             </label>
             <label className="text-xs font-semibold text-ink">
               Resto da peça (R$)
               <input inputMode="decimal" value={resto} onChange={(e) => setResto(e.target.value)} className={campo}
-                placeholder={prata ? "vazio: o dos parâmetros" : margem?.familia ? `vazio: o da ${margem.familia}` : ""} />
+                placeholder={margem?.familia ? `vazio: o da ${margem.familia}` : "vazio: brinde e caixinha das regras"} />
             </label>
             <p className="col-span-2 text-[0.7rem] text-muted">
               {ROTULO_DO_MATERIAL[margem!.material!]}
               {prata
-                ? ". O peso sai da largura do nome x gramas por milímetro. Preencha só se esta peça pesar diferente."
+                ? ". O peso sai das regras da Margem (largura do nome x gramas por mm). Preencha só se esta peça pesar diferente."
                 : margem?.familia
                   ? `, família ${margem.familia}. Preencha só se este produto pesar diferente da família.`
-                  : ", sem família: preencha o peso aqui."}
+                  : ". Sem peso gravado, o custo sai das regras da Margem pela largura do nome. Preencha o peso quando souber."}
             </p>
           </>
         ) : (

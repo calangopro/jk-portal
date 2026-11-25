@@ -10,7 +10,8 @@ import { diasEntre, hojeEmSaoPaulo, somarDias } from "./periodo";
 
 /**
  * A cascata de UMA venda e a média por venda de um período, com os dados do banco
- * (cartões 80 e 81). É custo da empresa: só quem é administrador chama, e quem
+ * (cartões 80 e 81). O custo das peças sai das regras da Margem (cartão 82), e
+ * com a caixinha nas regras ela sai da média de embalagem da lista de Custos. É custo da empresa: só quem é administrador chama, e quem
  * chama passa o cliente de serviço (as tabelas de custo e `appmax_pedidos` só
  * abrem para ele).
  *
@@ -69,6 +70,7 @@ function parametrosVazios(p: Parametros): string[] {
     ["frete médio", p.frete === null],
     ["embalagem", p.embalagem === null],
     ["preço do grama", p.cotacao18k === null && p.cotacaoPrata === null],
+    ["gramas por mm da prata", !p.regras?.gramasPorMm.prata_950.alianca && !p.prataGramasPorMm],
     ["margem mínima", p.margemMinima === null],
   ];
   return vazios.filter(([, vazio]) => vazio).map(([nome]) => nome);
@@ -179,6 +181,7 @@ async function carregarPeriodo(db: SupabaseClient, de: string, ate: string): Pro
     taxaMedida: lidos > 0 ? { total: totalLido, descontado, pedidos: lidos } : null,
     anuncioReal: gastoTotal > 0 ? gastoTotal : null,
     custoDasPecas: pecasVendas > 0 ? { vendas: pecasVendas, receita: pecasReceita, custo: pecasCusto } : null,
+    caixinhaNoProduto: parametros.regras?.caixinha !== null && parametros.regras?.caixinha !== undefined,
   });
 
   const paraCascata: MediasParaCascata = {
@@ -219,7 +222,7 @@ export const lerMediasDaLoja = unstable_cache(
     const c = await carregarPeriodo(createAdminClient(), somarDias(hoje, -(DIAS_DAS_MEDIAS - 1)), hoje);
     return { medias: c.medias, paraCascata: c.paraCascata };
   },
-  ["medias-da-loja-v2"],
+  ["medias-da-loja-v3"],
   { revalidate: 600, tags: ["medias-da-loja"] },
 );
 
@@ -352,4 +355,4 @@ async function sobraDoPeriodoSemCache(de: string, ate: string): Promise<SobraDoP
 }
 
 /** A média por venda do período. Guardada por 2 minutos por período; é custo da empresa, só o administrador chama. */
-export const sobraDoPeriodo = unstable_cache(sobraDoPeriodoSemCache, ["sobra-do-periodo-v2"], { revalidate: 120, tags: ["sobra-do-periodo"] });
+export const sobraDoPeriodo = unstable_cache(sobraDoPeriodoSemCache, ["sobra-do-periodo-v3"], { revalidate: 120, tags: ["sobra-do-periodo"] });

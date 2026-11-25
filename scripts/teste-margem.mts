@@ -27,7 +27,17 @@ import {
 } from "../src/lib/margem/calculo.ts";
 import { lerXlsx } from "../src/lib/margem/ler-xlsx.ts";
 import { ehPlanilhaDePesos, lerPlanilhaDePesos, lerPlanilhaDoDono } from "../src/lib/margem/planilha-do-dono.ts";
-import { larguraDoNome, materialPeloNome, pecasDoNome } from "../src/lib/margem/calculo.ts";
+import {
+  coberturaDoCusto,
+  gramasPorMmMedidas,
+  larguraDoNome,
+  lerNome,
+  lerRegras,
+  materialPeloNome,
+  pecasDoNome,
+  REGRAS_VAZIAS,
+  type RegrasDeCusto,
+} from "../src/lib/margem/calculo.ts";
 
 let falhas = 0;
 function confere(nome: string, ok: boolean, detalhe = "") {
@@ -157,11 +167,100 @@ console.log("Margem");
   const semCot = custoDoProduto(null, sem, { ...P, cotacaoPrata: null }, par);
   confere("sem preço do grama da prata, diz o que falta", semCot.falta === "Falta o preço do grama da prata 950", semCot.falta ?? "");
   const semGmm = custoDoProduto(null, sem, { ...P, prataGramasPorMm: null }, par);
-  confere("sem gramas por mm, diz o que falta", semGmm.falta === "Falta as gramas por milímetro da prata", semGmm.falta ?? "");
+  confere("sem gramas por mm, diz o que falta", semGmm.falta === "Falta as gramas por mm da aliança de prata 950" && semGmm.motivo === "falta_gramas_por_mm", semGmm.falta ?? "");
   const semResto = custoDoProduto(null, sem, { ...P, prataResto: null }, par);
   confere("resto vazio conta zero: 76", semResto.valor === 76, String(semResto.valor));
   confere("sem nome, prata sem linha fica 'Sem custo'", custoDoProduto(null, sem, P).falta === "Sem custo");
   confere("prata 950 não vira família de ouro", chaveDaFamilia(par) === null);
+}
+
+
+// 2c. Regras de custo das peças, lendo o nome (cartão 82).
+{
+  const sem = new Map<string, Familia>();
+  const R: RegrasDeCusto = {
+    ...REGRAS_VAZIAS,
+    gramasPorMm: { prata_950: { alianca: 1, anel: 0.8 }, ouro_18k: { alianca: 0.5, anel: null }, ouro_10k: { alianca: null, anel: null } },
+    fatorDoModelo: { anatomica: 1.3, chanfrada: null, abaulada: null, fio_de_ouro: null },
+    custoDaPedra: { "1,00": 0.035, "1,25": 0.039, "1,50": 0.045 },
+    pedrasMeiaVolta: 16,
+    pedrasVoltaCompleta: 40,
+    brinde: 25,
+    caixinha: 17,
+    folga: 0.05,
+  };
+  const Q: Parametros = { ...P, cotacaoPrata: 14, cotacao18k: 700, prataGramasPorMm: null, prataResto: null, regras: R };
+
+  // Leitura do nome.
+  const l = lerNome("Par de Alianças de Namoro em Prata 950 4mm + Anel Solitário Brinde");
+  confere("nome: par de aliança de prata, 4 mm, com brinde", l.tipo === "alianca" && l.pecas === 2 && l.largura === 4 && l.comBrinde && l.material === "prata_950", JSON.stringify(l));
+  confere("nome: '+ Anel Solitário Diamond' também é brinde", lerNome("Par de Alianças de Namoro Sunshine em Prata 950 2mm + Anel Solitário Diamond").comBrinde);
+  confere("nome: anel solitário sozinho é anel, sem brinde", (() => { const x = lerNome("Anel Solitário de Prata 950 2mm"); return x.tipo === "anel" && !x.comBrinde; })());
+  confere("nome: anatômica e meia volta", (() => { const x = lerNome("Aliança Anatômica Cravejada em Ouro 18k 3mm"); return x.modelo === "anatomica" && x.pedras === "meia_volta" && x.pecas === 1; })());
+  confere("nome: volta completa", lerNome("Aliança Volta Completa de Zircônia em Prata 950 2mm").pedras === "volta_completa");
+  confere("nome: sem modelo conta como reta, sem dizer", (() => { const x = lerNome("Aliança de Namoro em Prata 950 3mm"); return x.modelo === "reta" && !x.modeloNoNome; })());
+  confere("nome: a largura é a de antes do '+'", lerNome("Par de Alianças em Prata 950 + Anel 2mm").largura === null);
+
+  // Par de prata de 4 mm: 2 x 4 x 1 = 8 g x 14 = 112; folga 5% de 112 = 5,60; brinde 25; caixinha 17 = 159,60.
+  const par = custoDoProduto(null, sem, Q, "Par de Alianças de Namoro em Prata 950 4mm + Anel Solitário Brinde");
+  confere("par de prata 4 mm: 112 + 5,60 de folga + 25 + 17 = 159,60", par.valor === 159.6 && par.origem === "regras", `${par.valor} ${par.detalhe ?? par.falta}`);
+  confere("o detalhe mostra a folga", (par.detalhe ?? "").includes("5% de folga"), par.detalhe ?? "");
+
+  // Anel de prata de 2 mm sem brinde: 2 x 0,8 = 1,6 g x 14 = 22,40 + 5% = 23,52. Anel não leva caixinha.
+  const anel = custoDoProduto(null, sem, Q, "Anel Solitário de Prata 950 2mm");
+  confere("anel de prata 2 mm usa as gramas do anel, sem caixinha: 23,52", anel.valor === 23.52, `${anel.valor} ${anel.detalhe}`);
+
+  // Ouro 18k anatômica cravejada, uma peça de 3 mm, sem peso gravado:
+  // 3 x 0,5 x 1,3 = 1,95 g x 700 = 1.365; pedras 16 x 0,045 = 0,72; folga 5% de 1.365,72 = 68,286; caixinha 17 = 1.451,01
+  const ouro = custoDoProduto({ material: "ouro_18k", familia: null, gramas: null, resto: null, custoFixo: null }, sem, Q, "Aliança Anatômica Cravejada em Ouro 18k 3mm");
+  confere("ouro sem peso, anatômica cravejada: 1.451,01", ouro.valor === 1451.01, `${ouro.valor} ${ouro.detalhe ?? ouro.falta}`);
+
+  // Ouro com peso do Carlos (4 g): sem folga no ouro. 4 x 700 = 2.800 + brinde 25 + caixinha 17 = 2.842
+  const carlos = custoDoProduto({ material: "ouro_18k", familia: null, gramas: 4, resto: null, custoFixo: null }, sem, Q, "Par de Alianças em Ouro 18k 3mm Reta + Anel Solitário Brinde");
+  confere("peso gravado vence as regras, sem folga no ouro: 2.842", carlos.valor === 2842 && carlos.origem === "gravado", `${carlos.valor} ${carlos.detalhe}`);
+  confere("com resto gravado, brinde e caixinha não somam de novo", custoDoProduto({ material: "ouro_18k", familia: null, gramas: 4, resto: 100, custoFixo: null }, sem, Q, "Par de Alianças em Ouro 18k 3mm + Anel Solitário Brinde").valor === 2900);
+  confere("custo fixo continua vencendo tudo", custoDoProduto({ material: null, familia: null, gramas: null, resto: null, custoFixo: 50 }, sem, Q, "Par de Alianças em Prata 950 4mm").origem === "fixo");
+
+  // Faltas com motivo.
+  const semi = custoDoProduto(null, sem, Q, "Colar Semijoia Riviera Banhada a Ouro 18k");
+  confere("semijoia: falta com motivo", semi.valor === null && semi.motivo === "semijoia", semi.falta ?? "");
+  const dez = custoDoProduto(null, sem, Q, "Par de Alianças em Ouro 10k 4mm");
+  confere("ouro 10k sem gramas por mm: falta", dez.motivo === "falta_gramas_por_mm", dez.falta ?? "");
+  const pco = custoDoProduto({ material: "prata_com_ouro", familia: null, gramas: null, resto: null, custoFixo: null }, sem, Q, "Par de Alianças Prata com Ouro para Casamento 6mm");
+  confere("prata com ouro sem peso: falta com motivo próprio", pco.motivo === "prata_com_ouro", pco.falta ?? "");
+  const corrente = custoDoProduto(null, sem, Q, "Corrente Prata 2 Fios - 40cm");
+  confere("corrente: não é aliança nem anel", corrente.motivo === "nao_e_alianca_nem_anel");
+  const caixa = custoDoProduto(null, sem, Q, "Caixinha para Alianças");
+  confere("caixinha à venda: sem material", caixa.motivo === "sem_material");
+
+  // Regra vazia não vira zero escondido: o aviso sai no detalhe.
+  const semBrinde = custoDoProduto(null, sem, { ...Q, regras: { ...R, brinde: null } }, "Par de Alianças em Prata 950 4mm + Anel Solitário Brinde");
+  confere("brinde vazio: não soma e avisa no detalhe", semBrinde.valor === 134.6 && (semBrinde.detalhe ?? "").includes("brinde sem valor"), `${semBrinde.valor} ${semBrinde.detalhe}`);
+  const semFator = custoDoProduto(null, sem, { ...Q, regras: { ...R, fatorDoModelo: { ...R.fatorDoModelo, anatomica: null } } }, "Aliança Anatômica em Prata 950 3mm");
+  confere("modelo sem fator conta como reta e diz isso", semFator.valor === 61.1 && (semFator.detalhe ?? "").includes("conta como reta"), `${semFator.valor} ${semFator.detalhe}`);
+
+  // lerRegras: só número válido, o resto fica vazio.
+  const lidas = lerRegras({ gramasPorMm: { prata_950: { alianca: "1", anel: -2 } }, folga: 1.5, brinde: 25, lixo: true });
+  confere("lerRegras: texto, negativo e folga >= 100% ficam vazios", lidas.gramasPorMm.prata_950.alianca === null && lidas.gramasPorMm.prata_950.anel === null && lidas.folga === null && lidas.brinde === 25);
+  confere("lerRegras de nada dá as regras vazias", JSON.stringify(lerRegras(null)) === JSON.stringify(REGRAS_VAZIAS));
+
+  // Cobertura.
+  const cob = coberturaDoCusto([
+    { nome: "A", vendidos: 10, custo: par },
+    { nome: "B", vendidos: 3, custo: carlos },
+    { nome: "C", vendidos: 7, custo: semi },
+    { nome: "D", vendidos: 1, custo: dez },
+    { nome: "E", vendidos: 0, custo: custoDoProduto(null, sem, Q, "Colar Semijoia Outro Banhado") },
+  ]);
+  confere("cobertura: 1 pelas regras, 1 gravado, 3 sem custo", cob.porOrigem.regras.produtos === 1 && cob.porOrigem.gravado.produtos === 1 && cob.semCusto.produtos === 3);
+  confere("cobertura: o motivo que mais vende vem primeiro", cob.faltas[0].motivo === "semijoia" && cob.faltas[0].produtos === 2 && cob.faltas[0].exemplos[0] === "C", JSON.stringify(cob.faltas));
+
+  // Gramas por mm medidas nos pesos gravados.
+  const medidas = gramasPorMmMedidas([
+    ...[3, 4, 5, 6, 7].map((mm) => ({ nome: `Par de Alianças em Ouro 18k ${mm}mm Reta`, material: "ouro_18k" as const, gramas: mm * 2 * 0.56 })),
+    { nome: "Par de Alianças em Ouro 18k 3mm Anatômica", material: "ouro_18k" as const, gramas: 4.5 },
+  ]);
+  confere("medidas: mediana da reta 0,56 g/mm, grupo com menos de 5 fica de fora", medidas.length === 1 && medidas[0].mediana === 0.56 && medidas[0].produtos === 5, JSON.stringify(medidas));
 }
 
 // 3. Preço de vitrine em ,90, sem erro de ponto flutuante.
