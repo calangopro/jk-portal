@@ -82,6 +82,7 @@ function post(id: string, formato: PostNaTela["formato"], legenda: string, statu
     origem: "painel", criadoPor: "Social Media Exemplo", liberadoPor: status === "rascunho" ? null : "Social Media Exemplo", criadoEm: dia(3),
     envios: redes.map((i, k) => envio(`${id}-e${k}`, CONTAS[i], status === "agendado" ? "agendado" : status, quando)),
     sequencia: null,
+    revisao: { estado: "pendente", ultima: null },
     ...extra,
   };
 }

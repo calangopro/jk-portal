@@ -24,6 +24,7 @@ import { diaEmSaoPaulo, diasDaGrade, horaCurta, intervaloDaGrade, lerMes, mesViz
 import { faixaEmPalavra, horaEmSaoPaulo, melhoresHorarios, proximosHorarios } from "../src/lib/redes/horarios.ts";
 import { datasDoComercio, proximasDatas, quandoEmPalavra } from "../src/lib/redes/datas.ts";
 import type { Peca } from "../src/lib/redes/tipos.ts";
+import { conferirDecisao, estadoDaRevisao, lerNotas, rotuloDaNota, versaoDoPost } from "../src/lib/redes/revisao-regra.ts";
 import { limiteEmPalavras, operacaoLiberada, podeUsarConector, USAM_EM_PARTE } from "../src/lib/conector/quem-usa.ts";
 import { ehEquipeDeConteudo, FORA_DO_CONTEUDO, NIVEIS, ROLE_LABEL } from "../src/lib/auth/acessos.ts";
 
@@ -421,6 +422,46 @@ console.log("\nSegredo fora da tela");
   confere("a rota da rotina confere o segredo antes de tudo e grava o pulso", rota.indexOf("cronAutorizado") < rota.indexOf("lerRedes(") && /registrarPulso\(supabase, "redes"/.test(rota));
   const cofre = readFileSync("src/lib/redes/cofre.ts", "utf8");
   confere("o cofre não usa variável pública", !/NEXT_PUBLIC_/.test(cofre) && /aes-256-gcm/.test(cofre));
+}
+
+console.log("\nRevisão do post: aprovar ou recusar com nota no card");
+{
+  const base = { titulo: null, legenda: "Em qual fase vocês estão?", formato: "carrossel", midias: [{ url: "https://x.test/1.jpg" }, { url: "https://x.test/2.jpg" }], opcoes: {} };
+  const v1 = versaoDoPost(base);
+  confere("a versão não muda se nada mudou", v1 === versaoDoPost({ ...base, midias: [{ url: "https://x.test/1.jpg" }, { url: "https://x.test/2.jpg" }] }) && v1.length === 32);
+  confere("a versão muda com a legenda, o título, a ordem dos cards, o formato e as opções",
+    new Set([v1, versaoDoPost({ ...base, legenda: base.legenda + "." }), versaoDoPost({ ...base, titulo: "x" }), versaoDoPost({ ...base, midias: [...base.midias].reverse() }), versaoDoPost({ ...base, formato: "post" }), versaoDoPost({ ...base, opcoes: { primeiro_comentario: "oi" } })]).size === 6);
+  confere("a ordem das chaves das opções não muda a versão", versaoDoPost({ ...base, opcoes: { a: 1, b: 2 } }) === versaoDoPost({ ...base, opcoes: { b: 2, a: 1 } }));
+
+  const ok = lerNotas([{ card: 2, x: 0.25, y: 0.5, texto: "  A pedra está errada  " }, { card: null, texto: "Legenda longa demais" }, { card: 1, texto: "   " }, "lixo", null], 2);
+  confere("lerNotas guarda o texto aparado, o ponto e a nota geral, e descarta nota sem texto", "notas" in ok && ok.notas.length === 2 && ok.notas[0].texto === "A pedra está errada" && ok.notas[0].x === 0.25 && ok.notas[1].card === null);
+  confere("o ponto de uma nota geral é descartado (sem card, não tem onde ficar)", (() => { const r = lerNotas([{ card: null, x: 0.5, y: 0.5, texto: "geral" }], 2); return "notas" in r && r.notas[0].x === null && r.notas[0].y === null; })());
+  confere("ponto com um eixo só não vale", (() => { const r = lerNotas([{ card: 1, x: 0.5, texto: "meio" }], 2); return "notas" in r && r.notas[0].x === null && r.notas[0].y === null; })());
+  confere("o ponto fora da imagem é preso nas bordas", (() => { const r = lerNotas([{ card: 1, x: 3, y: -2, texto: "borda" }], 2); return "notas" in r && r.notas[0].x === 1 && r.notas[0].y === 0; })());
+  confere("card que o post não tem é recusado", "erro" in lerNotas([{ card: 3, texto: "x" }], 2) && "erro" in lerNotas([{ card: 0, texto: "x" }], 2) && "erro" in lerNotas([{ card: 1.5, texto: "x" }], 2));
+  confere("nota é cortada em 1000 caracteres e a lista em 40", (() => { const r = lerNotas(Array.from({ length: 50 }, () => ({ card: 1, texto: "a".repeat(1500) })), 2); return "notas" in r && r.notas.length === 40 && r.notas[0].texto.length === 1000; })());
+
+  confere("aprovar vai sem nota", conferirDecisao("aprovado", []) === null);
+  confere("recusar sem nota é barrado, com nota passa", conferirDecisao("recusado", []) !== null && conferirDecisao("recusado", [{ card: 1, x: null, y: null, texto: "ok" }]) === null);
+  confere("decisão desconhecida é barrada", conferirDecisao("talvez", []) !== null && conferirDecisao(undefined, []) !== null);
+
+  const decisao = { id: "r1", decisao: "recusado" as const, notas: [{ card: 2, x: null, y: null, texto: "x" }], por: "Ana", em: "2026-11-26T12:00:00Z", versao: v1 };
+  confere("sem revisão, o post está pendente", estadoDaRevisao(null, v1).estado === "pendente");
+  confere("recusa do conteúdo de agora vale como recusado, com as notas", estadoDaRevisao(decisao, v1).estado === "recusado" && estadoDaRevisao(decisao, v1).ultima?.notas.length === 1);
+  confere("depois que o post muda, a recusa vira 'ajustado' e continua à mão", estadoDaRevisao(decisao, versaoDoPost({ ...base, legenda: "nova" })).estado === "ajustado" && estadoDaRevisao(decisao, "outra").ultima?.por === "Ana");
+  confere("aprovação do conteúdo de agora vale; depois de mudar, pede revisão de novo", estadoDaRevisao({ ...decisao, decisao: "aprovado" }, v1).estado === "aprovado" && estadoDaRevisao({ ...decisao, decisao: "aprovado" }, "outra").estado === "ajustado");
+  confere("a versão interna não vaza para a tela", !("versao" in (estadoDaRevisao(decisao, v1).ultima ?? {})));
+  confere("o rótulo da nota", rotuloDaNota({ card: 3 }) === "Card 3" && rotuloDaNota({ card: null }) === "Geral");
+
+  const mig = readFileSync("supabase/migrations/0207_redes_revisao_do_post.sql", "utf8");
+  confere("a migration da revisão liga a RLS, só deixa ler quem tem a área e fecha a escrita", /enable row level security/.test(mig) && /\(select public\.tem_acesso\('redes'\)\)/.test(mig) && /revoke insert, update, delete, truncate, references, trigger on public\.redes_revisoes from authenticated/.test(mig));
+  confere("o banco também exige nota na recusa", /decisao = 'aprovado' or jsonb_array_length\(notas\) > 0/.test(mig));
+  const acao = readFileSync("src/app/admin/(painel)/redes/publicar/actions.ts", "utf8");
+  confere("a ação de revisar pede a área redes antes de gravar", /export async function revisar[\s\S]*?requireArea\("redes"\)[\s\S]*?registrarRevisao/.test(acao));
+  const nucleo = readFileSync("src/lib/redes/posts.ts", "utf8");
+  confere("liberar barra o post recusado cuja versão ainda é a mesma", /foi recusado na revisão e ainda não foi ajustado/.test(nucleo));
+  const conector = readFileSync("src/lib/conector/operacoes/redes.ts", "utf8");
+  confere("o conector só LÊ revisões: não existe operação que aprove ou recuse", /nome: "redes\.recusas"/.test(conector) && !/registrarRevisao/.test(conector));
 }
 
 if (falhas > 0) {
