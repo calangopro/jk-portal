@@ -56,6 +56,8 @@ export function RevisorDoPost({ post, revisar, aoFechar }: { post: PostNaTela; r
   const chave = useRef(0);
 
   const midias = post.midias;
+  // A moldura tem a proporção em que o post aparece na rede: 4:5 no feed, 9:16 em story e vídeo curto.
+  const proporcao = post.formato === "story" || post.formato === "video_curto" ? { l: 9, a: 16 } : post.formato === "video" ? { l: 16, a: 9 } : { l: 4, a: 5 };
   const total = Math.max(midias.length, 1);
   const anterior = post.revisao.ultima;
   const mostrarAnterior = post.revisao.estado !== "pendente" && anterior;
@@ -213,51 +215,64 @@ export function RevisorDoPost({ post, revisar, aoFechar }: { post: PostNaTela; r
         <div className="grid min-h-0 flex-1 grid-cols-1 overflow-y-auto lg:grid-cols-[minmax(0,1fr)_24rem] lg:overflow-hidden">
           {/* ------------------------------------------------------------ o carrossel */}
           <section aria-label="Carrossel" className="flex min-w-0 flex-col lg:h-full lg:min-h-0">
-            <div className="relative h-[68dvh] shrink-0 lg:h-auto lg:min-h-0 lg:flex-1">
+            {/* O palco só dá o espaço. A moldura tem a proporção do formato (4:5 no carrossel, como no Instagram)
+                e é ela que corta: os cards andam DENTRO dela, colados um no outro, e seguem o dedo. */}
+            <div className="grid h-[68dvh] shrink-0 place-items-center p-3 [container-type:size] sm:p-5 lg:h-auto lg:min-h-0 lg:flex-1">
               <div
-                ref={faixa}
-                onScroll={aoRolar}
-                onPointerDown={aoApertar}
-                onPointerMove={aoMover}
-                onPointerUp={aoSoltar}
-                onPointerLeave={aoSoltar}
-                tabIndex={0}
-                aria-roledescription="carrossel"
-                aria-label={`Card ${atual + 1} de ${total}`}
-                className={"flex h-full snap-x snap-mandatory overflow-x-auto overscroll-x-contain scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden " + (total > 1 ? "cursor-grab active:cursor-grabbing" : "")}
+                className="group relative overflow-hidden rounded-[10px] bg-black shadow-[0_8px_30px_rgb(23_21_18/0.22)]"
+                style={{ width: `min(100cqw, ${(proporcao.l / proporcao.a) * 100}cqh)`, aspectRatio: `${proporcao.l} / ${proporcao.a}` }}
               >
-                {(midias.length ? midias : [null]).map((m, i) => (
-                  <div key={m?.url ?? i} role="group" aria-roledescription="card" aria-label={`Card ${i + 1} de ${total}`} className="flex h-full w-full shrink-0 snap-center items-center justify-center p-3 sm:p-5">
-                    {m?.tipo === "imagem" ? (
-                      <div className={"relative inline-block max-w-full " + (recusando ? "cursor-crosshair" : "")} onClick={(e) => aoTocarNaImagem(e, i)}>
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={m.url} alt={m.alt || `Card ${i + 1}`} draggable={false} className="block max-h-[calc(68dvh-2.5rem)] w-auto max-w-full select-none rounded-[10px] shadow-[0_8px_30px_rgb(23_21_18/0.18)] lg:max-h-[calc(100dvh-13rem)]" />
-                        {pontosDoCard(i).map((p) => (
-                          <Ponto key={p.k} n={p.n} x={p.x as number} y={p.y as number} cor={recusando ? "novo" : "antes"} />
-                        ))}
-                      </div>
-                    ) : m?.tipo === "video" ? (
-                      <video src={m.url} controls playsInline preload="metadata" className="block max-h-[calc(68dvh-2.5rem)] max-w-full rounded-[10px] bg-black lg:max-h-[calc(100dvh-13rem)]" />
-                    ) : (
-                      <p className="max-w-sm rounded-[14px] bg-white p-5 text-center text-sm text-muted">Este post não tem imagem nem vídeo: só o texto da legenda.</p>
-                    )}
-                  </div>
-                ))}
-              </div>
+                <div
+                  ref={faixa}
+                  onScroll={aoRolar}
+                  onPointerDown={aoApertar}
+                  onPointerMove={aoMover}
+                  onPointerUp={aoSoltar}
+                  onPointerLeave={aoSoltar}
+                  tabIndex={0}
+                  aria-roledescription="carrossel"
+                  aria-label={`Card ${atual + 1} de ${total}`}
+                  className={"flex h-full w-full snap-x snap-mandatory overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden " + (total > 1 ? "cursor-grab active:cursor-grabbing" : "")}
+                >
+                  {(midias.length ? midias : [null]).map((m, i) => (
+                    <div key={m?.url ?? i} role="group" aria-roledescription="card" aria-label={`Card ${i + 1} de ${total}`} className="relative h-full w-full shrink-0 snap-center snap-always">
+                      {m?.tipo === "imagem" ? (
+                        <div className={"absolute inset-0 " + (recusando ? "cursor-crosshair" : "")} onClick={(e) => aoTocarNaImagem(e, i)}>
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={m.url} alt={m.alt || `Card ${i + 1}`} draggable={false} className="h-full w-full select-none object-contain" />
+                          {pontosDoCard(i).map((p) => (
+                            <Ponto key={p.k} n={p.n} x={p.x as number} y={p.y as number} cor={recusando ? "novo" : "antes"} />
+                          ))}
+                        </div>
+                      ) : m?.tipo === "video" ? (
+                        <video src={m.url} controls playsInline preload="metadata" className="h-full w-full bg-black object-contain" />
+                      ) : (
+                        <p className="grid h-full place-items-center bg-white p-5 text-center text-sm text-muted">Este post não tem imagem nem vídeo: só o texto da legenda.</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
 
-              {total > 1 ? (
-                <>
-                  <button type="button" onClick={() => irPara(atual - 1)} disabled={atual === 0} aria-label="Card anterior" className="painel-toque absolute left-2 top-1/2 grid h-11 w-11 -translate-y-1/2 place-items-center rounded-full bg-white/95 shadow-md disabled:opacity-30">
-                    <ChevronLeft size={22} aria-hidden="true" />
-                  </button>
-                  <button type="button" onClick={() => irPara(atual + 1)} disabled={atual === total - 1} aria-label="Próximo card" className="painel-toque absolute right-2 top-1/2 grid h-11 w-11 -translate-y-1/2 place-items-center rounded-full bg-white/95 shadow-md disabled:opacity-30">
-                    <ChevronRight size={22} aria-hidden="true" />
-                  </button>
-                </>
-              ) : null}
-              <p aria-live="polite" className="pointer-events-none absolute left-1/2 top-2 -translate-x-1/2 rounded-full bg-ink/80 px-3 py-1 text-xs font-semibold text-white">
-                Card {atual + 1} de {total}
-              </p>
+                {total > 1 ? (
+                  <>
+                    <p aria-live="polite" className="pointer-events-none absolute right-3 top-3 rounded-full bg-black/60 px-2.5 py-1 text-xs font-semibold text-white">
+                      {atual + 1}/{total}
+                    </p>
+                    <button type="button" onClick={() => irPara(atual - 1)} disabled={atual === 0} aria-label="Card anterior" className="absolute left-2 top-1/2 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-full bg-white/90 text-ink opacity-0 shadow-md transition-opacity focus-visible:opacity-100 group-hover:opacity-100 disabled:hidden max-sm:hidden">
+                      <ChevronLeft size={20} aria-hidden="true" />
+                    </button>
+                    <button type="button" onClick={() => irPara(atual + 1)} disabled={atual === total - 1} aria-label="Próximo card" className="absolute right-2 top-1/2 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-full bg-white/90 text-ink opacity-0 shadow-md transition-opacity focus-visible:opacity-100 group-hover:opacity-100 disabled:hidden max-sm:hidden">
+                      <ChevronRight size={20} aria-hidden="true" />
+                    </button>
+                    {/* Os pontinhos do Instagram. Só enfeitam: quem quer pular usa as miniaturas. */}
+                    <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-2.5 flex justify-center gap-1.5">
+                      {Array.from({ length: total }, (_, i) => (
+                        <span key={i} className={"h-1.5 w-1.5 rounded-full shadow-[0_0_2px_rgb(0_0_0/0.5)] " + (i === atual ? "bg-white" : "bg-white/50")} />
+                      ))}
+                    </div>
+                  </>
+                ) : null}
+              </div>
             </div>
 
             {total > 1 ? (
