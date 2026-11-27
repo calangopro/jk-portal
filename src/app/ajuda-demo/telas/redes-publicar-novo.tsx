@@ -25,7 +25,7 @@ const horarios: HorariosDaRede[] = [
 const rascunhoDeExemplo: PostNaTela = {
   id: "rascunho-exemplo", titulo: null, legenda: "Exemplo de legenda para o post de hoje. Quem quer saber mais?", formato: "post",
   midias: [{ tipo: "imagem", url: foto(0), alt: "Imagem de exemplo com um círculo claro", largura: 1080, altura: 1350, mime: "image/jpeg" }],
-  opcoes: {}, status: "rascunho", agendadoPara: null, publicadoEm: null, origem: "painel", criadoPor: null, liberadoPor: null, criadoEm: "2026-11-19T12:00:00Z", envios: [], sequencia: null,
+  opcoes: {}, status: "rascunho", agendadoPara: null, publicadoEm: null, origem: "painel", criadoPor: null, liberadoPor: null, criadoEm: "2026-11-19T12:00:00Z", envios: [], sequencia: null, revisao: { estado: "pendente", ultima: null },
 };
 
 /** O compositor de um post novo, em branco, com três contas de exemplo. É o que abre em "Novo post". */

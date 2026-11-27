@@ -6,6 +6,7 @@ import { requireArea } from "@/lib/auth/session";
 import { conferirSubida, prepararEnvio, type EnvioPreparado } from "@/lib/redes/armazenamento";
 import { processarFila } from "@/lib/redes/fila";
 import { apagarPost, cancelarPost, criarPost, liberarPost, salvarPost, type DadosDoPost, cancelarSequencia } from "@/lib/redes/posts";
+import { registrarRevisao } from "@/lib/redes/revisao";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 /**
@@ -130,5 +131,17 @@ export async function apagar(id: string): Promise<Resposta> {
   await requireArea("redes");
   const r = await apagarPost(createAdminClient(), String(id ?? ""));
   atualizar();
+  return r;
+}
+
+/**
+ * Aprova ou recusa um post. A recusa leva notas por card (e o ponto marcado na
+ * imagem), que o Claude lê pelo conector para ajustar. Recusar um post
+ * agendado tira ele da fila.
+ */
+export async function revisar(id: string, decisao: "aprovado" | "recusado", notas: unknown): Promise<Resposta<{ decisao: "aprovado" | "recusado"; tirouDaFila: boolean }>> {
+  const perfil = await requireArea("redes");
+  const r = await registrarRevisao(createAdminClient(), perfil.id, String(id ?? ""), { decisao, notas });
+  if (r.ok) atualizar();
   return r;
 }

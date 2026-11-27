@@ -6,6 +6,7 @@ import { listarContas } from "./contas";
 import { modulo } from "./plataformas";
 import { nomeDaRede, type Formato, type RedeId } from "./redes";
 import { INTERVALOS_DA_SEQUENCIA, temTravessao } from "./regras";
+import { estadoDaRevisao, versaoDoPost, type NotaDeRevisao, type RevisaoDoPost } from "./revisao-regra";
 import type { Conta, Midia, Peca } from "./tipos";
 
 /**
@@ -280,6 +281,13 @@ export async function liberarPost(db: SupabaseClient, quem: Quem, id: string, qu
   const pendentes = envios.filter((e) => e.status !== "publicado");
   if (pendentes.length === 0) return falha("Escolha pelo menos uma rede.");
 
+  // Post recusado na revisão não sai enquanto ninguém o ajuste ou aprove. Mexer no post (o Claude ajustando) muda a
+  // versão e libera; uma nova revisão aprovando também. Se a leitura da revisão falhar, não trava o que já funcionava.
+  const { data: ultima } = await db.from("redes_revisoes").select("decisao, versao").eq("post_id", id).order("criado_em", { ascending: false }).limit(1).maybeSingle();
+  if (ultima?.decisao === "recusado" && ultima.versao === versaoDoPost({ titulo: post.titulo, legenda: post.legenda, formato: post.formato, midias: lerMidias(post.midias), opcoes: post.opcoes ?? {} })) {
+    return falha("Este post foi recusado na revisão e ainda não foi ajustado. Veja as notas, ajuste o post, ou revise de novo e aprove.");
+  }
+
   const agora = Date.now();
   if (quando) {
     if (!Number.isFinite(quando.getTime())) return falha("Data inválida.");
@@ -466,6 +474,8 @@ export type PostNaTela = {
   envios: EnvioNaTela[];
   /** Sequência de stories: a posição deste e quantos são. Nulo: post solto. */
   sequencia: { id: string; ordem: number; total: number } | null;
+  /** Onde o post está na revisão (aprovar ou recusar). Vale para o conteúdo de agora: mexeu, vira "ajustado". */
+  revisao: RevisaoDoPost;
 };
 
 type PostCru = {
@@ -478,14 +488,16 @@ type PostCru = {
 const SELECAO =
   "id, titulo, legenda, formato, midias, opcoes, status, agendado_para, publicado_em, origem, criado_por, liberado_por, criado_em, sequencia, ordem, redes_envios(id, conta_id, rede, status, agendado_para, proxima_tentativa, url_publicada, erro, avisos, publicado_em, legenda, titulo, redes_contas(nome, usuario))";
 
-function postNaTela(p: PostCru, nomes: Map<string, string>, totais: Map<string, number> = new Map()): PostNaTela {
+function postNaTela(p: PostCru, nomes: Map<string, string>, totais: Map<string, number> = new Map(), revisoes: Map<string, RevisaoDoPost> = new Map()): PostNaTela {
+  const midias = lerMidias(p.midias);
   return {
+    revisao: revisoes.get(p.id) ?? { estado: "pendente", ultima: null },
     sequencia: p.sequencia && p.ordem ? { id: p.sequencia, ordem: p.ordem, total: totais.get(p.sequencia) ?? p.ordem } : null,
     id: p.id,
     titulo: p.titulo,
     legenda: p.legenda,
     formato: p.formato as Formato,
-    midias: lerMidias(p.midias),
+    midias,
     opcoes: p.opcoes ?? {},
     status: p.status,
     agendadoPara: p.agendado_para,
@@ -520,6 +532,53 @@ async function nomesDe(admin: SupabaseClient, ids: (string | null)[]): Promise<M
   return new Map(((data ?? []) as { id: string; full_name: string | null; email: string | null }[]).map((p) => [p.id, p.full_name || (p.email ?? "").split("@")[0] || "alguém"]));
 }
 
+type RevisaoCrua = { id: string; post_id: string; decisao: string; versao: string; notas: unknown; por: string | null; criado_em: string };
+
+/** Lê as notas gravadas, de novo conferidas: o que está no banco já passou por `lerNotas`, mas a tela não confia em jsonb. */
+export function notasDoBanco(bruto: unknown): NotaDeRevisao[] {
+  if (!Array.isArray(bruto)) return [];
+  const saida: NotaDeRevisao[] = [];
+  for (const x of bruto) {
+    if (!x || typeof x !== "object") continue;
+    const n = x as Record<string, unknown>;
+    const texto = String(n.texto ?? "");
+    if (!texto) continue;
+    const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : null);
+    saida.push({ card: typeof n.card === "number" ? n.card : null, x: num(n.x), y: num(n.y), texto });
+  }
+  return saida;
+}
+
+/** A revisão mais recente de cada post da lista, já comparada com o conteúdo que o post tem agora. */
+async function revisoesDe(admin: SupabaseClient, posts: PostCru[]): Promise<Map<string, RevisaoDoPost>> {
+  const saida = new Map<string, RevisaoDoPost>();
+  if (!posts.length) return saida;
+  const { data, error } = await admin
+    .from("redes_revisoes")
+    .select("id, post_id, decisao, versao, notas, por, criado_em")
+    .in("post_id", posts.map((p) => p.id))
+    .order("criado_em", { ascending: false })
+    .limit(1000);
+  if (error) {
+    // Sem a tabela da revisão a lista continua abrindo: todo post aparece "para revisar".
+    console.error("[redes] revisoesDe:", error.message);
+    return saida;
+  }
+  const linhas = (data ?? []) as RevisaoCrua[];
+  const nomes = await nomesDe(admin, linhas.map((l) => l.por));
+  const ultimas = new Map<string, RevisaoCrua>();
+  for (const l of linhas) if (!ultimas.has(l.post_id)) ultimas.set(l.post_id, l);
+  for (const p of posts) {
+    const l = ultimas.get(p.id);
+    const versaoAtual = versaoDoPost({ titulo: p.titulo, legenda: p.legenda, formato: p.formato, midias: lerMidias(p.midias), opcoes: p.opcoes ?? {} });
+    saida.set(
+      p.id,
+      estadoDaRevisao(l ? { id: l.id, decisao: l.decisao === "aprovado" ? "aprovado" : "recusado", notas: notasDoBanco(l.notas), por: l.por ? nomes.get(l.por) ?? null : null, em: l.criado_em, versao: l.versao } : null, versaoAtual),
+    );
+  }
+  return saida;
+}
+
 export type FiltroDePosts = "fila" | "rascunhos" | "publicados" | "erros";
 
 const ESTADOS: Record<FiltroDePosts, string[]> = {
@@ -539,8 +598,8 @@ export async function listarPosts(admin: SupabaseClient, filtro: FiltroDePosts, 
     return [];
   }
   const posts = (data ?? []) as unknown as PostCru[];
-  const [nomes, totais] = await Promise.all([nomesDe(admin, posts.flatMap((p) => [p.criado_por, p.liberado_por])), totaisDasSequencias(admin, posts)]);
-  return posts.map((p) => postNaTela(p, nomes, totais));
+  const [nomes, totais, revisoes] = await Promise.all([nomesDe(admin, posts.flatMap((p) => [p.criado_por, p.liberado_por])), totaisDasSequencias(admin, posts), revisoesDe(admin, posts)]);
+  return posts.map((p) => postNaTela(p, nomes, totais, revisoes));
 }
 
 /** Quantos stories tem cada sequência da lista, para a tela dizer "story 2 de 5". */
@@ -558,8 +617,8 @@ export async function lerPost(admin: SupabaseClient, id: string): Promise<PostNa
   const { data } = await admin.from("redes_posts").select(SELECAO).eq("id", id).maybeSingle();
   if (!data) return null;
   const p = data as unknown as PostCru;
-  const [nomes, totais] = await Promise.all([nomesDe(admin, [p.criado_por, p.liberado_por]), totaisDasSequencias(admin, [p])]);
-  return postNaTela(p, nomes, totais);
+  const [nomes, totais, revisoes] = await Promise.all([nomesDe(admin, [p.criado_por, p.liberado_por]), totaisDasSequencias(admin, [p]), revisoesDe(admin, [p])]);
+  return postNaTela(p, nomes, totais, revisoes);
 }
 
 /**

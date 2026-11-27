@@ -1,7 +1,8 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useState, useTransition } from "react";
-import { ArrowUpRight, CalendarClock, Film, ImageOff, LoaderCircle, Pencil, RotateCcw, Send, Trash2, Type, XCircle } from "lucide-react";
+import { ArrowUpRight, CalendarClock, Eye, Film, ImageOff, LoaderCircle, Pencil, RotateCcw, Send, Trash2, Type, XCircle } from "lucide-react";
 import { SeloDaRede } from "@/components/redes/Selo";
 import { LinkRapido } from "@/components/ui/LinkRapido";
 import { NOME_DO_FORMATO, nomeDaRede, nomeDoFormatoNaRede } from "@/lib/redes/redes";
@@ -9,6 +10,18 @@ import type { EnvioNaTela, PostNaTela } from "@/lib/redes/posts";
 import { SeloDeTom } from "../../Pecas";
 import type { Tom } from "@/lib/painel/tons";
 import type { Resposta } from "./actions";
+import type { AcaoDeRevisar } from "./RevisorDoPost";
+import { rotuloDaNota, type EstadoDaRevisao } from "@/lib/redes/revisao-regra";
+
+// A janela de revisão (carrossel grande, notas) só baixa quando alguém a abre.
+const RevisorDoPost = dynamic(() => import("./RevisorDoPost").then((m) => m.RevisorDoPost), { ssr: false });
+
+const ESTADO_DA_REVISAO: Record<EstadoDaRevisao, { tom: Tom; nome: string } | null> = {
+  pendente: null,
+  aprovado: { tom: "bom", nome: "Aprovado" },
+  recusado: { tom: "ruim", nome: "Recusado" },
+  ajustado: { tom: "atencao", nome: "Ajustado, rever" },
+};
 
 /**
  * Um post na lista: a peça, quando sai, quem fez, e o estado em CADA rede.
@@ -27,6 +40,8 @@ export type AcoesDoPost = {
   apagar: (id: string) => Promise<Resposta>;
   /** Tira da fila tudo o que falta sair de uma sequência de stories. */
   cancelarSequencia?: (sequencia: string) => Promise<Resposta<{ cancelados: number }>>;
+  /** Aprovar ou recusar o post, com notas por card. Sem ela, o cartão não mostra o botão de revisar. */
+  revisar?: AcaoDeRevisar;
 };
 
 const ESTADO_DO_ENVIO: Record<string, { tom: Tom; nome: string }> = {
@@ -101,6 +116,7 @@ export function CartaoDoPost({ post, agora, acoes, semLink = false }: { post: Po
   const [pedindo, setPedindo] = useState<null | "publicar" | "cancelar" | "apagar" | "sequencia">(null);
   const [resposta, setResposta] = useState<{ tom: "bom" | "ruim"; texto: string } | null>(null);
   const [rodando, iniciar] = useTransition();
+  const [revisando, setRevisando] = useState(false);
 
   const estado = ESTADO_DO_POST[post.status] ?? ESTADO_DO_POST.rascunho;
   const capa = post.midias[0];
@@ -109,6 +125,9 @@ export function CartaoDoPost({ post, agora, acoes, semLink = false }: { post: Po
   const comErro = post.envios.filter((e) => e.status === "erro");
   const pendentes = post.envios.filter((e) => e.status !== "publicado");
   const editavel = ["rascunho", "agendado", "erro", "cancelado", "parcial"].includes(post.status);
+  const revisavel = Boolean(acoes.revisar) && editavel;
+  const selo = ESTADO_DA_REVISAO[post.revisao.estado];
+  const notasDaRecusa = post.revisao.estado === "recusado" || post.revisao.estado === "ajustado" ? (post.revisao.ultima?.decisao === "recusado" ? post.revisao.ultima.notas : []) : [];
   const nomes = pendentes.map((e) => `${nomeDaRede(e.rede)} ${e.conta}`.trim());
   const juntos = nomes.length <= 1 ? nomes.join("") : `${nomes.slice(0, -1).join(", ")} e ${nomes[nomes.length - 1]}`;
 
@@ -122,7 +141,13 @@ export function CartaoDoPost({ post, agora, acoes, semLink = false }: { post: Po
   return (
     <article className="glass min-w-0 rounded-[18px] p-4 sm:p-5">
       <div className="flex items-start gap-3">
-        <span className="relative grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded-[11px] bg-ink/[0.06] text-muted sm:h-20 sm:w-20">
+        <button
+          type="button"
+          onClick={() => setRevisando(true)}
+          disabled={!revisavel}
+          aria-label={revisavel ? `Abrir o ${post.midias.length > 1 ? "carrossel" : "post"} para revisar` : undefined}
+          className={"relative grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded-[11px] bg-ink/[0.06] text-muted sm:h-20 sm:w-20 " + (revisavel ? "cursor-zoom-in ring-offset-2 hover:ring-2 hover:ring-[var(--setor)]" : "cursor-default")}
+        >
           {capa?.tipo === "imagem" ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={capa.url} alt="" loading="lazy" className="h-full w-full object-cover" />
@@ -134,10 +159,11 @@ export function CartaoDoPost({ post, agora, acoes, semLink = false }: { post: Po
             <ImageOff size={22} aria-hidden="true" />
           )}
           {post.midias.length > 1 ? <span className="absolute bottom-0.5 right-0.5 rounded bg-ink/80 px-1 text-[0.6rem] font-semibold text-white">{post.midias.length}</span> : null}
-        </span>
+        </button>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
             <SeloDeTom tom={estado.tom}>{estado.nome}</SeloDeTom>
+            {selo && editavel ? <SeloDeTom tom={selo.tom}>{selo.nome}</SeloDeTom> : null}
             <span className="text-xs font-semibold text-ink">
               {post.sequencia ? `Story ${post.sequencia.ordem} de ${post.sequencia.total} da sequência` : post.formato === "story" && post.midias.length > 1 ? `Sequência de ${post.midias.length} stories` : NOME_DO_FORMATO[post.formato]}
             </span>
@@ -146,6 +172,24 @@ export function CartaoDoPost({ post, agora, acoes, semLink = false }: { post: Po
           <p className="mt-1 line-clamp-3 whitespace-pre-line text-sm leading-snug text-ink [overflow-wrap:anywhere]">{post.legenda.trim() || <span className="text-muted">Sem legenda</span>}</p>
         </div>
       </div>
+
+      {notasDaRecusa.length && editavel ? (
+        <div className="mt-3 rounded-[10px] px-3 py-2 text-xs leading-relaxed" style={{ color: "#8a4a05", background: "#fcefd9" }}>
+          <p className="font-bold">
+            {post.revisao.estado === "ajustado" ? "Foi recusado e depois ajustado. Pedia:" : "Recusado"}
+            {post.revisao.ultima?.por && post.revisao.estado === "recusado" ? ` por ${post.revisao.ultima.por}` : ""}
+            {post.revisao.estado === "recusado" ? ":" : ""}
+          </p>
+          <ul className="mt-1 space-y-0.5">
+            {notasDaRecusa.slice(0, 2).map((n, i) => (
+              <li key={i} className="line-clamp-2 break-words [overflow-wrap:anywhere]">
+                <span className="font-bold">{rotuloDaNota(n)}:</span> {n.texto}
+              </li>
+            ))}
+          </ul>
+          {notasDaRecusa.length > 2 ? <p className="mt-0.5 font-semibold">e mais {notasDaRecusa.length - 2} {notasDaRecusa.length - 2 === 1 ? "nota" : "notas"}</p> : null}
+        </div>
+      ) : null}
 
       <p className="mt-3 text-xs leading-relaxed text-muted">
         {post.status === "agendado" && post.agendadoPara ? (
@@ -215,6 +259,11 @@ export function CartaoDoPost({ post, agora, acoes, semLink = false }: { post: Po
         </div>
       ) : (
         <div className="mt-3 flex flex-wrap gap-2">
+          {revisavel ? (
+            <button type="button" onClick={() => setRevisando(true)} className="painel-toque inline-flex items-center gap-1.5 rounded-full bg-ink px-3.5 py-2 text-xs font-semibold text-white">
+              <Eye size={13} aria-hidden="true" /> {post.revisao.estado === "pendente" || post.revisao.estado === "ajustado" ? "Revisar" : "Ver e rever"}
+            </button>
+          ) : null}
           {editavel && !semLink ? (
             <LinkRapido href={`/admin/redes/publicar/${post.id}`} className="painel-toque inline-flex items-center gap-1.5 rounded-full border border-ink/15 bg-white px-3.5 py-2 text-xs font-semibold text-ink">
               <Pencil size={13} aria-hidden="true" /> Editar
@@ -252,6 +301,7 @@ export function CartaoDoPost({ post, agora, acoes, semLink = false }: { post: Po
           ) : null}
         </div>
       )}
+      {revisando && acoes.revisar ? <RevisorDoPost post={post} revisar={acoes.revisar} aoFechar={() => setRevisando(false)} /> : null}
     </article>
   );
 }

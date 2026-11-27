@@ -182,6 +182,7 @@ O CAMINHO
 4. jk.redes.criar_post({ formato, legenda, midias, contas, ... }): nasce RASCUNHO e devolve "problemas" (o que não cabe em cada rede). Corrija antes de seguir (jk.redes.editar_post manda o post inteiro de novo).
 5. Mostre à pessoa: a legenda, as mídias, em quais contas e quando. Espere o sim.
 6. jk.redes.agendar({ id, quando: "2026-11-20T18:30:00-03:00" }) ou jk.redes.publicar({ id }).
+6b. REVISÃO: quem revisa no painel aprova ou recusa o post, e na recusa marca o card errado e escreve o motivo. jk.redes.recusas() traz essas notas (card, ponto marcado na imagem, texto): leia ANTES de montar um post novo para não repetir o erro, e use para ajustar um recusado com jk.redes.editar_post. O post ajustado volta a pedir revisão (situacao "ajustado" em ler_post). Você não aprova nem recusa: é da pessoa. Recusar post agendado já tira ele da fila.
 7. Responda com o link "painel" do post. Vídeo fica "processando" por alguns minutos: jk.redes.ler_post({ id }) diz quando saiu.
 
 FORMATOS

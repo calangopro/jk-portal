@@ -3,8 +3,9 @@ import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { requireArea } from "@/lib/auth/session";
 import { lerPost } from "@/lib/redes/posts";
+import { rotuloDaNota } from "@/lib/redes/revisao-regra";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { apagar, cancelar, cancelarDaSequencia, confirmarSubida, liberar, prepararSubida, salvarELiberar, salvarRascunho } from "../actions";
+import { apagar, cancelar, cancelarDaSequencia, confirmarSubida, liberar, prepararSubida, revisar, salvarELiberar, salvarRascunho } from "../actions";
 import { CartaoDoPost } from "../CartaoDoPost";
 import { Compositor } from "../Compositor";
 import { lerParaCompor } from "../dados";
@@ -41,18 +42,32 @@ export default async function PostPage({ params }: { params: Promise<{ id: strin
           Este post está agendado. Se você salvar uma mudança, ele sai da fila e precisa ser agendado de novo: o que foi aprovado para sair era a versão anterior.
         </p>
       ) : null}
+      {editavel && post.revisao.ultima?.decisao === "recusado" && post.revisao.estado !== "aprovado" ? (
+        <div className="mt-3 max-w-2xl rounded-[12px] px-3.5 py-3 text-sm leading-relaxed" style={{ color: "#8a4a05", background: "#fcefd9" }}>
+          <p className="font-semibold">
+            {post.revisao.estado === "ajustado" ? "Este post foi recusado e depois mudou. Pedia:" : `Este post foi recusado${post.revisao.ultima.por ? ` por ${post.revisao.ultima.por}` : ""}. Ajuste e peça nova revisão:`}
+          </p>
+          <ul className="mt-1.5 space-y-1">
+            {post.revisao.ultima.notas.map((n, i) => (
+              <li key={i} className="break-words [overflow-wrap:anywhere]">
+                <span className="font-semibold">{rotuloDaNota(n)}:</span> {n.texto}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
       <div className="mt-5">
         {editavel ? (
           <>
             {post.envios.some((e) => e.status === "publicado" || e.status === "erro") ? (
               <div className="mb-4">
-                <CartaoDoPost post={post} agora={Date.now()} acoes={{ liberar, cancelar, apagar, cancelarSequencia: cancelarDaSequencia }} semLink />
+                <CartaoDoPost post={post} agora={Date.now()} acoes={{ liberar, cancelar, apagar, cancelarSequencia: cancelarDaSequencia, revisar }} semLink />
               </div>
             ) : null}
             <Compositor horarios={horarios} post={post} contas={contas} limite={limite} acoes={{ prepararSubida, confirmarSubida, salvarRascunho, salvarELiberar }} />
           </>
         ) : (
-          <CartaoDoPost post={post} agora={Date.now()} acoes={{ liberar, cancelar, apagar, cancelarSequencia: cancelarDaSequencia }} semLink />
+          <CartaoDoPost post={post} agora={Date.now()} acoes={{ liberar, cancelar, apagar, cancelarSequencia: cancelarDaSequencia, revisar }} semLink />
         )}
       </div>
     </div>
